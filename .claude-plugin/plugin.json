@@ -1,0 +1,25 @@
+{
+  "name": "prumo-assist",
+  "description": "Skills e agents para pesquisa em machine learning na área de saúde: EDA tabular clínico, limpeza de dados, métricas clínicas, gestão de acervo bibliográfico (Zotero + Better BibTeX), extração estruturada de papers, e operação de wiki ingerido por LLM (ingest/query/lint).",
+  "version": "0.1.0",
+  "author": {
+    "name": "Raphael Federicci",
+    "email": "rfh.federicci@gmail.com",
+    "url": "https://github.com/raphaelfh"
+  },
+  "homepage": "https://github.com/raphaelfh/prumo-assist",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/raphaelfh/prumo-assist.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "healthcare",
+    "machine-learning",
+    "clinical-research",
+    "tabular-eda",
+    "wiki",
+    "zotero",
+    "combinado"
+  ]
+}
