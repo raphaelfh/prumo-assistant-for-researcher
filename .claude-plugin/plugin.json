@@ -8,10 +8,7 @@
     "url": "https://github.com/raphaelfh"
   },
   "homepage": "https://github.com/raphaelfh/prumo-assist",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/raphaelfh/prumo-assist.git"
-  },
+  "repository": "https://github.com/raphaelfh/prumo-assist.git",
   "license": "MIT",
   "keywords": [
     "healthcare",
