@@ -3,7 +3,7 @@
 Todas as mudanças relevantes deste plugin.
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
-Versionamento [SemVer](https://semver.org/lang/pt-BR/).
+Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando bumpar `MAJOR/MINOR/PATCH` em [`RELEASING.md`](RELEASING.md).
 
 ## [Não publicado]
 

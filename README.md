@@ -62,6 +62,18 @@ Para scaffolding de novos `pj_*` e orquestração de submodules, use o monorepo 
 - **Visualização:** seaborn + matplotlib (padrão de publicação); Plotly apenas em dashboards
 - **Bibliografia:** Zotero + Better BibTeX + Obsidian (Zotero Integration + Templater + Linter)
 
+## Releases
+
+- Histórico completo em [`CHANGELOG.md`](CHANGELOG.md).
+- Política de versionamento e processo de release em [`RELEASING.md`](RELEASING.md).
+
+Para atualizar o plugin num Claude Code já configurado:
+
+```
+/plugin marketplace update prumo-assist
+/reload-plugins
+```
+
 ## Licença
 
 MIT — ver [LICENSE](LICENSE).
