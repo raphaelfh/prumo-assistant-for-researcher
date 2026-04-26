@@ -32,8 +32,8 @@ Plugin do [Claude Code](https://code.claude.com) com skills e agents para pesqui
 
 ```bash
 # No Claude Code, dentro de qualquer projeto pj_*:
-/plugin marketplace add raphaelfh/claude-prumo-assist
-/plugin install prumo-assist
+/plugin marketplace add raphaelfh/prumo-assist
+/plugin install prumo-assist@prumo-assist
 ```
 
 Após a instalação, as skills aparecem com o prefixo `/prumo-assist:...` e os agents ficam disponíveis via `Agent` tool.
