@@ -1,0 +1,32 @@
+name: validate-manifests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".claude-plugin/**"
+      - ".github/schemas/**"
+      - ".github/scripts/validate_manifests.py"
+      - ".github/workflows/validate-manifests.yml"
+  pull_request:
+    paths:
+      - ".claude-plugin/**"
+      - ".github/schemas/**"
+      - ".github/scripts/validate_manifests.py"
+      - ".github/workflows/validate-manifests.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: pip install jsonschema==4.23.0
+
+      - name: Validar plugin.json e marketplace.json
+        run: python .github/scripts/validate_manifests.py
