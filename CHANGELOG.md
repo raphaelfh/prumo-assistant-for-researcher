@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.2.0] - 2026-04-28
+
 ### Adicionado — fundação do CLI Python (PR0–PR3)
 
 - **Pacote Python instalável** `prumo-assist` (entry point `prumo`).
@@ -69,6 +71,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.1.1...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/raphaelfh/prumo-assist/releases/tag/v0.1.0
