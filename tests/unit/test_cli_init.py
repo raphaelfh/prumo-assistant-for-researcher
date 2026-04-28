@@ -36,7 +36,9 @@ def test_init_refuses_existing_dir_without_force(tmp_path: Path) -> None:
     target.mkdir()
     result = runner.invoke(app, ["init", str(target)])
     assert result.exit_code != 0
-    assert "já existe" in result.output
+    # Rich pode quebrar linha se o terminal for estreito (CI roda em ~80 cols).
+    # Normalizar whitespace antes de buscar o trecho canônico.
+    assert "já existe" in " ".join(result.output.split())
 
 
 def test_doctor_on_fresh_project_passes(tmp_path: Path) -> None:
