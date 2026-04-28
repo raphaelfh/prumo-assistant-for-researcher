@@ -7,6 +7,48 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado — fundação do CLI Python (PR0–PR3)
+
+- **Pacote Python instalável** `prumo-assist` (entry point `prumo`).
+  Build via hatchling, distribuível por `uv tool install` ou `pipx`.
+- **`core/`** (transversal, 7 módulos): `config`, `bib`, `csl`, `obsidian`,
+  `skills` (parser SKILL.md frontmatter rico + registry), `provenance`
+  (bloco `_meta` + JSONL trace local-only), `output` (Rich + JSON dual).
+- **Domínio `paper`**: 7 subcomandos `prumo paper {sync, graph, find, lint,
+  set-primary, sync-pdfs, sync-annotations}`. 6 vendor scripts migrados
+  (paper_sync, cite_graph, cite_lookup, paper_extract, sync_zotero_pdfs,
+  sync_zotero_annotations) sem mudança comportamental + `lint.py` novo.
+- **Domínio `wiki`**: `prumo wiki {lint, index, stats}` — auditoria
+  determinística (broken citekeys, orphan pages, missing frontmatter),
+  reindex via subprocess `qmd`, contagem por tipo.
+- **Domínio `capture`**: `prumo capture <input>` — router que classifica
+  DOI/arXiv/PDF/URL/citekey e sugere próxima ação.
+- **Domínio `write`**: `prumo write {export, compose, list-styles,
+  extract-comments}` — TRANSFORM de `export_page.py` (single + multi-page
+  Pandoc/Typst) e `extract_comments.py` (.docx → checklist Markdown).
+- **`integrations/claude_code/`**: instala skills em `<pj>/.claude/skills/`
+  com base na `SkillRegistry`. `BaseIntegration` abre caminho pra
+  Cursor/Codex/Gemini sem mexer em `core/` ou `domains/`.
+- **`templates/pj_base/`**: scaffold de novo `pj_*` sem vendor scripts
+  (acabou o copy-pasta × N submodules).
+- **Skill nova `peer-review`**: simula revisão crítica de drafts acadêmicos
+  com mental models clínicos (TRIPOD+AI, CLAIM, CONSORT-AI, PRISMA, STROBE).
+- **API Python pública** (`from prumo_assist import api`): paridade com CLI
+  pra notebooks Jupyter.
+- **Schemas Pydantic versionados forward-only** (`PaperCallout/v1`).
+- **Testes**: 97 unit + integration; ruff + mypy strict zerados.
+- **CI** (GitHub Actions): matrix Python 3.11/3.12, ruff + mypy + pytest.
+- **`ROADMAP.md`**: documento didático com princípios, layout, fluxo de dados,
+  faseamento (PR0–3 MVP) e roadmap pós-MVP por trigger.
+- **`CITATION.cff`**: prumo-assist citável academicamente.
+
+### Em curso
+
+- Plugin marketplace continua em v0.1.1 (skills + agents existentes
+  preservados intactos). Bump pra v0.2.0 do plugin acontece quando o spin-off
+  das skills de código (`tabular-eda`, `data-cleaning`, `clinical-metrics`)
+  for confirmado pra `prumo-code-assist` (repo separado).
+
 ## [0.1.1] - 2026-04-26
 
 ### Adicionado

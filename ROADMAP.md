@@ -175,7 +175,18 @@ Pesquisador no Claude Code:                       ──────────
 **Para uso headless** (CI, batch de 200 papers): `prumo paper extract --batch`
 shell-outa pra `claude -p`, mesma skill, mesmo output. Sem código duplicado.
 
-## 6. PR0 — o que entra agora (esta branch)
+## 6. Status (atualizado 2026-04-28)
+
+| PR | Status | Conteúdo |
+|---|---|---|
+| **PR0** | ✅ entregue | Fundação `core/` + Typer + `prumo init/doctor/skills` + integration `claude_code` + templates |
+| **PR1** | ✅ entregue | Domínio `paper` completo (7 subcomandos, 6 scripts migrados + `lint.py` novo + schemas v1) |
+| **PR2** | ✅ entregue | Domínios `wiki`, `capture`, `write` (4 subcomandos cada) |
+| **PR3** | ✅ entregue | Skill `peer-review` + `CITATION.cff` + CHANGELOG + 97 testes |
+| PR4 | 📌 backlog | Pack `clinical-checklists` (TRIPOD+AI, CLAIM, CONSORT-AI, PRISMA, STROBE) |
+| PR5 | 📌 backlog | Multi-host (Cursor, Codex, Gemini, Jupyter integrations) |
+
+## 7. PR0 — fundação (referência histórica)
 
 | Arquivo | Status | Papel |
 |---|---|---|

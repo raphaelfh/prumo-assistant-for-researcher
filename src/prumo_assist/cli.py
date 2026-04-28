@@ -34,7 +34,7 @@ from prumo_assist import (
 )
 from prumo_assist.core.output import Console
 from prumo_assist.core.skills import load_skill_registry
-from prumo_assist.domains.capture.cli import capture_app
+from prumo_assist.domains.capture.cli import capture_command
 from prumo_assist.domains.paper.cli import paper_app
 from prumo_assist.domains.wiki.cli import wiki_app
 from prumo_assist.domains.write.cli import write_app
@@ -52,8 +52,10 @@ app = typer.Typer(
 # Subcomandos por domínio. Cada domínio é uma sub-app independente.
 app.add_typer(paper_app)
 app.add_typer(wiki_app)
-app.add_typer(capture_app)
 app.add_typer(write_app)
+app.command(
+    "capture", help="Classifica input (URL, DOI, arXiv, PDF, citekey) e sugere próximo passo."
+)(capture_command)
 
 
 def _version_callback(value: bool) -> None:
