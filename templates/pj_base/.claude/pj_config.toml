@@ -1,0 +1,26 @@
+# Configurações do projeto — lidas por skills e scripts do monorepo.
+# Todas as chaves são opcionais; faltantes caem no default.
+# Documentação completa: docs/operations.md (seção "pj_config.toml")
+
+[paper_extract]
+# Idioma do callout auto-extraído pelo /prumo-assist:paper-extract.
+# Citações literais no corpo (> [!quote]) permanecem no idioma original.
+# Valores aceitos: "pt-BR" | "en" | "es"
+language = "pt-BR"
+
+# Caminho do template de extração (relativo à raiz do pj_*).
+template = ".claude/paper_extraction.md"
+
+[paper_extract.batch]
+# Default do flag --limit de /prumo-assist:paper-extract-all e make extract-paper-all.
+# Acima deste valor, passe --limit N explicitamente.
+default_limit = 20
+
+# Subagents despachados em paralelo em cada onda de batch.
+subagents_per_wave = 8
+
+[wiki]
+# Reservado para futuras configs das skills wiki-* (ingest/query/lint).
+
+[citation]
+# Reservado para futuras configs das skills cite/find.
