@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+title: "prumo-assist: Knowledge, bibliography & academic writing assistant for clinical research"
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+authors:
+  - given-names: Raphael
+    family-names: Federicci
+    email: rfh.federicci@gmail.com
+    orcid: "https://orcid.org/0000-0000-0000-0000"  # TODO: substituir pelo ORCID real
+repository-code: "https://github.com/raphaelfh/prumo-assist"
+url: "https://github.com/raphaelfh/prumo-assist"
+abstract: >-
+  prumo-assist is a CLI + Claude Code plugin for clinical research workflows.
+  It connects Zotero (Better BibTeX), Obsidian (wiki), and the researcher's
+  agent-host (Claude Code, Cursor, Codex, Gemini) around four pillars:
+  bibliography management, knowledge management (wiki ingest/query/lint),
+  unified capture, and academic writing (Pandoc/Typst export, peer review).
+  Skills follow the universal SKILL.md format; the deterministic core is
+  testable Python with forward-only schemas for long-term reproducibility.
+keywords:
+  - research-software
+  - clinical-research
+  - knowledge-management
+  - bibliography
+  - zotero
+  - obsidian
+  - claude-code
+  - academic-writing
+license: MIT
+version: 0.2.0-dev

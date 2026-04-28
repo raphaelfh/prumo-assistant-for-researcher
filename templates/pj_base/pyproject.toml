@@ -1,0 +1,55 @@
+[project]
+name = "pj-NOME"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.13"
+dependencies = [
+    "ipykernel>=7.2.0",
+]
+
+# Ativar os grupos conforme necessidade do projeto:
+#   uv sync --group tabular --group viz
+[dependency-groups]
+tabular = [
+    "openpyxl>=3.1",
+    "polars>=1.0",
+    "pandas>=2.2",
+    "pyarrow>=17",
+    "pandera>=0.20",
+    "scikit-learn>=1.5",
+    "scipy>=1.14",
+    "statsmodels>=0.14",
+]
+viz = [
+    "seaborn>=0.13",
+    "matplotlib>=3.9",
+    "ydata-profiling>=4.18.1",
+]
+viz-interactive = [
+    "plotly>=5.24",
+]
+imaging = [
+    "pydicom>=2.4",
+    "nibabel>=5.2",
+    "simpleitk>=2.3",
+]
+deep-learning = [
+    "torch>=2.5",
+    "torchvision>=0.20",
+    "lightning>=2.4",
+    "timm>=1.0",
+    "albumentations>=1.4",
+    "torchmetrics>=1.4",
+]
+tabular-boosted = [
+    "xgboost>=2.0",
+    "lightgbm>=4.0",
+]
+data-quality = [
+    "frictionless>=5.16",
+    "great-expectations>=0.18",
+]
+dev = [
+    "nbformat>=5.10.4",
+    "ruff>=0.8",
+]

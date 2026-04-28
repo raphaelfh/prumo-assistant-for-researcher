@@ -1,0 +1,38 @@
+filters:
+  and:
+    - file.inFolder("references/notes")
+
+properties:
+  note.role:
+    displayName: "Role"
+  note.status:
+    displayName: "Status"
+  note.rating:
+    displayName: "Rating"
+  note.tags:
+    displayName: "Tags"
+
+views:
+  - type: table
+    name: "All papers"
+    order:
+      - file.name
+      - note.role
+      - note.status
+      - note.rating
+      - note.tags
+
+  - type: table
+    name: "To read"
+    filters:
+      and:
+        - 'note.status == "unread"'
+    order:
+      - note.added
+      - file.name
+
+  - type: cards
+    name: "Primary"
+    filters:
+      and:
+        - 'note.role == "primary"'

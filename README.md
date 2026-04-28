@@ -1,6 +1,14 @@
 # prumo-assist
 
-Plugin do [Claude Code](https://code.claude.com) com skills e agents para pesquisa em **machine learning aplicado à saúde**. Projetado para projetos `pj_*` do monorepo `monorepo-anterior` (e derivados standalone).
+> **Knowledge, bibliography & academic writing assistant for clinical research.**
+> Lives between Zotero, Obsidian, and your agent-host.
+
+Plugin do [Claude Code](https://code.claude.com) **e** CLI Python (`prumo`)
+para pesquisa clínica. Cobre quatro pilares: gerir conhecimento (wiki),
+gerir bibliografia (Zotero ↔ notas), capturar fontes, e escrever (export
+Pandoc/Typst + revisão crítica).
+
+Arquitetura, princípios de design e roadmap completo: ver [`ROADMAP.md`](ROADMAP.md).
 
 ## Conteúdo
 

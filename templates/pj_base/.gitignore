@@ -1,0 +1,51 @@
+# Dados (nunca versionar)
+content/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Ambientes
+.venv/
+.env
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Ruff
+.ruff_cache/
+
+# uv
+uv.lock
+
+# Checkpoints e artefatos de treino
+checkpoints/
+logs/
+wandb/
+mlruns/
+
+# Obsidian — ignorar estado pessoal, manter config compartilhada
+.obsidian/workspace*.json
+.obsidian/cache/
+.obsidian/updates.json
+.obsidian/plugins/*/data.json
+!.obsidian/plugins/obsidian-linter/data.json
+.obsidian/plugins/*/.cache/
+.obsidian/hotkeys.json
+
+# Artigos (copyright) — notas e .bib versionadas, PDFs não
+references/pdfs/*.pdf
+!references/pdfs/.gitkeep
+
+# qmd — índice local (hybrid BM25 + vector) reconstruível via `qmd embed`
+.qmd_index/
+.qmd-cache/

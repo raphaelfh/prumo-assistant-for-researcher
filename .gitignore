@@ -3,3 +3,10 @@
 .vscode/
 __pycache__/
 *.pyc
+
+# git worktrees
+.worktrees/
+
+# coverage
+.coverage
+htmlcov/

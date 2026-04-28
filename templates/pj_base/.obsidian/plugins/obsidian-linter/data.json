@@ -1,0 +1,28 @@
+{
+  "ruleConfigs": {
+    "yaml-title": { "enabled": false },
+    "insert-yaml-attributes": { "enabled": false },
+    "format-yaml-array": {
+      "enabled": true,
+      "force-single-line-array-style": ["tags", "cites"]
+    },
+    "yaml-key-sort": {
+      "enabled": true,
+      "yaml-key-priority-sort-order": "id\ntype\ntitle\nauthor\nissued\nDOI\ncontainer-title\nURL\npdf\ntags\nrole\nstatus\nrating\nadded\ntldr\ncites",
+      "priority-keys-at-start-of-yaml": true,
+      "yaml-sort-order-for-other-keys": "None"
+    },
+    "yaml-timestamp": { "enabled": false },
+    "quote-style": {
+      "enabled": true,
+      "number-style": "double",
+      "string-style": "double"
+    },
+    "trailing-spaces": { "enabled": true },
+    "consecutive-blank-lines": { "enabled": true },
+    "empty-line-around-headings": { "enabled": true }
+  },
+  "lintOnSave": true,
+  "displayChanged": false,
+  "lintOnFileChange": false
+}
