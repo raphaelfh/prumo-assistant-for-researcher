@@ -34,6 +34,7 @@ from prumo_assist import (
 )
 from prumo_assist.core.output import Console
 from prumo_assist.core.skills import load_skill_registry
+from prumo_assist.domains.paper.cli import paper_app
 from prumo_assist.integrations import REGISTRY as INTEGRATIONS
 
 app = typer.Typer(
@@ -45,6 +46,8 @@ app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
 )
+# Subcomandos por domínio. Cada domínio é uma sub-app independente.
+app.add_typer(paper_app)
 
 
 def _version_callback(value: bool) -> None:

@@ -24,8 +24,9 @@ from pathlib import Path
 
 from prumo_assist._version import __version__
 from prumo_assist.core.skills import SkillRegistry, load_skill_registry
+from prumo_assist.domains.paper import api as paper
 
-__all__ = ["__version__", "skills"]
+__all__ = ["__version__", "paper", "skills"]
 
 
 def skills(skills_dir: Path | None = None, *, strict: bool = False) -> SkillRegistry:
