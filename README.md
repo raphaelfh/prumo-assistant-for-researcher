@@ -24,6 +24,8 @@ Arquitetura, princípios de design e roadmap completo: ver [`ROADMAP.md`](ROADMA
 | `/prumo-assist:wiki-ingest` | Ingere fonte (URL, DOI, arXiv, PDF, decisão) no wiki do projeto. Delega papers a `paper-manager`. |
 | `/prumo-assist:wiki-query` | Responde perguntas ancoradas no wiki do projeto com citações. Oferece arquivar em `docs/findings/`. |
 | `/prumo-assist:wiki-lint` | Health-check do wiki: páginas órfãs, citekeys quebradas, contradições, stale claims. |
+| `/prumo-assist:scientific-writing` | Passe editorial de escrita científica formal em draft Markdown/Quarto. Padroniza pontuação (sem travessão, dois-pontos ou ponto-e-vírgula no texto corrido), posiciona citação ao final do período, agrupa múltiplas citações sem vírgula entre wikilinks (`[[@a]] [[@b]] [[@c]]`) para fusão em campo único pelo normalizador de export, e atenua superlativos. |
+| `/prumo-assist:peer-review` | Revisão crítica substantiva (forças, fraquezas, claims sem evidência) em draft acadêmico. |
 
 ### Agents
 
