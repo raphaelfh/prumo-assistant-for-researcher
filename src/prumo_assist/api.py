@@ -23,6 +23,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from prumo_assist._version import __version__
+from prumo_assist.core.paths import find_resource
 from prumo_assist.core.skills import SkillRegistry, load_skill_registry
 from prumo_assist.domains.paper import api as paper
 from prumo_assist.domains.wiki import api as wiki
@@ -44,17 +45,8 @@ def skills(skills_dir: Path | None = None, *, strict: bool = False) -> SkillRegi
             ``ManifestError``.
     """
     if skills_dir is None:
-        # Mesmo locator do CLI; mantido aqui pra evitar import circular.
-        pkg_root = Path(__file__).resolve().parent
-        candidates = [
-            pkg_root.parent.parent / "skills",
-            pkg_root / "_skills",
-        ]
-        for c in candidates:
-            if c.is_dir():
-                skills_dir = c
-                break
-        else:
+        skills_dir = find_resource("skills")
+        if skills_dir is None:
             return SkillRegistry(skills={})
     registry, _warnings = load_skill_registry(skills_dir, strict=strict)
     return registry

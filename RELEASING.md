@@ -71,15 +71,16 @@ Suposição: você está num branch de trabalho ou direto no `main`, com mudanç
    - Mova as entradas de `## [Não publicado]` para `## [X.Y.Z] - AAAA-MM-DD`.
    - Recrie `## [Não publicado]` vazia no topo.
    - Atualize as referências de link no rodapé do arquivo.
-3. **Bump em ambos os manifests** (use o script abaixo ou edite à mão):
+3. **Bump em `src/prumo_assist/_version.py`** (fonte única) e propague pros manifests:
    ```bash
-   # .claude-plugin/plugin.json -> "version": "X.Y.Z"
-   # .claude-plugin/marketplace.json -> plugins[0].version: "X.Y.Z"
+   # edite _version.py manualmente, depois:
+   python .github/scripts/sync_manifest_version.py
    ```
-   Ambos **devem ficar iguais** — o CI valida isso (`validate_manifests.py` checa coerência cruzada).
+   Isso escreve a versão em `.claude-plugin/plugin.json` e `marketplace.json`. Ambos **devem ficar iguais** — o CI valida coerência cruzada (`validate_manifests.py`).
 4. **Valide local:**
    ```bash
    python .github/scripts/validate_manifests.py
+   python .github/scripts/sync_manifest_version.py --check
    ```
 5. **Commit** com mensagem `release: X.Y.Z - <resumo>`:
    ```bash

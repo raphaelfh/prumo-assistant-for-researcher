@@ -70,11 +70,8 @@ packages = ["src/prumo_assist"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-# Arquivos legados (predam o PR0 da CLI). Limpeza vai junto com a migração
-# pra `domains/` nos PR1+.
 extend-exclude = [
   ".github/scripts/validate_manifests.py",
-  "skills/tabular-eda/scripts/create_eda_notebook.py",
 ]
 
 [tool.ruff.lint]

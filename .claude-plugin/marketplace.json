@@ -9,18 +9,18 @@
     {
       "name": "prumo-assist",
       "source": "./",
-      "description": "Skills e agents para pesquisa em machine learning na área de saúde: EDA tabular clínico, limpeza de dados, métricas clínicas, gestão de acervo bibliográfico (Zotero + Better BibTeX), extração estruturada de papers, e operação de wiki ingerido por LLM (ingest/query/lint).",
-      "version": "0.1.1",
+      "description": "Skills e agents para pesquisa clínica: gestão de acervo bibliográfico (Zotero + Better BibTeX), extração estruturada de papers, operação de wiki (ingest/query/lint), escrita científica e peer-review.",
+      "version": "0.3.0",
       "homepage": "https://github.com/raphaelfh/prumo-assist",
       "license": "MIT",
       "keywords": [
-        "healthcare",
-        "machine-learning",
         "clinical-research",
-        "tabular-eda",
+        "knowledge-management",
+        "bibliography",
+        "academic-writing",
         "wiki",
         "zotero",
-        "combinado"
+        "obsidian"
       ]
     }
   ]

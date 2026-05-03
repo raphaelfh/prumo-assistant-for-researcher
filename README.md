@@ -8,7 +8,7 @@ para pesquisa clínica. Cobre quatro pilares: gerir conhecimento (wiki),
 gerir bibliografia (Zotero ↔ notas), capturar fontes, e escrever (export
 Pandoc/Typst + revisão crítica).
 
-Arquitetura, princípios de design e roadmap completo: ver [`ROADMAP.md`](ROADMAP.md).
+Arquitetura e princípios de design em [`ARCHITECTURE.md`](ARCHITECTURE.md); status atual e próximas fases em [`ROADMAP.md`](ROADMAP.md).
 
 ## Conteúdo
 
@@ -16,9 +16,6 @@ Arquitetura, princípios de design e roadmap completo: ver [`ROADMAP.md`](ROADMA
 
 | Skill | Uso |
 |---|---|
-| `/prumo-assist:tabular-eda` | Gera notebook Jupyter pré-populado para EDA tabular clínica com data profiling e quality assessment. |
-| `/prumo-assist:data-cleaning` | Workflow padronizado de limpeza/pré-processamento clínico com relatório automático em `data/reports/`. |
-| `/prumo-assist:clinical-metrics` | Métricas para classificadores clínicos (AUROC, PR-AUC, sens/esp, Brier, calibração) + figuras seaborn publicáveis + bootstrap CI. |
 | `/prumo-assist:paper-manager` | Gestão do acervo bibliográfico (Zotero + Better BibTeX + `references/`): sincroniza `.bib`, grafo de citação, paper principal. |
 | `/prumo-assist:paper-extract` | Lê PDF e preenche callout estruturado (TL;DR + PICOT + Método + Resultados + Limitações) na nota do paper. Single ou batch. |
 | `/prumo-assist:wiki-ingest` | Ingere fonte (URL, DOI, arXiv, PDF, decisão) no wiki do projeto. Delega papers a `paper-manager`. |

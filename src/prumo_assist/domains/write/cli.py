@@ -7,9 +7,8 @@ from typing import Annotated
 
 import typer
 
-from prumo_assist.core.output import Console
-from prumo_assist.domains.write import comments as comments_mod
-from prumo_assist.domains.write import export as export_mod
+from prumo_assist.core.cli_op import cli_run
+from prumo_assist.domains.write import comments, export
 
 write_app = typer.Typer(
     name="write",
@@ -29,23 +28,18 @@ def export_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Exporta uma página Markdown via Pandoc + CSL → DOCX/Typst/PDF/HTML."""
-    console = Console(json_mode=json_mode)
-    page_resolved = page.resolve()
-    try:
-        project_root = export_mod.detect_project_root(page_resolved)
-    except FileNotFoundError as e:
-        console.error(str(e))
-        raise typer.Exit(code=1) from e
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError, ValueError)) as console:
+        page_resolved = page.resolve()
+        project_root = export.detect_project_root(page_resolved)
 
-    out: Path | None = None
-    if out_dir is not None:
-        out = (
-            out_dir.resolve()
-            / f"{export_mod._slugify(page_resolved, project_root)}.{export_mod.EXT_BY_FORMAT[to]}"
-        )
+        out: Path | None = None
+        if out_dir is not None:
+            out = (
+                out_dir.resolve()
+                / f"{export._slugify(page_resolved, project_root)}.{export.EXT_BY_FORMAT[to]}"
+            )
 
-    try:
-        result = export_mod.export(
+        result = export.export(
             page=page_resolved,
             style=style,
             to=to,
@@ -54,11 +48,8 @@ def export_command(
             template=template.resolve() if template else None,
             project_root=project_root,
         )
-    except (FileNotFoundError, ValueError) as e:
-        console.error(str(e))
-        raise typer.Exit(code=1) from e
-    console.success(f"exportado: {result}")
-    console.emit({"page": str(page_resolved), "output": str(result), "format": to})
+        console.success(f"exportado: {result}")
+        console.emit({"page": str(page_resolved), "output": str(result), "format": to})
 
 
 @write_app.command("compose")
@@ -72,21 +63,16 @@ def compose_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Compõe múltiplas páginas (frontmatter ``pages: [...]``) em um documento único."""
-    console = Console(json_mode=json_mode)
-    index_resolved = index.resolve()
-    try:
-        project_root = export_mod.detect_project_root(index_resolved)
-    except FileNotFoundError as e:
-        console.error(str(e))
-        raise typer.Exit(code=1) from e
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError, ValueError)) as console:
+        index_resolved = index.resolve()
+        project_root = export.detect_project_root(index_resolved)
 
-    out: Path | None = None
-    if out_dir is not None:
-        slug = index_resolved.stem.removesuffix(".idx")
-        out = out_dir.resolve() / f"{slug}.{export_mod.EXT_BY_FORMAT[to]}"
+        out: Path | None = None
+        if out_dir is not None:
+            slug = index_resolved.stem.removesuffix(".idx")
+            out = out_dir.resolve() / f"{slug}.{export.EXT_BY_FORMAT[to]}"
 
-    try:
-        result = export_mod.compose(
+        result = export.compose(
             index=index_resolved,
             to=to,
             style=style,
@@ -95,11 +81,8 @@ def compose_command(
             template=template.resolve() if template else None,
             project_root=project_root,
         )
-    except (FileNotFoundError, ValueError) as e:
-        console.error(str(e))
-        raise typer.Exit(code=1) from e
-    console.success(f"composto: {result}")
-    console.emit({"index": str(index_resolved), "output": str(result), "format": to})
+        console.success(f"composto: {result}")
+        console.emit({"index": str(index_resolved), "output": str(result), "format": to})
 
 
 @write_app.command("list-styles")
@@ -107,11 +90,11 @@ def list_styles_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Lista CSLs disponíveis em ``~/Zotero/styles/``."""
-    console = Console(json_mode=json_mode)
-    styles = export_mod.list_styles()
-    if not styles:
-        console.warn("Nenhum estilo CSL em ~/Zotero/styles/.")
-    console.emit({"styles": styles})
+    with cli_run(json_mode=json_mode) as console:
+        styles = export.list_styles()
+        if not styles:
+            console.warn("Nenhum estilo CSL em ~/Zotero/styles/.")
+        console.emit({"styles": styles})
 
 
 @write_app.command("extract-comments")
@@ -123,11 +106,7 @@ def extract_comments_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Extrai comentários + track changes do ``.docx`` em checklist Markdown."""
-    console = Console(json_mode=json_mode)
-    try:
-        out = comments_mod.extract_to_file(docx.resolve(), out_dir.resolve())
-    except FileNotFoundError as e:
-        console.error(str(e))
-        raise typer.Exit(code=1) from e
-    console.success(f"checklist: {out}")
-    console.emit({"docx": str(docx.resolve()), "output": str(out)})
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
+        out = comments.extract_to_file(docx.resolve(), out_dir.resolve())
+        console.success(f"checklist: {out}")
+        console.emit({"docx": str(docx.resolve()), "output": str(out)})

@@ -17,7 +17,6 @@ forem implementados.
 
 from __future__ import annotations
 
-import importlib.resources as ir
 import shutil
 import sys
 from pathlib import Path
@@ -26,13 +25,13 @@ from typing import Annotated
 import typer
 
 from prumo_assist import (
-    ConfigError,
     IntegrationError,
     ManifestError,
     PrumoError,
     __version__,
 )
 from prumo_assist.core.output import Console
+from prumo_assist.core.paths import find_resource, resolve_resource
 from prumo_assist.core.skills import load_skill_registry
 from prumo_assist.domains.capture.cli import capture_command
 from prumo_assist.domains.paper.cli import paper_app
@@ -80,31 +79,8 @@ def main(
 
 
 def _resolve_template_dir() -> Path:
-    """Localiza ``templates/pj_base/`` tanto em modo dev quanto instalado.
-
-    - **Dev (editable)**: pasta ``templates/`` na raiz do worktree.
-    - **Instalado**: empacotada em ``prumo_assist/_templates/`` via
-      ``[tool.hatch.build.targets.wheel.force-include]``.
-    """
-    # 1. Tentar pacote instalado
-    try:
-        package_files = ir.files("prumo_assist") / "_templates" / "pj_base"
-        if package_files.is_dir():
-            return Path(str(package_files))
-    except (ModuleNotFoundError, AttributeError, NotADirectoryError):
-        pass
-
-    # 2. Fallback dev: pasta templates/ irmã ao src/
-    pkg_root = Path(__file__).resolve().parent
-    candidates = [
-        pkg_root.parent.parent / "templates" / "pj_base",  # src/prumo_assist/../../templates
-        pkg_root.parent / "templates" / "pj_base",  # editable layouts mais rasos
-    ]
-    for c in candidates:
-        if c.is_dir():
-            return c
-
-    raise ConfigError("Template 'pj_base' não encontrado. Reinstale o pacote ou rode do worktree.")
+    """Localiza ``templates/pj_base/`` (instalado ou worktree)."""
+    return resolve_resource("templates") / "pj_base"
 
 
 @app.command("init")
@@ -185,15 +161,7 @@ def init_command(
 
 def _resolve_skills_dir() -> Path | None:
     """Localiza ``skills/`` da fonte (raiz do plugin) ou retorna ``None``."""
-    pkg_root = Path(__file__).resolve().parent
-    candidates = [
-        pkg_root.parent.parent / "skills",  # dev / worktree
-        pkg_root / "_skills",  # se um dia empacotarmos
-    ]
-    for c in candidates:
-        if c.is_dir():
-            return c
-    return None
+    return find_resource("skills")
 
 
 # ---------------------------------------------------------------------------

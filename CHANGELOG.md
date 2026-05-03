@@ -7,6 +7,22 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.3.0] - 2026-05-03
+
+### Removido — ⚠ Breaking
+
+- **Skills de código spin-off**: `tabular-eda`, `data-cleaning`, `clinical-metrics` removidas deste repo. Escopo do plugin volta a "knowledge, bibliography & academic writing for clinical research" (a tagline real). Quem dependia delas deve migrar pro `prumo-code-assist` (repo separado) quando publicado. O conteúdo continua acessível via histórico git (`git log -- skills/tabular-eda`).
+- **`agents/` revistos**: `ml-theory-expert` e `stack-docs-researcher` permanecem por enquanto (cobrem fundamentação teórica e consulta de docs, úteis também na escrita); serão reavaliados na próxima minor.
+- Tarball gerado por `prumo init` deixa de conter as skills removidas (consequência direta).
+
+### Simplificado — refator interno
+
+- **Fachadas CLI ↔ API**: introduzido `core/cli_op.cli_run` (context manager) que encapsula `Console + try/except PrumoError + typer.Exit(1)`. Subcomandos Typer ficam ~30% menores. Os `domains/<X>/api.py` viraram re-exports puros (sem wrappers passthrough).
+- **Resolução de paths**: `core/paths.py::resolve_resource/find_resource` consolida a busca de `templates/` e `skills/` (instalado vs worktree dev) que estava duplicada no CLI e na API pública.
+- **Documentação dividida**: `ROADMAP.md` (305 linhas) virou `ARCHITECTURE.md` (estável: princípios, layout, fluxo) + `ROADMAP.md` (dinâmico: status PR + próximas fases).
+- **Manifests bumpáveis sem garfo**: novo `.github/scripts/sync_manifest_version.py` propaga `_version.py` pra `plugin.json`/`marketplace.json` (`--check` em CI futuro).
+- **Tests por domínio**: `tests/unit/<core|paper|wiki|write|capture>/` espelha `src/prumo_assist/`. 97 testes preservados.
+
 ## [0.2.0] - 2026-04-28
 
 ### Adicionado — fundação do CLI Python (PR0–PR3)
@@ -71,7 +87,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.2.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/raphaelfh/prumo-assist/releases/tag/v0.1.0
