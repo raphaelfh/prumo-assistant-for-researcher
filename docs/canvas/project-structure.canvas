@@ -1,0 +1,228 @@
+{
+  "nodes": [
+    {
+      "id": "title",
+      "type": "text",
+      "x": -720,
+      "y": -720,
+      "width": 2200,
+      "height": 70,
+      "text": "# Estrutura de Projeto de Pesquisa\n*Núcleo mínimo (sempre) · 7 módulos opcionais · 4 composições típicas (L0–L3)*"
+    },
+    {
+      "id": "minimum",
+      "type": "text",
+      "x": -720,
+      "y": -580,
+      "width": 600,
+      "height": 720,
+      "color": "4",
+      "text": "## Núcleo mínimo  *(sempre)*\n\n```\npj_<nome>/\n├── README.md\n├── CLAUDE.md\n├── pyproject.toml\n├── .claude/                 ← infra prumo init\n│   ├── rules/project_context.md\n│   ├── pj_config.toml\n│   └── skills/              ← cópia do plugin\n├── .obsidian/\n├── docs/\n│   ├── _index.md            ← MOC\n│   ├── _log.md              ← append-only\n│   ├── project.md           ← escrita-vida\n│   ├── protocol.md          ← clínico\n│   ├── decisions/           ← ADRs\n│   └── canvas/\n│       └── project.canvas\n└── references/\n    ├── _references.bib      ← BBT\n    ├── notes/<key>.md\n    └── pdfs/                ← Zotero links\n```\n\n*Detalhes em [[Research Project Structure#Núcleo mínimo]]*"
+    },
+    {
+      "id": "mod-extended-wiki",
+      "type": "text",
+      "x": 0,
+      "y": -580,
+      "width": 300,
+      "height": 200,
+      "color": "3",
+      "text": "### `extended-wiki`\n\n`docs/wiki/{concepts, entities, sources, findings, <dominio>}/`\n\n**Trigger**: wiki passa de ~20 páginas; área teórica merece pasta própria."
+    },
+    {
+      "id": "mod-brainstorm",
+      "type": "text",
+      "x": 340,
+      "y": -580,
+      "width": 300,
+      "height": 200,
+      "color": "3",
+      "text": "### `brainstorm-pipeline`\n\n`docs/brainstorm/{daily, topics}/`\n\n**Trigger**: ≥3 meses; pipeline `daily → topic → ADR`."
+    },
+    {
+      "id": "mod-peer-review",
+      "type": "text",
+      "x": 680,
+      "y": -580,
+      "width": 300,
+      "height": 200,
+      "color": "3",
+      "text": "### `peer-review-loop`\n\n`docs/comments/`\n\n**Trigger**: vai submeter / receberá feedback de orientador."
+    },
+    {
+      "id": "mod-milestones",
+      "type": "text",
+      "x": 1020,
+      "y": -580,
+      "width": 300,
+      "height": 200,
+      "color": "3",
+      "text": "### `versioned-milestones`\n\n`docs/<marco>/{<doc>.md, versions/, README.md}`\n\n**Trigger**: entregas formais (banca, submissão, capítulo)."
+    },
+    {
+      "id": "mod-data-pipeline",
+      "type": "text",
+      "x": 0,
+      "y": -340,
+      "width": 300,
+      "height": 200,
+      "color": "3",
+      "text": "### `data-pipeline`\n\n`content/{01_raw, 02_processed}/` + notebooks numerados\n\n**Trigger**: dados primários + análise tabular/imagem."
+    },
+    {
+      "id": "mod-obsidian-power",
+      "type": "text",
+      "x": 340,
+      "y": -340,
+      "width": 300,
+      "height": 200,
+      "color": "3",
+      "text": "### `obsidian-power`\n\n`references/{templates, views}/` + plugins zotero/pandoc/linter\n\n**Trigger**: vault é ferramenta principal de trabalho."
+    },
+    {
+      "id": "mod-specify",
+      "type": "text",
+      "x": 680,
+      "y": -340,
+      "width": 300,
+      "height": 200,
+      "color": "3",
+      "text": "### `specify-workflow`\n\n`docs/superpowers/{specs, plans}/`\n\n**Trigger**: usa skills superpowers pra design formal."
+    },
+    {
+      "id": "comp-l0",
+      "type": "text",
+      "x": -720,
+      "y": 200,
+      "width": 460,
+      "height": 200,
+      "color": "6",
+      "text": "## L0 · exploratório curto\n\n*≤3 meses, PoC, scoping rápido*\n\n→ apenas **núcleo mínimo**."
+    },
+    {
+      "id": "comp-l1",
+      "type": "text",
+      "x": -240,
+      "y": 200,
+      "width": 460,
+      "height": 200,
+      "color": "6",
+      "text": "## L1 · paper único\n\n*Submissão única, sem multi-marco*\n\n→ mínimo + `peer-review-loop` + `obsidian-power`."
+    },
+    {
+      "id": "comp-l2",
+      "type": "text",
+      "x": 240,
+      "y": 200,
+      "width": 460,
+      "height": 200,
+      "color": "6",
+      "text": "## L2 · paper com leitura profunda\n\n*RSL, benchmark amplo*\n\n→ L1 + `extended-wiki` + `data-pipeline`."
+    },
+    {
+      "id": "comp-l3",
+      "type": "text",
+      "x": 720,
+      "y": 200,
+      "width": 580,
+      "height": 200,
+      "color": "6",
+      "text": "## L3 · tese / dissertação\n\n*Multi-ano, multi-paper, banca, capítulos*\n\n→ tudo + `brainstorm-pipeline` + `versioned-milestones` + `specify-workflow`."
+    },
+    {
+      "id": "footer",
+      "type": "text",
+      "x": -720,
+      "y": 440,
+      "width": 2040,
+      "height": 90,
+      "color": "5",
+      "text": "> **Como ler**: o L0 não é \"projeto pequeno e ruim\"; é o ponto natural de partida. Crescer pra L3 é só ativar módulos quando o trigger acontecer (princípio [[constitution#VI · YAGNI militante|YAGNI militante]]). Variantes do mínimo são aceitas — esta lista é guia, não lei."
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-l1-peer",
+      "fromNode": "comp-l1",
+      "fromSide": "top",
+      "toNode": "mod-peer-review",
+      "toSide": "bottom",
+      "color": "5"
+    },
+    {
+      "id": "e-l1-obsidian",
+      "fromNode": "comp-l1",
+      "fromSide": "top",
+      "toNode": "mod-obsidian-power",
+      "toSide": "bottom",
+      "color": "5"
+    },
+    {
+      "id": "e-l2-wiki",
+      "fromNode": "comp-l2",
+      "fromSide": "top",
+      "toNode": "mod-extended-wiki",
+      "toSide": "bottom",
+      "color": "5"
+    },
+    {
+      "id": "e-l2-data",
+      "fromNode": "comp-l2",
+      "fromSide": "top",
+      "toNode": "mod-data-pipeline",
+      "toSide": "bottom",
+      "color": "5"
+    },
+    {
+      "id": "e-l3-brainstorm",
+      "fromNode": "comp-l3",
+      "fromSide": "top",
+      "toNode": "mod-brainstorm",
+      "toSide": "bottom",
+      "color": "5"
+    },
+    {
+      "id": "e-l3-milestones",
+      "fromNode": "comp-l3",
+      "fromSide": "top",
+      "toNode": "mod-milestones",
+      "toSide": "bottom",
+      "color": "5"
+    },
+    {
+      "id": "e-l3-specify",
+      "fromNode": "comp-l3",
+      "fromSide": "top",
+      "toNode": "mod-specify",
+      "toSide": "bottom",
+      "color": "5"
+    },
+    {
+      "id": "e-milestones-peer",
+      "fromNode": "mod-milestones",
+      "fromSide": "left",
+      "toNode": "mod-peer-review",
+      "toSide": "right",
+      "label": "recomenda",
+      "color": "2"
+    },
+    {
+      "id": "e-specify-brainstorm",
+      "fromNode": "mod-specify",
+      "fromSide": "left",
+      "toNode": "mod-brainstorm",
+      "toSide": "right",
+      "label": "complementa",
+      "color": "2"
+    },
+    {
+      "id": "e-l0-min",
+      "fromNode": "comp-l0",
+      "fromSide": "left",
+      "toNode": "minimum",
+      "toSide": "bottom",
+      "label": "L0 = só isso",
+      "color": "4"
+    }
+  ]
+}

@@ -13,12 +13,18 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 |---|---|
 | O que o pesquisador faz vs. o que o prumo-assist resolve? | [[journey\|Canvas de jornada]] *(abrir como canvas)* |
 | Tenho um gatilho concreto, qual comando usar? | [[actions-by-context\|Contextos → ações]] |
+| Como devo estruturar um novo `pj_*`? | [[Research Project Structure\|Estrutura de Projeto de Pesquisa]] |
+| Visualização da estrutura por composição (L0–L3) | [[canvas/project-structure\|Canvas estrutural]] |
+| Como uma ideia ou citação atravessa o repo? | [[canvas/project-flow\|Canvas de fluxo]] |
 | Quais são os princípios não-negociáveis do projeto? | [[constitution\|Constitution]] |
 | Spec da skill `scientific-writing` | [[superpowers/specs/2026-04-29-prumo-scientific-writer-design]] |
 
 ## Como o vault está organizado
 
-- `journey.canvas` — fluxo da jornada (Double Diamond × JTBD).
+- `journey.canvas` — fluxo da jornada do pesquisador (Double Diamond × JTBD).
+- `Research Project Structure.md` — modelo "núcleo mínimo + módulos opcionais" pros `pj_*`.
+- `canvas/project-structure.canvas` — visualização da estrutura por composição.
+- `canvas/project-flow.canvas` — fluxo de informação (ideia + citação) atravessando o repo.
 - `actions-by-context.md` — playbook de bolso por gatilho.
 - `constitution.md` — rule do projeto (princípios, restrições, governança).
 - `superpowers/specs/` — specs vivas de design de skills (não-perecíveis).
