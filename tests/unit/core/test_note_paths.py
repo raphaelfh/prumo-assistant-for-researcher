@@ -60,3 +60,42 @@ def test_slugify_truncates_to_30_chars() -> None:
 def test_slugify_handles_empty() -> None:
     assert slugify("") == "untitled"
     assert slugify("   ") == "untitled"
+
+
+def test_iter_note_meta_files_includes_alpha(tmp_path: Path) -> None:
+    from prumo_assist.core.note_paths import iter_note_meta_files
+
+    notes = tmp_path / "references" / "notes"
+    (notes / "smith2024").mkdir(parents=True)
+    (notes / "smith2024" / "_meta.md").write_text("---\nid: smith2024\n---\n")
+    (notes / "doe2025").mkdir()
+    (notes / "doe2025" / "_meta.md").write_text("---\nid: doe2025\n---\n")
+    out = iter_note_meta_files(tmp_path)
+    assert [p.parent.name for p in out] == ["doe2025", "smith2024"]
+
+
+def test_iter_note_meta_files_includes_legacy_during_transition(tmp_path: Path) -> None:
+    from prumo_assist.core.note_paths import citekey_from_meta_path, iter_note_meta_files
+
+    notes = tmp_path / "references" / "notes"
+    notes.mkdir(parents=True)
+    (notes / "legacy_one.md").write_text("---\nid: legacy_one\n---\n")
+    (notes / "alpha_one").mkdir()
+    (notes / "alpha_one" / "_meta.md").write_text("---\nid: alpha_one\n---\n")
+    out = iter_note_meta_files(tmp_path)
+    assert len(out) == 2
+    keys = {citekey_from_meta_path(p) for p in out}
+    assert keys == {"alpha_one", "legacy_one"}
+
+
+def test_iter_note_meta_files_prefers_alpha_when_both_exist(tmp_path: Path) -> None:
+    from prumo_assist.core.note_paths import iter_note_meta_files
+
+    notes = tmp_path / "references" / "notes"
+    notes.mkdir(parents=True)
+    (notes / "smith2024.md").write_text("---\nid: smith2024\n---\n")
+    (notes / "smith2024").mkdir()
+    (notes / "smith2024" / "_meta.md").write_text("---\nid: smith2024\n---\nALPHA\n")
+    out = iter_note_meta_files(tmp_path)
+    assert len(out) == 1
+    assert "ALPHA" in out[0].read_text()

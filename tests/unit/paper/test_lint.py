@@ -18,8 +18,9 @@ def _setup_project(tmp_path: Path, bib_text: str = "") -> Path:
 def test_lint_clean_when_consistent(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{a,title={x}}\n@article{b,title={y}}\n")
     notes = pj / "references" / "notes"
-    (notes / "a.md").write_text("---\nid: a\n---\n\n")
-    (notes / "b.md").write_text("---\nid: b\n---\n\n")
+    for key in ("a", "b"):
+        (notes / key).mkdir(parents=True, exist_ok=True)
+        (notes / key / "_meta.md").write_text(f"---\nid: {key}\n---\n\n")
     report = lint(pj)
     assert report["ok"]
     assert report["summary"]["errors"] == 0
@@ -28,8 +29,10 @@ def test_lint_clean_when_consistent(tmp_path: Path) -> None:
 def test_lint_flags_orphan_note(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{a,title={x}}\n")
     notes = pj / "references" / "notes"
-    (notes / "a.md").write_text("---\nid: a\n---\n\n")
-    (notes / "orphan.md").write_text("---\nid: orphan\n---\n\n")
+    (notes / "a").mkdir(parents=True, exist_ok=True)
+    (notes / "a" / "_meta.md").write_text("---\nid: a\n---\n\n")
+    (notes / "orphan").mkdir(parents=True, exist_ok=True)
+    (notes / "orphan" / "_meta.md").write_text("---\nid: orphan\n---\n\n")
     report = lint(pj)
     codes = {i["code"] for i in report["issues"]}
     assert "orphan_note" in codes
@@ -38,7 +41,8 @@ def test_lint_flags_orphan_note(tmp_path: Path) -> None:
 def test_lint_flags_id_mismatch(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{realkey,title={x}}\n")
     notes = pj / "references" / "notes"
-    (notes / "realkey.md").write_text("---\nid: WRONG\n---\n\n")
+    (notes / "realkey").mkdir(parents=True, exist_ok=True)
+    (notes / "realkey" / "_meta.md").write_text("---\nid: WRONG\n---\n\n")
     report = lint(pj)
     codes = {i["code"] for i in report["issues"]}
     assert "id_mismatch" in codes
@@ -48,7 +52,8 @@ def test_lint_flags_id_mismatch(tmp_path: Path) -> None:
 def test_lint_flags_broken_pdf_link(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{a,title={x}}\n")
     notes = pj / "references" / "notes"
-    (notes / "a.md").write_text("---\nid: a\n---\n\n")
+    (notes / "a").mkdir(parents=True, exist_ok=True)
+    (notes / "a" / "_meta.md").write_text("---\nid: a\n---\n\n")
     pdfs = pj / "references" / "pdfs"
     (pdfs / "a.pdf").symlink_to("/nonexistent/file.pdf")
     report = lint(pj)
@@ -59,8 +64,9 @@ def test_lint_flags_broken_pdf_link(tmp_path: Path) -> None:
 def test_lint_flags_multiple_primaries(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{a,title={x}}\n@article{b,title={y}}\n")
     notes = pj / "references" / "notes"
-    (notes / "a.md").write_text("---\nid: a\nrole: primary\n---\n\n")
-    (notes / "b.md").write_text("---\nid: b\nrole: primary\n---\n\n")
+    for key in ("a", "b"):
+        (notes / key).mkdir(parents=True, exist_ok=True)
+        (notes / key / "_meta.md").write_text(f"---\nid: {key}\nrole: primary\n---\n\n")
     report = lint(pj)
     codes = {i["code"] for i in report["issues"]}
     assert "multiple_primaries" in codes
@@ -76,8 +82,10 @@ def test_lint_bib_missing_returns_error(tmp_path: Path) -> None:
 def test_set_primary_clears_others(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{a,title={x}}\n@article{b,title={y}}\n")
     notes = pj / "references" / "notes"
-    (notes / "a.md").write_text("---\nid: a\nrole: primary\n---\n\nbody\n")
-    (notes / "b.md").write_text('---\nid: b\nrole: ""\n---\n\nbody\n')
+    (notes / "a").mkdir(parents=True, exist_ok=True)
+    (notes / "a" / "_meta.md").write_text("---\nid: a\nrole: primary\n---\n\nbody\n")
+    (notes / "b").mkdir(parents=True, exist_ok=True)
+    (notes / "b" / "_meta.md").write_text('---\nid: b\nrole: ""\n---\n\nbody\n')
 
     report = set_primary(pj, "b")
     assert report["primary"] == "b"
@@ -85,8 +93,8 @@ def test_set_primary_clears_others(tmp_path: Path) -> None:
 
     import yaml
 
-    a_meta = yaml.safe_load((notes / "a.md").read_text().split("---")[1])
-    b_meta = yaml.safe_load((notes / "b.md").read_text().split("---")[1])
+    a_meta = yaml.safe_load((notes / "a" / "_meta.md").read_text().split("---")[1])
+    b_meta = yaml.safe_load((notes / "b" / "_meta.md").read_text().split("---")[1])
     assert a_meta["role"] == ""
     assert b_meta["role"] == "primary"
 
@@ -97,3 +105,13 @@ def test_set_primary_raises_if_note_missing(tmp_path: Path) -> None:
 
     with pytest.raises(FileNotFoundError):
         set_primary(pj, "nonexistent")
+
+
+def test_lint_warns_subdir_without_meta(tmp_path: Path) -> None:
+    refs = tmp_path / "references"
+    notes = refs / "notes"
+    notes.mkdir(parents=True)
+    (refs / "_references.bib").write_text("@article{a, title={X}}\n")
+    (notes / "incomplete_dir").mkdir()  # pasta sem _meta.md
+    report = lint(tmp_path)
+    assert any("incomplete_dir" in w["message"] for w in report["issues"])

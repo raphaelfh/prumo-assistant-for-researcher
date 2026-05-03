@@ -45,6 +45,34 @@ def child_note_path(pj_path: Path, citekey: str, item_key: str, slug: str) -> Pa
     return note_dir(pj_path, citekey) / f"note__{item_key}__{slug}.md"
 
 
+def iter_note_meta_files(pj_path: Path) -> list[Path]:
+    """Lista todos os arquivos canônicos de metadata da nota.
+
+    - Layout α: ``<key>/_meta.md``
+    - Legado (transição): ``<key>.md`` plano
+
+    Retorna lista ordenada por citekey. Quando ambos existem pra um citekey
+    (situação anômala), prefere α e ignora o legado silenciosamente.
+    """
+    notes_dir = pj_path / "references" / "notes"
+    if not notes_dir.exists():
+        return []
+    found: dict[str, Path] = {}
+    for child in sorted(notes_dir.iterdir()):
+        if child.is_dir() and (child / "_meta.md").is_file():
+            found[child.name] = child / "_meta.md"
+        elif child.is_file() and child.suffix == ".md" and child.stem not in found:
+            found[child.stem] = child
+    return [found[k] for k in sorted(found)]
+
+
+def citekey_from_meta_path(meta: Path) -> str:
+    """Inverte: dado o path de metadata, devolve o citekey."""
+    if meta.parent.name == "notes":
+        return meta.stem  # legado <key>.md
+    return meta.parent.name  # α <key>/_meta.md
+
+
 def slugify(text: str) -> str:
     """kebab-case ASCII, ≤30 chars, sem hífens pendurados.
 

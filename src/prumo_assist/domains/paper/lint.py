@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from prumo_assist.core.bib import parse_bib
+from prumo_assist.core.note_paths import citekey_from_meta_path, iter_note_meta_files, meta_path
 from prumo_assist.domains.paper.sync import read_nota_yaml
 
 
@@ -45,8 +46,8 @@ def lint(pj_path: Path) -> dict[str, Any]:
         return _report(issues)
 
     bib_keys = {e.citekey for e in parse_bib(bib_path.read_text())}
-    note_files = sorted(notes_dir.glob("*.md")) if notes_dir.exists() else []
-    note_keys = {p.stem for p in note_files}
+    note_files = iter_note_meta_files(pj_path)
+    note_keys = {citekey_from_meta_path(p) for p in note_files}
 
     # 1. Bib sem nota
     for ck in sorted(bib_keys - note_keys):
@@ -74,13 +75,14 @@ def lint(pj_path: Path) -> dict[str, Any]:
     for note in note_files:
         yaml_dict = read_nota_yaml(note)
         declared = yaml_dict.get("id")
-        if declared and declared != note.stem:
+        ck = citekey_from_meta_path(note)
+        if declared and declared != ck:
             issues.append(
                 LintIssue(
                     "error",
                     "id_mismatch",
-                    f"id no YAML ('{declared}') ≠ filename ('{note.stem}')",
-                    citekey=note.stem,
+                    f"id no YAML ('{declared}') ≠ citekey ('{ck}')",
+                    citekey=ck,
                 )
             )
 
@@ -101,7 +103,7 @@ def lint(pj_path: Path) -> dict[str, Any]:
 
     # 5. Mais de 1 primary
     primaries = [
-        note.stem
+        citekey_from_meta_path(note)
         for note in note_files
         if (read_nota_yaml(note).get("role") or "").lower() == "primary"
     ]
@@ -115,6 +117,20 @@ def lint(pj_path: Path) -> dict[str, Any]:
                     citekey=ck,
                 )
             )
+
+    # 6. Subdiretório sem _meta.md (migração incompleta ou pasta órfã)
+    if notes_dir.exists():
+        for child in sorted(notes_dir.iterdir()):
+            if child.is_dir() and not (child / "_meta.md").is_file():
+                issues.append(
+                    LintIssue(
+                        "warning",
+                        "subdir_without_meta",
+                        f"pasta `{child.name}/` sem `_meta.md` — rode "
+                        f"`prumo paper migrate-layout` ou crie a nota.",
+                        citekey=child.name,
+                    )
+                )
 
     return _report(issues)
 
@@ -137,8 +153,7 @@ def set_primary(pj_path: Path, citekey: str) -> dict[str, Any]:
     - Cria a nota se não existir? **Não.** Falha com mensagem clara —
       o paper deve existir no `.bib` e ter passado por ``prumo paper sync``.
     """
-    notes_dir = pj_path / "references" / "notes"
-    target = notes_dir / f"{citekey}.md"
+    target = meta_path(pj_path, citekey)
     if not target.exists():
         raise FileNotFoundError(
             f"{target} não existe — rode `prumo paper sync` antes de set-primary."
@@ -147,18 +162,19 @@ def set_primary(pj_path: Path, citekey: str) -> dict[str, Any]:
     from prumo_assist.domains.paper.sync import FRONTMATTER_RE, write_nota
 
     cleared: list[str] = []
-    for note in notes_dir.glob("*.md"):
+    for note in iter_note_meta_files(pj_path):
         yaml_dict = read_nota_yaml(note)
         if (yaml_dict.get("role") or "").lower() != "primary":
             continue
-        if note.stem == citekey:
+        note_ck = citekey_from_meta_path(note)
+        if note_ck == citekey:
             continue
         yaml_dict["role"] = ""
         text = note.read_text()
         m = FRONTMATTER_RE.match(text)
         body = text[m.end() :] if m else text
         write_nota(note, yaml_dict, body)
-        cleared.append(note.stem)
+        cleared.append(note_ck)
 
     yaml_dict = read_nota_yaml(target)
     yaml_dict["role"] = "primary"

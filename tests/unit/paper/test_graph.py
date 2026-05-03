@@ -28,9 +28,14 @@ def test_extract_wikilinks_excludes_self() -> None:
 def test_update_graph_populates_cites(tmp_path: Path) -> None:
     notes = tmp_path / "references" / "notes"
     notes.mkdir(parents=True)
-    (notes / "a.md").write_text("---\nid: a\n---\n\nSee [[@b]] and [[@c]].\n")
-    (notes / "b.md").write_text("---\nid: b\n---\n\nNothing here.\n")
-    (notes / "c.md").write_text("---\nid: c\n---\n\nReplies to [[@b]].\n")
+    for key, content in [
+        ("a", "---\nid: a\n---\n\nSee [[@b]] and [[@c]].\n"),
+        ("b", "---\nid: b\n---\n\nNothing here.\n"),
+        ("c", "---\nid: c\n---\n\nReplies to [[@b]].\n"),
+    ]:
+        note_dir = notes / key
+        note_dir.mkdir(parents=True, exist_ok=True)
+        (note_dir / "_meta.md").write_text(content)
 
     report = update_graph(tmp_path)
     assert report["edges_added"] == 3  # a→b, a→c, c→b
@@ -38,5 +43,5 @@ def test_update_graph_populates_cites(tmp_path: Path) -> None:
 
     import yaml
 
-    a_meta = yaml.safe_load((notes / "a.md").read_text().split("---")[1])
+    a_meta = yaml.safe_load((notes / "a" / "_meta.md").read_text().split("---")[1])
     assert sorted(a_meta["cites"]) == ["b", "c"]
