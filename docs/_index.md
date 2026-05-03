@@ -16,8 +16,10 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 | Como devo estruturar um novo `pj_*`? | [[Research Project Structure\|Estrutura de Projeto de Pesquisa]] |
 | Visualização da estrutura por composição (L0–L3) | [[canvas/project-structure\|Canvas estrutural]] |
 | Como uma ideia ou citação atravessa o repo? | [[canvas/project-flow\|Canvas de fluxo]] |
+| Como ficam as notas Zotero ↔ repo (B1)? | [[canvas/zotero-notes-architecture\|Canvas de arquitetura Zotero-notas]] |
 | Quais são os princípios não-negociáveis do projeto? | [[constitution\|Constitution]] |
 | Spec da skill `scientific-writing` | [[superpowers/specs/2026-04-29-prumo-scientific-writer-design]] |
+| Spec da integração de notas Zotero (B1 + qmd) | [[superpowers/specs/2026-05-03-zotero-notes-integration-design]] |
 
 ## Como o vault está organizado
 

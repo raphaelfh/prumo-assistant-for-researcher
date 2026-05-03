@@ -1,0 +1,301 @@
+{
+  "nodes": [
+    {
+      "id": "title",
+      "type": "text",
+      "x": -1100,
+      "y": -880,
+      "width": 2200,
+      "height": 80,
+      "text": "# Integração de Notas Zotero ↔ Repo\n*B1 (read-only granular) · pasta-por-paper · qmd como único motor de retrieval*"
+    },
+    {
+      "id": "g-zotero",
+      "type": "group",
+      "x": -1100,
+      "y": -760,
+      "width": 800,
+      "height": 220,
+      "color": "2",
+      "label": "1 · Zotero (upstream — não controlamos)"
+    },
+    {
+      "id": "z-parents",
+      "type": "text",
+      "x": -1080,
+      "y": -720,
+      "width": 380,
+      "height": 70,
+      "text": "**Parent items**\n*metadata + .bib via BBT*"
+    },
+    {
+      "id": "z-attach",
+      "type": "text",
+      "x": -680,
+      "y": -720,
+      "width": 360,
+      "height": 70,
+      "text": "**Attachments + Annotations**\n*PDF + highlights + image notes*"
+    },
+    {
+      "id": "z-notes",
+      "type": "text",
+      "x": -1080,
+      "y": -635,
+      "width": 760,
+      "height": 70,
+      "text": "**Child notes** (multi por paper) *· editadas no Zotero com PDF aberto*"
+    },
+    {
+      "id": "g-sync",
+      "type": "group",
+      "x": -1100,
+      "y": -510,
+      "width": 800,
+      "height": 280,
+      "color": "4",
+      "label": "2 · prumo paper sync-*  (read-only Zotero → repo)"
+    },
+    {
+      "id": "s-sync",
+      "type": "text",
+      "x": -1080,
+      "y": -470,
+      "width": 380,
+      "height": 80,
+      "text": "`prumo paper sync`\n*existente* — `.bib` → `_meta.md`"
+    },
+    {
+      "id": "s-ann",
+      "type": "text",
+      "x": -680,
+      "y": -470,
+      "width": 360,
+      "height": 80,
+      "text": "`prumo paper sync-annotations`\n*existente, refator* → `_annotations.md`"
+    },
+    {
+      "id": "s-notes",
+      "type": "text",
+      "x": -1080,
+      "y": -375,
+      "width": 380,
+      "height": 80,
+      "color": "5",
+      "text": "`prumo paper sync-notes`\n**NOVO** — child notes → `note__<itemKey>__<slug>.md`"
+    },
+    {
+      "id": "s-all",
+      "type": "text",
+      "x": -680,
+      "y": -375,
+      "width": 360,
+      "height": 80,
+      "color": "5",
+      "text": "`prumo paper sync-all`\n**NOVO** — orquestrador dos 3 acima"
+    },
+    {
+      "id": "s-caption",
+      "type": "text",
+      "x": -1080,
+      "y": -278,
+      "width": 760,
+      "height": 36,
+      "text": "*API local Zotero (`localhost:23119/api`) + Better BibTeX JSON-RPC*"
+    },
+    {
+      "id": "g-ref",
+      "type": "group",
+      "x": -1100,
+      "y": -200,
+      "width": 800,
+      "height": 400,
+      "color": "4",
+      "label": "3 · references/notes/<citekey>/  —  canônico (versionado em git)"
+    },
+    {
+      "id": "r-meta",
+      "type": "text",
+      "x": -1080,
+      "y": -160,
+      "width": 380,
+      "height": 150,
+      "text": "**`_meta.md`**\n\n*gerado por* `prumo paper sync`\n\nYAML CSL-JSON + curadoria (`role`, `status`, `tldr`, `cites`)\n+ seções humanas\n*(Problema · Método · Resultados · Limitações · Relevância · Notas)*"
+    },
+    {
+      "id": "r-extract",
+      "type": "text",
+      "x": -690,
+      "y": -160,
+      "width": 370,
+      "height": 150,
+      "text": "**`_extract.md`**\n\n*gerado por* `/prumo-assist:paper-extract`\n\ncallout estruturado:\nTL;DR · PICOT · Método · Resultados · Limitações\n\n*regenerável; subagente extrai do PDF*"
+    },
+    {
+      "id": "r-annot",
+      "type": "text",
+      "x": -1080,
+      "y": 0,
+      "width": 380,
+      "height": 150,
+      "text": "**`_annotations.md`**\n\n*gerado por* `prumo paper sync-annotations`\n\nhighlights (cor + página + texto) + image annotations + notas de margem\n\n*read-only; bloco `BEGIN/END ZOTERO ANNOTATIONS`*"
+    },
+    {
+      "id": "r-note",
+      "type": "text",
+      "x": -690,
+      "y": 0,
+      "width": 370,
+      "height": 150,
+      "color": "5",
+      "text": "**`note__<itemKey>__<slug>.md`**\n\n*gerado por* `prumo paper sync-notes` **(NOVO)**\n\n1 child note Zotero = 1 arquivo MD\nYAML c/ `zotero_item_key`, `tags`, `date_modified`\n\n*read-only; HTML→Markdown*"
+    },
+    {
+      "id": "g-cons",
+      "type": "group",
+      "x": -1100,
+      "y": 240,
+      "width": 800,
+      "height": 200,
+      "color": "6",
+      "label": "4 · Consumers"
+    },
+    {
+      "id": "c-obs",
+      "type": "text",
+      "x": -1080,
+      "y": 280,
+      "width": 380,
+      "height": 140,
+      "text": "**Obsidian**\n\n*UI primária do humano*\n\n• edição livre (notas humanas em `_meta.md`)\n• wikilinks `[[@key]]` — grafo nativo\n• graph view + backlinks\n• vault config em `.obsidian/`"
+    },
+    {
+      "id": "c-qmd",
+      "type": "text",
+      "x": -690,
+      "y": 280,
+      "width": 370,
+      "height": 140,
+      "text": "**qmd MCP** → Agente / LLM\n\nBM25 + vector + rerank\n*o \"NoSQL embedded\" do retrieval*\n\nindexa `references/notes/**/*.md`\nfilter por YAML (`paper`, `tags`, `source`)"
+    },
+    {
+      "id": "g-decisoes",
+      "type": "group",
+      "x": -200,
+      "y": -760,
+      "width": 560,
+      "height": 480,
+      "color": "5",
+      "label": "Decisões arquiteturais"
+    },
+    {
+      "id": "decisoes",
+      "type": "text",
+      "x": -180,
+      "y": -720,
+      "width": 520,
+      "height": 420,
+      "text": "**D1 · Read-only granular (B1)**\nChild note edita-se no Zotero, repo é espelho navegável.\n\n**D2 · Pasta-por-paper, layout α**\n`<citekey>/{_meta, _extract, _annotations, note__*}.md`. Prefixo `_` separa infra de espelho.\n\n**D3 · qmd como motor único de retrieval**\nNão duplicar índice; qmd já é BM25 + vector + rerank.\n\n**D4 · Sem banco canônico (SQLite/NoSQL/graph)**\nFS canônico ganha em git, edição direta, Obsidian, portabilidade. Análise registrada na sessão.\n\n**D5 · `mgmeyers Zotero Integration` reposicionado**\nMantido pra comandos ad-hoc de citação; descontinuado como fonte automática de notas."
+    },
+    {
+      "id": "g-escopo",
+      "type": "group",
+      "x": -200,
+      "y": -240,
+      "width": 560,
+      "height": 280,
+      "color": "1",
+      "label": "Fora do escopo (deliberado)"
+    },
+    {
+      "id": "escopo",
+      "type": "text",
+      "x": -180,
+      "y": -200,
+      "width": 520,
+      "height": 220,
+      "text": "• **Write-back ao Zotero**\n  *MD → API; conflito + lossy; reavaliar quando edição virar hábito*\n\n• **`zotero-better-notes`** (plugin bidirecional)\n  *avaliado; perde wikilinks `[[@key]]`, YAML rígido próprio*\n\n• **Banco canônico** (SQLite, doc store, vector DB, graph DB)\n  *redundante com qmd; FS canônico vence em 4 eixos críticos*\n\n• **Standalone notes** (`itemType: note` sem parent)\n  *próxima iteração; provável `_standalone/`*"
+    },
+    {
+      "id": "g-triggers",
+      "type": "group",
+      "x": 420,
+      "y": -760,
+      "width": 580,
+      "height": 760,
+      "color": "3",
+      "label": "Quando re-avaliar (triggers observáveis)"
+    },
+    {
+      "id": "triggers",
+      "type": "text",
+      "x": 440,
+      "y": -720,
+      "width": 540,
+      "height": 700,
+      "text": "**`prumo paper graph` >5s** *(no seu acervo real)*\n→ adicionar **Kuzu** como cache regenerável (não canônico)\n\n**Queries N-hop sobre citações ≥3×/semana**\n→ idem (Kuzu cache)\n\n**Volume passar de 5.000 child notes/annotations**\n→ `find references/notes -name 'note__*.md' \\| wc -l`\n→ adicionar **SQLite cache** pra agregações\n\n**Edição em Markdown de child notes virar hábito**\n*(≥5 commits/mês mexendo em `note__*.md`)*\n→ reavaliar **write-back** parcial via API local\n*(escopo só do bloco BEGIN/END ZOTERO)*\n\n**Better Notes amadurecer e suportar wikilinks**\n→ reavaliar como import path pra child notes\n*(verificar release notes do plugin)*\n\n---\n\n**Princípio guia:** abaixo destes triggers, FS + qmd cobrem. Cada upgrade é **adição reversível** (cache regenerável), nunca migração.\n\n*Coerente com [[constitution#VI · YAGNI militante]].*"
+    },
+    {
+      "id": "footer",
+      "type": "text",
+      "x": -1100,
+      "y": 480,
+      "width": 2100,
+      "height": 80,
+      "color": "5",
+      "text": "> Spec: [[superpowers/specs/2026-05-03-zotero-notes-integration-design]]  ·  Princípios [[constitution#I · Lógica em um lugar só|I]] + [[constitution#VI · YAGNI militante|VI]]  ·  Layout estendido em [[Research Project Structure]]"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-z-s",
+      "fromNode": "g-zotero",
+      "fromSide": "bottom",
+      "toNode": "g-sync",
+      "toSide": "top",
+      "label": "Local API + BBT JSON-RPC",
+      "color": "4"
+    },
+    {
+      "id": "e-s-r",
+      "fromNode": "g-sync",
+      "fromSide": "bottom",
+      "toNode": "g-ref",
+      "toSide": "top",
+      "label": "escreve",
+      "color": "4"
+    },
+    {
+      "id": "e-r-c1",
+      "fromNode": "r-meta",
+      "fromSide": "bottom",
+      "toNode": "c-obs",
+      "toSide": "top",
+      "label": "humano lê / edita seções"
+    },
+    {
+      "id": "e-r-c2",
+      "fromNode": "r-note",
+      "fromSide": "bottom",
+      "toNode": "c-qmd",
+      "toSide": "top",
+      "label": "indexa todos *.md"
+    },
+    {
+      "id": "e-r-c3",
+      "fromNode": "r-annot",
+      "fromSide": "bottom",
+      "toNode": "c-qmd",
+      "toSide": "top",
+      "color": "5"
+    },
+    {
+      "id": "e-r-c4",
+      "fromNode": "r-extract",
+      "fromSide": "bottom",
+      "toNode": "c-qmd",
+      "toSide": "top",
+      "color": "5"
+    }
+  ]
+}
