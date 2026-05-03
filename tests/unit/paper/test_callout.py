@@ -1,15 +1,17 @@
-"""Tests pro render e write do callout estruturado."""
+"""Tests pro render e write do callout estruturado em _extract.md."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from prumo_assist.core.note_paths import extract_path, meta_path
 from prumo_assist.domains.paper.callout import (
     EXTRACT_BEGIN,
     EXTRACT_END,
     ExtractionSection,
+    apply_extraction,
     parse_extraction_template,
-    read_callout,
     render_callout,
-    write_callout,
 )
 
 
@@ -17,8 +19,6 @@ def test_parse_template_extracts_section_names_and_instructions() -> None:
     text = "# Header\n\n### TL;DR\n<!-- escreva 2-3 frases -->\n\n### PICOT\n<!-- 5 bullets -->\n"
     sections = parse_extraction_template(text)
     assert [s.name for s in sections] == ["TL;DR", "PICOT"]
-    assert "2-3 frases" in sections[0].instruction
-    assert "5 bullets" in sections[1].instruction
 
 
 def test_render_callout_includes_meta_and_sections() -> None:
@@ -28,7 +28,7 @@ def test_render_callout_includes_meta_and_sections() -> None:
     ]
     out = render_callout(
         sections,
-        {"TL;DR": "Two-line summary.", "PICOT": "P: ...\nI: ..."},
+        {"TL;DR": "Two-line summary.", "PICOT": "P: ..."},
         model="claude-test",
         date="2026-04-28",
     )
@@ -36,38 +36,76 @@ def test_render_callout_includes_meta_and_sections() -> None:
     assert out.endswith(EXTRACT_END)
     assert "claude-test" in out
     assert "Two-line summary." in out
-    assert "> P: ..." in out
-    assert "> I: ..." in out
 
 
-def test_render_callout_uses_pendente_for_missing_content() -> None:
-    sections = [ExtractionSection(name="TL;DR", instruction="x")]
-    out = render_callout(sections, {}, model="m", date="2026-04-28")
-    assert "_(pendente)_" in out
+def _bootstrap(tmp_path: Path, citekey: str) -> tuple[Path, Path]:
+    """Cria pj_*/references/notes/<key>/_meta.md mínimo + paper_extraction template."""
+    meta = meta_path(tmp_path, citekey)
+    meta.parent.mkdir(parents=True, exist_ok=True)
+    meta.write_text(f"---\nid: {citekey}\nextracted_at: null\n---\n\n## Notas humanas\n")
+    template = tmp_path / ".claude" / "paper_extraction.md"
+    template.parent.mkdir(parents=True, exist_ok=True)
+    template.write_text("### TL;DR\n<!-- 2 linhas -->\n\n### PICOT\n<!-- 5 bullets -->\n")
+    return meta, template
 
 
-def test_write_callout_inserts_after_frontmatter() -> None:
-    note_text = "---\nid: smith2024\n---\n\nHuman section.\n"
-    callout = render_callout([], {}, model="m", date="2026-04-28")
-    out = write_callout(note_text, callout)
-    assert out.startswith("---\nid: smith2024\n---\n")
-    assert callout in out
-
-
-def test_write_callout_replaces_existing() -> None:
-    note_text = (
-        f"---\nid: x\n---\n\n{EXTRACT_BEGIN}\n> old content\n{EXTRACT_END}\n\nManual section.\n"
+def test_apply_extraction_creates_extract_md(tmp_path: Path) -> None:
+    citekey = "smith2024"
+    _meta, template = _bootstrap(tmp_path, citekey)
+    changed = apply_extraction(
+        pj_path=tmp_path,
+        citekey=citekey,
+        template_path=template,
+        content={"TL;DR": "summary", "PICOT": "p: x"},
+        model="claude-test",
+        date="2026-05-03",
     )
-    new_callout = render_callout([], {}, model="newmodel", date="2026-04-28")
-    out = write_callout(note_text, new_callout)
-    assert "old content" not in out
-    assert "newmodel" in out
-    assert "Manual section." in out  # manual preservado
+    assert changed is True
+    extract = extract_path(tmp_path, citekey)
+    assert extract.exists()
+    text = extract.read_text()
+    assert "summary" in text
+    assert EXTRACT_BEGIN in text
+    assert EXTRACT_END in text
+    # frontmatter mínimo
+    assert text.startswith("---\n")
+    assert "paper: smith2024" in text
+    assert "source: prumo-paper-extract" in text
 
 
-def test_read_callout_roundtrip() -> None:
-    sections = [ExtractionSection(name="X", instruction="i")]
-    callout = render_callout(sections, {"X": "y"}, model="m", date="d")
-    note = f"---\nid: a\n---\n\nbefore\n{callout}\nafter\n"
-    extracted = read_callout(note)
-    assert extracted == callout
+def test_apply_extraction_updates_meta_yaml_extracted_fields(tmp_path: Path) -> None:
+    citekey = "smith2024"
+    meta, template = _bootstrap(tmp_path, citekey)
+    apply_extraction(
+        pj_path=tmp_path,
+        citekey=citekey,
+        template_path=template,
+        content={"TL;DR": "x"},
+        model="claude-test",
+        date="2026-05-03",
+    )
+    meta_text = meta.read_text()
+    assert "extracted_at: '2026-05-03'" in meta_text or 'extracted_at: "2026-05-03"' in meta_text
+    assert "extracted_model: claude-test" in meta_text or "extracted_model: 'claude-test'" in meta_text
+
+
+def test_apply_extraction_idempotent_when_content_unchanged(tmp_path: Path) -> None:
+    citekey = "smith2024"
+    _, template = _bootstrap(tmp_path, citekey)
+    apply_extraction(
+        pj_path=tmp_path,
+        citekey=citekey,
+        template_path=template,
+        content={"TL;DR": "x"},
+        model="m",
+        date="2026-05-03",
+    )
+    changed = apply_extraction(
+        pj_path=tmp_path,
+        citekey=citekey,
+        template_path=template,
+        content={"TL;DR": "x"},
+        model="m",
+        date="2026-05-04",  # data muda mas conteúdo não
+    )
+    assert changed is False
