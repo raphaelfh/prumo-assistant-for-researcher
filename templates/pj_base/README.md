@@ -20,7 +20,7 @@ Este projeto assume o plugin [`prumo-assist`](https://github.com/raphaelfh/prumo
 /plugin install prumo-assist
 ```
 
-O plugin fornece as skills comuns (`/prumo-assist:tabular-eda`, `/prumo-assist:data-cleaning`, `/prumo-assist:clinical-metrics`, `/prumo-assist:paper-manager`, `/prumo-assist:paper-extract`, `/prumo-assist:wiki-ingest`, `/prumo-assist:wiki-query`, `/prumo-assist:wiki-lint`), agents (`ml-theory-expert`, `stack-docs-researcher`) e o MCP `qmd` (busca no wiki).
+O plugin fornece as skills comuns (`/prumo-assist:paper-manager`, `/prumo-assist:paper-extract`, `/prumo-assist:wiki-ingest`, `/prumo-assist:wiki-query`, `/prumo-assist:wiki-lint`, `/prumo-assist:scientific-writing`, `/prumo-assist:peer-review`), agents (`ml-theory-expert`, `stack-docs-researcher`) e o MCP `qmd` (busca no wiki).
 
 ### 3. Contexto do estudo
 

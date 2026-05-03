@@ -38,7 +38,7 @@ _(pergunta clínica, motivação, relevância)_
 
 ## Métricas de avaliação
 
-_(ver skill `/prumo-assist:clinical-metrics` para detalhes; especificar sensibilidade/especificidade mínimas, AUROC alvo, thresholds etc.)_
+_(especificar sensibilidade/especificidade mínimas, AUROC alvo, thresholds, calibração esperada, Brier score etc.)_
 
 ## Splits e anti-leakage
 

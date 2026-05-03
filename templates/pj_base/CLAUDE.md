@@ -28,14 +28,13 @@ O plugin fornece as skills e agents comuns a todos os projetos `pj_*`:
 
 | Skill | Uso |
 |---|---|
-| `/prumo-assist:tabular-eda` | EDA tabular clínico com data profiling + quality assessment |
-| `/prumo-assist:data-cleaning` | Limpeza/pré-processamento clínico com relatório automático |
-| `/prumo-assist:clinical-metrics` | AUROC, PR-AUC, sens/esp, Brier, calibração + figuras seaborn + bootstrap CI |
 | `/prumo-assist:paper-manager` | Acervo bibliográfico (Zotero + Better BibTeX + `references/`) |
 | `/prumo-assist:paper-extract` | Extrai PDF → callout estruturado (TL;DR + PICOT + Método + Resultados + Limitações) |
 | `/prumo-assist:wiki-ingest` | Ingere fonte (URL, DOI, arXiv, PDF) no wiki do projeto |
 | `/prumo-assist:wiki-query` | Pergunta ancorada no wiki com citações |
 | `/prumo-assist:wiki-lint` | Health-check do wiki (órfãs, citekeys, stale, contradições) |
+| `/prumo-assist:scientific-writing` | Passe editorial em draft (pontuação, citação, superlativos) |
+| `/prumo-assist:peer-review` | Revisão crítica substantiva em draft acadêmico |
 
 Agents: `ml-theory-expert` (teoria), `stack-docs-researcher` (docs da stack).
 MCP: `qmd` (busca BM25 + vector + rerank local no wiki).
@@ -104,4 +103,4 @@ pj_<nome>/
 
 # Capacidades típicas
 
-Dados clínicos e de imagem; backbones via **timm**; métricas clínicas detalhadas na skill `/prumo-assist:clinical-metrics`.
+Dados clínicos e de imagem; backbones via **timm**.
