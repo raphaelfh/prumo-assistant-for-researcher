@@ -26,7 +26,7 @@ def sync_command(
     path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """``.bib`` → ``references/notes/<citekey>.md`` (Better BibTeX → Obsidian)."""
+    """``.bib`` → ``references/notes/<citekey>/_meta.md`` (Better BibTeX → Obsidian, layout α)."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         report = sync.sync(path.resolve())
         console.success(

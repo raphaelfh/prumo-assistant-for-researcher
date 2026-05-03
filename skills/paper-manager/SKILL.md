@@ -52,13 +52,13 @@ Propaga o estado do `_references.bib` (exportado pelo Better BibTeX do Zotero) p
 Passos:
 1. Executar via `Bash`:
    ```bash
-   python3 ../.claude/scripts/paper_sync.py <pj_path_absoluto>
+   prumo paper sync <pj_path_absoluto>
    ```
    (cwd tipicamente é o próprio `pj_*`, então `<pj_path_absoluto>` é `$PWD`.)
 
 2. Em seguida, sempre rodar `update-cites` (operação 2) — o grafo passivo é parte do contrato de `sync`:
    ```bash
-   python3 ../.claude/scripts/cite_graph.py <pj_path_absoluto>
+   prumo paper graph <pj_path_absoluto>
    ```
 
 3. Relatar ao usuário:
@@ -75,7 +75,7 @@ Passos:
 Invocar separadamente se o usuário quiser re-rodar só o grafo (ex.: acabou de escrever wikilinks novos). Idempotente; zero custo.
 
 ```bash
-python3 ../.claude/scripts/cite_graph.py <pj_path_absoluto>
+prumo paper graph <pj_path_absoluto>
 ```
 
 ### 3. `set-primary <citekey>`
@@ -129,7 +129,7 @@ Passos:
 
 1. Executar:
    ```bash
-   python3 ../.claude/scripts/cite_lookup.py <pj_path_absoluto> "<query>"
+   prumo paper find "<query>" --path <pj_path_absoluto>
    ```
 
 2. Mostrar o output integral (já vem formatado: citekey, role, status, author, title, year, tldr).

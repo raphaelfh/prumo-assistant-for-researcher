@@ -29,7 +29,7 @@ pj_*/references/
 ├── pdfs/                 # PDFs gitignorados (copyright)
 ├── templates/literature_note.md
 ├── views/papers.base     # Obsidian Bases (core)
-└── notes/<citekey>.md    # 1 .md por paper
+└── notes/<citekey>/_meta.md    # 1 pasta por paper (layout α)
 ```
 
 ## Citation key — fonte única de identidade
@@ -40,7 +40,7 @@ Ex.: `smith2024cohort`, `jones2023trial`, `jones2023triala` (desempate).
 
 A mesma string é usada em **todos** os artefatos:
 - nome do PDF: `pdfs/<citekey>.pdf`
-- nome da nota: `notes/<citekey>.md`
+- nome da nota: `notes/<citekey>/_meta.md`
 - entrada BibTeX: `@article{<citekey>, ...}`
 - wikilink no corpo: `[[@<citekey>]]`
 
@@ -60,7 +60,7 @@ Campos obrigatórios (subset CSL-JSON + curadoria):
 | `DOI` | string | vazio se preprint sem DOI |
 | `container-title` | string | journal / conferência / preprint server |
 | `URL` | string | link canônico |
-| `pdf` | string | caminho relativo `../pdfs/<citekey>.pdf` |
+| `pdf` | string | caminho relativo `../../pdfs/<citekey>.pdf` |
 | `tags` | lista | keywords livres |
 | `role` | string | `primary` (exatamente 1 por projeto), `supporting`, `background`, `replaced` |
 | `status` | string | `unread`, `reading`, `read`, `skimmed` |
@@ -92,7 +92,7 @@ Callouts Obsidian são padrão para highlights: `> [!tldr]`, `> [!quote]`, `> [!
 | Paper principal do projeto | `rg "^role: primary" references/notes/` |
 | Fuzzy por autor/título | `/prumo-assist:paper-manager find "<query>"` ou `make cite PJ=pj_x Q="<query>"` |
 | Papers sobre um tema | `rg -l "combinado" references/notes/` |
-| O que um paper cita (grafo passivo) | `Read references/notes/<citekey>.md` (campo `cites:`, populado por `update-cites` ao fim de `sync`) |
+| O que um paper cita (grafo passivo) | `Read references/notes/<citekey>/_meta.md` (campo `cites:`, populado por `update-cites` ao fim de `sync`) |
 | Quem cita um paper | `rg "\[\[@<citekey>\]\]" references/notes/` ou `/prumo-assist:paper-manager graph <citekey>` |
 | Não lidos | `rg "^status: unread" references/notes/` |
 | Bibliografia formatada | `Read references/_references.bib` |

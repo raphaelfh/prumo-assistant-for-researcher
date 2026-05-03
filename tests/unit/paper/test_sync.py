@@ -50,7 +50,7 @@ def test_bib_entry_to_metadata_minimal() -> None:
     assert meta["title"] == "Combinado Fusion"
     assert meta["author"] == [{"family": "Smith", "given": "J."}]
     assert meta["issued"] == {"date-parts": [[2024]]}
-    assert meta["pdf"] == "../pdfs/smith2024combinado.pdf"
+    assert meta["pdf"] == "../../pdfs/smith2024combinado.pdf"
 
 
 def test_bib_entry_to_metadata_no_year() -> None:

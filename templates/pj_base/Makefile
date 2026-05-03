@@ -11,16 +11,16 @@ wiki-search:  ## Busca híbrida no wiki (uso: make wiki-search Q="termo")
 
 # === Bibliografia (Zotero + Better BibTeX) ===
 sync-pdfs:  ## Cria symlinks references/pdfs/<citekey>.pdf -> Zotero
-	@python3 .claude/scripts/sync_zotero_pdfs.py
+	@prumo paper sync-pdfs
 
 sync-paper:  ## Sync .bib → notas + grafo passivo de citação
-	@python3 .claude/scripts/paper_sync.py .
-	@python3 .claude/scripts/cite_graph.py .
+	@prumo paper sync
+	@prumo paper graph
 
 sync-pdf-paper: sync-pdfs sync-paper  ## Atalho: sync-pdfs + sync-paper
 
 sync-annotations:  ## Sync annotations + child notes do Zotero -> references/notes/<citekey>.md
-	@python3 .claude/scripts/sync_zotero_annotations.py
+	@prumo paper sync-annotations
 
 extract-paper-all:  ## Roda /paper-extract-all via Claude Code headless ([LIMIT=N] [STALE=1])
 	@command -v claude >/dev/null || (echo "Claude Code CLI não encontrado no PATH." && exit 1)
@@ -28,7 +28,7 @@ extract-paper-all:  ## Roda /paper-extract-all via Claude Code headless ([LIMIT=
 
 cite:  ## Fuzzy lookup de citekey no acervo (uso: make cite Q="autor titulo")
 	@test -n "$(Q)" || (echo 'Uso: make cite Q="termo"' && exit 1)
-	@python3 .claude/scripts/cite_lookup.py . "$(Q)"
+	@prumo paper find "$(Q)"
 
 # === Export bibliografico (Pandoc + CSL) ===
 cite-styles:  ## Lista estilos CSL disponiveis em ~/Zotero/styles/

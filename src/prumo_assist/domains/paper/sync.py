@@ -73,7 +73,7 @@ def bib_entry_to_metadata(entry: BibEntry) -> dict[str, Any]:
         "DOI": doi,
         "container-title": container,
         "URL": url,
-        "pdf": f"../pdfs/{entry.citekey}.pdf",
+        "pdf": f"../../pdfs/{entry.citekey}.pdf",
     }
 
 

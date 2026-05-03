@@ -83,9 +83,6 @@ def hash_template(path: Path) -> str:
     return h[:12]
 
 
-EXTRACT_FRONTMATTER_KEYS = ("paper", "source", "generated_at")
-
-
 def apply_extraction(
     pj_path: Path,
     citekey: str,
