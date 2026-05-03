@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from prumo_assist.core.bib import parse_bib
+from prumo_assist.core.note_paths import annotations_path, meta_path
 
 ZOTERO_BASE = "http://localhost:23119"
 BBT_RPC = f"{ZOTERO_BASE}/better-bibtex/json-rpc"
@@ -249,9 +250,11 @@ def sync_annotations(pj_path: Path) -> dict[str, Any]:
 
     Pré-requisitos: Zotero 9 aberto + Better BibTeX instalado. Falha cedo
     com mensagem clara se faltar algum.
-    """
-    from prumo_assist.core.note_paths import annotations_path, meta_path
 
+    O diretório de anotações é garantido por ``_meta.md``: se ele existe,
+    o pai (``<key>/``) já existe e podemos escrever ``_annotations.md``
+    sem precisar de ``mkdir``. Reordenar o guard quebra essa invariante.
+    """
     bib = pj_path / "references" / "_references.bib"
     notes_dir = pj_path / "references" / "notes"
 
