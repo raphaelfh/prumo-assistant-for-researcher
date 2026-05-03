@@ -7,6 +7,7 @@ Detecta problemas que quebram o pipeline de pesquisa:
 - Symlinks PDF quebrados (apontam pra arquivo inexistente).
 - Notas sem ``id:`` no frontmatter (citekey desalinhado).
 - Mais de uma nota com ``role: primary`` (deveria ter no máximo 1).
+- subdir_without_meta — pasta `notes/<key>/` sem `_meta.md` (migração interrompida ou pasta órfã).
 
 Tudo determinístico — sem LLM. ``prumo paper lint`` é seguro de rodar em CI.
 """

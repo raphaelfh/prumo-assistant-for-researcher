@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from prumo_assist.core.bib import extract_field, parse_bib
-from prumo_assist.core.note_paths import iter_note_meta_files
+from prumo_assist.core.note_paths import citekey_from_meta_path, iter_note_meta_files
 from prumo_assist.domains.paper.sync import read_nota_yaml
 
 
@@ -22,8 +22,6 @@ def build_index(pj_path: Path) -> dict[str, dict[str, Any]]:
         return index
 
     # Build a lookup from citekey → meta path (supports both α and legacy layouts)
-    from prumo_assist.core.note_paths import citekey_from_meta_path
-
     meta_by_key = {
         citekey_from_meta_path(p): p for p in iter_note_meta_files(pj_path)
     }
