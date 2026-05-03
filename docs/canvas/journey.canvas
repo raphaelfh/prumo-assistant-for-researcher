@@ -1,0 +1,65 @@
+{
+  "nodes": [
+    {"id":"title","type":"text","text":"# Jornada do pesquisador clínico no prumo-assist\n*Framework: Double Diamond (Design Council) × Jobs-To-Be-Done*","x":-427,"y":-680,"width":1558,"height":80},
+
+    {"id":"g1","type":"group","x":-1040,"y":-500,"width":1560,"height":880,"label":"1 · PERGUNTA  (Discover + Define)"},
+    {"id":"g2","type":"group","x":720,"y":-500,"width":1400,"height":880,"label":"2 · EVIDÊNCIA  (Study and Develop)"},
+    {"id":"g3","type":"group","x":2400,"y":-500,"width":1370,"height":880,"label":"3 · ESCRITA  (Deliver)"},
+
+    {"id":"row-precisa","type":"text","text":"### O que ele PRECISA\n\n*Job-To-Be-Done — o resultado real que justifica o esforço.*","x":-1686,"y":-340,"width":538,"height":160,"color":"5"},
+    {"id":"row-faz","type":"text","text":"### O que ele FAZ\n\n*Realidade típica — onde dói e onde nasce o desperdício.*","x":-1686,"y":-140,"width":538,"height":160,"color":"1"},
+    {"id":"row-prumo","type":"text","text":"### Como o prumo-assist FECHA o gap\n\n*Cada gap = um comando. Veja [[actions-by-context]].*","x":-1686,"y":80,"width":538,"height":220,"color":"4"},
+
+    {"id":"dabc48be13e872f9","type":"text","text":"Busca aprofundada na literatura atual sobre um tema","x":-1000,"y":-340,"width":312,"height":160,"color":"5"},
+    {"id":"p1-precisa","type":"text","text":"Formular pergunta em **PICOT**, ancorada num gap explícito da literatura.","x":-540,"y":-340,"width":312,"height":160,"color":"5"},
+    {"id":"065ed5813db600c9","type":"text","text":"Busca aprofundada por literatura (papers e informações) sobre o contexto definido para ter literatura robusta e atual.","x":0,"y":-340,"width":312,"height":160,"color":"5"},
+
+    {"id":"p1-faz","type":"text","text":"Google Scholar com 50 abas. Lê 30 PDFs em duas pastas. Nada vira nota persistente; perde o fio.","x":-1000,"y":-140,"width":312,"height":160,"color":"1"},
+    {"id":"p1-faz-picot","type":"text","text":"PICOT na cabeça (ou no caderno avulso). Não volta pra revisão sistemática quando o estudo amadurece.","x":-540,"y":-140,"width":312,"height":160,"color":"1"},
+    {"id":"p1-faz-focada","type":"text","text":"DOI cai no Zotero; anota separado; perde rastro de por que importou. Acervo cresce sem trilha.","x":0,"y":-140,"width":312,"height":160,"color":"1"},
+
+    {"id":"p1-prumo","type":"text","text":"`/prumo-assist:wiki-query` *o que sei sobre X?*\n\n`prumo paper find \"keyword\"`\n\nAgente `ml-theory-expert`","x":-1000,"y":80,"width":312,"height":220,"color":"4"},
+    {"id":"p1-prumo-picot","type":"text","text":"Editar `docs/protocol.md` + `docs/project.md` + ADR em `decisions/`\n\n*candidata futura: `/prumo-assist:formulate-picot`*","x":-540,"y":80,"width":312,"height":220,"color":"4"},
+    {"id":"p1-prumo-focada","type":"text","text":"`/prumo-assist:wiki-ingest <DOI>` *(batch)*\n\n`/prumo-assist:paper-extract --batch`\n\n`prumo paper graph`","x":0,"y":80,"width":312,"height":220,"color":"4"},
+
+    {"id":"p2-precisa","type":"text","text":"Extrair PICOT, método e limitações de cada fonte. Conectar achados num grafo navegável.","x":748,"y":-340,"width":397,"height":160,"color":"5"},
+    {"id":"c95deaba749a6cb6","type":"text","text":"Leitura com Zotero, marcação e criação de notas.\nEscrita em Markdown sobre insights.\nAjustes sobre informações extraídas dos artigos.","x":1220,"y":-340,"width":397,"height":160,"color":"5"},
+    {"id":"63ac24de3947831f","type":"text","text":"Pergunta usando Claude para aprender sobre algum tema com fontes internas + citação.\n\nAprendizado otimizado:\n1. Metodologia ativa\n2. Repetição\n3. Gamificação","x":1680,"y":-340,"width":397,"height":160,"color":"5"},
+
+    {"id":"p2-faz","type":"text","text":"Sublinha PDF, faz nota Markdown solta. Esquece onde parou. Citekey vira *quote* no Word.","x":748,"y":-140,"width":397,"height":160,"color":"1"},
+    {"id":"p2-faz-leitura","type":"text","text":"Highlight no Acrobat — annotations não voltam pro projeto. Notas em vários apps; nada conecta com o acervo.","x":1220,"y":-140,"width":397,"height":160,"color":"1"},
+    {"id":"p2-faz-tutor","type":"text","text":"ChatGPT sem conhecer minhas fontes — alucinação convincente. Sem repetição/gamificação, esquece em 2 semanas.","x":1680,"y":-140,"width":397,"height":160,"color":"1"},
+
+    {"id":"p2-prumo","type":"text","text":"`/prumo-assist:paper-extract @key`\n\n`prumo paper sync`\n\n`prumo paper graph`\n\n`prumo paper lint`","x":748,"y":80,"width":397,"height":220,"color":"4"},
+    {"id":"p2-prumo-leitura","type":"text","text":"`prumo paper sync-annotations`\n\n`prumo paper sync-notes` **(NOVO — spec B1)**\n\nObsidian Zotero plugin (citações ad-hoc)","x":1220,"y":80,"width":397,"height":220,"color":"4"},
+    {"id":"p2-prumo-tutor","type":"text","text":"`/prumo-assist:wiki-query` *c/ fontes ancoradas*\n\nAgentes `ml-theory-expert` + `stack-docs-researcher`\n\n*candidata futura: `/prumo-assist:active-learning` (spec separada)*","x":1680,"y":80,"width":397,"height":220,"color":"4"},
+
+    {"id":"p3-precisa","type":"text","text":"Argumentar com citações ancoradas no acervo + ordem narrativa coerente.","x":2428,"y":-340,"width":397,"height":160,"color":"5"},
+    {"id":"p3-precisa-review","type":"text","text":"Revisão crítica — forças, fraquezas, claims sem evidência — antes do orientador.","x":2900,"y":-340,"width":397,"height":160,"color":"5"},
+    {"id":"p3-precisa-finalidade","type":"text","text":"Escrita por finalidade — CEP, paper, métodos estatísticos, escrita científica geral. Templates específicos.","x":3372,"y":-340,"width":397,"height":160,"color":"5"},
+
+    {"id":"p3-faz","type":"text","text":"Escreve no Word, troca cite-key na mão, sofre pra exportar com bibliografia certa.","x":2428,"y":-140,"width":397,"height":160,"color":"1"},
+    {"id":"p3-faz-review","type":"text","text":"Auto-revisão tarda; orientador acha o erro depois. Re-trabalho amplo, ciclo lento.","x":2900,"y":-140,"width":397,"height":160,"color":"1"},
+    {"id":"p3-faz-finalidade","type":"text","text":"Templates de venue/CEP/estatística diferem; copia-cola entre projetos; formato escapa.","x":3372,"y":-140,"width":397,"height":160,"color":"1"},
+
+    {"id":"p3-prumo","type":"text","text":"`/prumo-assist:scientific-writing`\n\n`prumo write export draft.md --to docx`\n\n`prumo write extract-comments revisado.docx`","x":2428,"y":80,"width":397,"height":220,"color":"4"},
+    {"id":"p3-prumo-review","type":"text","text":"`/prumo-assist:peer-review`\n\n*crítica substantiva antes do orientador: forças, fraquezas, claims sem evidência*","x":2900,"y":80,"width":397,"height":220,"color":"4"},
+    {"id":"p3-prumo-finalidade","type":"text","text":"Família `/prumo-assist:write-*`:\n\n• `write-projeto-cep`\n• `write-paper`\n• `write-statistics`\n• `write-scientific`\n\n*spec separada — em backlog*","x":3372,"y":80,"width":397,"height":220,"color":"4"},
+
+    {"id":"callout","type":"text","text":"> **Princípio de design**: cada gap entre *PRECISA* e *FAZ* é fechado por **uma** ação do prumo-assist. Quando algo dói e não tem ferramenta, é candidato a virar skill nova. Ver [[constitution#I · Lógica em um lugar só]].","x":629,"y":480,"width":1473,"height":96,"color":"6"}
+  ],
+  "edges": [
+    {"id":"e12","fromNode":"g1","fromSide":"right","toNode":"g2","toSide":"left","label":"refina"},
+    {"id":"e23","fromNode":"g2","fromSide":"right","toNode":"g3","toSide":"left","label":"sintetiza"},
+    {"id":"e31","fromNode":"g3","fromSide":"bottom","toNode":"g1","toSide":"bottom","color":"5","label":"abre novas perguntas"},
+
+    {"id":"2872d89a7997a254","fromNode":"dabc48be13e872f9","fromSide":"right","toNode":"p1-precisa","toSide":"left","label":"Define"},
+    {"id":"aa14d95893c1f452","fromNode":"p1-precisa","fromSide":"right","toNode":"065ed5813db600c9","toSide":"left","label":"Busca focada"},
+
+    {"id":"fc4d55eafdbce53c","fromNode":"p2-precisa","fromSide":"right","toNode":"c95deaba749a6cb6","toSide":"left","fromEnd":"arrow"},
+    {"id":"c9c4b86c1a0ea1c0","fromNode":"c95deaba749a6cb6","fromSide":"right","toNode":"63ac24de3947831f","toSide":"left","fromEnd":"arrow","label":"aprende a fundo"},
+
+    {"id":"e3-arg-review","fromNode":"p3-precisa","fromSide":"right","toNode":"p3-precisa-review","toSide":"left","label":"refina"},
+    {"id":"e3-review-final","fromNode":"p3-precisa-review","fromSide":"right","toNode":"p3-precisa-finalidade","toSide":"left","label":"adapta"}
+  ]
+}

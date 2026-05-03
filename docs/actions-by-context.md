@@ -23,10 +23,12 @@ tags: [journey, playbook]
 
 ## Fase 1 · Pergunta  *(Discover + Define)*
 
-### "Tópico novo, não sei o que já li"
-1. `/prumo-assist:wiki-query` — pergunta livre, retorna síntese com citações.
-2. `prumo paper find "<keyword>"` — fuzzy lookup no acervo.
-3. Decidir: arquivar a resposta em `findings/` ou abrir nova pergunta.
+### "Tópico novo — preciso mapeamento de literatura amplo *antes* de fechar pergunta"
+*Busca exploratória pré-PICOT. Objetivo: ver o terreno.*
+1. `/prumo-assist:wiki-query` — pergunta livre, retorna síntese com citações do que já existe no acervo.
+2. `prumo paper find "<keyword>"` — fuzzy lookup, ver o que está perto.
+3. Agente `ml-theory-expert` — pra fundamentação teórica do tema.
+4. Capturar achados como rascunhos em `docs/brainstorm/daily/<data>.md` (se módulo `brainstorm-pipeline` ativado).
 
 ### "Achei um paper que parece relevante"
 1. `prumo capture <doi|arxiv|url>` — classifica o input.
@@ -34,24 +36,50 @@ tags: [journey, playbook]
 3. Voltar pra `wiki-query` se precisar contextualizar.
 
 ### "Preciso fechar um PICOT antes de prosseguir"
+*Pivô da Fase 1: da busca ampla → busca focada.*
 1. `/prumo-assist:wiki-query "qual o PICOT atual do estudo?"` — varredura no que já está escrito.
-2. Editar `docs/protocol.md` à mão.
-3. Registrar a decisão em `docs/decisions/` (ADR curto).
+2. Editar `docs/protocol.md` (operacional clínico) e `docs/project.md` (texto formal) à mão.
+3. Registrar a decisão em `docs/decisions/` (ADR curto explicando o porquê).
+
+### "PICOT fechado — agora preciso busca focada e cumulativa"
+*Busca dirigida pós-PICOT. Objetivo: literatura robusta sobre o escopo definido.*
+1. Lista de DOIs do PICOT em mãos.
+2. `/prumo-assist:wiki-ingest <DOI>` em batch — um por vez ou em lote.
+3. `/prumo-assist:paper-extract --batch` — gera callouts estruturados de todos.
+4. `prumo paper graph` — popula `cites:` no YAML; vê quem cita quem.
+5. `/prumo-assist:wiki-lint` — confirma que o acervo está internamente consistente.
 
 ---
 
-## Fase 2 · Evidência  *(Develop)*
+## Fase 2 · Evidência  *(Study and Develop)*
 
 ### "Quero extrair conteúdo estruturado de um PDF"
 1. `/prumo-assist:paper-extract @<citekey>` — preenche callout (TL;DR + PICOT + Método + Resultados + Limitações).
-2. Conferir em `references/notes/<citekey>.md`.
+2. Conferir em `references/notes/<citekey>/_extract.md` *(layout α)*.
 3. `prumo paper graph` — atualiza arestas `[[@key]]` no YAML.
 
 ### "Importei N papers novos no Zotero"
-1. `prumo paper sync` — `.bib` → notas em `references/notes/`.
+1. `prumo paper sync` — `.bib` → `references/notes/<key>/_meta.md` *(layout α)*.
 2. `prumo paper sync-pdfs` — symlinks pra `~/Zotero/storage/`.
-3. `prumo paper sync-annotations` — annotations + child notes via API local.
-4. `/prumo-assist:paper-extract --batch` quando quiser callouts em massa.
+3. `prumo paper sync-annotations` — highlights → `_annotations.md`.
+4. `prumo paper sync-notes` — child notes Zotero → `note__*.md` *(novo, spec B1)*.
+5. `/prumo-assist:paper-extract --batch` quando quiser callouts em massa.
+6. `prumo paper sync-all` faz 1–4 em sequência *(orquestrador, novo)*.
+
+### "Vou ler um paper a fundo agora — leitura ativa estruturada"
+*Sub-fluxo dentro da fase de Estudo.*
+1. Abrir o PDF no Zotero (com PDF reader integrado).
+2. Highlights coloridos por categoria (amarelo = importante; rosa = crítica; verde = método; azul = quote).
+3. **Child notes** no Zotero pra ideias longas (1 ideia = 1 child note); título descritivo.
+4. Ao terminar a sessão: `prumo paper sync-annotations` + `prumo paper sync-notes` puxam tudo pro repo.
+5. Conferir em `references/notes/<key>/_annotations.md` e `note__*.md`.
+
+### "Quero estudar conceito X usando minhas próprias fontes"
+*Claude como tutor metacognitivo. Aprendizado ativo + repetição + gamificação.*
+1. `/prumo-assist:wiki-query "explique <conceito> usando o acervo"` — pergunta livre com fontes ancoradas.
+2. Iterar com perguntas de aprofundamento, marcação de pontos confusos.
+3. Agentes `ml-theory-expert` (teoria estatística/ML) e `stack-docs-researcher` (libs) pra ajuda específica.
+4. *Skill futura* `/prumo-assist:active-learning` orquestra ciclos de Q&A com repetição espaçada e gamificação — em backlog *(spec separada)*.
 
 ### "Quero navegar pelas conexões do meu acervo"
 1. `prumo paper graph` — popula `cites:` no YAML de cada nota.
@@ -68,19 +96,30 @@ tags: [journey, playbook]
 ## Fase 3 · Escrita  *(Deliver)*
 
 ### "Vou começar um draft"
-1. Criar `.md` em `docs/findings/` ou `docs/sources/` com frontmatter.
+1. Criar `.md` em `docs/findings/` ou `docs/sources/` com frontmatter (ou editar `docs/project.md` direto).
 2. Escrever — usando `[[@key]]` pra citações inline.
 3. `/prumo-assist:scientific-writing` — passe editorial (pontuação, citação, superlativos).
 
-### "Terminei um draft e quero auto-revisar antes de mostrar"
+### "Terminei um draft e quero auto-revisar antes do orientador"
 1. `/prumo-assist:scientific-writing` — limpa pontuação e estilo.
 2. `/prumo-assist:peer-review` — força/fraqueza/claims sem evidência.
 3. Iterar até que o peer-review pare de devolver achados críticos.
 
-### "Preciso exportar pro venue (DOCX/PDF)"
-1. `prumo write list-styles` — confirma o CSL do venue.
-2. `prumo write export draft.md --to docx --style <venue>` (ou `pdf`/`typst`/`html`).
-3. Conferir bibliografia gerada antes de submeter.
+### "Vou submeter pro CEP / Comitê de Ética em Pesquisa"
+*Documento brasileiro com estrutura específica (Plataforma Brasil, TCLE, riscos/benefícios).*
+1. *Skill futura* `/prumo-assist:write-projeto-cep` — usa `_extract.md` e `note__*.md` pra estruturar — em backlog *(spec separada)*.
+2. Hoje: editar à mão usando `docs/project.md` como base; consultar `_extract.md` dos papers pra metodologia ancorada.
+3. `prumo write export <doc>.md --to docx` pra entregar formatado.
+
+### "Vou montar artigo pra venue (NEJM/Lancet/Nature Med/...)"
+1. *Skill futura* `/prumo-assist:write-paper` — IMRaD venue-aware — em backlog.
+2. Hoje: `prumo write list-styles` confirma o CSL do venue.
+3. `prumo write export draft.md --to docx --style <venue>` (ou `pdf`/`typst`/`html`).
+4. Conferir bibliografia gerada antes de submeter.
+
+### "Vou escrever a seção de métodos estatísticos"
+1. *Skill futura* `/prumo-assist:write-statistics` — plano de análise estatística + sample-size + métodos — em backlog.
+2. Hoje: agente `ml-theory-expert` ajuda a fundamentar; `_extract.md` dos papers traz a base ancorada.
 
 ### "Tenho um capítulo composto por várias páginas"
 1. Criar `index.idx.md` com `pages: [...]` no frontmatter.
