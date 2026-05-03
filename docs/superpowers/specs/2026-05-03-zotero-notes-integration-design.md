@@ -283,12 +283,26 @@ Todo arquivo gerado tem YAML com no mínimo:
 | Edição humana no Markdown da child note | Sobrescrita no próximo `sync-notes`. Convenção: edição humana fica fora dos delimitadores `BEGIN ZOTERO`/`END ZOTERO`. |
 | Conflito de escrita simultânea (sync rodando + Obsidian salvando) | Improvável (sync é manual). Se acontecer: tmp file + atomic rename evita corrupção parcial. |
 
+## Consumers downstream (informativo, fora do escopo desta spec)
+
+Os arquivos gerados em `references/notes/<citekey>/` alimentam, além de Obsidian e qmd, uma **família de skills de escrita por finalidade** desenhada em [[canvas/project-flow]] mas ainda não implementada:
+
+- `/prumo-assist:write-projeto-cep` — projeto de Comitê de Ética em Pesquisa
+- `/prumo-assist:write-paper` — paper acadêmico
+- `/prumo-assist:write-statistics` — escrita estatística
+- `/prumo-assist:write-scientific` — escrita científica geral
+
+Essas skills consomem `_extract.md` (estrutura PICOT/Método), `_annotations.md` (citações ancoradas) e `note__*.md` (rascunhos de leitura) pra montar argumentos. Spec dedicada a escrever — **não é escopo desta**.
+
+Implicação concreta pra esta spec: o YAML dos arquivos gerados precisa ser estável o suficiente pra essas skills consumirem. Os campos `paper`, `source`, `zotero_item_key`, `tags` formam o **contrato mínimo de leitura** — não removê-los nem renomeá-los sem coordenação com a próxima spec.
+
 ## Fora do escopo (deliberado)
 
 - **Write-back ao Zotero** (POST/PUT na API). Tentação alta, custo real (HTML/MD lossy nos dois lados, conflict resolution, deletação cross-system). Reavaliar quando edição em Markdown for hábito real e voltar pro Zotero virar dor.
 - **`zotero-better-notes`** (plugin bidirecional). Avaliado e descartado: limitações de wikilinks `[[@key]]`, YAML rígido próprio, sync time-based opaco. Caminho próprio é mais barato e mais aderente.
 - **Banco canônico** (SQLite/NoSQL/graph DB). Reanalisado em detalhe — qmd já cumpre o papel de motor de retrieval embedded.
 - **Standalone notes**. Próxima iteração.
+- **Skills `write-projeto-cep` / `write-paper` / `write-statistics` / `write-scientific`**: escopo separado; spec dedicada. Esta spec garante apenas o *contrato de leitura* (YAML estável) que aquelas skills vão consumir.
 
 ## Quando re-avaliar
 

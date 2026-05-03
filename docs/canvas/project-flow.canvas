@@ -1,242 +1,44 @@
 {
-  "nodes": [
-    {
-      "id": "title",
-      "type": "text",
-      "x": -720,
-      "y": -780,
-      "width": 1900,
-      "height": 80,
-      "text": "# Fluxo de informação no projeto de pesquisa\n*Como uma ideia (esquerda) e uma citação (direita) atravessam o repo até virarem texto formal*"
-    },
-    {
-      "id": "lane-a",
-      "type": "group",
-      "x": -740,
-      "y": -640,
-      "width": 460,
-      "height": 920,
-      "color": "5",
-      "label": "Fluxo A · Ideação → ADR → texto formal"
-    },
-    {
-      "id": "a1",
-      "type": "text",
-      "x": -700,
-      "y": -560,
-      "width": 380,
-      "height": 120,
-      "text": "**`docs/brainstorm/daily/<data>.md`**\n\nEscrita livre, sem schema. Captura e segue."
-    },
-    {
-      "id": "a2",
-      "type": "text",
-      "x": -700,
-      "y": -380,
-      "width": 380,
-      "height": 120,
-      "text": "**`docs/brainstorm/topics/<tema>.md`**\n\nTese + contras + perguntas em aberto + status."
-    },
-    {
-      "id": "a3",
-      "type": "text",
-      "x": -700,
-      "y": -200,
-      "width": 380,
-      "height": 120,
-      "text": "**`docs/decisions/adr-NNNN-*.md`**\n\nADR formal — racional imutável após aceito."
-    },
-    {
-      "id": "a4",
-      "type": "text",
-      "x": -700,
-      "y": -20,
-      "width": 380,
-      "height": 120,
-      "color": "6",
-      "text": "**`docs/project.md`** § final\n\nDecisão materializada na escrita do projeto."
-    },
-    {
-      "id": "lane-b",
-      "type": "group",
-      "x": 280,
-      "y": -640,
-      "width": 460,
-      "height": 1340,
-      "color": "5",
-      "label": "Fluxo B · Citação → paper → argumento → export"
-    },
-    {
-      "id": "b1",
-      "type": "text",
-      "x": 320,
-      "y": -560,
-      "width": 380,
-      "height": 100,
-      "text": "**Zotero** *(item importado)*\n\nFonte única do acervo."
-    },
-    {
-      "id": "b2",
-      "type": "text",
-      "x": 320,
-      "y": -420,
-      "width": 380,
-      "height": 100,
-      "text": "**`references/_references.bib`**\n\nBBT auto-export."
-    },
-    {
-      "id": "b3",
-      "type": "text",
-      "x": 320,
-      "y": -280,
-      "width": 380,
-      "height": 100,
-      "text": "**`references/notes/<key>.md`**\n\nNota com YAML metadata + body."
-    },
-    {
-      "id": "b4",
-      "type": "text",
-      "x": 320,
-      "y": -140,
-      "width": 380,
-      "height": 100,
-      "text": "**callout estruturado** dentro da nota\n\n*TL;DR + PICOT + Método + Resultados + Limitações.*"
-    },
-    {
-      "id": "b5",
-      "type": "text",
-      "x": 320,
-      "y": 0,
-      "width": 380,
-      "height": 100,
-      "text": "**`[[@key]]`** em `docs/wiki/findings/<X>.md`\n\nou em ADR — papel narrativo é claro."
-    },
-    {
-      "id": "b6",
-      "type": "text",
-      "x": 320,
-      "y": 140,
-      "width": 380,
-      "height": 100,
-      "color": "6",
-      "text": "**argumento em `docs/project.md`**\n\nUsa `[[@key]]` inline."
-    },
-    {
-      "id": "b7",
-      "type": "text",
-      "x": 320,
-      "y": 280,
-      "width": 380,
-      "height": 100,
-      "color": "4",
-      "text": "**DOCX/PDF** com bibliografia formatada\n\nPronto pra venue."
-    },
-    {
-      "id": "convergencia",
-      "type": "text",
-      "x": -740,
-      "y": 240,
-      "width": 1100,
-      "height": 110,
-      "color": "6",
-      "text": "## Convergência em `project.md`\n\nIdeia (A4) e citação (B6) pousam no mesmo arquivo. **A escrita formal é onde os dois fluxos se encontram** — toda decisão sustentada por evidência, toda evidência ancorada em decisão."
-    },
-    {
-      "id": "legend",
-      "type": "text",
-      "x": -740,
-      "y": 380,
-      "width": 1100,
-      "height": 130,
-      "color": "5",
-      "text": "### Como ler\n\n- **Setas verdes** = transições automatizadas por skill ou comando do prumo-assist (label = comando exato).\n- **Setas neutras** = transições manuais (escrita, decisão, edição).\n- **Nodes roxos** = momento em que o fluxo materializa em escrita formal.\n- Detalhes operacionais por gatilho em [[actions-by-context]]."
-    }
-  ],
-  "edges": [
-    {
-      "id": "ea-1-2",
-      "fromNode": "a1",
-      "fromSide": "bottom",
-      "toNode": "a2",
-      "toSide": "top",
-      "label": "≥2 menções → consolida"
-    },
-    {
-      "id": "ea-2-3",
-      "fromNode": "a2",
-      "fromSide": "bottom",
-      "toNode": "a3",
-      "toSide": "top",
-      "label": "topic fecha (tese + contras pesados)"
-    },
-    {
-      "id": "ea-3-4",
-      "fromNode": "a3",
-      "fromSide": "bottom",
-      "toNode": "a4",
-      "toSide": "top",
-      "label": "decisão pesa no projeto"
-    },
-    {
-      "id": "eb-1-2",
-      "fromNode": "b1",
-      "fromSide": "bottom",
-      "toNode": "b2",
-      "toSide": "top",
-      "label": "BBT auto-export",
-      "color": "4"
-    },
-    {
-      "id": "eb-2-3",
-      "fromNode": "b2",
-      "fromSide": "bottom",
-      "toNode": "b3",
-      "toSide": "top",
-      "label": "prumo paper sync",
-      "color": "4"
-    },
-    {
-      "id": "eb-3-4",
-      "fromNode": "b3",
-      "fromSide": "bottom",
-      "toNode": "b4",
-      "toSide": "top",
-      "label": "/prumo-assist:paper-extract",
-      "color": "4"
-    },
-    {
-      "id": "eb-4-5",
-      "fromNode": "b4",
-      "fromSide": "bottom",
-      "toNode": "b5",
-      "toSide": "top",
-      "label": "edição manual"
-    },
-    {
-      "id": "eb-5-6",
-      "fromNode": "b5",
-      "fromSide": "bottom",
-      "toNode": "b6",
-      "toSide": "top",
-      "label": "escrita"
-    },
-    {
-      "id": "eb-6-7",
-      "fromNode": "b6",
-      "fromSide": "bottom",
-      "toNode": "b7",
-      "toSide": "top",
-      "label": "prumo write export --to docx",
-      "color": "4"
-    },
-    {
-      "id": "e-converge",
-      "fromNode": "a4",
-      "fromSide": "right",
-      "toNode": "b6",
-      "toSide": "left",
-      "label": "ambos pousam aqui",
-      "color": "6"
-    }
-  ]
+	"nodes":[
+		{"id":"lane-b","type":"group","x":180,"y":-640,"width":1760,"height":1515,"color":"5","label":"Fluxo B · Citação → paper → argumento → export"},
+		{"id":"lane-a","type":"group","x":-820,"y":-640,"width":620,"height":1100,"color":"5","label":"Fluxo A · Ideação → ADR → texto formal"},
+		{"id":"title","type":"text","text":"# Fluxo de informação no projeto de pesquisa\n*Como uma ideia (esquerda) e uma citação (direita) atravessam o repo até virarem texto formal*","x":-720,"y":-780,"width":1900,"height":80},
+		{"id":"a1","type":"text","text":"**`docs/brainstorm/daily/<data>.md`**\n\nEscrita livre, sem schema. Captura e segue.","x":-700,"y":-620,"width":380,"height":120},
+		{"id":"a4","type":"text","text":"**`docs/project.md`** § final\n\nDecisão materializada na escrita do projeto.","x":-700,"y":210,"width":380,"height":120,"color":"6"},
+		{"id":"a3","type":"text","text":"**`docs/decisions/adr-NNNN-*.md`**\n\nADR formal — racional imutável após aceito.","x":-700,"y":-60,"width":380,"height":120},
+		{"id":"a2","type":"text","text":"**`docs/brainstorm/topics/<tema>.md`**\n\nTese + contras + perguntas em aberto + status.","x":-700,"y":-340,"width":380,"height":120},
+		{"id":"b7","type":"text","text":"**DOCX/PDF** com bibliografia formatada\n\nPronto pra venue.","x":320,"y":720,"width":380,"height":100,"color":"4"},
+		{"id":"b6","type":"text","text":"**argumento em `docs/project.md`**\n\nUsa `[[@key]]` inline.","x":320,"y":500,"width":380,"height":100,"color":"6"},
+		{"id":"b5","type":"text","text":"**`[[@key]]`** em `docs/wiki/findings/<X>.md`\n\nou em ADR — papel narrativo é claro.","x":320,"y":270,"width":380,"height":100},
+		{"id":"b2","type":"text","text":"**`references/_references.bib`**\n\nBBT auto-export.","x":620,"y":-390,"width":380,"height":100},
+		{"id":"b1","type":"text","text":"**Zotero** *(item importado)*\n\nFonte única do acervo.","x":620,"y":-620,"width":380,"height":100},
+		{"id":"b3","type":"text","text":"**`references/notes/<key>/_meta.md`**\n\nNota humana — YAML CSL-JSON + seções fixas (Problema/Método/...). Layout α: pasta-por-paper.","x":620,"y":-160,"width":380,"height":100},
+		{"id":"b4","type":"text","text":"**`references/notes/<key>/_extract.md`**\n\nArquivo separado com callout estruturado (TL;DR + PICOT + Método + Resultados + Limitações). Pasta também tem `_annotations.md` e `note__*.md`.","x":620,"y":60,"width":380,"height":120},
+		{"id":"b23da1cc7f84335a","type":"text","text":"Agent","x":460,"y":-25,"width":100,"height":50},
+		{"id":"convergencia","type":"text","text":"## Convergência em `project.md`\n\nIdeia (A4) e citação (B6) pousam no mesmo arquivo. **A escrita formal é onde os dois fluxos se encontram** — toda decisão sustentada por evidência, toda evidência ancorada em decisão.","x":-1060,"y":610,"width":1100,"height":110,"color":"6"},
+		{"id":"legend","type":"text","text":"### Como ler\n\n- **Setas verdes** = transições automatizadas por skill \n- Setas laranjas = comando do prumo-assist (label = comando exato).\n- **Setas neutras** = transições manuais (escrita, decisão, edição).\n- **Nodes roxos** = momento em que o fluxo materializa em escrita formal.\n- Detalhes operacionais por gatilho em [[actions-by-context]].","x":-1140,"y":960,"width":1100,"height":130,"color":"5"},
+		{"id":"a5d89533f730184f","type":"text","text":"Edição agentica a depender da finalidade usando o agent especializado em escrita academica","x":890,"y":270,"width":340,"height":100},
+		{"id":"5b3667528f32545f","type":"text","text":"Escrita do projeto CEP","x":1580,"y":160,"width":250,"height":60},
+		{"id":"fe0b753057a3d4c4","type":"text","text":"Escrita do paper","x":1580,"y":290,"width":250,"height":60},
+		{"id":"410c9cd8eaa21f13","type":"text","text":"Escrita do estatística","x":1580,"y":420,"width":250,"height":60},
+		{"id":"dcc57d90bc0a0b72","x":750,"y":520,"width":250,"height":60,"type":"text","text":"Escrita geral"}
+	],
+	"edges":[
+		{"id":"ea-1-2","fromNode":"a1","fromSide":"bottom","toNode":"a2","toSide":"top","label":"≥2 menções → consolida"},
+		{"id":"ea-2-3","fromNode":"a2","fromSide":"bottom","toNode":"a3","toSide":"top","label":"topic fecha (tese + contras pesados)"},
+		{"id":"ea-3-4","fromNode":"a3","fromSide":"bottom","toNode":"a4","toSide":"top","label":"decisão pesa no projeto"},
+		{"id":"eb-1-2","fromNode":"b1","fromSide":"bottom","toNode":"b2","toSide":"top","color":"1","label":"BBT auto-export"},
+		{"id":"eb-2-3","fromNode":"b2","fromSide":"bottom","toNode":"b3","toSide":"top","color":"1","label":"prumo paper sync"},
+		{"id":"eb-3-4","fromNode":"b3","fromSide":"bottom","toNode":"b4","toSide":"top","color":"4","label":"/prumo-assist:paper-extract"},
+		{"id":"eb-4-5","fromNode":"b4","fromSide":"bottom","toNode":"b5","toSide":"top","label":"edição manual"},
+		{"id":"eb-5-6","fromNode":"b5","fromSide":"bottom","toNode":"b6","toSide":"top","label":"escrita"},
+		{"id":"eb-6-7","fromNode":"b6","fromSide":"bottom","toNode":"b7","toSide":"top","color":"1","label":"prumo write export --to docx"},
+		{"id":"e-converge","fromNode":"a4","fromSide":"right","toNode":"b6","toSide":"left","fromEnd":"arrow","color":"6","label":"ambos pousam aqui"},
+		{"id":"c2a1a6c00d0f9343","fromNode":"b4","fromSide":"bottom","toNode":"a5d89533f730184f","toSide":"top","label":"claude / agent"},
+		{"id":"610f822c355f65c7","fromNode":"a5d89533f730184f","fromSide":"right","toNode":"5b3667528f32545f","toSide":"left","color":"4","label":"/prumo-assist:write-projeto-cep"},
+		{"id":"f46fdc592112dc29","fromNode":"a5d89533f730184f","fromSide":"right","toNode":"fe0b753057a3d4c4","toSide":"left","color":"4","label":"/prumo-assist:write-paper"},
+		{"id":"5d55a078db1a655d","fromNode":"a5d89533f730184f","fromSide":"right","toNode":"410c9cd8eaa21f13","toSide":"left","color":"4","label":"/prumo-assist:write-statistics"},
+		{"id":"34d767d739d1e6b9","fromNode":"a5d89533f730184f","fromSide":"bottom","toNode":"dcc57d90bc0a0b72","toSide":"right","color":"4","label":"/prumo-assist:write-scientific"},
+		{"id":"ceda3e677600d61d","fromNode":"dcc57d90bc0a0b72","fromSide":"left","toNode":"b6","toSide":"right","color":"6"}
+	]
 }
