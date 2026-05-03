@@ -1,11 +1,12 @@
-"""Render e parse do callout estruturado escrito pela skill ``paper-extract``.
+"""Render do callout estruturado escrito pela skill ``paper-extract``.
 
 Migrado de ``paper_extract.py``. **Importante:** este módulo NÃO chama LLM.
 Ele só:
 
 - Parseia o template ``.claude/paper_extraction.md`` em seções.
 - Renderiza um callout Markdown delimitado a partir de ``dict[seção, texto]``.
-- Insere/atualiza o callout dentro de uma nota existente preservando o body.
+- Escreve o callout em ``references/notes/<key>/_extract.md`` (arquivo dedicado,
+  layout α) e atualiza ``extracted_*`` no ``_meta.md``.
 
 A extração propriamente dita (PDF → ``dict[seção, texto]``) acontece na skill,
 executada pelo agent-host. Esse módulo é a "metade Python" do contrato.

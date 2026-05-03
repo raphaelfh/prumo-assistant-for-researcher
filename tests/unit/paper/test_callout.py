@@ -19,6 +19,8 @@ def test_parse_template_extracts_section_names_and_instructions() -> None:
     text = "# Header\n\n### TL;DR\n<!-- escreva 2-3 frases -->\n\n### PICOT\n<!-- 5 bullets -->\n"
     sections = parse_extraction_template(text)
     assert [s.name for s in sections] == ["TL;DR", "PICOT"]
+    assert "2-3 frases" in sections[0].instruction
+    assert "5 bullets" in sections[1].instruction
 
 
 def test_render_callout_includes_meta_and_sections() -> None:
