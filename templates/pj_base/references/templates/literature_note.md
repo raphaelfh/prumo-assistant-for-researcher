@@ -11,7 +11,7 @@ container-title: ""
 URL: ""
 
 # Curadoria deste projeto
-pdf: "../pdfs/<citekey>.pdf"
+pdf: "../../pdfs/<citekey>.pdf"   # path relativo do _meta.md (sob <key>/)
 tags: []
 role: supporting                # primary | supporting | background | replaced
 status: unread                  # unread | reading | read | skimmed

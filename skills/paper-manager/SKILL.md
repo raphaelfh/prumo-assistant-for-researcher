@@ -16,10 +16,17 @@ pj_*/references/
 ├── _index.md
 ├── _references.bib
 ├── pdfs/<citekey>.pdf           # gitignored
-├── templates/literature_note.md # template base
+├── templates/literature_note.md # template base (vai virar _meta.md)
 ├── views/papers.base
-└── notes/<citekey>.md           # 1 por paper
+└── notes/<citekey>/             # 1 PASTA por paper (layout α)
+    ├── _meta.md                 # YAML CSL-JSON + body humano
+    ├── _extract.md              # callout estruturado (gerado pela skill paper-extract)
+    ├── _annotations.md          # highlights do Zotero (gerado pelo prumo paper sync-annotations)
+    └── note__<itemKey>__<slug>.md  # 1 child note Zotero por arquivo (PR-N2)
 ```
+
+> [!info]
+> Layout legado (`notes/<key>.md` plano) ainda é lido por compatibilidade durante transição. Para migrar: `prumo paper migrate-layout`.
 
 ## Citation key — Better BibTeX
 
@@ -31,7 +38,7 @@ Regras:
 - Sobrenome do **primeiro autor** em minúsculo ASCII.
 - Ano de publicação (issued.date-parts[0][0] no CSL-JSON).
 - Primeira palavra "significativa" do título (ignorar `a`, `an`, `the`, `on`, `of`, `and`, `in`).
-- Se a nota `notes/<citekey>.md` já existir, adicionar sufixo: `smith2024combinadoa`, `smith2024combinadob`, etc.
+- Se a nota `notes/<citekey>/_meta.md` já existir, adicionar sufixo: `smith2024combinadoa`, `smith2024combinadob`, etc.
 
 ## Operações
 
@@ -78,7 +85,7 @@ Marca um paper como `role: primary` (apenas 1 por projeto).
 Passos:
 1. `rg "^role: primary" references/notes/` para achar o `primary` atual.
 2. Se existir, editar esse `.md` trocando `role: primary` → `role: supporting`.
-3. Editar `notes/<citekey>.md` trocando `role: supporting` (ou `background`/`replaced`) → `role: primary`.
+3. Editar `notes/<citekey>/_meta.md` trocando `role: supporting` (ou `background`/`replaced`) → `role: primary`.
 4. Atualizar a seção "Paper principal" do `_index.md` com o novo wikilink `[[@<citekey>]]` + título + venue + ano.
 5. Confirmar ao usuário com diff das mudanças.
 
@@ -97,7 +104,7 @@ Passos:
 Mostra vizinhos do paper no grafo de citações.
 
 Passos:
-1. `Read references/notes/<citekey>.md` → campo `cites: [...]` → lista de quem este paper cita (dentro do acervo).
+1. `Read references/notes/<citekey>/_meta.md` → campo `cites: [...]` → lista de quem este paper cita (dentro do acervo).
 2. `rg "\[\[@<citekey>\]\]" references/notes/ -l` + `rg "cites:.*<citekey>" references/notes/ -l` → quem cita este paper.
 3. Imprimir duas listas: **cita** (forward) e **citado por** (reverse).
 4. Se o paper cita algo que não tem `.md` correspondente, reportar como "paper conhecido mas sem nota — está só no `.bib`".
