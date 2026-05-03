@@ -13,6 +13,7 @@ from __future__ import annotations
 from prumo_assist.domains.paper.find import fuzzy_search as find
 from prumo_assist.domains.paper.graph import update_graph
 from prumo_assist.domains.paper.lint import lint, set_primary
+from prumo_assist.domains.paper.migrate import migrate_pj as migrate_layout
 from prumo_assist.domains.paper.pdfs import sync_pdfs
 from prumo_assist.domains.paper.sync import sync
 from prumo_assist.domains.paper.zotero import sync_annotations
@@ -20,6 +21,7 @@ from prumo_assist.domains.paper.zotero import sync_annotations
 __all__ = [
     "find",
     "lint",
+    "migrate_layout",
     "set_primary",
     "sync",
     "sync_annotations",
