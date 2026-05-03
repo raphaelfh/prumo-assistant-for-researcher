@@ -212,7 +212,9 @@ def _template_yaml_defaults(pj_path: Path) -> dict[str, Any]:
 
 
 def sync(pj_path: Path) -> dict[str, Any]:
-    """Sync ``.bib`` → notas. Retorna report com ``created``, ``updated``, ``orphans``."""
+    """Sync ``.bib`` → ``<key>/_meta.md``. Retorna report com ``created``, ``updated``, ``orphans``."""
+    from prumo_assist.core.note_paths import meta_path
+
     bib = pj_path / "references" / "_references.bib"
     notes_dir = pj_path / "references" / "notes"
     notes_dir.mkdir(parents=True, exist_ok=True)
@@ -229,7 +231,8 @@ def sync(pj_path: Path) -> dict[str, Any]:
 
     for entry in entries:
         meta = bib_entry_to_metadata(entry)
-        nota = notes_dir / f"{entry.citekey}.md"
+        nota = meta_path(pj_path, entry.citekey)
+        nota.parent.mkdir(parents=True, exist_ok=True)
         if nota.exists():
             existing = read_nota_yaml(nota)
             merged = merge_nota_yaml(existing, meta)
@@ -244,5 +247,13 @@ def sync(pj_path: Path) -> dict[str, Any]:
             write_nota(nota, merged, template_body)
             created += 1
 
-    orphans = sorted(p.stem for p in notes_dir.glob("*.md") if p.stem not in bib_keys)
-    return {"created": created, "updated": updated, "orphans": orphans}
+    orphan_keys: list[str] = []
+    for child in notes_dir.iterdir():
+        # Subdir layout α: pasta com _meta.md
+        if child.is_dir() and (child / "_meta.md").is_file():
+            if child.name not in bib_keys:
+                orphan_keys.append(child.name)
+        # Legado: arquivo único <key>.md (suportado em transição)
+        elif child.is_file() and child.suffix == ".md" and child.stem not in bib_keys:
+            orphan_keys.append(child.stem)
+    return {"created": created, "updated": updated, "orphans": sorted(orphan_keys)}

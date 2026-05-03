@@ -20,7 +20,7 @@ def _bootstrap_project(tmp_path: Path, bib_text: str) -> Path:
     return pj
 
 
-def test_paper_sync_creates_notes(tmp_path: Path) -> None:
+def test_paper_sync_creates_meta_md(tmp_path: Path) -> None:
     pj = _bootstrap_project(
         tmp_path,
         "@article{smith2024,\n  title = {Combinado Fusion},\n  year = 2024\n}\n",
@@ -29,7 +29,7 @@ def test_paper_sync_creates_notes(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     payload = _last_json(result.stdout)
     assert payload["created"] == 1
-    assert (pj / "references" / "notes" / "smith2024.md").is_file()
+    assert (pj / "references" / "notes" / "smith2024" / "_meta.md").is_file()
 
 
 def test_paper_find_returns_results(tmp_path: Path) -> None:
