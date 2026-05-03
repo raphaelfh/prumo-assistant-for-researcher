@@ -47,7 +47,7 @@ Regras:
 
 ### 1. `sync`
 
-Propaga o estado do `_references.bib` (exportado pelo Better BibTeX do Zotero) para `references/notes/*.md`. Idempotente; pode ser rodado a qualquer momento.
+Propaga o estado do `_references.bib` (exportado pelo Better BibTeX do Zotero) para `references/notes/<key>/_meta.md` (layout α). Idempotente; pode ser rodado a qualquer momento.
 
 Passos:
 1. Executar via `Bash`:
@@ -94,7 +94,7 @@ Passos:
 Lista tabular dos papers do acervo.
 
 Passos:
-1. `Glob references/notes/*.md`.
+1. `Glob references/notes/*/_meta.md`.
 2. Para cada nota, `Read` e extrair do YAML: `id`, `role`, `status`, `year`, `tldr`, `tags`.
 3. Imprimir tabela markdown: `| citekey | role | status | year | tldr |`.
 4. Lembrar: no Obsidian a view `references/views/papers.base` já mostra isso com filtros interativos.
@@ -111,7 +111,7 @@ Passos:
 
 ### 6. `sync-bib`
 
-Audita consistência entre `notes/*.md` e `_references.bib`.
+Audita consistência entre `notes/*/_meta.md` e `_references.bib`.
 
 Passos:
 1. Coletar citekeys em `notes/`: `rg "^id: " notes/ -N` → set A.
