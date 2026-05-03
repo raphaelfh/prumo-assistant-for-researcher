@@ -11,16 +11,16 @@ wiki-search:  ## Busca híbrida no wiki (uso: make wiki-search Q="termo")
 
 # === Bibliografia (Zotero + Better BibTeX) ===
 sync-pdfs:  ## Cria symlinks references/pdfs/<citekey>.pdf -> Zotero
-	@python3 .claude/scripts/sync_zotero_pdfs.py
+	@prumo paper sync-pdfs
 
 sync-paper:  ## Sync .bib → notas + grafo passivo de citação
-	@python3 .claude/scripts/paper_sync.py .
-	@python3 .claude/scripts/cite_graph.py .
+	@prumo paper sync
+	@prumo paper graph
 
 sync-pdf-paper: sync-pdfs sync-paper  ## Atalho: sync-pdfs + sync-paper
 
-sync-annotations:  ## Sync annotations + child notes do Zotero -> references/notes/<citekey>.md
-	@python3 .claude/scripts/sync_zotero_annotations.py
+sync-annotations:  ## Sync annotations do Zotero -> references/notes/<citekey>/_annotations.md
+	@prumo paper sync-annotations
 
 extract-paper-all:  ## Roda /paper-extract-all via Claude Code headless ([LIMIT=N] [STALE=1])
 	@command -v claude >/dev/null || (echo "Claude Code CLI não encontrado no PATH." && exit 1)
@@ -28,39 +28,39 @@ extract-paper-all:  ## Roda /paper-extract-all via Claude Code headless ([LIMIT=
 
 cite:  ## Fuzzy lookup de citekey no acervo (uso: make cite Q="autor titulo")
 	@test -n "$(Q)" || (echo 'Uso: make cite Q="termo"' && exit 1)
-	@python3 .claude/scripts/cite_lookup.py . "$(Q)"
+	@prumo paper find "$(Q)"
 
 # === Export bibliografico (Pandoc + CSL) ===
 cite-styles:  ## Lista estilos CSL disponiveis em ~/Zotero/styles/
-	@python3 .claude/scripts/export_page.py list-styles
+	@prumo write list-styles
 
 export:  ## Exporta uma pagina (uso: make export PAGE=docs/findings/foo.md [STYLE=apa] [TO=docx])
 	@test -n "$(PAGE)" || (echo 'Uso: make export PAGE=docs/<arquivo>.md [STYLE=apa] [TO=docx|typst|pdf|html]' && exit 1)
-	@python3 .claude/scripts/export_page.py page "$(PAGE)" \
+	@prumo write export "$(PAGE)" \
 	    $(if $(STYLE),--style $(STYLE),) \
 	    $(if $(TO),--to $(TO),)
 
 preview:  ## Exporta para HTML e abre no browser (uso: make preview PAGE=docs/findings/foo.md [STYLE=apa])
 	@test -n "$(PAGE)" || (echo 'Uso: make preview PAGE=docs/<arquivo>.md' && exit 1)
-	@out=$$(python3 .claude/scripts/export_page.py page "$(PAGE)" --to html $(if $(STYLE),--style $(STYLE),)) && \
+	@out=$$(prumo write export "$(PAGE)" --to html $(if $(STYLE),--style $(STYLE),) --json | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().splitlines()[-1])["output"])') && \
 	    echo "Abrindo $$out" && open "$$out"
 
 export-doc:  ## Compoe varias paginas via index file (uso: make export-doc INDEX=docs/qualification/cap.idx.md)
 	@test -n "$(INDEX)" || (echo 'Uso: make export-doc INDEX=docs/<arquivo>.idx.md [STYLE=apa] [TO=docx]' && exit 1)
-	@python3 .claude/scripts/export_page.py compose --index "$(INDEX)" \
+	@prumo write compose --index "$(INDEX)" \
 	    $(if $(STYLE),--style $(STYLE),) \
 	    $(if $(TO),--to $(TO),)
 
 watch:  ## Polimento Typst com PDF live (uso: make watch PAGE=docs/findings/foo.md)
 	@test -n "$(PAGE)" || (echo 'Uso: make watch PAGE=docs/<arquivo>.md' && exit 1)
-	@out=$$(python3 .claude/scripts/export_page.py page "$(PAGE)" --to typst $(if $(STYLE),--style $(STYLE),)) && \
+	@out=$$(prumo write export "$(PAGE)" --to typst $(if $(STYLE),--style $(STYLE),) --json | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().splitlines()[-1])["output"])') && \
 	    pdf=$${out%.typ}.pdf && \
 	    echo "Watching $$out -> $$pdf (Ctrl+C para parar)" && \
 	    typst watch "$$out" "$$pdf"
 
 extract-comments:  ## Extrai comentarios + track changes de um .docx revisado para checklist md (uso: make extract-comments DOCX=path/revisao.docx)
 	@test -n "$(DOCX)" || (echo 'Uso: make extract-comments DOCX=path/revisao.docx' && exit 1)
-	@python3 .claude/scripts/extract_comments.py "$(DOCX)"
+	@prumo write extract-comments "$(DOCX)"
 
 # === Dev tools ===
 lint:  ## Ruff check no projeto
