@@ -105,7 +105,7 @@ def test_sync_re_run_is_idempotent(tmp_path: Path) -> None:
     sync(tmp_path)
     report = sync(tmp_path)
     assert report["created"] == 0
-    # idempotência: nada de novo escrito
+    assert report["updated"] == 0  # round-trip limpo: nenhum campo alterado
 
 
 def test_sync_detects_orphan_subdirs(tmp_path: Path) -> None:

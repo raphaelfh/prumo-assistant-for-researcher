@@ -1,4 +1,4 @@
-"""Sincroniza ``references/_references.bib`` → ``references/notes/*.md``.
+"""Sincroniza ``references/_references.bib`` → ``references/notes/<key>/_meta.md`` (layout α).
 
 Migrado de ``monorepo-anterior/.claude/scripts/paper_sync.py``. Comportamento
 preservado; mudanças exclusivamente de packaging:
