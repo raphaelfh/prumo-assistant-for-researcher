@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from pydantic import ValidationError
 
 from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 
-def _valid_clinical() -> dict:
+def _valid_clinical() -> dict[str, Any]:
     return {
         "type": "clinical",
         "created_at": "2026-05-03",
