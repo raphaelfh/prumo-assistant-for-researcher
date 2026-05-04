@@ -66,43 +66,42 @@ Depois da resposta, perguntar **exatamente uma vez**:
 
 > Quer arquivar essa resposta como finding? (`docs/findings/<slug>.md`) — útil se a síntese for reutilizada.
 
-Se **sim**:
+Se **sim**, executar via `Bash`:
 
-1. Criar `docs/findings/<slug>.md` com frontmatter:
+```bash
+python3 -c '
+from pathlib import Path
+from prumo_assist.domains.wiki.findings import archive_as_finding
 
-   ```yaml
-   ---
-   id: <slug>
-   type: finding
-   title: "<pergunta ou síntese da resposta>"
-   added: YYYY-MM-DD
-   status: active
-   tags: [...]
-   sources: [[[página-a]], [[@citekey]], ...]
-   notebook: ""           # ou caminho se veio de notebook/reports
-   ---
-   ```
+out = archive_as_finding(
+    pj_path=Path("."),
+    slug="<slug>",
+    title="<pergunta ou síntese>",
+    body=(
+        "## Pergunta\n\n<pergunta>\n\n"
+        "## Resposta consolidada\n\n<resposta>\n\n"
+        "## Evidências\n\n<lista de wikilinks>\n\n"
+        "## Limitações\n\n<ressalvas>\n"
+    ),
+    sources=["[[<page-a>]]", "[[@<citekey>]]"],
+    date="<hoje ISO>",
+    tags=[<tags>],
+    generator="wiki-query",
+)
+print(f"finding: {out}")
+'
+```
 
-   Corpo: seções `## Pergunta`, `## Resposta curta`, `## Evidências`, `## Ressalvas / ameaças à validade`.
+A função cuida de criar o arquivo, atualizar `_index.md` e `_log.md` em uma operação atômica (vide ``prumo_assist.domains.wiki.findings``).
 
-2. Atualizar `docs/_index.md` → seção `## Findings`.
-
-3. Anexar ao topo de `docs/_log.md`:
-
-   ```
-   ## [YYYY-MM-DD] query | <pergunta curta>
-
-   - Arquivado em: [[<slug>]]
-   - Páginas consultadas: [[a]], [[b]], [[@citekey]]
-   ```
-
-Se **não**: só registrar no log:
-
-   ```
-   ## [YYYY-MM-DD] query | <pergunta curta>
-
-   - Respondida sem arquivar.
-   ```
+Se **não**: registrar no log via:
+```bash
+python3 -c '
+from pathlib import Path
+log = Path("docs/_log.md")
+log.write_text(log.read_text() + "\n## [<data>] wiki-query | <pergunta curta>\n\n- Respondida sem arquivar.\n")
+'
+```
 
 ### 6. Visualizações inline
 
