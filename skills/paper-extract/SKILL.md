@@ -1,6 +1,6 @@
 ---
 name: paper-extract
-description: Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em um callout delimitado acima das seções humanas da nota. Invocar quando o usuário pedir "resuma o paper X", "extraia os principais pontos", "processa todos os papers novos", "/paper-extract", "/paper-extract-all", ou quando um `pj_*` acabou de sincronizar papers do Zotero e o usuário quer alimentar o callout automaticamente. Pressuposto: `/paper-manager sync` já criou as notas e `make sync-pdfs` criou os symlinks.
+description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em um callout delimitado acima das seções humanas da nota. Invocar quando o usuário pedir \"resuma o paper X\", \"extraia os principais pontos\", \"processa todos os papers novos\", \"/paper-extract\", \"/paper-extract-all\", ou quando um `pj_*` acabou de sincronizar papers do Zotero e o usuário quer alimentar o callout automaticamente. Pressuposto: `/paper-manager sync` já criou as notas e `make sync-pdfs` criou os symlinks."
 ---
 
 # Paper Extract — extração estruturada de PDF → callout da nota
