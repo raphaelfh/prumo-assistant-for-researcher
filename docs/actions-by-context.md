@@ -37,9 +37,18 @@ tags: [journey, playbook]
 
 ### "Preciso fechar um PICOT antes de prosseguir"
 *Pivô da Fase 1: da busca ampla → busca focada.*
-1. `/prumo-assist:wiki-query "qual o PICOT atual do estudo?"` — varredura no que já está escrito.
-2. Editar `docs/protocol.md` (operacional clínico) e `docs/project.md` (texto formal) à mão.
-3. Registrar a decisão em `docs/decisions/` (ADR curto explicando o porquê).
+1. `/prumo-assist:formulate-picot` — auto-detecta modo:
+   - greenfield → Socrático (perguntas P/I/C/O/T ancoradas em `wiki-query`)
+   - prose existente → Formalize (extrai de `protocol.md`/`project.md`, confirma)
+2. Skill grava `.claude/picot.toml` (canônico), regenera blocos delimitados em `protocol.md` e `project.md`, e cria `adr-NNNN-picot-v1-versao-inicial.md`.
+3. (Manual quando preferir) editar `docs/protocol.md`/`docs/project.md` na prose ao redor dos blocos delimitados; depois rodar `prumo protocol propagate` pra realinhar caso edite `picot.toml`.
+
+### "PICOT mudou — preciso registrar"
+*Sub-fluxo de versão: bumpa picot.toml e gera ADR.*
+1. Editar `.claude/picot.toml` à mão (ou via `/prumo-assist:formulate-picot`).
+2. `prumo protocol diff` — mostra campos mudados; classifica estrutural vs cosmético.
+3. Se estrutural: `/prumo-assist:formulate-picot diff` (skill pergunta motivação) → cria `adr-NNNN-picot-v<N+1>-<slug>.md` + atualiza blocos delimitados.
+4. Se cosmético (apenas `last_updated` ou `hypothesis.rationale`): `prumo protocol propagate` basta.
 
 ### "PICOT fechado — agora preciso busca focada e cumulativa"
 *Busca dirigida pós-PICOT. Objetivo: literatura robusta sobre o escopo definido.*

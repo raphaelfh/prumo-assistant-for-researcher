@@ -23,6 +23,7 @@ Arquitetura e princípios de design em [`ARCHITECTURE.md`](ARCHITECTURE.md); sta
 | `/prumo-assist:wiki-lint` | Health-check do wiki: páginas órfãs, citekeys quebradas, contradições, stale claims. |
 | `/prumo-assist:scientific-writing` | Passe editorial de escrita científica formal em draft Markdown/Quarto. Padroniza pontuação (sem travessão, dois-pontos ou ponto-e-vírgula no texto corrido), posiciona citação ao final do período, agrupa múltiplas citações sem vírgula entre wikilinks (`[[@a]] [[@b]] [[@c]]`) para fusão em campo único pelo normalizador de export, e atenua superlativos. |
 | `/prumo-assist:peer-review` | Revisão crítica substantiva (forças, fraquezas, claims sem evidência) em draft acadêmico. |
+| `/prumo-assist:formulate-picot` | Formaliza/propaga/versiona PICOT do projeto. Mantém canônico em `.claude/picot.toml` e renderiza blocos delimitados em `protocol.md`, `project.md`. Gera ADR `adr-NNNN-picot-v<N>` quando hipótese ou campo estrutural muda. Auto-detecta modo Socrático/Formalize/Propagate/Diff. |
 
 ### Agents
 
