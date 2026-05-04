@@ -7,6 +7,22 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.5.0] - 2026-05-04
+
+### Adicionado
+
+- **`/prumo-assist:formulate-picot`** — skill agêntica que formaliza/propaga/versiona o PICOT do projeto. Mantém spec canônica em `.claude/picot.toml`, renderiza blocos delimitados em `protocol.md` e `project.md`, e gera ADR `adr-NNNN-picot-v<N>` quando hipótese ou campo estrutural muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff). Domínio `domains/protocol/` com `PicotSpec/v1` (Pydantic), `picot_io`, `render`, `diff`, `adr`, `ops`. CLI: `prumo protocol propagate|diff`.
+- **`/prumo-assist:active-learning`** — skill agêntica que conduz sessão de estudo Socrática estruturada em 5 steps (Recall → Anchor → Connect → Apply → Reflect) sobre um tópico, ancorada nas fontes do projeto (wiki + acervo). Sessão ad-hoc 15-25 min com citação strict (só citekeys do acervo + `[REF FALTANTE]`). Log estruturado em `docs/wiki/study-sessions/<topic>-<data>.md` (`SessionLog/v1`). No step Reflect, oferece arquivar insight como finding via helper `archive_as_finding` (extraído de `wiki-query` para reuso).
+- **Família `/prumo-assist:write-*`** (4 skills agênticas + backend compartilhado):
+  - `write-paper` — draft IMRaD venue-aware a partir do PICOT + papers do acervo.
+  - `write-projeto-cep` — projeto pra CEP brasileiro (TCLE, Cronograma, Conformidade ética CNS 466/2012 + 510/2016, LGPD).
+  - `write-statistics` — Plano de Análise Estatística (PAE): outcome operacional, sample size, métricas, sensibilidade, splits anti-leakage.
+  - `write-scientific` — prose acadêmica genérica flexível (1 seção, parágrafo, expansão de seed).
+  - Backend: `domains/write/compose.py` (`read_inputs`, `resolve_template`, `compose_path`, `write_output`, `extract_missing_refs`); schemas `ComposeInputs/v1`, `WriteOutput/v1`, `PaperSummary`, `FindingSummary`. 3 modos de output: `drafts/` (default), `--into <path>` (bloco delimitado), `--out <path>` (livre).
+  - 4 templates default em `templates/writing/{paper,projeto-cep,statistics,scientific}.md`. Override por projeto em `.claude/writing_templates/<kind>.md` ou `--template <path>`.
+  - CLI: `prumo write list-templates [--json]` lista templates resolvíveis.
+- Citação strict transversal (formulate-picot, active-learning, write-*): só `[[@citekey]]` que existe em `references/_references.bib`. Falta vira `[REF FALTANTE: <descrição>]` — nunca invenção.
+
 ## [0.4.0] - 2026-05-03
 
 ### Adicionado

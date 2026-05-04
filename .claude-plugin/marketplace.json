@@ -10,7 +10,7 @@
       "name": "prumo-assist",
       "source": "./",
       "description": "Skills e agents para pesquisa clínica: gestão de acervo bibliográfico (Zotero + Better BibTeX), extração estruturada de papers, operação de wiki (ingest/query/lint), escrita científica e peer-review.",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "homepage": "https://github.com/raphaelfh/prumo-assist",
       "license": "MIT",
       "keywords": [
