@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from prumo_assist.core.note_paths import citekey_from_meta_path, iter_note_meta_files
 from prumo_assist.domains.paper.sync import FRONTMATTER_RE, read_nota_yaml, write_nota
 
 WIKILINK_RE = re.compile(r"\[\[@([A-Za-z0-9_-]+)\]\]")
@@ -38,20 +39,19 @@ def update_graph(pj_path: Path) -> dict[str, Any]:
 
     Retorna ``{"edges_added": N, "edges_removed": M}``.
     """
-    notes_dir = pj_path / "references" / "notes"
-    notes = sorted(notes_dir.glob("*.md"))
-    known = {p.stem for p in notes}
+    meta_files = iter_note_meta_files(pj_path)
+    known = {citekey_from_meta_path(p) for p in meta_files}
 
     edges_added, edges_removed = 0, 0
 
-    for nota in notes:
+    for nota in meta_files:
         text = nota.read_text()
         m = FRONTMATTER_RE.match(text)
         if not m:
             continue
         body = text[m.end() :]
         yaml_dict = read_nota_yaml(nota)
-        self_key = yaml_dict.get("id") or nota.stem
+        self_key = yaml_dict.get("id") or citekey_from_meta_path(nota)
         new_cites = extract_wikilinks(body, known, self_key)
         old_cites = yaml_dict.get("cites") or []
         if new_cites == old_cites:

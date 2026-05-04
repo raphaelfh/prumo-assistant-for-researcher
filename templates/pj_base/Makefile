@@ -19,7 +19,7 @@ sync-paper:  ## Sync .bib → notas + grafo passivo de citação
 
 sync-pdf-paper: sync-pdfs sync-paper  ## Atalho: sync-pdfs + sync-paper
 
-sync-annotations:  ## Sync annotations do Zotero -> references/notes/<citekey>/_annotations.md
+sync-annotations:  ## Sync annotations + child notes do Zotero -> references/notes/<citekey>/{_annotations.md,note__*.md}
 	@prumo paper sync-annotations
 
 extract-paper-all:  ## Roda /paper-extract-all via Claude Code headless ([LIMIT=N] [STALE=1])

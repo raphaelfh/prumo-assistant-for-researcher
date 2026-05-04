@@ -12,7 +12,7 @@ from typing import Annotated
 import typer
 
 from prumo_assist.core.cli_op import cli_run
-from prumo_assist.domains.paper import find, graph, lint, pdfs, sync, zotero
+from prumo_assist.domains.paper import find, graph, lint, migrate, pdfs, sync, zotero
 
 paper_app = typer.Typer(
     name="paper",
@@ -26,7 +26,7 @@ def sync_command(
     path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """``.bib`` → ``references/notes/<citekey>.md`` (Better BibTeX → Obsidian)."""
+    """``.bib`` → ``references/notes/<citekey>/_meta.md`` (Better BibTeX → Obsidian, layout α)."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         report = sync.sync(path.resolve())
         console.success(
@@ -131,4 +131,25 @@ def sync_annotations_command(
             f"{report['inserted']} inseridos, {report['updated']} atualizados, "
             f"{report['unchanged']} já em dia."
         )
+        console.emit(report)
+
+
+@paper_app.command("migrate-layout")
+def migrate_layout_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """One-shot: migra ``<key>.md`` legado pra ``<key>/_meta.md`` (+ _extract, _annotations).
+
+    Idempotente. Preserva histórico via ``git mv`` quando o pj_* é repo git.
+    """
+    with cli_run(json_mode=json_mode) as console:
+        report = migrate.migrate_pj(path.resolve())
+        console.success(
+            f"{len(report['migrated'])} migradas, "
+            f"{len(report['already_migrated'])} já estavam em layout α."
+        )
+        if report["warnings"]:
+            for w in report["warnings"]:
+                console.warn(w)
         console.emit(report)

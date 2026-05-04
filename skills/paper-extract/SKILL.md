@@ -5,14 +5,14 @@ description: Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema co
 
 # Paper Extract — extração estruturada de PDF → callout da nota
 
-Skill que lê o PDF (via symlink em `references/pdfs/<citekey>.pdf`), gera conteúdo para 5 seções estruturadas e escreve em um callout delimitado dentro de `notes/<citekey>.md`. O callout fica acima das seções `##` humanas — o usuário edita/refina as seções humanas; o callout é 100% auto.
+Skill que lê o PDF (via symlink em `references/pdfs/<citekey>.pdf`), gera conteúdo para 5 seções estruturadas e escreve em `references/notes/<citekey>/_extract.md` (arquivo dedicado, layout α). O usuário edita/refina as seções humanas em `_meta.md`; o `_extract.md` é 100% auto.
 
 ## Pressupostos
 
 - cwd é um `pj_*` com `.claude/paper_extraction.md` e `.claude/pj_config.toml` presentes (scaffold default atende).
 - `_references.bib` exportado pelo BBT.
 - `references/pdfs/<citekey>.pdf` é symlink válido (rode `make sync-pdfs` primeiro).
-- `references/notes/<citekey>.md` já existe (rode `/paper-manager sync` ou `make sync-paper` primeiro).
+- `references/notes/<citekey>/_meta.md` já existe (rode `/paper-manager sync` ou `make sync-paper` primeiro).
 
 Se qualquer pré-requisito falha, abortar com mensagem clara.
 
@@ -25,7 +25,7 @@ Interativo, 1 paper.
 Passos:
 
 1. **Validar** via `Bash`:
-   - `test -f "references/notes/<citekey>.md" && test -L "references/pdfs/<citekey>.pdf" && test -f "$(readlink references/pdfs/<citekey>.pdf)"`
+   - `test -f "references/notes/<citekey>/_meta.md" && test -L "references/pdfs/<citekey>.pdf" && test -f "$(readlink references/pdfs/<citekey>.pdf)"`
    - `test -f ".claude/paper_extraction.md"` (config opcional: ausente → usa DEFAULTS)
    - Qualquer falha → abortar com mensagem de qual pré-requisito falta e o que rodar.
 
@@ -65,7 +65,7 @@ Passos:
    import json
    content = json.loads("""<JSON_AQUI>""")
    changed = apply_extraction(
-       nota_path=Path("references/notes/<citekey>.md"),
+       nota_path=Path("references/notes/<citekey>/_extract.md"),
        template_path=Path(".claude/paper_extraction.md"),
        content=content,
        model="<modelo_atual>",
@@ -86,7 +86,7 @@ Passos:
 1. **Ler config** → `default_limit` e `subagents_per_wave`.
 
 2. **Elegíveis:**
-   - Todas as notas em `references/notes/*.md` com:
+   - Todas as notas em `references/notes/*/_meta.md` com:
      - `references/pdfs/<citekey>.pdf` symlink existe e aponta para arquivo real;
      - `extracted_at: null` **OU** (`--stale-only` AND hash atual do template != `extracted_template_hash`).
    - Aplicar `--limit` (default: `config.paper_extract.batch.default_limit`).
@@ -119,4 +119,4 @@ Passos:
 - `paper_extraction.md` ausente → "Restaure do scaffold: `cp ../.claude/templates/pj_projeto/.claude/paper_extraction.md .claude/`"
 - `pj_config.toml` ausente → usa DEFAULTS (não é erro fatal).
 - Subagent retorna JSON malformado → retry 1x com prompt "corrija o JSON anterior"; depois skip com erro "JSON malformado após 2 tentativas".
-- Callout com delimitadores corrompidos (usuário mexeu dentro) → abortar com "Restaure ou delete as linhas entre `<!-- paper-extract:begin -->` e `<!-- paper-extract:end -->` em references/notes/<citekey>.md."
+- Callout com delimitadores corrompidos (usuário mexeu dentro) → abortar com "Restaure ou delete as linhas entre `<!-- paper-extract:begin -->` e `<!-- paper-extract:end -->` em references/notes/<citekey>/_extract.md."

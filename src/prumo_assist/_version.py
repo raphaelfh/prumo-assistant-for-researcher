@@ -1,3 +1,3 @@
 """Single source of truth de versão. Lido por pyproject.toml e plugin.json."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

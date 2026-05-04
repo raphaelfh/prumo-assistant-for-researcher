@@ -7,6 +7,23 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.4.0] - 2026-05-03
+
+### Adicionado
+
+- **Layout α de notas**: cada paper agora vive em `references/notes/<citekey>/` com `_meta.md`, `_extract.md`, `_annotations.md` separados. Permite múltiplas child notes por paper (PR-N2 traz `note__*.md`) e melhora retrieval por chunk pequeno + metadata estável.
+- **`prumo paper migrate-layout`**: comando one-shot que desmembra `<key>.md` legado em pasta α, preservando histórico via `git mv`. Idempotente.
+- **`core/note_paths.py`**: helpers de path centralizados (`note_dir`, `meta_path`, `extract_path`, `annotations_path`, `child_note_path`, `slugify`, `iter_note_meta_files`, `citekey_from_meta_path`). Domínios `paper.{graph,find,lint,sync,zotero,callout,migrate}` usam essas funções como single source of truth.
+- **Nova regra de lint**: `subdir_without_meta` — sinaliza pasta `notes/<key>/` sem `_meta.md` (migração interrompida ou pasta órfã).
+
+### Modificado
+
+- `prumo paper sync` escreve em `<key>/_meta.md` (era `<key>.md`).
+- `prumo paper sync-annotations` escreve em `<key>/_annotations.md` dedicado (era bloco delimitado dentro do `<key>.md`).
+- `/prumo-assist:paper-extract` escreve em `<key>/_extract.md` dedicado (era callout dentro do `<key>.md`).
+- `paper graph`, `paper find`, `paper lint`, `set_primary` aceitam ambos layouts durante transição (graceful degradation; preferência por α quando ambos existem).
+- `templates/pj_base/references/templates/literature_note.md` reflete o novo layout (campo `pdf:` ajustado pra `../../pdfs/<key>.pdf`).
+
 ## [0.3.0] - 2026-05-03
 
 ### Removido — ⚠ Breaking
@@ -87,7 +104,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.3.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.1.0...v0.1.1

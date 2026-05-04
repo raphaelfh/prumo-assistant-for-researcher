@@ -66,7 +66,7 @@ pj_<nome>/
 ├── references/                   <- acervo bibliográfico (vault Obsidian)
 │   ├── _index.md
 │   ├── _references.bib           <- Better BibTeX export
-│   ├── notes/<citekey>.md        <- 1 nota por paper
+│   ├── notes/<citekey>/_meta.md  <- nota humana (mais _extract.md, _annotations.md)
 │   ├── pdfs/                     <- PDFs (gitignored, copyright)
 │   ├── templates/literature_note.md
 │   └── views/papers.base

@@ -2,7 +2,7 @@
 
 Cobre o pilar de **bibliografia**:
 
-- ``sync``         — Better BibTeX → ``references/notes/<citekey>.md``
+- ``sync``         — Better BibTeX → ``references/notes/<citekey>/_meta.md`` (layout α)
 - ``graph``        — grafo passivo de citação a partir de ``[[@key]]``
 - ``find``         — fuzzy lookup sobre `.bib` + notas
 - ``lint``         — auditoria de consistência (citekey ↔ nota ↔ pdf)

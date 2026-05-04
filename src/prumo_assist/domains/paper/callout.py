@@ -1,11 +1,12 @@
-"""Render e parse do callout estruturado escrito pela skill ``paper-extract``.
+"""Render do callout estruturado escrito pela skill ``paper-extract``.
 
 Migrado de ``paper_extract.py``. **Importante:** este módulo NÃO chama LLM.
 Ele só:
 
 - Parseia o template ``.claude/paper_extraction.md`` em seções.
 - Renderiza um callout Markdown delimitado a partir de ``dict[seção, texto]``.
-- Insere/atualiza o callout dentro de uma nota existente preservando o body.
+- Escreve o callout em ``references/notes/<key>/_extract.md`` (arquivo dedicado,
+  layout α) e atualiza ``extracted_*`` no ``_meta.md``.
 
 A extração propriamente dita (PDF → ``dict[seção, texto]``) acontece na skill,
 executada pelo agent-host. Esse módulo é a "metade Python" do contrato.
@@ -22,10 +23,6 @@ from prumo_assist.domains.paper.sync import FRONTMATTER_RE, read_nota_yaml, writ
 
 EXTRACT_BEGIN = "<!-- paper-extract:begin -->"
 EXTRACT_END = "<!-- paper-extract:end -->"
-CALLOUT_RE = re.compile(
-    rf"{re.escape(EXTRACT_BEGIN)}.*?{re.escape(EXTRACT_END)}",
-    flags=re.DOTALL,
-)
 
 
 @dataclass(frozen=True)
@@ -80,24 +77,6 @@ def render_callout(
     return "\n".join(lines)
 
 
-def read_callout(text: str) -> str | None:
-    """Retorna o bloco do callout (BEGIN..END) ou ``None`` se ausente."""
-    m = CALLOUT_RE.search(text)
-    return m.group(0) if m else None
-
-
-def write_callout(text: str, new_callout: str) -> str:
-    """Substitui o bloco existente ou insere logo após o frontmatter."""
-    if CALLOUT_RE.search(text):
-        return CALLOUT_RE.sub(new_callout, text, count=1)
-    fm = FRONTMATTER_RE.match(text)
-    if fm:
-        head = text[: fm.end()]
-        tail = text[fm.end() :]
-        return f"{head}\n{new_callout}\n{tail}"
-    return f"{new_callout}\n\n{text}"
-
-
 def hash_template(path: Path) -> str:
     """sha256[:12] do conteúdo do template — pra detectar staleness do callout."""
     h = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -105,47 +84,66 @@ def hash_template(path: Path) -> str:
 
 
 def apply_extraction(
-    nota_path: Path,
+    pj_path: Path,
+    citekey: str,
     template_path: Path,
     content: dict[str, str],
     model: str,
     date: str,
 ) -> bool:
-    """Aplica extração: renderiza callout, escreve na nota, atualiza YAML.
+    """Aplica extração: renderiza callout em ``_extract.md``, atualiza YAML do ``_meta.md``.
 
-    Retorna ``True`` se o arquivo de fato mudou, ``False`` se conteúdo idêntico.
-    Só atualiza ``extracted_at`` quando o conteúdo do callout efetivamente muda.
+    Retorna ``True`` se algum dos dois arquivos mudou; ``False`` se conteúdo idêntico.
+    Só atualiza ``extracted_at`` no `_meta.md` quando o callout efetivamente muda.
     """
+    from prumo_assist.core.note_paths import extract_path, meta_path
+
     sections = parse_extraction_template(template_path.read_text())
     new_callout = render_callout(sections, content, model, date)
 
-    text = nota_path.read_text()
-    m = FRONTMATTER_RE.match(text)
-    if not m:
-        raise ValueError(f"{nota_path} sem frontmatter.")
-    body = text[m.end() :]
+    extract_file = extract_path(pj_path, citekey)
+    extract_file.parent.mkdir(parents=True, exist_ok=True)
 
-    old_callout = read_callout(body)
-    if old_callout is not None and _callout_body_equal(old_callout, new_callout):
-        return False
+    new_extract_text = _compose_extract_file(citekey, new_callout, date)
 
-    new_body = write_callout(body, new_callout)
-    yaml_dict = read_nota_yaml(nota_path)
-    yaml_dict["extracted_at"] = date
-    yaml_dict["extracted_model"] = model
-    yaml_dict["extracted_template_hash"] = hash_template(template_path)
-    write_nota(nota_path, yaml_dict, new_body)
+    if extract_file.exists():
+        existing = extract_file.read_text()
+        if _extract_body_equal(existing, new_extract_text):
+            return False
+    extract_file.write_text(new_extract_text)
+
+    # Update extracted_* fields in _meta.md (if it exists)
+    meta_file = meta_path(pj_path, citekey)
+    if meta_file.exists():
+        yaml_dict = read_nota_yaml(meta_file)
+        text = meta_file.read_text()
+        m = FRONTMATTER_RE.match(text)
+        body = text[m.end() :] if m else text
+        yaml_dict["extracted_at"] = date
+        yaml_dict["extracted_model"] = model
+        yaml_dict["extracted_template_hash"] = hash_template(template_path)
+        write_nota(meta_file, yaml_dict, body)
     return True
 
 
-def _callout_body_equal(a: str, b: str) -> bool:
-    """Compara 2 callouts ignorando linha ``> **Gerado em:** ...`` (metadata).
+def _compose_extract_file(citekey: str, callout: str, date: str) -> str:
+    """Monta o conteúdo de _extract.md: YAML mínimo + callout."""
+    fm = (
+        f"---\n"
+        f"paper: {citekey}\n"
+        f"source: prumo-paper-extract\n"
+        f"generated_at: '{date}'\n"
+        f"---\n\n"
+    )
+    return fm + callout + "\n"
 
-    Justificativa: callout só deve ser considerado "mudou" se conteúdo
-    estrutural (seções) diferir — não se só a data do metadata mudou.
-    """
 
-    def strip_generated(s: str) -> str:
-        return re.sub(r"> \*\*Gerado em:\*\*[^\n]*\n", "", s)
+def _extract_body_equal(a: str, b: str) -> bool:
+    """Compara dois _extract.md ignorando linhas voláteis (`generated_at`, `Gerado em`)."""
 
-    return strip_generated(a) == strip_generated(b)
+    def strip_volatile(s: str) -> str:
+        s = re.sub(r"^generated_at:.*\n", "", s, flags=re.MULTILINE)
+        s = re.sub(r"> \*\*Gerado em:\*\*[^\n]*\n", "", s)
+        return s
+
+    return strip_volatile(a) == strip_volatile(b)

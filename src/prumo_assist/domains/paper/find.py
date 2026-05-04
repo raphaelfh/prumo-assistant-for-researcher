@@ -10,16 +10,22 @@ from pathlib import Path
 from typing import Any
 
 from prumo_assist.core.bib import extract_field, parse_bib
+from prumo_assist.core.note_paths import citekey_from_meta_path, iter_note_meta_files
 from prumo_assist.domains.paper.sync import read_nota_yaml
 
 
 def build_index(pj_path: Path) -> dict[str, dict[str, Any]]:
     """Índice ``{citekey: {title, author, year, tldr, role, status}}``."""
     bib = pj_path / "references" / "_references.bib"
-    notes_dir = pj_path / "references" / "notes"
     index: dict[str, dict[str, Any]] = {}
     if not bib.exists():
         return index
+
+    # Build a lookup from citekey → meta path (supports both α and legacy layouts)
+    meta_by_key = {
+        citekey_from_meta_path(p): p for p in iter_note_meta_files(pj_path)
+    }
+
     for entry in parse_bib(bib.read_text()):
         title = (extract_field(entry.body, "title") or "").strip()
         author = (extract_field(entry.body, "author") or "").strip()
@@ -33,8 +39,8 @@ def build_index(pj_path: Path) -> dict[str, dict[str, Any]]:
             "role": "",
             "status": "",
         }
-        nota = notes_dir / f"{entry.citekey}.md"
-        if nota.exists():
+        nota = meta_by_key.get(entry.citekey)
+        if nota is not None:
             yaml_dict = read_nota_yaml(nota)
             record["tldr"] = yaml_dict.get("tldr") or ""
             record["role"] = yaml_dict.get("role") or ""

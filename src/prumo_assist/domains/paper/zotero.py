@@ -1,10 +1,10 @@
-"""Sincroniza annotations + child notes do Zotero → ``references/notes/<citekey>.md``.
+"""Sincroniza annotations + child notes do Zotero → ``references/notes/<citekey>/_annotations.md``.
 
-Migrado de ``sync_zotero_annotations.py``. Comportamento preservado.
+Migrado de ``sync_zotero_annotations.py``. Layout α: cada paper tem uma pasta
+``references/notes/<citekey>/`` e as annotations vão pro arquivo dedicado
+``_annotations.md`` com YAML frontmatter próprio.
 
 Usa **stdlib apenas** pra não acrescentar dependência (``urllib`` cobre HTTP).
-Reescreve apenas o conteúdo entre os delimitadores ``BEGIN/END ZOTERO
-ANNOTATIONS`` em cada nota — texto fora dos delimitadores nunca é tocado.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from prumo_assist.core.bib import parse_bib
+from prumo_assist.core.note_paths import annotations_path, meta_path
 
 ZOTERO_BASE = "http://localhost:23119"
 BBT_RPC = f"{ZOTERO_BASE}/better-bibtex/json-rpc"
@@ -25,11 +26,6 @@ ZOTERO_API = f"{ZOTERO_BASE}/api"
 
 BEGIN = "<!-- BEGIN ZOTERO ANNOTATIONS -->"
 END = "<!-- END ZOTERO ANNOTATIONS -->"
-SECTION_HEADING = "## Anotações do Zotero"
-NOTICE = (
-    "_⚠ Bloco regenerado por `prumo paper sync-annotations`. "
-    "Edite no Zotero (não aqui) — alterações manuais serão perdidas no próximo sync._"
-)
 
 COLOR_EMOJI = {
     "#ffd400": "🟡",
@@ -207,7 +203,11 @@ def render_note(d: dict[str, Any]) -> list[str]:
 
 def render_block(annotations: list[dict[str, Any]], notes: list[dict[str, Any]]) -> str:
     """Conteúdo completo do bloco regenerável, incluindo BEGIN/END."""
-    lines = [BEGIN, "", NOTICE, ""]
+    _notice = (
+        "_⚠ Bloco regenerado por `prumo paper sync-annotations`. "
+        "Edite no Zotero (não aqui) — alterações manuais serão perdidas no próximo sync._"
+    )
+    lines = [BEGIN, "", _notice, ""]
     if not annotations and not notes:
         lines.append("_(sem anotações ou child notes no Zotero)_")
         lines.append("")
@@ -225,38 +225,35 @@ def render_block(annotations: list[dict[str, Any]], notes: list[dict[str, Any]])
 
 
 # ---------------------------------------------------------------------------
-# Upsert na nota
+# Compose dedicated annotations file
 # ---------------------------------------------------------------------------
 
-_BLOCK_RE = re.compile(
-    rf"{re.escape(SECTION_HEADING)}\s*\n+{re.escape(BEGIN)}.*?{re.escape(END)}\s*",
-    re.DOTALL,
-)
 
-
-def upsert_block(note_path: Path, block: str) -> str:
-    """Insere ou atualiza o bloco. Retorna ``inserted | updated | unchanged``."""
-    original = note_path.read_text(encoding="utf-8")
-    new_section = f"{SECTION_HEADING}\n\n{block}"
-    if _BLOCK_RE.search(original):
-        updated = _BLOCK_RE.sub(new_section, original)
-        if updated == original:
-            return "unchanged"
-        note_path.write_text(updated, encoding="utf-8")
-        return "updated"
-    sep = "\n\n" if not original.endswith("\n\n") else ""
-    if not original.endswith("\n"):
-        sep = "\n\n"
-    appended = original + sep + new_section
-    note_path.write_text(appended, encoding="utf-8")
-    return "inserted"
+def compose_annotations_file(
+    citekey: str,
+    annotations: list[dict[str, Any]],
+    notes: list[dict[str, Any]],
+) -> str:
+    """Conteúdo completo de _annotations.md: YAML + bloco delimitado."""
+    fm = (
+        f"---\n"
+        f"paper: {citekey}\n"
+        f"source: prumo-zotero-annotations\n"
+        f"---\n\n"
+    )
+    block = render_block(annotations, notes)
+    return fm + block
 
 
 def sync_annotations(pj_path: Path) -> dict[str, Any]:
-    """Sincroniza annotations do Zotero pra cada nota local.
+    """Sincroniza annotations do Zotero pra ``<key>/_annotations.md``.
 
     Pré-requisitos: Zotero 9 aberto + Better BibTeX instalado. Falha cedo
     com mensagem clara se faltar algum.
+
+    O diretório de anotações é garantido por ``_meta.md``: se ele existe,
+    o pai (``<key>/``) já existe e podemos escrever ``_annotations.md``
+    sem precisar de ``mkdir``. Reordenar o guard quebra essa invariante.
     """
     bib = pj_path / "references" / "_references.bib"
     notes_dir = pj_path / "references" / "notes"
@@ -272,15 +269,15 @@ def sync_annotations(pj_path: Path) -> dict[str, Any]:
 
     citekeys = [e.citekey for e in parse_bib(bib.read_text(encoding="utf-8"))]
     inserted = updated = unchanged = 0
-    no_note: list[str] = []
+    no_meta: list[str] = []
     no_resolve: list[str] = []
     no_children: list[str] = []
     errors: list[tuple[str, str]] = []
 
     for citekey in citekeys:
-        note_path = notes_dir / f"{citekey}.md"
-        if not note_path.exists():
-            no_note.append(citekey)
+        meta = meta_path(pj_path, citekey)
+        if not meta.exists():
+            no_meta.append(citekey)
             continue
         resolved = resolve_citekey(citekey)
         if not resolved:
@@ -293,26 +290,29 @@ def sync_annotations(pj_path: Path) -> dict[str, Any]:
             errors.append((citekey, str(exc)))
             continue
 
-        annotations, notes = split_children(children)
-        if not annotations and not notes:
+        annots, notes_lst = split_children(children)
+        if not annots and not notes_lst:
             no_children.append(citekey)
-            if BEGIN not in note_path.read_text(encoding="utf-8"):
-                continue
+            continue
 
-        block = render_block(annotations, notes)
-        result = upsert_block(note_path, block)
-        if result == "inserted":
-            inserted += 1
-        elif result == "updated":
+        new_text = compose_annotations_file(citekey, annots, notes_lst)
+        annot_file = annotations_path(pj_path, citekey)
+        if annot_file.exists():
+            old = annot_file.read_text(encoding="utf-8")
+            if old == new_text:
+                unchanged += 1
+                continue
+            annot_file.write_text(new_text, encoding="utf-8")
             updated += 1
         else:
-            unchanged += 1
+            annot_file.write_text(new_text, encoding="utf-8")
+            inserted += 1
 
     return {
         "inserted": inserted,
         "updated": updated,
         "unchanged": unchanged,
-        "no_note": no_note,
+        "no_meta": no_meta,
         "no_resolve": no_resolve,
         "no_children": no_children,
         "errors": errors,
