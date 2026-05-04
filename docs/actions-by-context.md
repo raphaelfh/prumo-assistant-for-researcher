@@ -116,19 +116,20 @@ tags: [journey, playbook]
 
 ### "Vou submeter pro CEP / Comitê de Ética em Pesquisa"
 *Documento brasileiro com estrutura específica (Plataforma Brasil, TCLE, riscos/benefícios).*
-1. *Skill futura* `/prumo-assist:write-projeto-cep` — usa `_extract.md` e `note__*.md` pra estruturar — em backlog *(spec separada)*.
-2. Hoje: editar à mão usando `docs/project.md` como base; consultar `_extract.md` dos papers pra metodologia ancorada.
-3. `prumo write export <doc>.md --to docx` pra entregar formatado.
+1. `/prumo-assist:write-projeto-cep` — gera draft completo a partir do PICOT + protocol.md.
+2. Revisar manualmente o TCLE (skill põe placeholder; conteúdo depende do cenário com/sem participante).
+3. `prumo write export <draft>.md --to docx` pra entregar formatado.
 
 ### "Vou montar artigo pra venue (NEJM/Lancet/Nature Med/...)"
-1. *Skill futura* `/prumo-assist:write-paper` — IMRaD venue-aware — em backlog.
-2. Hoje: `prumo write list-styles` confirma o CSL do venue.
-3. `prumo write export draft.md --to docx --style <venue>` (ou `pdf`/`typst`/`html`).
+1. `/prumo-assist:write-paper --venue=<NEJM|Lancet|...>` — gera draft IMRaD venue-aware.
+2. `prumo write list-styles` confirma o CSL do venue.
+3. `prumo write export draft.md --to docx --style <venue>`.
 4. Conferir bibliografia gerada antes de submeter.
 
 ### "Vou escrever a seção de métodos estatísticos"
-1. *Skill futura* `/prumo-assist:write-statistics` — plano de análise estatística + sample-size + métodos — em backlog.
-2. Hoje: agente `ml-theory-expert` ajuda a fundamentar; `_extract.md` dos papers traz a base ancorada.
+1. `/prumo-assist:write-statistics` — gera PAE completo (sample size, métricas, sensitivity).
+2. Conferir cálculo de sample size; ajustar effect size se necessário.
+3. Referenciar plano no project.md ou CEP via wikilink.
 
 ### "Tenho um capítulo composto por várias páginas"
 1. Criar `index.idx.md` com `pages: [...]` no frontmatter.

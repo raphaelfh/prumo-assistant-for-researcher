@@ -25,6 +25,10 @@ Arquitetura e princípios de design em [`ARCHITECTURE.md`](ARCHITECTURE.md); sta
 | `/prumo-assist:peer-review` | Revisão crítica substantiva (forças, fraquezas, claims sem evidência) em draft acadêmico. |
 | `/prumo-assist:formulate-picot` | Formaliza/propaga/versiona PICOT do projeto. Mantém canônico em `.claude/picot.toml` e renderiza blocos delimitados em `protocol.md`, `project.md`. Gera ADR `adr-NNNN-picot-v<N>` quando hipótese ou campo estrutural muda. Auto-detecta modo Socrático/Formalize/Propagate/Diff. |
 | `/prumo-assist:active-learning` | Tutor Socrático em 5 steps (recall → anchor → connect → apply → reflect) ancorado nas fontes do projeto. Sessão ad-hoc 15-25 min. Log estruturado em `docs/wiki/study-sessions/`. Pode arquivar insight como finding. |
+| `/prumo-assist:write-paper` | Gera draft de paper IMRaD venue-aware a partir do PICOT + papers do acervo. Citação strict; `[REF FALTANTE]` se acervo faltante. Default: `docs/drafts/paper-<data>-<slug>.md`. |
+| `/prumo-assist:write-projeto-cep` | Gera projeto pra CEP brasileiro (Resumo, Justificativa, Coorte, Riscos+benefícios, TCLE, Cronograma, Conformidade ética CNS 466/2012 + 510/2016). |
+| `/prumo-assist:write-statistics` | Gera Plano de Análise Estatística (PAE): outcome operacional, sample size, métricas, análises de sensibilidade, splits anti-leakage. |
+| `/prumo-assist:write-scientific` | Gera prose acadêmica genérica (1 seção, parágrafo isolado, expansão de seed text). Mais flexível das 4 skills `write-*`. |
 
 ### Agents
 
