@@ -21,7 +21,7 @@ def test_step_log_minimal() -> None:
 
 def test_step_log_invalid_step_name() -> None:
     with pytest.raises(ValidationError):
-        StepLog(step_name="invented", question="q", answer="a", feedback="f")
+        StepLog(step_name="invented", question="q", answer="a", feedback="f")  # type: ignore[arg-type]
 
 
 def test_session_log_starts_in_progress() -> None:
@@ -39,7 +39,7 @@ def test_session_log_completed_status() -> None:
 
 def test_session_log_invalid_status() -> None:
     with pytest.raises(ValidationError):
-        SessionLog(topic="x", date="2026-05-03", status="bogus")
+        SessionLog(topic="x", date="2026-05-03", status="bogus")  # type: ignore[arg-type]
 
 
 def test_session_log_schema_version() -> None:

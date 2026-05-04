@@ -75,11 +75,11 @@ tags: [journey, playbook]
 5. Conferir em `references/notes/<key>/_annotations.md` e `note__*.md`.
 
 ### "Quero estudar conceito X usando minhas próprias fontes"
-*Claude como tutor metacognitivo. Aprendizado ativo + repetição + gamificação.*
-1. `/prumo-assist:wiki-query "explique <conceito> usando o acervo"` — pergunta livre com fontes ancoradas.
-2. Iterar com perguntas de aprofundamento, marcação de pontos confusos.
-3. Agentes `ml-theory-expert` (teoria estatística/ML) e `stack-docs-researcher` (libs) pra ajuda específica.
-4. *Skill futura* `/prumo-assist:active-learning` orquestra ciclos de Q&A com repetição espaçada e gamificação — em backlog *(spec separada)*.
+*Claude como tutor metacognitivo. Sessão Socrática em 5 steps ancorada no acervo.*
+1. `/prumo-assist:active-learning <topic>` — skill conduz: Recall → Anchor → Connect → Apply → Reflect.
+2. Skill cria log em `docs/wiki/study-sessions/<topic>-<data>.md`.
+3. No step Reflect, skill oferece arquivar insight como finding.
+4. Citação strict — só citekeys do acervo. Refs faltantes viram `[REF FALTANTE]`.
 
 ### "Quero navegar pelas conexões do meu acervo"
 1. `prumo paper graph` — popula `cites:` no YAML de cada nota.

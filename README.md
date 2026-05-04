@@ -23,6 +23,7 @@ Arquitetura e princípios de design em [`ARCHITECTURE.md`](ARCHITECTURE.md); sta
 | `/prumo-assist:wiki-lint` | Health-check do wiki: páginas órfãs, citekeys quebradas, contradições, stale claims. |
 | `/prumo-assist:scientific-writing` | Passe editorial de escrita científica formal em draft Markdown/Quarto. Padroniza pontuação (sem travessão, dois-pontos ou ponto-e-vírgula no texto corrido), posiciona citação ao final do período, agrupa múltiplas citações sem vírgula entre wikilinks (`[[@a]] [[@b]] [[@c]]`) para fusão em campo único pelo normalizador de export, e atenua superlativos. |
 | `/prumo-assist:peer-review` | Revisão crítica substantiva (forças, fraquezas, claims sem evidência) em draft acadêmico. |
+| `/prumo-assist:active-learning` | Tutor Socrático em 5 steps (recall → anchor → connect → apply → reflect) ancorado nas fontes do projeto. Sessão ad-hoc 15-25 min. Log estruturado em `docs/wiki/study-sessions/`. Pode arquivar insight como finding. |
 
 ### Agents
 
