@@ -10,3 +10,11 @@ __pycache__/
 # coverage
 .coverage
 htmlcov/
+
+# Obsidian — UI/local state (per-machine, not vault config)
+docs/.obsidian/workspace.json
+docs/.obsidian/graph.json
+
+# Obsidian — accidental "Untitled" stubs
+docs/Untitled.*
+
