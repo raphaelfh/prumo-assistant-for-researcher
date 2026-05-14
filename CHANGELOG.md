@@ -7,6 +7,16 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **`docs/templates/` no scaffold `pj_base/`** — diretório com 4 modelos administrativos prontos para uso em qualquer estudo observacional em saúde, copiados na criação do projeto via `prumo init`:
+  - `Template submissão Plataforma Brasil.docx` — layout oficial do CEP/CONEP, usado como `--reference-doc` do `pandoc` para gerar o `.docx` final de submissão.
+  - `projeto-cep.md` — esqueleto Markdown da submissão CEP (alinhado com Resolução CNS 466/2012 e CONEP 580/2018).
+  - `data_dictionary_example.csv` — gabarito pipe-delimited (NAME · DEFINITION · MIN_OR_VALUES · MAX · UNIT · TYPE · WINDOW · SELECTION_RULE · AVAILABLE · NOTES) com convenções (UPPERCASE ≤10 chars, datas `YYYY-MM-DD`, decimal `.`, missing `NA`).
+  - `statistical_analysis_plan_skeleton.md` — esqueleto de SAP com seções pré-especificadas: princípios, populações de análise, descritiva, sobrevida (KM + Fine-Gray), longitudinais (spaghetti/Sankey), exploratórias, 6 análises de sensibilidade tipo, subgrupos, reporting (STROBE/RECORD/CONSORT/SPIRIT/TRIPOD-AI).
+  - `README.md` no diretório explica o fluxo: `cp templates/<X> docs/<Y>`, edição da cópia, geração do `.docx` final via `pandoc --reference-doc`.
+- `docs/_index.md` do scaffold lista o diretório `templates/` em seção dedicada "Administrative templates".
+
 ## [0.5.0] - 2026-05-04
 
 ### Adicionado

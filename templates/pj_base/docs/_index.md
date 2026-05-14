@@ -4,6 +4,15 @@ Catálogo **content-oriented** do wiki. Cada linha referencia uma página existe
 
 ---
 
+## Administrative templates
+
+Modelos prontos em [`templates/`](templates/README.md) — copie para `docs/` antes de preencher:
+
+- `templates/Template submissão Plataforma Brasil.docx` — reference-doc do pandoc para o `.docx` final do CEP
+- `templates/projeto-cep.md` — esqueleto da submissão CEP (Markdown)
+- `templates/data_dictionary_example.csv` — gabarito pipe-delimited do dicionário de variáveis
+- `templates/statistical_analysis_plan_skeleton.md` — esqueleto do SAP
+
 ## Entities
 
 _(modelos, datasets, coortes, ferramentas, instituições; 1 arquivo por item em `entities/`)_

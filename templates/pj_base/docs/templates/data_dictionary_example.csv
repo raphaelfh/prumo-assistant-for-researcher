@@ -1,0 +1,33 @@
+NAME|DEFINITION|MIN_OR_VALUES|MAX|UNIT|TYPE|WINDOW|SELECTION_RULE|AVAILABLE|NOTES
+ID|Anonymized patient identifier (deterministic hash of CPF; one row per patient in master table, multiple rows per patient in long-format tables)|||string|N/A|N/A|Yes|Required. No PII.
+IDX_DT|Index date (event/exam used as time-zero for analyses). Define operationally for the cohort.|YYYY-MM-DD|YYYY-MM-DD|date|baseline|computed|Yes|Required.
+ENTRY_DT|First eligible date the patient appears in the source database|YYYY-MM-DD|YYYY-MM-DD|date|baseline|first encounter|Yes|
+LAST_SEEN|Last appearance of patient in source database (proxy for administrative censor)|YYYY-MM-DD|YYYY-MM-DD|date|outcome|last encounter|Yes|Required for time-to-event analyses.
+DEATH_DT|Date of death (from mortality registry linkage when available)|YYYY-MM-DD|YYYY-MM-DD|date|outcome|event|"Maybe"|
+FU_STATUS|"Follow-up status: E (event), C (administrative censor), L (loss >12m)"|"E;C;L"|||outcome|computed|Yes|
+AGE|Age at index date|0|110|years|baseline|at index|Yes|Use complete years; never expose date of birth.
+SEX|"Biological sex: M (male), F (female), U (unknown)"|"M;F;U"|||baseline|at index|Yes|
+RACE|"Race/ethnicity per local classification (e.g., IBGE Brazilian: BRANCA, PRETA, PARDA, AMARELA, INDIGENA, SI)"|"BRANCA;PRETA;PARDA;AMARELA;INDIGENA;SI"|||baseline|at index|"Maybe"|"SI = sem informação. May be missing in private-network data."
+BMI|Body mass index (calculated)|10|80|kg/m²|baseline|nearest to index ±180/+360d|"Maybe"|Derived from WT/HT.
+WT|Body weight|20|300|kg|baseline|nearest to index ±180/+360d|"Maybe"|
+HT|Height|100|220|cm|baseline|nearest to index ±180/+360d|"Maybe"|
+REGION|Geographic region of care|enumerated|||baseline|at index|Yes|Adapt enumeration to country/system.
+STATE|State / federative unit of care|enumerated|||baseline|at index|Yes|
+COMORB|Charlson Comorbidity Index score|0|30|score|baseline|lookback 12m|"Maybe"|From ICD-10 in lookback window.
+COMORB_F|"JSON object with comorbidity flags (e.g., dm, htn, obesity, cvd, ckd, malig)"|"json"|||baseline|lookback 12m|"Maybe"|
+EXPOSURE_F|"Primary exposure flag (define operationally for the cohort)"|"0;1"|||baseline|at index|Yes|Replace with study-specific exposure variable.
+EXPOSURE_DT|Date of first exposure (when applicable)|YYYY-MM-DD|YYYY-MM-DD|date|baseline|first event|Yes|
+TX_REGIMEN|"Treatment regimen (study-specific): use abbreviation codes (e.g., TDF, ETV, COMB, NONE)"|enumerated|||long-format|first dispensation|"Maybe"|
+TX_START|Date of first treatment dispensation|YYYY-MM-DD|YYYY-MM-DD|date|long-format|first dispensation|"Maybe"|
+TX_END|Date of last treatment dispensation|YYYY-MM-DD|YYYY-MM-DD|date|long-format|last dispensation|"Maybe"|
+TX_DUR|Treatment duration|0|240|months|long-format|computed|"Maybe"|
+TX_ADHER|Treatment adherence as Medication Possession Ratio (days covered / period days)|0|1|ratio|long-format|computed|"Maybe"|MPR ≥0.80 conventionally adherent.
+HOSP_N|Number of hospitalizations during follow-up|0|100|count|long-format|computed|Yes|
+HOSP_DAYS|Total days hospitalized during follow-up|0|2000|days|long-format|computed|Yes|
+ICU_N|Number of ICU admissions during follow-up|0|50|count|long-format|computed|"Maybe"|
+ICU_DAYS|Total days in ICU during follow-up|0|365|days|long-format|computed|"Maybe"|
+ED_N|Number of emergency visits during follow-up|0|200|count|long-format|computed|"Maybe"|
+EXAM_N|Number of disease-relevant exams per year of follow-up|0|200|count/year|long-format|computed|Yes|
+OUTCOME_F|Primary outcome event flag (define operationally for the cohort)|"0;1"|||outcome|event window|Yes|
+OUTCOME_DT|Date of earliest evidence of primary outcome|YYYY-MM-DD|YYYY-MM-DD|date|outcome|first evidence|Yes|
+COHORT|Cohort assignment after filters (e.g., CHB, INIT, EXCL_AC; replace with study-specific labels)|enumerated|||cohort flag|computed|Yes|
