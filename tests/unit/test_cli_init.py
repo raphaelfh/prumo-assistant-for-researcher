@@ -31,14 +31,80 @@ def test_init_creates_project_structure(tmp_path: Path) -> None:
     assert (target / ".claude" / "pj_config.toml").is_file()
 
 
-def test_init_refuses_existing_dir_without_force(tmp_path: Path) -> None:
+def test_init_refuses_existing_dir_with_content_without_flag(tmp_path: Path) -> None:
     target = tmp_path / "pj_existing"
     target.mkdir()
-    result = runner.invoke(app, ["init", str(target)])
+    (target / "preexisting.txt").write_text("keep me")
+    result = runner.invoke(app, ["init", str(target), "--yes"])
     assert result.exit_code != 0
     # Rich pode quebrar linha se o terminal for estreito (CI roda em ~80 cols).
     # Normalizar whitespace antes de buscar o trecho canônico.
-    assert "já existe" in " ".join(result.output.split())
+    out = " ".join(result.output.split())
+    assert "já existe" in out
+
+
+def test_init_merge_preserves_existing_files(tmp_path: Path) -> None:
+    """`--merge` adiciona scaffold sem destruir arquivos do usuário."""
+    target = tmp_path / "pj_demo"
+    target.mkdir()
+    custom = target / "my_notebook.ipynb"
+    custom.write_text("custom user content")
+
+    result = runner.invoke(app, ["init", str(target), "--merge", "--json"])
+    assert result.exit_code == 0, result.output
+
+    # Arquivo customizado preservado.
+    assert custom.read_text() == "custom user content"
+    # Scaffold adicionado.
+    assert (target / "CLAUDE.md").is_file()
+    assert (target / "docs" / "_index.md").is_file()
+    assert (target / "docs" / "templates" / "README.md").is_file()
+
+    payload = json.loads(result.stdout)
+    assert payload["mode"] == "merge"
+    assert payload["files_copied"] > 0
+
+
+def test_init_merge_does_not_clobber_existing_scaffold_file(tmp_path: Path) -> None:
+    """Se o usuário já tem um CLAUDE.md customizado, `--merge` NÃO sobrescreve."""
+    target = tmp_path / "pj_demo"
+    target.mkdir()
+    claude_md = target / "CLAUDE.md"
+    claude_md.write_text("MY OWN CLAUDE.md — DO NOT TOUCH")
+
+    result = runner.invoke(app, ["init", str(target), "--merge", "--json"])
+    assert result.exit_code == 0, result.output
+    assert claude_md.read_text() == "MY OWN CLAUDE.md — DO NOT TOUCH"
+
+    payload = json.loads(result.stdout)
+    assert payload["files_skipped"] >= 1  # ao menos o CLAUDE.md foi pulado
+
+
+def test_init_merge_and_force_are_mutually_exclusive(tmp_path: Path) -> None:
+    target = tmp_path / "pj_x"
+    target.mkdir()
+    result = runner.invoke(app, ["init", str(target), "--merge", "--force", "--json"])
+    assert result.exit_code != 0
+    out = " ".join(result.output.split())
+    assert "mutuamente exclusivos" in out
+
+
+def test_init_rejects_invalid_prefix(tmp_path: Path) -> None:
+    target = tmp_path / "my_project"  # falta o prefixo srpj_/pj_
+    result = runner.invoke(app, ["init", str(target), "--yes"])
+    assert result.exit_code != 0
+
+
+def test_init_force_overwrites_existing_content(tmp_path: Path) -> None:
+    target = tmp_path / "pj_force"
+    target.mkdir()
+    (target / "old.txt").write_text("delete me")
+    result = runner.invoke(app, ["init", str(target), "--force", "--json"])
+    assert result.exit_code == 0, result.output
+    assert not (target / "old.txt").exists()
+    assert (target / "CLAUDE.md").is_file()
+    payload = json.loads(result.stdout)
+    assert payload["mode"] == "force"
 
 
 def test_doctor_on_fresh_project_passes(tmp_path: Path) -> None:

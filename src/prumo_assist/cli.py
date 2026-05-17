@@ -7,7 +7,8 @@ Aqui só tem: parsing de args, chamada da função certa, formatação de saída
 Comandos disponíveis no PR0 (fundação):
 
 - ``prumo --version`` — mostra a versão
-- ``prumo init <project>`` — cria estrutura de ``pj_*`` a partir do template
+- ``prumo init [project]`` — cria estrutura de ``pj_*`` a partir do template
+  (wizard interativo se ``project`` for omitido)
 - ``prumo doctor [path]`` — health-check do projeto e das skills instaladas
 
 Subcomandos por domínio (``prumo paper ...``, ``prumo wiki ...``, ...) entram
@@ -17,12 +18,15 @@ forem implementados.
 
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 from pathlib import Path
 from typing import Annotated
 
 import typer
+from rich.panel import Panel
+from rich.text import Text
 
 from prumo_assist import (
     IntegrationError,
@@ -80,46 +84,339 @@ def main(
 # ---------------------------------------------------------------------------
 
 
+# Modos de criação do pj_*. Mantém ordem de exibição no wizard.
+MODE_NEW = "new"
+MODE_MERGE = "merge"
+MODE_FORCE = "force"
+
+_VALID_PREFIXES = ("srpj_", "pj_")
+_NAME_RE = re.compile(r"^[a-z0-9_]+$")
+
+
 def _resolve_template_dir() -> Path:
     """Localiza ``templates/pj_base/`` (instalado ou worktree)."""
     return resolve_resource("templates") / "pj_base"
 
 
+def _resolve_skills_dir() -> Path | None:
+    """Localiza ``skills/`` da fonte (raiz do plugin) ou retorna ``None``."""
+    return find_resource("skills")
+
+
+def _validate_project_name(raw: str) -> tuple[Path, str]:
+    """Normaliza e valida o nome do projeto.
+
+    Aceita: ``srpj_x``, ``pj_x``, ``./srpj_x``, ``/tmp/srpj_x``.
+    Rejeita: nomes sem prefixo válido, caracteres inválidos.
+
+    Retorna ``(absolute_path, basename)``.
+    """
+    target = Path(raw).resolve()
+    name = target.name
+    if not name.startswith(_VALID_PREFIXES):
+        raise typer.BadParameter(
+            f"Nome do projeto deve começar com {' ou '.join(_VALID_PREFIXES)} "
+            f"(recebido: {name!r})."
+        )
+    if not _NAME_RE.match(name):
+        raise typer.BadParameter(
+            f"Nome do projeto deve usar apenas [a-z0-9_] (recebido: {name!r})."
+        )
+    return target, name
+
+
+def _is_dir_empty(p: Path) -> bool:
+    """``True`` se o diretório não existe ou só tem arquivos ``.DS_Store``-like."""
+    if not p.exists():
+        return True
+    if not p.is_dir():
+        return False
+    for child in p.iterdir():
+        if child.name in {".DS_Store", "Thumbs.db"}:
+            continue
+        return False
+    return True
+
+
+def _merge_scaffold(template: Path, target: Path) -> tuple[list[str], list[str]]:
+    """Copia ``template/*`` para ``target/`` sem sobrescrever.
+
+    Retorna ``(copied, skipped)`` com paths relativos ao target. Cria
+    diretórios faltantes; ignora arquivos cujo destino já existe.
+    """
+    copied: list[str] = []
+    skipped: list[str] = []
+    for src in template.rglob("*"):
+        rel = src.relative_to(template)
+        dst = target / rel
+        if src.is_dir():
+            dst.mkdir(parents=True, exist_ok=True)
+            continue
+        if dst.exists():
+            skipped.append(str(rel))
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        copied.append(str(rel))
+    return copied, skipped
+
+
+def _render_banner(console: Console) -> None:
+    """Banner Rich estilo Speckit para abrir o wizard interativo."""
+    if console.json_mode:
+        return
+    body = Text.assemble(
+        ("prumo init  ", "bold cyan"),
+        (f"v{__version__}\n", "dim"),
+        ("Knowledge, bibliography & writing scaffold\n", ""),
+        ("for clinical research projects.", "dim"),
+    )
+    console._rich.print(Panel(body, border_style="cyan", padding=(0, 2)))  # type: ignore[attr-defined]
+
+
+def _render_next_steps(console: Console, target: Path, mode: str) -> None:
+    """Mostra passos seguintes — invocado após sucesso, ignorado em JSON."""
+    if console.json_mode:
+        return
+    rel = target.name
+    console._rich.print()  # type: ignore[attr-defined]
+    console._rich.print("[bold]Próximos passos:[/bold]")  # type: ignore[attr-defined]
+    console._rich.print(f"  [cyan]cd {rel}[/cyan]")  # type: ignore[attr-defined]
+    if mode == MODE_NEW:
+        console._rich.print(  # type: ignore[attr-defined]
+            "  Edite [cyan]CLAUDE.md[/cyan] e [cyan].claude/rules/project_context.md[/cyan]"
+        )
+        console._rich.print(  # type: ignore[attr-defined]
+            "  Quando tiver papers no Zotero: [cyan]/prumo-assist:paper-manager sync[/cyan]"
+        )
+    elif mode == MODE_MERGE:
+        console._rich.print(  # type: ignore[attr-defined]
+            "  Revise as diferenças no [cyan]git status[/cyan] — arquivos existentes foram preservados."
+        )
+        console._rich.print(  # type: ignore[attr-defined]
+            "  Veja [cyan]docs/templates/README.md[/cyan] para usar os modelos administrativos."
+        )
+    else:  # MODE_FORCE
+        console._rich.print(  # type: ignore[attr-defined]
+            "  [yellow]Conteúdo anterior foi substituído.[/yellow] Confira [cyan]git status[/cyan]."
+        )
+
+
+def _wizard(console: Console, default_target: str | None = None) -> dict[str, object]:
+    """Wizard interativo Speckit-style. Retorna respostas do usuário."""
+    _render_banner(console)
+    # 1. Nome do projeto
+    name = typer.prompt(
+        "Nome do projeto (ex.: srpj_my_study)",
+        default=default_target or "srpj_",
+    )
+    target, _ = _validate_project_name(name)
+
+    # 2. Modo
+    if target.exists() and not _is_dir_empty(target):
+        console._rich.print(  # type: ignore[attr-defined]
+            f"\n[yellow]⚠[/yellow]  [bold]{target}[/bold] já existe e tem conteúdo."
+        )
+        console._rich.print("Como prosseguir?\n")
+        console._rich.print(  # type: ignore[attr-defined]
+            "  [bold cyan]1)[/bold cyan] Merge — preserva seus arquivos, adiciona só o que falta [dim](recomendado)[/dim]"
+        )
+        console._rich.print("  [bold cyan]2)[/bold cyan] Force — apaga tudo e recria do zero [red](destrutivo)[/red]")  # type: ignore[attr-defined]
+        console._rich.print("  [bold cyan]3)[/bold cyan] Cancelar\n")
+        choice = typer.prompt("Escolha [1/2/3]", default="1")
+        if choice.strip() == "3":
+            raise typer.Abort()
+        mode = MODE_MERGE if choice.strip() == "1" else MODE_FORCE
+        if mode == MODE_FORCE:
+            confirm = typer.confirm(
+                f"Confirma DELETAR tudo em {target}?", default=False
+            )
+            if not confirm:
+                raise typer.Abort()
+    else:
+        mode = MODE_NEW
+
+    # 3. Integrações (multi-select simplificado)
+    available = list(INTEGRATIONS.keys())
+    console._rich.print()  # type: ignore[attr-defined]
+    if len(available) <= 1:
+        integrations = available
+    else:
+        console._rich.print("[bold]Integrações disponíveis:[/bold]")  # type: ignore[attr-defined]
+        for i, key in enumerate(available, 1):
+            console._rich.print(f"  [cyan]{i})[/cyan] {key}")  # type: ignore[attr-defined]
+        raw = typer.prompt(
+            "Quais instalar? (números separados por vírgula, ou 'all')",
+            default="1" if len(available) >= 1 else "",
+        )
+        if raw.strip().lower() == "all":
+            integrations = available
+        else:
+            try:
+                idxs = [int(x.strip()) - 1 for x in raw.split(",") if x.strip()]
+                integrations = [available[i] for i in idxs if 0 <= i < len(available)]
+            except ValueError:
+                integrations = ["claude_code"] if "claude_code" in available else available[:1]
+
+    # 4. git init (apenas se MODE_NEW)
+    init_git = False
+    if mode == MODE_NEW:
+        init_git = typer.confirm("Inicializar repositório git?", default=True)
+
+    return {
+        "target": target,
+        "mode": mode,
+        "integrations": integrations,
+        "init_git": init_git,
+    }
+
+
+def _init_git_repo(target: Path) -> bool:
+    """Roda ``git init`` no target. Retorna True se sucesso."""
+    if (target / ".git").exists():
+        return False
+    import subprocess
+
+    try:
+        subprocess.run(
+            ["git", "init", "--quiet"],
+            cwd=target,
+            check=True,
+            capture_output=True,
+        )
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+
 @app.command("init")
 def init_command(
-    project: Annotated[str, typer.Argument(help="Nome do diretório do pj_* a criar.")],
+    project: Annotated[
+        str | None,
+        typer.Argument(
+            help="Nome do diretório do pj_* a criar. Omita para wizard interativo.",
+        ),
+    ] = None,
     integration: Annotated[
-        list[str],
+        list[str] | None,
         typer.Option(
             "--integration",
             "-i",
             help="Adapter de agent-host a configurar. Pode repetir. Default: claude_code.",
         ),
-    ] = ["claude_code"],
+    ] = None,
     json_mode: Annotated[
         bool, typer.Option("--json", help="Saída em JSON pra scripts/notebooks.")
     ] = False,
     force: Annotated[
         bool,
-        typer.Option("--force", help="Sobrescreve diretório existente (cuidado)."),
+        typer.Option(
+            "--force",
+            "-f",
+            help="Apaga o destino e recria do zero (DESTRUTIVO).",
+        ),
     ] = False,
+    merge: Annotated[
+        bool,
+        typer.Option(
+            "--merge",
+            "-m",
+            help="Mescla scaffold em diretório existente sem sobrescrever arquivos.",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Não-interativo: aceita defaults e pula wizard (útil em CI).",
+        ),
+    ] = False,
+    init_git: Annotated[
+        bool,
+        typer.Option(
+            "--git/--no-git",
+            help="Inicializa git no novo projeto (modo não-interativo; default: True).",
+        ),
+    ] = True,
 ) -> None:
-    """Cria um novo projeto ``pj_*`` a partir do template e instala skills."""
-    console = Console(json_mode=json_mode)
-    target = Path(project).resolve()
+    """Cria um novo projeto ``pj_*`` a partir do template e instala skills.
 
-    if target.exists() and not force:
-        console.error(f"{target} já existe. Use --force pra sobrescrever.")
+    Modos:
+
+    \b
+    - ``prumo init`` (sem args, TTY) → wizard interativo (Speckit-style)
+    - ``prumo init srpj_x`` → cria do zero (erro se já existir)
+    - ``prumo init srpj_x --merge`` → mescla sem sobrescrever existentes
+    - ``prumo init srpj_x --force`` → apaga e recria (DESTRUTIVO)
+    - ``prumo init srpj_x --yes`` → não-interativo (CI)
+    """
+    console = Console(json_mode=json_mode)
+
+    if force and merge:
+        console.error("--force e --merge são mutuamente exclusivos.")
+        raise typer.Exit(code=2)
+
+    # Decide se vai pro wizard ou modo direto.
+    interactive = (
+        project is None
+        and not yes
+        and not json_mode
+        and sys.stdin.isatty()
+    )
+
+    if interactive:
+        try:
+            answers = _wizard(console)
+        except typer.Abort:
+            console.warn("Cancelado.")
+            raise typer.Exit(code=130)  # 130 = SIGINT convention
+        target = answers["target"]  # type: ignore[assignment]
+        mode = answers["mode"]
+        integration_list = list(answers["integrations"])  # type: ignore[arg-type]
+        init_git_flag = bool(answers["init_git"])
+    else:
+        if project is None:
+            console.error("Informe o nome do projeto ou rode em terminal interativo (TTY).")
+            raise typer.Exit(code=2)
+        target, _ = _validate_project_name(project)
+        integration_list = integration or ["claude_code"]
+        init_git_flag = init_git
+        if merge:
+            mode = MODE_MERGE
+        elif force:
+            mode = MODE_FORCE
+        else:
+            mode = MODE_NEW
+
+    # Validações de existência conforme modo.
+    if mode == MODE_NEW and target.exists() and not _is_dir_empty(target):
+        console.error(
+            f"{target} já existe e tem conteúdo. Use --merge (preservar) ou --force (apagar)."
+        )
         raise typer.Exit(code=1)
 
     try:
         template = _resolve_template_dir()
-        if target.exists() and force:
-            shutil.rmtree(target)
-        shutil.copytree(template, target)
+        copied: list[str] = []
+        skipped: list[str] = []
 
-        # Instala skills via integrations escolhidas (modo tolerante:
-        # uma skill com YAML quebrado não bloqueia init do projeto).
+        if mode == MODE_FORCE and target.exists():
+            shutil.rmtree(target)
+
+        if mode == MODE_MERGE:
+            target.mkdir(parents=True, exist_ok=True)
+            copied, skipped = _merge_scaffold(template, target)
+        else:  # MODE_NEW or MODE_FORCE
+            shutil.copytree(template, target)
+            copied = [str(p.relative_to(template)) for p in template.rglob("*") if p.is_file()]
+
+        # git init (somente em MODE_NEW por default; merge não toca git existente).
+        git_initialized = False
+        if mode == MODE_NEW and init_git_flag:
+            git_initialized = _init_git_repo(target)
+
+        # Instala skills via integrations escolhidas (modo tolerante).
         skills_dir = _resolve_skills_dir()
         registry = None
         if skills_dir is not None:
@@ -128,7 +425,7 @@ def init_command(
                 console.warn(f"skill ignorada: {w}")
 
         installed_summary: list[dict[str, object]] = []
-        for key in integration:
+        for key in integration_list:
             cls = INTEGRATIONS.get(key)
             if cls is None:
                 console.warn(f"Integration '{key}' desconhecida; ignorada.")
@@ -151,19 +448,25 @@ def init_command(
         payload = {
             "project": str(target),
             "template": str(template),
+            "mode": mode,
+            "files_copied": len(copied),
+            "files_skipped": len(skipped),
+            "git_initialized": git_initialized,
             "integrations": installed_summary,
             "version": __version__,
         }
-        console.success(f"Projeto criado em {target}")
+
+        verb = {MODE_NEW: "criado", MODE_MERGE: "mesclado", MODE_FORCE: "recriado"}[mode]
+        console.success(f"Projeto {verb} em {target}")
+        if mode == MODE_MERGE and not json_mode:
+            console.info(
+                f"  [dim]{len(copied)} arquivo(s) novo(s), {len(skipped)} já existiam (preservados).[/dim]"
+            )
         console.emit(payload)
+        _render_next_steps(console, target, mode)
     except PrumoError as e:
         console.error(str(e))
         raise typer.Exit(code=1) from e
-
-
-def _resolve_skills_dir() -> Path | None:
-    """Localiza ``skills/`` da fonte (raiz do plugin) ou retorna ``None``."""
-    return find_resource("skills")
 
 
 # ---------------------------------------------------------------------------

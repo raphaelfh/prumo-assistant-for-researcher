@@ -7,11 +7,36 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.6.0] - 2026-05-17
+
 ### Adicionado
 
-- **`docs/templates/` no scaffold `pj_base/`** — diretório com 4 modelos administrativos prontos para uso em qualquer estudo observacional em saúde, copiados na criação do projeto via `prumo init`:
+- **`prumo init --merge`** — mescla o scaffold em diretório existente **sem sobrescrever** arquivos do usuário. Cria diretórios faltantes, copia apenas arquivos cujo destino não existe; preserva notebooks, dados, customizações de `CLAUDE.md`, etc. Mutuamente exclusivo com `--force`.
+- **Wizard interativo Speckit-style em `prumo init`** — quando rodado sem argumento e em TTY, abre fluxo guiado:
+  1. Banner Rich com versão e descrição
+  2. Prompt do nome (validação de prefixo `srpj_`/`pj_` + `[a-z0-9_]` only)
+  3. **Detecção automática** de diretório existente → oferece menu Merge / Force / Cancelar (com confirmação adicional para Force)
+  4. Seleção numerada de integrações
+  5. `git init` opcional (apenas em modo new)
+  6. Próximos passos contextualizados ao modo (new/merge/force)
+- **`prumo init --yes` / `-y`** — modo não-interativo para CI: aceita defaults e pula o wizard mesmo em TTY.
+- **`prumo init --git` / `--no-git`** — controla `git init` no modo não-interativo (default `--git`).
+- **`prumo init -f`** — alias curto de `--force`; **`prumo init -m`** — alias de `--merge`.
+- **Validação de nome do projeto** — rejeita prefixos inválidos (deve começar com `srpj_` ou `pj_`) e caracteres fora de `[a-z0-9_]`; mensagens de erro acionáveis.
+- **Output JSON enriquecido em `prumo init --json`**: agora inclui `mode` (`new`/`merge`/`force`), `files_copied`, `files_skipped`, `git_initialized` — útil para pipelines CI/CD que parseiam o resultado.
+
+### Mudado
+
+- **`prumo init <project>` (sem flags) agora aceita diretórios vazios** (ou só com `.DS_Store`/`Thumbs.db`) como destino válido, evitando o erro "já existe" em casos comuns como `mkdir srpj_x && cd srpj_x && prumo init .`.
+- A mensagem de erro de "diretório já existe com conteúdo" agora **sugere as flags `--merge` e `--force`** com o trade-off de cada uma.
+- Argumento `project` agora é **opcional** (default `None`) para habilitar o wizard interativo.
+
+### Anteriormente em [Não publicado] — promovido a 0.6.0
+
+- **`docs/templates/` no scaffold `pj_base/`** — diretório com 5 modelos administrativos prontos para uso em qualquer estudo observacional em saúde, copiados na criação do projeto via `prumo init`:
   - `Template submissão Plataforma Brasil.docx` — layout oficial do CEP/CONEP, usado como `--reference-doc` do `pandoc` para gerar o `.docx` final de submissão.
   - `projeto-cep.md` — esqueleto Markdown da submissão CEP (alinhado com Resolução CNS 466/2012 e CONEP 580/2018).
+  - `data_dictionary_skeleton.md` — esqueleto Markdown do dicionário em **duas camadas** (extração fornecedor→nós + engineered features ancoradas em `[[citekey]]`).
   - `data_dictionary_example.csv` — gabarito pipe-delimited (NAME · DEFINITION · MIN_OR_VALUES · MAX · UNIT · TYPE · WINDOW · SELECTION_RULE · AVAILABLE · NOTES) com convenções (UPPERCASE ≤10 chars, datas `YYYY-MM-DD`, decimal `.`, missing `NA`).
   - `statistical_analysis_plan_skeleton.md` — esqueleto de SAP com seções pré-especificadas: princípios, populações de análise, descritiva, sobrevida (KM + Fine-Gray), longitudinais (spaghetti/Sankey), exploratórias, 6 análises de sensibilidade tipo, subgrupos, reporting (STROBE/RECORD/CONSORT/SPIRIT/TRIPOD-AI).
   - `README.md` no diretório explica o fluxo: `cp templates/<X> docs/<Y>`, edição da cópia, geração do `.docx` final via `pandoc --reference-doc`.
