@@ -124,7 +124,13 @@ tags: [journey, playbook]
 1. `/prumo-assist:write-paper --venue=<NEJM|Lancet|...>` — gera draft IMRaD venue-aware.
 2. `prumo write list-styles` confirma o CSL do venue.
 3. `prumo write export draft.md --to docx --style <venue>`.
-4. Conferir bibliografia gerada antes de submeter.
+   - **Pré-requisito (docx):** Zotero + Better BibTeX rodando com a janela
+     principal do Zotero aberta e uma biblioteca selecionada na sidebar.
+     Para itens em grupos, adicionar `zotero: {library: "<Nome>"}` no
+     frontmatter do `.md`. As citações saem como campos vivos do plugin
+     do Word — clicar `Refresh` no plugin materializa as citações e a
+     bibliografia (se a `.md` tiver `::: {#refs} :::`).
+4. No Word: aba Zotero → `Refresh` → revisar bibliografia antes de submeter.
 
 ### "Vou escrever a seção de métodos estatísticos"
 1. `/prumo-assist:write-statistics` — gera PAE completo (sample size, métricas, sensitivity).

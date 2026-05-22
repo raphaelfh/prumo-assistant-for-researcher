@@ -7,6 +7,55 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Mudado
+
+- **`prumo write export --to docx` agora gera citações vivas do Zotero**
+  editáveis pelo plugin do Word (campos `ADDIN ZOTERO_ITEM CSL_CITATION` +
+  `ADDIN ZOTERO_BIBL CSL_BIBLIOGRAPHY`), em vez de texto plano renderizado
+  por `--citeproc`. O pipeline docx agora chama Pandoc com
+  `--lua-filter=zotero.lua --lua-filter=zotero_bibliography_docx.lua
+  --metadata=zotero_csl_style:<style>` e abandona `--bibliography`/`--csl`
+  (o filtro busca metadata direto do Zotero via JSON-RPC do Better BibTeX).
+  Formatos `html`/`typst`/`pdf` continuam com `--citeproc` + CSL local.
+  Pré-requisitos: Zotero + Better BibTeX rodando em `127.0.0.1:23119` e
+  a janela principal do Zotero aberta com uma biblioteca selecionada na
+  sidebar (limitação do `Serializer.serialize()` do BBT, que chama
+  `getActiveZoteroPane()`). Para itens em grupos do Zotero, adicionar
+  `zotero: {library: "<Nome do Grupo>"}` no frontmatter do `.md`.
+- **Templates de escrita co-localizados nas skills `write-*`.** `templates/writing/{paper,projeto-cep,scientific,statistics}.md` agora vivem em `skills/write-<kind>/template.md`, alinhando com a recomendação atual de [Anthropic Agent Skills](https://code.claude.com/docs/en/skills) ("each skill is a directory with supporting files bundled inside"). O resolver `prumo_assist.domains.write.compose.resolve_template` foi atualizado e a wheel agora empacota também `skills/` em `prumo_assist/_skills/`. Override por projeto continua em `<pj>/.claude/writing_templates/<kind>.md`.
+- **Frontmatter das 13 skills modernizado** para o spec atual:
+  - `when_to_use` separado do `description` (gatilhos de invocação em campo próprio).
+  - `allowed-tools` declarado por skill (pre-aprova ferramentas comuns sem prompt de permissão).
+  - `argument-hint` para autocomplete do `/`.
+  - Namespace `prumo:` padronizado em todas as skills (version, schema, determinism, agent_compat, cost_estimate, inputs).
+- **`formulate-picot` enxugada** (247 → 159 linhas no SKILL.md). Operações 3 (`propagate`) e 4 (`diff`) migradas para `skills/formulate-picot/references/operations-advanced.md` — carregadas só quando o auto-detect aponta para esses modos.
+
+### Adicionado
+
+- **`prumo_assist/_filters/zotero.lua`** — filtro vendored do Better BibTeX
+  ([upstream](https://retorque.re/zotero-better-bibtex/exporting/pandoc/),
+  rev `199d652`, 54 KB). Atualizar com `curl -L https://raw.githubusercontent.com/retorquere/zotero-better-bibtex/master/site/content/exporting/zotero.lua -o src/prumo_assist/_filters/zotero.lua`.
+- **`prumo_assist/_filters/zotero_bibliography_docx.lua`** — filtro
+  companheiro que injeta o campo `ADDIN ZOTERO_BIBL` no docx onde houver
+  `::: {#refs} :::`, fechando uma lacuna do upstream (que só emite o
+  marcador de bibliografia para ODT). Sem isso, o usuário precisaria
+  clicar manualmente "Add/Edit Bibliography" no Word a cada export.
+- **`ZoteroNotRunningError` / `ZoteroCitekeyNotFoundError`** em
+  `prumo_assist.domains.write.export` — promovem warnings silenciosos do
+  filtro Lua a erros acionáveis com mensagens específicas para as três
+  causas-raiz típicas (BBT offline, painel do Zotero inativo, citekey
+  ausente da biblioteca ativa).
+- **`tests/unit/write/test_export_pandoc_cmd.py`** — 17 testes cobrindo
+  roteamento de formato em `_build_pandoc_cmd`, resolução dos filtros
+  Lua vendored, e as três condições de erro detectadas por
+  `_assert_no_missing_citekeys`.
+- **`skills/formulate-picot/scripts/`** — 3 scripts Python testáveis substituem blocos `python3 -c '…'` inline:
+  - `detect_mode.py` — auto-detect do modo (init/formalize/propagate/diff).
+  - `init_picot.py` — lê PicotSpec JSON via stdin e grava `picot.toml` + propaga + cria ADR-0001.
+  - `diff_and_adr.py` — gera ADR-N a partir de mudança estrutural já bumpada na TOML.
+- **`skills/active-learning/scripts/`** — 5 scripts (`slug.py`, `create_log.py`, `append_step.py`, `archive_finding.py`, `finalize_session.py`) — substituem os blocos Python inline que rodavam helpers de `prumo_assist.domains.wiki.*`.
+- **`skills/peer-review/examples/sample_report.json`** — exemplo concreto do schema `PeerReviewReport/v1` para guiar a saída.
+
 ## [0.6.0] - 2026-05-17
 
 ### Adicionado
