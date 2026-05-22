@@ -1,6 +1,12 @@
 ---
 name: write-paper
-description: "Gera draft de paper acadêmico IMRaD (Introduction-Methods-Results-Discussion) venue-aware a partir do PICOT do projeto, callouts _extract.md dos papers cited, protocol.md e project.md. Citação strict — só citekeys do acervo + [REF FALTANTE]. Default: docs/drafts/paper-<data>-<slug>.md; --into <path> insere bloco delimitado em arquivo existente; --out <path> escreve livre. Invocar quando o usuário pedir 'escreve um draft do meu paper', 'gera o paper sobre X', 'rascunho IMRaD pra Y', 'me ajuda a começar o draft'..."
+description: "Gera draft de paper IMRaD venue-aware a partir do PICOT, callouts _extract.md, protocol.md e project.md, com citação strict do acervo ([REF FALTANTE] quando ausente)."
+when_to_use: |
+  Quando o usuário pedir "escreve um draft do meu paper", "gera o paper sobre X",
+  "rascunho IMRaD pra Y", "me ajuda a começar o draft", ou ao fechar PICOT e
+  querer iniciar o draft.
+argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH] [--venue NAME]"
+allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *)
 prumo:
   version: 1.0.0
   schema: WriteOutput/v1
@@ -18,10 +24,11 @@ prumo:
 
 # Write Paper — IMRaD venue-aware
 
-Você é um pesquisador clínico de ML escrevendo paper acadêmico. Use o template
-default (ou o que o usuário passar via `--template`). Para cada section,
-preencha conforme as instruções HTML comments dentro do template, usando os
-inputs estruturados do projeto.
+Você é um pesquisador clínico de ML escrevendo paper acadêmico. Template default
+co-localizado: [`./template.md`](template.md). Override por projeto:
+`<pj>/.claude/writing_templates/paper.md`. Override ad-hoc: `--template <path>`.
+Para cada section, preencha conforme as instruções HTML comments dentro do
+template, usando os inputs estruturados do projeto.
 
 ## Regras invioláveis
 

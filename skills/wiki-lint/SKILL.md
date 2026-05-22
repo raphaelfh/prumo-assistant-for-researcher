@@ -1,6 +1,20 @@
 ---
 name: wiki-lint
-description: Health-check do wiki de um pj_* — detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos citados mas sem página própria, e gaps de cross-referência. Gera relatório timestamped em docs/findings/_lint_<data>.md e anexa entrada em docs/_log.md. Invocar quando o usuário pedir "audite o wiki", "health check", "encontre páginas órfãs", "o wiki está consistente?", "o que está quebrado?", ou periodicamente após ingests em lote.
+description: "Health-check do wiki de um pj_*: detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos sem página, links mortos, prefixo de log inválido, múltiplos role:primary. Gera relatório timestamped em docs/findings/_lint_<data>.md."
+when_to_use: |
+  Quando o usuário pedir "audite o wiki", "health check", "encontre páginas órfãs",
+  "o wiki está consistente?", "o que está quebrado?", ou periodicamente após
+  ingests em lote.
+argument-hint: "[--quick]"
+allowed-tools: Read Write Edit Glob Grep Bash(rg *)
+prumo:
+  version: 1.0.0
+  schema: WikiLintReport/v1
+  determinism: hybrid
+  agent_compat: [claude-code]
+  cost_estimate: ~5-20k tokens (depende do tamanho do wiki)
+  inputs:
+    quick: optional (pula análises LLM-based)
 ---
 
 # Wiki Lint — auditar consistência do wiki

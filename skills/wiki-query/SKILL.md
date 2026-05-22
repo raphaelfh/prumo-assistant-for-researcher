@@ -1,6 +1,20 @@
 ---
 name: wiki-query
-description: Responde uma pergunta ancorada no wiki do pj_* ativo (docs/ + references/) usando qmd + leitura de páginas, sempre com citações. Oferece arquivar a resposta como novo finding em docs/findings/ quando for útil. Invocar quando o usuário perguntar "o que a literatura diz sobre X", "compare Y e Z", "gere tabela comparativa", "resuma os achados sobre W", "quais decisões tomamos sobre Z", ou qualquer pergunta aberta cujo contexto esteja no wiki. NÃO é a skill para perguntas de código — use as skills específicas de domínio.
+description: "Responde pergunta ancorada no wiki do pj_* (docs/ + references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [[@citekeys]]). Oferece arquivar a resposta como finding em docs/findings/ quando útil. NÃO é para perguntas de código."
+when_to_use: |
+  Quando o usuário perguntar "o que a literatura diz sobre X", "compare Y e Z",
+  "gere tabela comparativa", "resuma os achados sobre W", "quais decisões
+  tomamos sobre Z", ou qualquer pergunta aberta cujo contexto esteja no wiki.
+argument-hint: "<pergunta>"
+allowed-tools: Read Glob Grep Bash(qmd *) Bash(prumo paper *) mcp__qmd__query mcp__qmd__search
+prumo:
+  version: 1.0.0
+  schema: WikiQueryResponse/v1
+  determinism: agentic
+  agent_compat: [claude-code]
+  cost_estimate: ~5-15k tokens (depende da cobertura)
+  inputs:
+    question: required
 ---
 
 # Wiki Query — responder com citações e arquivar

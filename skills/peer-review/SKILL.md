@@ -1,6 +1,13 @@
 ---
 name: peer-review
-description: "Simula revisão crítica de um draft acadêmico (paper, capítulo de tese, grant, proposta) — produz feedback estruturado por seção com forças, fraquezas, claims sem evidência, e sugestões acionáveis. Invocar quando o usuário pedir 'revisa este draft', 'me dá um peer review do meu paper', 'critica essa introdução', 'quais buracos no meu argumento', '/peer-review', ou ao terminar uma seção e querer feedback antes de submeter. NÃO é a skill pra correção gramatical pura — é critique substantiva no conteúdo."
+description: "Simula revisão crítica de draft acadêmico (paper, capítulo, grant, proposta) produzindo feedback estruturado por seção com forças, fraquezas, claims sem evidência e sugestões acionáveis. Aplica mental model adequado (TRIPOD+AI / CLAIM / CONSORT-AI / PRISMA / STROBE)."
+when_to_use: |
+  Quando o usuário pedir "revisa este draft", "me dá um peer review do meu paper",
+  "critica essa introdução", "quais buracos no meu argumento", ou ao terminar
+  uma seção e querer feedback antes de submeter. NÃO é correção gramatical
+  (use /scientific-writing) — é critique substantiva.
+argument-hint: "<draft-path> [--critical-only] [--section NAME] [--venue NEJM|Lancet|JAMA|Nature-Medicine|Radiology|MICCAI|NeurIPS]"
+allowed-tools: Read Glob Grep
 prumo:
   version: 1.0.0
   schema: PeerReviewReport/v1
@@ -9,6 +16,9 @@ prumo:
   cost_estimate: ~5-15k tokens (depende do tamanho do draft)
   inputs:
     draft_path: required
+    critical_only: optional
+    section: optional
+    venue: optional
 ---
 
 # Peer Review — feedback crítico estruturado em draft acadêmico

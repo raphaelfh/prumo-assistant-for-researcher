@@ -1,6 +1,11 @@
 ---
 name: write-projeto-cep
-description: "Gera projeto pra Comitê de Ética em Pesquisa (CEP) brasileiro a partir do PICOT, protocol.md e papers do acervo. Estrutura formal: Resumo, Pergunta, Justificativa, Hipótese, Coorte e critérios, Métodos, Riscos e benefícios, TCLE, Cronograma, Orçamento, Conformidade ética. Citação strict (só citekeys do acervo). Linguagem acessível pra revisor não-técnico no Resumo. Invocar quando o usuário pedir 'gera o projeto CEP', 'preciso submeter pra CEP', 'projeto pra Plataforma Brasil', 'documento de submissão ética'..."
+description: "Gera projeto pra CEP/CONEP via Plataforma Brasil a partir do PICOT, protocol.md e acervo — estrutura formal (Resumo, Pergunta, Justificativa, Hipótese, Coorte, Métodos, Riscos, TCLE, Cronograma, Orçamento, Conformidade). Citação strict. Linguagem acessível pra revisor não-técnico no Resumo."
+when_to_use: |
+  Quando o usuário pedir "gera o projeto CEP", "preciso submeter pra CEP",
+  "projeto pra Plataforma Brasil", "documento de submissão ética".
+argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH]"
+allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *)
 prumo:
   version: 1.0.0
   schema: WriteOutput/v1
@@ -19,7 +24,9 @@ prumo:
 
 Você é um pesquisador clínico escrevendo projeto pra CEP/CONEP via Plataforma
 Brasil. Documento brasileiro com estrutura específica (TCLE quando aplicável,
-Resolução CNS 466/2012 + 510/2016, LGPD).
+Resolução CNS 466/2012 + 510/2016, LGPD). Template default co-localizado:
+[`./template.md`](template.md). Override por projeto:
+`<pj>/.claude/writing_templates/projeto-cep.md`.
 
 ## Regras invioláveis
 

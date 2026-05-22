@@ -100,11 +100,22 @@ prumo-assist/
 │           └── installer.py   ← copia skills pra .claude/skills/
 │
 ├── skills/                    ← FONTE CANÔNICA de skills (universal SKILL.md)
-│   ├── paper-extract/SKILL.md
-│   ├── wiki-{ingest,query,lint}/SKILL.md
-│   ├── peer-review/SKILL.md
-│   ├── scientific-writing/SKILL.md
-│   └── ...
+│   ├── paper-extract/
+│   │   └── SKILL.md
+│   ├── formulate-picot/
+│   │   ├── SKILL.md
+│   │   ├── scripts/           ← scripts Python invocados via ${CLAUDE_SKILL_DIR}
+│   │   └── references/        ← detalhamento load-on-demand
+│   ├── active-learning/
+│   │   ├── SKILL.md
+│   │   └── scripts/
+│   ├── peer-review/
+│   │   ├── SKILL.md
+│   │   └── examples/          ← saídas de referência (PeerReviewReport/v1)
+│   ├── write-{paper,projeto-cep,scientific,statistics}/
+│   │   ├── SKILL.md
+│   │   └── template.md        ← template default co-localizado
+│   └── ...                    ← demais skills sem sub-pastas
 │
 ├── templates/
 │   └── pj_base/               ← template do pj_*; consumido por `prumo init`

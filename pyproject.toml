@@ -67,6 +67,7 @@ packages = ["src/prumo_assist"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "templates" = "prumo_assist/_templates"
+"skills" = "prumo_assist/_skills"
 
 [tool.ruff]
 line-length = 100

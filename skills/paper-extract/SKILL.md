@@ -1,6 +1,22 @@
 ---
 name: paper-extract
-description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em um callout delimitado acima das seções humanas da nota. Invocar quando o usuário pedir \"resuma o paper X\", \"extraia os principais pontos\", \"processa todos os papers novos\", \"/paper-extract\", \"/paper-extract-all\", ou quando um `pj_*` acabou de sincronizar papers do Zotero e o usuário quer alimentar o callout automaticamente. Pressuposto: `/paper-manager sync` já criou as notas e `make sync-pdfs` criou os symlinks."
+description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em references/notes/<citekey>/_extract.md. Pressupõe /paper-manager sync executado + symlinks via make sync-pdfs."
+when_to_use: |
+  Quando o usuário pedir "resuma o paper X", "extraia os principais pontos",
+  "processa todos os papers novos", ou quando um pj_* acabou de sincronizar
+  papers do Zotero e o usuário quer alimentar o callout automaticamente.
+argument-hint: "[citekey] | --all [--limit N] [--stale-only]"
+allowed-tools: Read Write Edit Glob Grep Bash(python3 *) Bash(uv run python *) Bash(test *) Bash(readlink *) Agent mcp__pdf-reader__read_pdf
+prumo:
+  version: 1.0.0
+  schema: PaperExtract/v1
+  determinism: agentic
+  agent_compat: [claude-code]
+  cost_estimate: ~2-5k tokens (single) | ~20-80k (batch)
+  inputs:
+    citekey: optional (single mode)
+    limit: optional (batch mode)
+    stale_only: optional (batch mode)
 ---
 
 # Paper Extract — extração estruturada de PDF → callout da nota

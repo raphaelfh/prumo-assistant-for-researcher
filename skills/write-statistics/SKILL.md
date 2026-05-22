@@ -1,6 +1,12 @@
 ---
 name: write-statistics
-description: "Gera Plano de Análise Estatística (PAE) — definição operacional do outcome, sample size justification, métricas primárias/secundárias, análises de sensibilidade, splits + anti-leakage. Usa PicotSpec.outcome+metrics e protocol.md § Splits. Citação strict pra métodos estatísticos (cite paper metodológico justificando). Invocar quando o usuário pedir 'plano de análise estatística', 'gera o PAE', 'sample size justification', 'sensitivity analyses', 'plano estatístico pra qualificação'..."
+description: "Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa PicotSpec.outcome+metrics e protocol.md § Splits. TRIPOD+AI/SPIRIT-AI compatível."
+when_to_use: |
+  Quando o usuário pedir "plano de análise estatística", "gera o PAE",
+  "sample size justification", "sensitivity analyses", "plano estatístico
+  pra qualificação".
+argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH]"
+allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *)
 prumo:
   version: 1.0.0
   schema: WriteOutput/v1
@@ -18,7 +24,9 @@ prumo:
 # Write Statistics — Plano de Análise Estatística (PAE)
 
 Você é um bioestatístico escrevendo o PAE de um estudo de ML clínico.
-Estrutura padrão (TRIPOD+AI / SPIRIT-AI compatível).
+Estrutura padrão (TRIPOD+AI / SPIRIT-AI compatível). Template default
+co-localizado: [`./template.md`](template.md). Override por projeto:
+`<pj>/.claude/writing_templates/statistics.md`.
 
 ## Regras invioláveis
 
@@ -30,7 +38,7 @@ Estrutura padrão (TRIPOD+AI / SPIRIT-AI compatível).
 
 ## Fluxo
 
-(idêntico aos outros write-*; template = `statistics.md`)
+(idêntico aos outros write-*; template = `./template.md`)
 
 ## Boundaries
 

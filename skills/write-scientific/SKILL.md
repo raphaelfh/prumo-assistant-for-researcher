@@ -1,6 +1,11 @@
 ---
 name: write-scientific
-description: "Gera prose acadêmica genérica — quando o usuário tem texto base ou só uma seção isolada e não cabe no formato fechado de paper/CEP/statistics. Mais flexível: aceita seed text, pode focar em --section específica, segue template default `scientific.md` ou `--template <path>` customizado. Citação strict (só citekeys do acervo). Invocar quando o usuário pedir 'escreve essa seção', 'expande este parágrafo', 'me ajuda a redigir X', sem genre formal específico."
+description: "Gera prose acadêmica genérica quando o usuário tem texto-base ou só uma seção isolada e não cabe em paper/CEP/statistics. Aceita --seed, --section, --template. Citação strict do acervo."
+when_to_use: |
+  Quando o usuário pedir "escreve essa seção", "expande este parágrafo",
+  "me ajuda a redigir X", sem gênero formal específico.
+argument-hint: "[--section NAME] [--seed TEXT] [--template PATH] [--into PATH | --out PATH]"
+allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *)
 prumo:
   version: 1.0.0
   schema: WriteOutput/v1
@@ -18,8 +23,10 @@ prumo:
 
 # Write Scientific — prose acadêmica genérica
 
-Skill flexível pra geração que não se encaixa em paper/CEP/statistics. Usa
-`scientific.md` template default — minimal — ou `--template <path>` user-provided.
+Skill flexível pra geração que não se encaixa em paper/CEP/statistics. Template
+default co-localizado: [`./template.md`](template.md) — minimal. Override por
+projeto: `<pj>/.claude/writing_templates/scientific.md`. Override ad-hoc:
+`--template <path>`.
 
 ## Regras invioláveis
 

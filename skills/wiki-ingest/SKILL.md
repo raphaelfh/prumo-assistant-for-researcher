@@ -1,6 +1,20 @@
 ---
 name: wiki-ingest
-description: Ingere uma fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria a página, atualiza docs/_index.md, anexa entrada em docs/_log.md e reindexa o CLI qmd. Invocar quando o usuário pedir "adicionar fonte", "ingerir paper", "registrar tutorial", "salvar este link no wiki", "indexar artigo", ou quando colar uma URL/DOI/arXiv/PDF com intenção de processar. Para papers científicos (DOI/arXiv), delega a /paper-manager e depois costura a entrada no wiki do projeto.
+description: "Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria docs/sources/<slug>.md, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /paper-manager."
+when_to_use: |
+  Quando o usuário pedir "adicionar fonte", "ingerir paper", "registrar tutorial",
+  "salvar este link no wiki", "indexar artigo", ou ao colar URL/DOI/arXiv/PDF
+  com intenção de processar.
+argument-hint: "[url | path | doi]"
+allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) mcp__pdf-reader__read_pdf mcp__qmd__embed mcp__qmd__query
+prumo:
+  version: 1.0.0
+  schema: WikiSource/v1
+  determinism: agentic
+  agent_compat: [claude-code]
+  cost_estimate: ~3-8k tokens por fonte
+  inputs:
+    source: required (URL, path, ou DOI)
 ---
 
 # Wiki Ingest — adicionar fonte ao wiki de um `pj_*`

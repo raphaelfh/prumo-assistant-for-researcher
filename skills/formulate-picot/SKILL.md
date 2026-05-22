@@ -1,6 +1,12 @@
 ---
 name: formulate-picot
-description: Formaliza, propaga e versiona a PICOT do projeto (Population, Intervention, Comparison, Outcome, Time + Hipótese formal única). Invocar quando o usuário pedir "fechar PICOT", "formalizar pergunta de pesquisa", "propagar PICOT pra protocol/project/ADR", "PICOT mudou — gera novo ADR", "/formulate-picot", ou quando estiver na transição de busca ampla pra busca focada (Fase 1 da journey). Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado do `.claude/picot.toml` e dos 3 destinos (`docs/protocol.md`, `docs/project.md`, `docs/decisions/adr-*-picot-*.md`).
+description: "Formaliza, propaga e versiona a PICOT do projeto em 3 destinos (.claude/picot.toml canônico, docs/protocol.md operacional, docs/project.md acadêmico) + ADR append-only quando muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado."
+when_to_use: |
+  Quando o usuário pedir "fechar PICOT", "formalizar pergunta de pesquisa",
+  "propagar PICOT pra protocol/project/ADR", "PICOT mudou — gera novo ADR",
+  ou na transição de busca ampla pra busca focada (Fase 1 da journey).
+argument-hint: "[init | formalize | propagate | diff]"
+allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *) Bash(cat *) Bash(prumo protocol *)
 prumo:
   version: 1.0.0
   schema: PicotSpec/v1
@@ -28,31 +34,15 @@ Skill que mantém a PICOT do projeto consistente em **três destinos**:
 
 ## Auto-detect
 
-A skill escolhe o modo baseado no estado, executando este check em `Bash`:
+A skill escolhe o modo baseado no estado:
 
 ```bash
-python3 -c '
-from pathlib import Path
-from prumo_assist.domains.protocol.picot_io import picot_path
-from prumo_assist.domains.protocol.adr import find_last_picot_adr
-
-pj = Path(".")
-toml = picot_path(pj)
-last_adr = find_last_picot_adr(pj)
-protocol_md = pj / "docs" / "protocol.md"
-project_md = pj / "docs" / "project.md"
-
-if not toml.exists():
-    print("init" if not protocol_md.read_text(errors="ignore").strip() else "formalize")
-elif last_adr is None:
-    print("propagate")
-else:
-    # delegar diff: pode retornar zero changes (= já em dia) ou detectar mudança
-    print("diff")
-'
+uv run python ${CLAUDE_SKILL_DIR}/scripts/detect_mode.py
 ```
 
-A saída (`init` / `formalize` / `propagate` / `diff`) define qual operação seguir.
+A saída (``init`` / ``formalize`` / ``propagate`` / ``diff``) define qual
+operação seguir. Para ``propagate`` e ``diff``, ler primeiro
+[`references/operations-advanced.md`](references/operations-advanced.md).
 
 ## Operação 1: `init` — modo Socrático (greenfield)
 
@@ -81,61 +71,47 @@ Passos:
    - **Rationale**: por que esperar isso. Ex.: "Estudos-piloto sugerem efeito clinicamente relevante."
    - **Metrics**: lista de métricas pra testar. Ex.: `["AUROC", "ECE", "coverage"]`.
 
-6. **Mostrar TOML proposto pro usuário e pedir confirmação**:
+6. **Mostrar PicotSpec proposto pro usuário e pedir confirmação**.
+   Renderizar como JSON (mais legível em chat) com os campos coletados nos
+   passos 3-5. Estrutura mínima para ``clinical``:
 
-```python
-from prumo_assist.domains.protocol.schemas.v1 import PicotSpec, Hypothesis
-spec = PicotSpec(
-    type="clinical",
-    created_at="<hoje ISO>",
-    last_updated="<hoje ISO>",
-    version=1,
-    population="...",
-    intervention="...",
-    comparison="...",
-    outcome="...",
-    time="...",
-    hypothesis=Hypothesis(statement="...", rationale="...", metrics=["..."]),
-)
-```
+   ```json
+   {
+     "type": "clinical",
+     "created_at": "<hoje ISO>",
+     "last_updated": "<hoje ISO>",
+     "version": 1,
+     "population": "...",
+     "intervention": "...",
+     "comparison": "...",
+     "outcome": "...",
+     "time": "...",
+     "hypothesis": {
+       "statement": "...",
+       "rationale": "...",
+       "metrics": ["AUROC", "ECE"]
+     }
+   }
+   ```
 
-Mostrar o output de `tomli_w.dumps(spec.model_dump(...))` e perguntar "OK assim?".
+   Para ``methodological``: substituir P/I/C/O/T por ``contribution`` +
+   ``hypothesis_validity_condition``. Pedir "OK assim?".
 
-7. **Após confirmação, escrever** via `Bash`:
+7. **Após confirmação, escrever**:
 
-```bash
-python3 -c '
-import sys
-sys.path.insert(0, ".")
-from pathlib import Path
-from prumo_assist.domains.protocol.api import (
-    PicotSpec, Hypothesis, write_picot, propagate
-)
-from prumo_assist.domains.protocol.adr import compose_adr, next_adr_number
-from prumo_assist.domains.protocol.diff import PicotDiff
+   ```bash
+   cat <<'JSON' | uv run python ${CLAUDE_SKILL_DIR}/scripts/init_picot.py --date "<hoje ISO>"
+   <PicotSpec JSON aprovado>
+   JSON
+   ```
 
-pj = Path(".")
-spec = PicotSpec(...)  # campos preenchidos pela conversa
-write_picot(pj, spec)
-report = propagate(pj)
+   O script grava ``.claude/picot.toml``, propaga blocos em
+   ``docs/protocol.md`` + ``docs/project.md`` e cria ``adr-0001-picot-v1-versao-inicial.md``.
+   Saída em stdout é JSON ``{"propagate": ..., "adr_path": ...}``.
 
-# ADR-0001 inicial
-n = next_adr_number(pj)
-body = compose_adr(
-    adr_number=n,
-    spec=spec,
-    diff=PicotDiff(changes=[]),
-    motivation="versão inicial — primeira formalização",
-    supersedes_path=None,
-    date="<hoje ISO>",
-)
-adr_path = pj / "docs" / "decisions" / f"adr-{n:04d}-picot-v1-versao-inicial.md"
-adr_path.write_text(body, encoding="utf-8")
-print(f"ok: {report}, adr={adr_path}")
-'
-```
-
-8. **Reportar ao usuário**: arquivos criados (`.claude/picot.toml`, `docs/decisions/adr-NNNN-picot-v1-*.md`) e blocos atualizados em `protocol.md`/`project.md`.
+8. **Reportar ao usuário**: arquivos criados (``.claude/picot.toml``,
+   ``docs/decisions/adr-NNNN-picot-v1-*.md``) e blocos atualizados em
+   ``protocol.md`` / ``project.md``.
 
 ## Operação 2: `formalize` — extrair de prosa existente
 
@@ -157,78 +133,15 @@ Passos:
 
 4. **Resto idêntico ao `init` passos 5–8** (hipótese, write, propagate, ADR-0001).
 
-## Operação 3: `propagate` — apenas regenerar destinos
+## Operação 3 — ``propagate``
 
-Quando: `.claude/picot.toml` existe e os blocos delimitados em `protocol.md`/`project.md` estão stale (hash mismatch). Sem mudança estrutural.
+Conteúdo migrado para
+[`references/operations-advanced.md` § Propagate](references/operations-advanced.md).
 
-Executar via `Bash`:
+## Operação 4 — ``diff``
 
-```bash
-prumo protocol propagate --json
-```
-
-Reportar status por destino (`inserted`/`updated`/`unchanged`/`missing`).
-
-## Operação 4: `diff` — detectar mudança e gerar ADR
-
-Quando: usuário editou `.claude/picot.toml` (manualmente ou via outra invocação) e quer registrar a mudança.
-
-Passos:
-
-1. **Rodar diff** via `Bash`:
-
-```bash
-prumo protocol diff --json
-```
-
-Captura JSON da última linha; campo `changes` é lista, `has_structural` é bool.
-
-2. **Se `changes == []`**: nada mudou. Sair informando o usuário.
-
-3. **Se `has_structural == false`** (só campos cosméticos como `last_updated` ou `hypothesis.rationale`): chamar `prumo protocol propagate` e sair sem ADR.
-
-4. **Se `has_structural == true`**:
-   - Mostrar diff campo-a-campo.
-   - **Perguntar motivação** (livre ou multipla escolha):
-     - "novo dataset disponível"
-     - "refinamento conceitual após leitura"
-     - "feedback de orientador/revisor"
-     - "consolidação pré-banca/submissão"
-     - "outro: ___"
-   - **Bumpar versão** em `picot.toml` (`[picot] version += 1`, `last_updated = hoje`).
-   - **Gerar ADR** via `Bash`:
-
-```bash
-python3 -c '
-from pathlib import Path
-from prumo_assist.domains.protocol.api import read_picot, propagate
-from prumo_assist.domains.protocol.adr import (
-    compose_adr, next_adr_number, find_last_picot_adr,
-)
-from prumo_assist.domains.protocol.ops import diff_against_last_adr
-
-pj = Path(".")
-spec = read_picot(pj)
-diff = diff_against_last_adr(pj)
-last_adr = find_last_picot_adr(pj)
-n = next_adr_number(pj)
-body = compose_adr(
-    adr_number=n,
-    spec=spec,
-    diff=diff,
-    motivation="<motivação capturada do usuário>",
-    supersedes_path=last_adr,
-    date="<hoje ISO>",
-)
-slug = "<slug do motivo>"
-adr_path = pj / "docs" / "decisions" / f"adr-{n:04d}-picot-v{spec.version}-{slug}.md"
-adr_path.write_text(body, encoding="utf-8")
-report = propagate(pj)
-print(f"adr={adr_path}, propagate={report}")
-'
-```
-
-5. **Reportar**: ADR criado, blocos atualizados.
+Conteúdo migrado para
+[`references/operations-advanced.md` § Diff](references/operations-advanced.md).
 
 ## Boundaries
 

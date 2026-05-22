@@ -9,12 +9,12 @@ import pytest
 from prumo_assist.domains.write.compose import compose_path, resolve_template
 
 
-def test_resolve_template_default_from_plugin(tmp_path: Path) -> None:
-    """Plugin ships templates/writing/<kind>.md; deve ser default."""
+def test_resolve_template_default_from_skill_bundle(tmp_path: Path) -> None:
+    """Plugin ships skills/write-<kind>/template.md; deve ser default."""
     out = resolve_template(pj_path=tmp_path, kind="paper")
     assert out is not None
-    assert out.name == "paper.md"
-    assert "templates/writing" in str(out) or "_templates/writing" in str(out)
+    assert out.name == "template.md"
+    assert "skills/write-paper" in str(out) or "_skills/write-paper" in str(out)
 
 
 def test_resolve_template_project_override(tmp_path: Path) -> None:

@@ -1,6 +1,12 @@
 ---
 name: active-learning
-description: "Conduz uma sessão de estudo Socrática estruturada em 5 steps (Recall → Anchor → Connect → Apply → Reflect) sobre um tópico específico, ancorada nas fontes do projeto (wiki + acervo). Sessão ad-hoc curta (15-25 min). Citação strict (só citekeys do acervo + [REF FALTANTE]). Log estruturado em docs/wiki/study-sessions/<topic>-<data>.md (ou fallback). No Reflect step, oferece arquivar insight como finding. Invocar quando o usuário pedir 'me ensina X', 'estudar curvas ROC', 'me coloca à prova sobre Y', 'preciso fixar Z', '/active-learning <topic>', ou ao terminar de ler papers e querer consolidar entendimento."
+description: "Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/wiki/study-sessions/. No Reflect, oferece arquivar insight como finding."
+when_to_use: |
+  Quando o usuário pedir "me ensina X", "estudar curvas ROC",
+  "me coloca à prova sobre Y", "preciso fixar Z", ou ao terminar de ler
+  papers e querer consolidar entendimento.
+argument-hint: "[topic]"
+allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *) Bash(echo *) Bash(cat *) mcp__qmd__query mcp__qmd__search
 prumo:
   version: 1.0.0
   schema: SessionLog/v1
@@ -33,13 +39,10 @@ Se foi passado positional `<topic>`, use direto. Senão pergunte (1 vez):
 
 > Qual tópico vamos estudar?
 
-Slugify o tópico via:
+Slugify o tópico:
 
 ```bash
-python3 -c '
-from prumo_assist.core.note_paths import slugify
-print(slugify("'"$TOPIC_RAW"'"))
-'
+uv run python ${CLAUDE_SKILL_DIR}/scripts/slug.py "<topic raw>"
 ```
 
 ### 1. Context gathering (pré-sessão)
@@ -61,29 +64,25 @@ print(slugify("'"$TOPIC_RAW"'"))
 
 ### 2. Criar log skeleton
 
-Via `Bash`:
-
 ```bash
-python3 -c '
-from pathlib import Path
-from prumo_assist.domains.wiki.study import create_session_log
-
-p = create_session_log(
-    pj_path=Path("."),
-    topic="<slug>",
-    date="<hoje ISO>",
-    sources_consulted=[<lista de wikilinks>],
-)
-print(p)
-'
+uv run python ${CLAUDE_SKILL_DIR}/scripts/create_log.py \
+    --topic "<slug>" \
+    --date "<hoje ISO>" \
+    --sources '[<lista JSON de wikilinks>]'
 ```
 
-Capture o path retornado para os append_step subsequentes.
+Capture o path impresso para os append_step subsequentes.
 
 ### 3. Loop dos 5 steps
 
 Para cada step, formule a pergunta usando o context, aguarde resposta do
-usuário, avalie com citação strict, e anexe via `study.append_step`.
+usuário, avalie com citação strict, e anexe via:
+
+```bash
+echo '{"question":"...","answer":"...","feedback":"...","citations":["[[@k]]"],"references_missing":[]}' \
+  | uv run python ${CLAUDE_SKILL_DIR}/scripts/append_step.py \
+      --log-path "<log_path>" --step <recall|anchor|connect|apply|reflect>
+```
 
 #### Step 1: Recall
 
@@ -140,53 +139,47 @@ Em seguida, ofereça arquivamento (1 vez):
 
 > Quer arquivar a definição operacional/insight desta sessão como finding em `docs/wiki/findings/<sugestao-de-slug>.md`?
 
-Se **sim**, executar via `Bash`:
+Se **sim**, executar:
 
 ```bash
-python3 -c '
-from pathlib import Path
-from prumo_assist.domains.wiki.findings import archive_as_finding
+cat <<'BODY' | uv run python ${CLAUDE_SKILL_DIR}/scripts/archive_finding.py \
+    --slug "<slug-derivado>" \
+    --title "<título-do-insight>" \
+    --date "<hoje ISO>" \
+    --tags '[<tags JSON>]' \
+    --sources '[<wikilinks JSON>]' \
+    --generator active-learning
+## Pergunta
 
-out = archive_as_finding(
-    pj_path=Path("."),
-    slug="<slug-derivado>",
-    title="<título-do-insight>",
-    body=(
-        "## Pergunta\n\n<pergunta sintetizada>\n\n"
-        "## Resposta consolidada\n\n<síntese da definição/insight>\n\n"
-        "## Evidências\n\n<wikilinks>\n\n"
-        "## Limitações\n\n<ressalvas>\n"
-    ),
-    sources=[<lista de wikilinks>],
-    date="<hoje>",
-    tags=[<tags>],
-    generator="active-learning",
-)
-print(out)
-'
+<pergunta sintetizada>
+
+## Resposta consolidada
+
+<síntese da definição/insight>
+
+## Evidências
+
+<wikilinks>
+
+## Limitações
+
+<ressalvas>
+BODY
 ```
 
-Capture o path para `finalize_session`.
+Capture o path impresso para ``finalize_session``.
 
 Anexar step Reflect com `step_name="reflect"` antes do finalize.
 
 ### 4. Finalizar
 
-Via `Bash`:
-
 ```bash
-python3 -c '
-from pathlib import Path
-from prumo_assist.domains.wiki.study import finalize_session
-
-finalize_session(
-    Path("<log_path>"),
-    duration_minutes=<elapsed>,
-    status="completed",
-    references_missing=[<lista de [REF FALTANTE]>],
-    finding_archived=Path("<finding_path>") if "<finding_path>" else None,
-)
-'
+uv run python ${CLAUDE_SKILL_DIR}/scripts/finalize_session.py \
+    --log-path "<log_path>" \
+    --duration <elapsed_minutes> \
+    --status completed \
+    --missing '[<lista JSON de REF FALTANTE>]' \
+    --finding "<finding_path ou string vazia>"
 ```
 
 ### 5. Reportar ao usuário

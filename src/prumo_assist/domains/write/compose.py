@@ -5,7 +5,7 @@ Funções:
 - ``read_inputs`` — carrega ``ComposeInputs`` lendo ``.claude/picot.toml``,
   ``references/_references.bib``, callouts ``_extract.md``, ``protocol.md``,
   ``project.md``, ``findings/*.md``.
-- ``resolve_template`` — chain ``--template`` > ``.claude/writing_templates/`` > plugin default.
+- ``resolve_template`` — chain ``--template`` > ``.claude/writing_templates/`` > skill bundle.
 - ``compose_path`` — resolve output path por modo (drafts/into/out).
 - ``write_output`` — escreve conteúdo no destino + retorna ``WriteOutput``.
 - ``extract_missing_refs`` — varre texto pra ``[REF FALTANTE: ...]``.
@@ -142,11 +142,11 @@ def resolve_template(
     project_override = pj_path / ".claude" / "writing_templates" / f"{kind}.md"
     if project_override.exists():
         return project_override
-    plugin_root = find_resource("templates")
-    if plugin_root is not None:
-        plugin_template = plugin_root / "writing" / f"{kind}.md"
-        if plugin_template.exists():
-            return plugin_template
+    skills_root = find_resource("skills")
+    if skills_root is not None:
+        skill_template = skills_root / f"write-{kind}" / "template.md"
+        if skill_template.exists():
+            return skill_template
     raise FileNotFoundError(
         f"Nenhum template '{kind}' encontrado. Crie "
         f".claude/writing_templates/{kind}.md ou passe --template."

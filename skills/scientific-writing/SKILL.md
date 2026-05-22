@@ -1,6 +1,13 @@
 ---
 name: scientific-writing
-description: "Aplica convenções editoriais de escrita científica formal em drafts de paper, capítulo de tese, projeto de qualificação, grant ou seção em Markdown/Quarto/Pandoc. Padroniza pontuação (sem travessão, dois-pontos ou ponto-e-vírgula no texto corrido), posição de citação (sempre ao final do período, antes do ponto), agrupamento de múltiplas citações consecutivas sem vírgula entre wikilinks (`[[@a]] [[@b]] [[@c]]`) para que o normalizador de exportação as funda em campo único, atenuação de superlativos e coesão entre períodos. Invocar quando o usuário pedir 'aplica as convenções', 'reescreva no padrão científico', 'limpa a pontuação do texto', 'arruma as citações', 'tira os travessões', 'padroniza esse texto pra banca', '/scientific-writing', ou ao final de redigir uma seção e antes de submeter ao peer-review. NÃO é peer review (use /peer-review) nem normalizador de export (use o pipeline build_reference_docx)."
+description: "Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc — pontuação (sem travessão / dois-pontos / ponto-e-vírgula em texto corrido), posição de citação (antes do ponto), agrupamento de múltiplas citações sem vírgula entre wikilinks, atenuação de superlativos, coesão entre períodos. Preserva conteúdo (forma, não substância)."
+when_to_use: |
+  Quando o usuário pedir "aplica as convenções", "reescreva no padrão científico",
+  "limpa a pontuação", "arruma as citações", "tira os travessões", "padroniza
+  pra banca", ou ao final de redigir uma seção antes de submeter ao peer-review.
+  NÃO é peer review nem normalizador de export.
+argument-hint: "<draft-path> [--scope full|punctuation-only|citations-only|audit-only]"
+allowed-tools: Read Edit Grep Glob Bash(git *) Bash(rg *)
 prumo:
   version: 1.0.0
   schema: ScientificWritingPass/v1

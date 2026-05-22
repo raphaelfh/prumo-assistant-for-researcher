@@ -1,6 +1,21 @@
 ---
 name: paper-manager
-description: Gestão do acervo bibliográfico de um pj_* (pasta references/). Invocar quando o usuário pedir para sincronizar o .bib exportado pelo Better BibTeX do Zotero, atualizar o grafo de citação passivo, marcar paper principal, listar bibliografia, buscar paper por palavra-chave, ver quem cita quem, auditar consistência .bib↔notas, ou quando mencionar "bibliografia", "paper principal", "sincronizar papers", "encontrar paper sobre Y", "referências do projeto".
+description: "Gerencia o acervo bibliográfico do pj_* (references/): sincroniza .bib do Zotero/BBT, atualiza grafo de citação passivo, marca paper principal, lista bibliografia, busca por palavra-chave, vê quem cita quem, audita consistência .bib↔notas."
+when_to_use: |
+  Quando o usuário pedir para sincronizar bibliografia, atualizar grafo,
+  marcar paper principal, listar papers, "encontrar paper sobre Y",
+  "quem cita Z", auditar consistência, ou mencionar "bibliografia",
+  "paper principal", "referências do projeto".
+argument-hint: "[sync | update-cites | set-primary <citekey> | list | graph <citekey> | sync-bib | find <query>]"
+allowed-tools: Read Write Edit Glob Grep Bash(prumo paper *) Bash(rg *)
+prumo:
+  version: 1.0.0
+  determinism: deterministic
+  agent_compat: [claude-code]
+  cost_estimate: ~1-3k tokens
+  inputs:
+    operation: required (sync | update-cites | set-primary | list | graph | sync-bib | find)
+    args: optional (operation-specific)
 ---
 
 # Paper Manager — acervo bibliográfico de `pj_*/references/`
