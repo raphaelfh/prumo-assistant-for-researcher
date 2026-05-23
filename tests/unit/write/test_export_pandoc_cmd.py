@@ -11,14 +11,19 @@ Cobre:
 
 from __future__ import annotations
 
+import io
+import zipfile
 from pathlib import Path
 
 import pytest
 
 from prumo_assist.domains.write.export import (
+    MissingBibliographyPlaceholderError,
     ZoteroCitekeyNotFoundError,
+    _assert_bibliography_present,
     _assert_no_missing_citekeys,
     _build_pandoc_cmd,
+    _docx_zotero_field_counts,
     _zotero_bibliography_docx_filter,
     _zotero_lua_filter,
 )
@@ -153,3 +158,57 @@ def test_assert_pane_error_takes_precedence_with_specific_message() -> None:
     assert "JANELA PRINCIPAL" in str(exc.value)
     # Não deve listar as keys individuais nesse caso — a causa é outra.
     assert "biblioteca ativa" not in str(exc.value)
+
+
+# ---------- _assert_bibliography_present (post-build) ----------
+
+
+def _fake_docx(tmp_path: Path, document_xml: str) -> Path:
+    """Cria um .docx mínimo com o ``word/document.xml`` indicado."""
+    p = tmp_path / "out.docx"
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("word/document.xml", document_xml)
+    p.write_bytes(buf.getvalue())
+    return p
+
+
+def test_field_counts_no_zotero_fields(tmp_path: Path) -> None:
+    docx = _fake_docx(tmp_path, "<w:document><w:body/></w:document>")
+    assert _docx_zotero_field_counts(docx) == (0, 0)
+
+
+def test_field_counts_full_pipeline(tmp_path: Path) -> None:
+    xml = (
+        "<w:document>"
+        "ADDIN ZOTERO_ITEM CSL_CITATION {a}"
+        "ADDIN ZOTERO_ITEM CSL_CITATION {b}"
+        "ADDIN ZOTERO_BIBL {} CSL_BIBLIOGRAPHY"
+        "</w:document>"
+    )
+    docx = _fake_docx(tmp_path, xml)
+    assert _docx_zotero_field_counts(docx) == (2, 1)
+
+
+def test_assert_bibliography_passes_when_no_citations(tmp_path: Path) -> None:
+    """Página sem citações nem placeholder — nada a verificar, segue o jogo."""
+    docx = _fake_docx(tmp_path, "<w:document>texto sem citações</w:document>")
+    _assert_bibliography_present(docx)
+
+
+def test_assert_bibliography_passes_when_both_present(tmp_path: Path) -> None:
+    xml = "ADDIN ZOTERO_ITEM CSL_CITATION ADDIN ZOTERO_BIBL CSL_BIBLIOGRAPHY"
+    _assert_bibliography_present(_fake_docx(tmp_path, xml))
+
+
+def test_assert_bibliography_raises_when_citations_without_bib(tmp_path: Path) -> None:
+    """Reproduz o failure mode que motivou a validação: citações vivas mas
+    a página esqueceu o ``::: {#refs} :::``."""
+    xml = "ADDIN ZOTERO_ITEM CSL_CITATION foo ADDIN ZOTERO_ITEM CSL_CITATION bar"
+    docx = _fake_docx(tmp_path, xml)
+    with pytest.raises(MissingBibliographyPlaceholderError) as exc:
+        _assert_bibliography_present(docx)
+    msg = str(exc.value)
+    assert "2 citação" in msg
+    assert "{#refs}" in msg  # mensagem aponta o fix
+    assert "Refresh" in msg  # contexto sobre o plugin Word

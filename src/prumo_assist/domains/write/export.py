@@ -19,6 +19,7 @@ import subprocess
 import tempfile
 import urllib.error
 import urllib.request
+import zipfile
 from importlib import resources
 from pathlib import Path
 
@@ -44,6 +45,10 @@ class ZoteroNotRunningError(RuntimeError):
 
 class ZoteroCitekeyNotFoundError(RuntimeError):
     """``zotero.lua`` não encontrou uma ou mais citekeys na biblioteca ativa."""
+
+
+class MissingBibliographyPlaceholderError(RuntimeError):
+    """Docx tem citações vivas mas nenhum placeholder ``::: {#refs} :::``."""
 
 
 def _check_pandoc() -> str:
@@ -112,6 +117,35 @@ def _assert_no_missing_citekeys(filter_stdout: str) -> None:
         "e abra a janela principal do Zotero antes de exportar; (2) os "
         "citekeys do .bib divergem dos do BBT — rode `make sync-paper`."
     )
+
+
+def _docx_zotero_field_counts(docx_path: Path) -> tuple[int, int]:
+    """Conta ocorrências de ``ZOTERO_ITEM`` e ``ZOTERO_BIBL`` em ``word/document.xml``.
+
+    Usado pela validação pós-build para flagrar o caso em que a página tem
+    citações ``[@key]`` mas esqueceu o placeholder ``::: {#refs} :::`` —
+    o docx fica com campos vivos de citação porém sem campo de
+    bibliografia, e o Refresh do plugin Word do Zotero não tem onde
+    materializar as referências.
+    """
+    with zipfile.ZipFile(docx_path) as z:
+        xml = z.read("word/document.xml").decode("utf-8", errors="replace")
+    return xml.count("ZOTERO_ITEM"), xml.count("ZOTERO_BIBL")
+
+
+def _assert_bibliography_present(docx_path: Path) -> None:
+    items, bibl = _docx_zotero_field_counts(docx_path)
+    if items > 0 and bibl == 0:
+        raise MissingBibliographyPlaceholderError(
+            f"O docx contém {items} citação(ões) vivas do Zotero mas nenhum "
+            "campo de bibliografia. Causa: a página markdown tem `[@citekey]` "
+            "mas não tem o placeholder onde a lista de referências deve "
+            "aparecer. Adicione:\n\n"
+            "    ::: {#refs}\n"
+            "    :::\n\n"
+            "Sem isso, o Refresh do plugin Word do Zotero atualiza as "
+            "citações inline mas não tem onde renderizar a bibliografia."
+        )
 
 
 def _check_bbt_running(timeout: float = 2.0) -> None:
@@ -267,6 +301,7 @@ def export(
         proc = subprocess.run(cmd, check=True, capture_output=(to == "docx"), text=True)
         if to == "docx":
             _assert_no_missing_citekeys(proc.stdout or "")
+            _assert_bibliography_present(out)
 
         if to == "pdf":
             typst_bin = _check_typst()
@@ -357,7 +392,10 @@ def compose(
         )
         if meta.get("toc"):
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]
-        subprocess.run(cmd, check=True)
+        proc = subprocess.run(cmd, check=True, capture_output=(to == "docx"), text=True)
+        if to == "docx":
+            _assert_no_missing_citekeys(proc.stdout or "")
+            _assert_bibliography_present(out)
 
         if to == "pdf":
             typst_bin = _check_typst()

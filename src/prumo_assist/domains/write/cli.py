@@ -24,7 +24,17 @@ def export_command(
     style: Annotated[str, typer.Option("--style", help="Estilo CSL (default: apa).")] = "apa",
     bib: Annotated[Path | None, typer.Option("--bib")] = None,
     out_dir: Annotated[Path | None, typer.Option("--out-dir")] = None,
-    template: Annotated[Path | None, typer.Option("--template")] = None,
+    template: Annotated[
+        Path | None,
+        typer.Option("--template", help="Template para typst/pdf (ignorado em docx)."),
+    ] = None,
+    reference_doc: Annotated[
+        Path | None,
+        typer.Option(
+            "--reference-doc",
+            help="Template .docx (estilos/cabeçalho/rodapé) — somente formato docx.",
+        ),
+    ] = None,
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Exporta uma página Markdown via Pandoc + CSL → DOCX/Typst/PDF/HTML."""
@@ -46,6 +56,7 @@ def export_command(
             out=out,
             bib=bib.resolve() if bib else None,
             template=template.resolve() if template else None,
+            reference_doc=reference_doc.resolve() if reference_doc else None,
             project_root=project_root,
         )
         console.success(f"exportado: {result}")
@@ -59,7 +70,17 @@ def compose_command(
     style: Annotated[str | None, typer.Option("--style")] = None,
     bib: Annotated[Path | None, typer.Option("--bib")] = None,
     out_dir: Annotated[Path | None, typer.Option("--out-dir")] = None,
-    template: Annotated[Path | None, typer.Option("--template")] = None,
+    template: Annotated[
+        Path | None,
+        typer.Option("--template", help="Template para typst/pdf (ignorado em docx)."),
+    ] = None,
+    reference_doc: Annotated[
+        Path | None,
+        typer.Option(
+            "--reference-doc",
+            help="Template .docx (estilos/cabeçalho/rodapé) — somente formato docx.",
+        ),
+    ] = None,
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Compõe múltiplas páginas (frontmatter ``pages: [...]``) em um documento único."""
@@ -79,6 +100,7 @@ def compose_command(
             out=out,
             bib=bib.resolve() if bib else None,
             template=template.resolve() if template else None,
+            reference_doc=reference_doc.resolve() if reference_doc else None,
             project_root=project_root,
         )
         console.success(f"composto: {result}")
