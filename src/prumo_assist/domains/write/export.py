@@ -2,16 +2,25 @@
 
 Pipeline por formato:
 
-- ``docx`` — usa o filtro Lua ``zotero.lua`` (Better BibTeX) e converte cada
-  citação ``[@citekey]`` em um campo vivo do Word (``ADDIN ZOTERO_ITEM
-  CSL_CITATION``) editável pelo plugin do Zotero. Exige Zotero + BBT
-  rodando em ``127.0.0.1:23119``. NÃO usa ``--citeproc``.
-- ``html`` / ``typst`` / ``pdf`` — usam ``--citeproc`` com CSL local (texto
-  renderizado, não editável por nenhum plugin externo).
+- ``docx`` — pipeline "Word-plugin parity": roda ``--citeproc`` para
+  pré-renderizar as citações em texto formatado, depois aplica
+  ``zotero_live_docx.lua`` que embrulha cada citação em campo
+  ``ADDIN ZOTERO_ITEM CSL_CITATION`` (com display já formatado +
+  metadados CSL_JSON + URIs vindos do BBT) e o ``Div#refs`` em campo
+  ``ADDIN ZOTERO_BIBL CSL_BIBLIOGRAPHY``. Também seta
+  ``ZOTERO_PREF_1``/``ZOTERO_PREF_2`` em ``docProps/custom.xml``, então
+  o docx abre com a bibliografia já visível e o plugin Word reconhece o
+  documento sem abrir o diálogo "Document Preferences" no primeiro
+  Refresh. Exige Zotero + Better BibTeX rodando em ``127.0.0.1:23119``
+  para fornecer as URIs dos itens (sem URIs, Refresh ainda funciona
+  via CSL JSON embedado mas "Add/Edit Citation" não relinka).
+- ``html`` / ``typst`` / ``pdf`` — usam ``--citeproc`` com CSL local
+  (texto renderizado, não editável por nenhum plugin externo).
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import shutil
@@ -70,17 +79,97 @@ def _check_typst() -> str:
 
 
 def _zotero_lua_filter() -> Path:
-    """Caminho absoluto do filtro ``zotero.lua`` empacotado."""
+    """Caminho absoluto do filtro ``zotero.lua`` (Better BibTeX) — pipeline legado."""
     ref = resources.files("prumo_assist._filters").joinpath("zotero.lua")
     with resources.as_file(ref) as p:
         return Path(p)
 
 
 def _zotero_bibliography_docx_filter() -> Path:
-    """Companheiro do ``zotero.lua`` que injeta ``ADDIN ZOTERO_BIBL`` no docx."""
+    """Companheiro do ``zotero.lua`` — pipeline legado."""
     ref = resources.files("prumo_assist._filters").joinpath("zotero_bibliography_docx.lua")
     with resources.as_file(ref) as p:
         return Path(p)
+
+
+def _zotero_live_docx_filter() -> Path:
+    """Filtro novo: embrulha cites já renderizadas por --citeproc em
+    campos Zotero do Word, com display formatado + ZOTERO_PREF_1/2."""
+    ref = resources.files("prumo_assist._filters").joinpath("zotero_live_docx.lua")
+    with resources.as_file(ref) as p:
+        return Path(p)
+
+
+# Pandoc citation keys: alphanumeric/underscore start, then internal
+# `:.#$%&-+?<>~/` punctuation that must be followed by more word chars
+# (so we don't grab trailing sentence punctuation like the `.` in
+# `[@key].`). Negative lookbehind on `@\w` skips emails (foo@bar).
+_CITEKEY_RE = re.compile(r"(?<![@\w])@([A-Za-z0-9_]\w*(?:[:.#$%&+\-?<>~/]\w+)*)")
+
+
+def scan_citekeys(markdown_text: str) -> list[str]:
+    """Extrai citekeys ``[@key]`` / ``@key`` do markdown.
+
+    Não tenta substituir o parser do Pandoc — só precisa achar TODAS as
+    chaves para o pre-fetch no BBT. False positives (ex. nomes de
+    variáveis em code blocks) só geram queries extras sem-resultado,
+    não afetam a correção do export.
+    """
+    keys: set[str] = set()
+    in_code_block = False
+    for line in markdown_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+        for match in _CITEKEY_RE.finditer(line):
+            keys.add(match.group(1))
+    return sorted(keys)
+
+
+def fetch_bbt_zotero_metadata(
+    citekeys: list[str], library: str | None, *, timeout: float = 10.0
+) -> dict[str, dict[str, object]]:
+    """Consulta o BBT JSON-RPC para mapear citekey → {itemID, uri}.
+
+    Usa ``item.pandoc_filter`` (a mesma API que o ``zotero.lua`` chama
+    internamente) com ``asCSL=true``. Retorna apenas as chaves
+    encontradas — chaves ausentes simplesmente não aparecem no dict, e
+    o filtro Lua cai num fallback emitindo o campo só com CSL embedado.
+    """
+    if not citekeys:
+        return {}
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "item.pandoc_filter",
+        "params": [citekeys, True, library or ""],
+    }
+    req = urllib.request.Request(
+        BBT_JSONRPC_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = json.load(resp)
+    except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+        raise ZoteroNotRunningError(
+            f"BBT JSON-RPC indisponível ({BBT_JSONRPC_URL}): {exc!r}"
+        ) from exc
+    result = body.get("result") or {}
+    items = result.get("items") or {}
+    out: dict[str, dict[str, object]] = {}
+    for key, data in items.items():
+        custom = (data or {}).get("custom") or {}
+        item_id = custom.get("itemID")
+        uri = custom.get("uri")
+        if item_id is None and uri is None:
+            continue
+        out[key] = {"itemID": item_id, "uri": uri}
+    return out
 
 
 _MISSING_CITEKEY_RE = re.compile(
@@ -185,40 +274,42 @@ def _build_pandoc_cmd(
     template: Path | None,
     reference_doc: Path | None,
     to_format: str,
+    zotero_lookup_file: Path | None = None,
 ) -> list[str]:
     """Monta o comando do pandoc.
 
-    Para ``docx`` usa o filtro ``zotero.lua`` (citações viram campos vivos do
-    Word). Para os demais formatos usa ``--citeproc`` com CSL local.
+    Para ``docx`` o pipeline é ``--citeproc`` (para pré-renderizar o texto
+    formatado das citações e a bibliografia) + ``zotero_live_docx.lua`` que
+    embrulha cada Cite/Div#refs em campo do Word reconhecido pelo plugin
+    Zotero, com o display já formatado. Para os demais formatos usa
+    apenas ``--citeproc``.
     """
     cmd = [
         pandoc_bin,
         str(input_md),
         "--from=markdown+yaml_metadata_block+pipe_tables+grid_tables+fenced_code_blocks",
         f"--output={output}",
+        "--citeproc",
+        f"--bibliography={bib}",
+        f"--csl={csl}",
     ]
     if to_format == "docx":
         cmd += [
             "--to=docx",
             "--standalone",
-            f"--lua-filter={_zotero_lua_filter()}",
-            f"--lua-filter={_zotero_bibliography_docx_filter()}",
+            f"--lua-filter={_zotero_live_docx_filter()}",
             f"--metadata=zotero_csl_style:{style}",
         ]
+        if zotero_lookup_file:
+            cmd += [f"--metadata=zotero_lookup_file:{zotero_lookup_file}"]
         if reference_doc:
             cmd += [f"--reference-doc={reference_doc}"]
-    else:
-        cmd += [
-            "--citeproc",
-            f"--bibliography={bib}",
-            f"--csl={csl}",
-        ]
-        if to_format == "html":
-            cmd += ["--to=html5", "--standalone", "--embed-resources"]
-        elif to_format in ("typst", "pdf"):
-            cmd += ["--to=typst"]
-            if template:
-                cmd += [f"--template={template}"]
+    elif to_format == "html":
+        cmd += ["--to=html5", "--standalone", "--embed-resources"]
+    elif to_format in ("typst", "pdf"):
+        cmd += ["--to=typst"]
+        if template:
+            cmd += [f"--template={template}"]
     if metadata_file:
         cmd += [f"--metadata-file={metadata_file}"]
     return cmd
@@ -284,6 +375,15 @@ def export(
             meta_file = td_path / "meta.yaml"
             meta_file.write_text(yaml.safe_dump(meta, allow_unicode=True))
 
+        zotero_lookup_file: Path | None = None
+        if to == "docx":
+            library = (meta.get("zotero") or {}).get("library") if isinstance(meta, dict) else None
+            citekeys = scan_citekeys(body_norm)
+            lookup = fetch_bbt_zotero_metadata(citekeys, library)
+            if lookup:
+                zotero_lookup_file = td_path / "zotero_lookup.json"
+                zotero_lookup_file.write_text(json.dumps(lookup))
+
         target = out if to != "pdf" else td_path / f"{out.stem}.typ"
         cmd = _build_pandoc_cmd(
             pandoc_bin=pandoc_bin,
@@ -296,11 +396,11 @@ def export(
             template=template,
             reference_doc=reference_doc,
             to_format=to,
+            zotero_lookup_file=zotero_lookup_file,
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
-        proc = subprocess.run(cmd, check=True, capture_output=(to == "docx"), text=True)
+        subprocess.run(cmd, check=True, text=True)
         if to == "docx":
-            _assert_no_missing_citekeys(proc.stdout or "")
             _assert_bibliography_present(out)
 
         if to == "pdf":
@@ -377,6 +477,15 @@ def compose(
             meta_file = td_path / "meta.yaml"
             meta_file.write_text(yaml.safe_dump(meta_export, allow_unicode=True))
 
+        zotero_lookup_file: Path | None = None
+        if to == "docx":
+            library = (meta.get("zotero") or {}).get("library") if isinstance(meta, dict) else None
+            citekeys = scan_citekeys(combined)
+            lookup = fetch_bbt_zotero_metadata(citekeys, library)
+            if lookup:
+                zotero_lookup_file = td_path / "zotero_lookup.json"
+                zotero_lookup_file.write_text(json.dumps(lookup))
+
         target = out if to != "pdf" else td_path / f"{out.stem}.typ"
         cmd = _build_pandoc_cmd(
             pandoc_bin=pandoc_bin,
@@ -389,12 +498,12 @@ def compose(
             template=template,
             reference_doc=reference_doc,
             to_format=to,
+            zotero_lookup_file=zotero_lookup_file,
         )
         if meta.get("toc"):
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]
-        proc = subprocess.run(cmd, check=True, capture_output=(to == "docx"), text=True)
+        subprocess.run(cmd, check=True, text=True)
         if to == "docx":
-            _assert_no_missing_citekeys(proc.stdout or "")
             _assert_bibliography_present(out)
 
         if to == "pdf":

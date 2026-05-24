@@ -25,7 +25,9 @@ from prumo_assist.domains.write.export import (
     _build_pandoc_cmd,
     _docx_zotero_field_counts,
     _zotero_bibliography_docx_filter,
+    _zotero_live_docx_filter,
     _zotero_lua_filter,
+    scan_citekeys,
 )
 
 
@@ -45,10 +47,21 @@ def test_zotero_bibliography_docx_filter_resolves_to_real_file() -> None:
     assert p.name == "zotero_bibliography_docx.lua"
 
 
+def test_zotero_live_docx_filter_resolves_to_real_file() -> None:
+    p = _zotero_live_docx_filter()
+    assert p.is_file()
+    assert p.name == "zotero_live_docx.lua"
+
+
 # ---------- _build_pandoc_cmd: docx path ----------
 
 
-def _cmd(to_format: str, *, style: str = "apa") -> list[str]:
+def _cmd(
+    to_format: str,
+    *,
+    style: str = "apa",
+    zotero_lookup_file: Path | None = None,
+) -> list[str]:
     return _build_pandoc_cmd(
         pandoc_bin="pandoc",
         input_md=Path("in.md"),
@@ -60,23 +73,30 @@ def _cmd(to_format: str, *, style: str = "apa") -> list[str]:
         template=None,
         reference_doc=None,
         to_format=to_format,
+        zotero_lookup_file=zotero_lookup_file,
     )
 
 
-def test_docx_uses_zotero_lua_filter_not_citeproc() -> None:
+def test_docx_uses_citeproc_plus_live_filter() -> None:
+    """Pipeline novo: citeproc pré-renderiza o texto formatado, depois o
+    zotero_live_docx.lua embrulha em campos do Word reconhecidos pelo
+    plugin Zotero (com display já formatado, sem placeholders)."""
     cmd = _cmd("docx")
-    assert "--citeproc" not in cmd
-    assert any(a.startswith("--lua-filter=") and a.endswith("zotero.lua") for a in cmd)
+    assert "--citeproc" in cmd
+    assert "--bibliography=refs.bib" in cmd
+    assert "--csl=apa.csl" in cmd
+    assert any(a.startswith("--lua-filter=") and a.endswith("zotero_live_docx.lua") for a in cmd)
     assert "--to=docx" in cmd
     assert "--standalone" in cmd
 
 
-def test_docx_also_chains_bibliography_filter_after_zotero_lua() -> None:
+def test_docx_does_not_chain_legacy_bbt_filters() -> None:
+    """O pipeline novo substitui completamente os filtros BBT — eles
+    seguem disponíveis no pacote como utilitários mas não são usados."""
     cmd = _cmd("docx")
-    filters = [a for a in cmd if a.startswith("--lua-filter=")]
-    assert len(filters) == 2
-    assert filters[0].endswith("zotero.lua")
-    assert filters[1].endswith("zotero_bibliography_docx.lua")
+    joined = " ".join(cmd)
+    assert "/zotero.lua" not in joined
+    assert "/zotero_bibliography_docx.lua" not in joined
 
 
 def test_docx_propagates_style_via_metadata() -> None:
@@ -84,13 +104,15 @@ def test_docx_propagates_style_via_metadata() -> None:
     assert "--metadata=zotero_csl_style:vancouver" in cmd
 
 
-def test_docx_omits_bibliography_and_csl_flags() -> None:
-    # zotero.lua busca metadata direto do Zotero — passar --bibliography/--csl
-    # é redundante e pode confundir o filtro.
-    cmd = _cmd("docx")
-    joined = " ".join(cmd)
-    assert "--bibliography=" not in joined
-    assert "--csl=" not in joined
+def test_docx_propagates_zotero_lookup_file() -> None:
+    lookup = Path("/tmp/lookup.json")
+    cmd = _cmd("docx", zotero_lookup_file=lookup)
+    assert f"--metadata=zotero_lookup_file:{lookup}" in cmd
+
+
+def test_docx_omits_lookup_metadata_when_no_uris() -> None:
+    cmd = _cmd("docx", zotero_lookup_file=None)
+    assert not any("zotero_lookup_file" in a for a in cmd)
 
 
 # ---------- _build_pandoc_cmd: outros formatos preservam citeproc ----------
@@ -102,7 +124,7 @@ def test_non_docx_formats_keep_citeproc_pipeline(fmt: str) -> None:
     assert "--citeproc" in cmd
     assert "--bibliography=refs.bib" in cmd
     assert "--csl=apa.csl" in cmd
-    assert not any("zotero.lua" in a or "zotero_bibliography" in a for a in cmd)
+    assert not any("zotero" in a.lower() for a in cmd)
 
 
 def test_html_uses_html5_standalone_embedded() -> None:
@@ -212,3 +234,46 @@ def test_assert_bibliography_raises_when_citations_without_bib(tmp_path: Path) -
     assert "2 citação" in msg
     assert "{#refs}" in msg  # mensagem aponta o fix
     assert "Refresh" in msg  # contexto sobre o plugin Word
+
+
+# ---------- scan_citekeys ----------
+
+
+def test_scan_citekeys_finds_bracketed_and_bare() -> None:
+    md = "Como mostrado em [@foo2023] e também @bar2024."
+    assert scan_citekeys(md) == ["bar2024", "foo2023"]
+
+
+def test_scan_citekeys_supports_kebab_case_and_digits_first() -> None:
+    """BBT emite citekeys como `razavi-shearer2023global` (kebab) e
+    `2024guidelines` (começa com dígito) — Pandoc aceita ambos."""
+    md = "[@razavi-shearer2023global] e [@2024guidelines] no texto."
+    assert scan_citekeys(md) == ["2024guidelines", "razavi-shearer2023global"]
+
+
+def test_scan_citekeys_skips_emails() -> None:
+    md = "Contato: foo@bar.com — referência [@real2024key]."
+    assert scan_citekeys(md) == ["real2024key"]
+
+
+def test_scan_citekeys_skips_code_blocks() -> None:
+    """Tokens dentro de fenced code blocks (ex: docstrings com `@param`)
+    não são citações — não devem entrar no pre-fetch."""
+    md = (
+        "Citação real: [@bar2024].\n\n"
+        "```python\n"
+        "@decorator\n"
+        "def foo(): pass\n"
+        "```\n\n"
+        "Outra citação: [@baz2025]."
+    )
+    assert scan_citekeys(md) == ["bar2024", "baz2025"]
+
+
+def test_scan_citekeys_dedupes_repeated_keys() -> None:
+    md = "[@foo2020] aparece e depois [@foo2020] de novo."
+    assert scan_citekeys(md) == ["foo2020"]
+
+
+def test_scan_citekeys_empty_doc() -> None:
+    assert scan_citekeys("texto sem citações") == []
