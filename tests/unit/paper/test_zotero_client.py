@@ -6,6 +6,8 @@ import urllib.error
 from unittest.mock import patch
 
 from prumo_assist.domains.paper.zotero import (
+    check_zotero_running,
+    fetch_children,
     html_to_markdown,
     render_note,
     resolve_citekey,
@@ -121,3 +123,50 @@ def test_resolve_citekey_network_error_is_none() -> None:
 def test_resolve_citekey_non_dict_response_is_none() -> None:
     with patch("prumo_assist.domains.paper.zotero._http_post_json", return_value=["unexpected"]):
         assert resolve_citekey("smith2024") is None
+
+
+def test_fetch_children_extracts_data_field() -> None:
+    api_response = [
+        {"key": "C1", "data": {"itemType": "annotation", "annotationText": "x"}},
+        {"key": "C2", "data": {"itemType": "note", "note": "<p>y</p>"}},
+        {"key": "C3", "no_data_here": True},  # ignorado
+    ]
+    with patch("prumo_assist.domains.paper.zotero._http_get_json", return_value=api_response):
+        out = fetch_children(1, "PARENT01")
+    assert len(out) == 2
+    assert out[0]["itemType"] == "annotation"
+    assert out[1]["itemType"] == "note"
+
+
+def test_fetch_children_non_list_response_is_empty() -> None:
+    with patch("prumo_assist.domains.paper.zotero._http_get_json", return_value={"error": "x"}):
+        assert fetch_children(1, "PARENT01") == []
+
+
+def test_fetch_children_network_error_is_empty() -> None:
+    with patch(
+        "prumo_assist.domains.paper.zotero._http_get_json",
+        side_effect=urllib.error.URLError("refused"),
+    ):
+        assert fetch_children(1, "PARENT01") == []
+
+
+def test_check_zotero_running_true_when_urlopen_succeeds() -> None:
+    with patch("prumo_assist.domains.paper.zotero.urllib.request.urlopen"):
+        assert check_zotero_running() is True
+
+
+def test_check_zotero_running_false_on_urlerror() -> None:
+    with patch(
+        "prumo_assist.domains.paper.zotero.urllib.request.urlopen",
+        side_effect=urllib.error.URLError("refused"),
+    ):
+        assert check_zotero_running() is False
+
+
+def test_check_zotero_running_false_on_timeout() -> None:
+    with patch(
+        "prumo_assist.domains.paper.zotero.urllib.request.urlopen",
+        side_effect=TimeoutError(),
+    ):
+        assert check_zotero_running() is False
