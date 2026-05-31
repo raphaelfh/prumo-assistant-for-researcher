@@ -127,8 +127,8 @@ def test_lint_flags_dead_frontmatter_links(tmp_path: Path) -> None:
     dead = [i["message"] for i in report["issues"] if i["code"] == "dead_link"]
     assert any("ghost" in m for m in dead)
     assert any("missingkey" in m for m in dead)
-    assert not any("alpha" in m for m in dead)   # exists
-    assert not any("real" in m for m in dead)    # exists in .bib
+    assert not any("alpha" in m for m in dead)  # exists
+    assert not any("real" in m for m in dead)  # exists in .bib
 
 
 def test_lint_reports_concept_candidates_as_info(tmp_path: Path) -> None:

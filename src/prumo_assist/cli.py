@@ -563,9 +563,7 @@ def doctor_command(
         from prumo_assist.core.skills import stale_guideline_warnings
 
         registry, _warns = load_skill_registry(skills_dir, strict=False)
-        issues.extend(
-            stale_guideline_warnings(registry, today=datetime.now(UTC).date())
-        )
+        issues.extend(stale_guideline_warnings(registry, today=datetime.now(UTC).date()))
 
     deps = check_external_deps()
 

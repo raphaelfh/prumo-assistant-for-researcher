@@ -152,7 +152,9 @@ def _check_log_prefixes(docs: Path) -> list[WikiIssue]:
     for line in log.read_text(encoding="utf-8").splitlines():
         if line.startswith("## ") and not LOG_PREFIX_RE.match(line):
             issues.append(
-                WikiIssue("warning", "broken_log_prefix", f"entrada de log fora do padrão: {line!r}")
+                WikiIssue(
+                    "warning", "broken_log_prefix", f"entrada de log fora do padrão: {line!r}"
+                )
             )
     return issues
 
@@ -196,11 +198,21 @@ def _check_dead_frontmatter_links(
                     key = target[1:]
                     if bib_keys and key not in bib_keys:
                         issues.append(
-                            WikiIssue("warning", "dead_link", f"{field}: [[@{key}]] ausente do .bib", page=rel)
+                            WikiIssue(
+                                "warning",
+                                "dead_link",
+                                f"{field}: [[@{key}]] ausente do .bib",
+                                page=rel,
+                            )
                         )
                 elif target not in page_stems:
                     issues.append(
-                        WikiIssue("warning", "dead_link", f"{field}: [[{target}]] não existe no vault", page=rel)
+                        WikiIssue(
+                            "warning",
+                            "dead_link",
+                            f"{field}: [[{target}]] não existe no vault",
+                            page=rel,
+                        )
                     )
     return issues
 
@@ -221,6 +233,10 @@ def _check_concept_candidates(pages: list[Path], page_stems: set[str]) -> list[W
     for name, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
         if count >= _CONCEPT_CANDIDATE_MIN:
             issues.append(
-                WikiIssue("info", "concept_candidate", f"'{name}' citado {count}× sem página (candidato a /wiki-ingest)")
+                WikiIssue(
+                    "info",
+                    "concept_candidate",
+                    f"'{name}' citado {count}× sem página (candidato a /wiki-ingest)",
+                )
             )
     return issues

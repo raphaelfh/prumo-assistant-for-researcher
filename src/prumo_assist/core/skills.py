@@ -239,7 +239,9 @@ def stale_guideline_warnings(
         try:
             reviewed = date.fromisoformat(raw)
         except ValueError:
-            out.append(f"skill '{name}': prumo.guidelines_reviewed inválido ({raw!r}); use ISO YYYY-MM-DD.")
+            out.append(
+                f"skill '{name}': prumo.guidelines_reviewed inválido ({raw!r}); use ISO YYYY-MM-DD."
+            )
             continue
         age = (today - reviewed).days
         if age > max_age_days:
