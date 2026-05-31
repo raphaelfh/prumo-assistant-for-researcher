@@ -92,3 +92,20 @@ def test_discover_modules_tolerates_missing_metadata(fake_modules: Path) -> None
 
 def test_get_module_unknown_returns_none(fake_modules: Path) -> None:
     assert scaffold.get_module("nope") is None
+
+
+def test_is_applied_true_when_anchor_exists(tmp_path: Path) -> None:
+    m = scaffold.ModuleInfo("clinical", "", "", "docs/protocol.md", tmp_path)
+    target = tmp_path / "pj"
+    (target / "docs").mkdir(parents=True)
+    (target / "docs" / "protocol.md").write_text("x")
+    assert scaffold.is_applied(target, m) is True
+
+
+def test_is_applied_false_when_anchor_missing_or_none(tmp_path: Path) -> None:
+    target = tmp_path / "pj"
+    target.mkdir()
+    with_anchor = scaffold.ModuleInfo("clinical", "", "", "docs/protocol.md", tmp_path)
+    no_anchor = scaffold.ModuleInfo("x", "", "", None, tmp_path)
+    assert scaffold.is_applied(target, with_anchor) is False
+    assert scaffold.is_applied(target, no_anchor) is False

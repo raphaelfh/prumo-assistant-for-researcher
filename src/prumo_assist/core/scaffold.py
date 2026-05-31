@@ -79,3 +79,10 @@ def get_module(name: str) -> ModuleInfo | None:
         if m.name == name:
             return m
     return None
+
+
+def is_applied(target: Path, module: ModuleInfo) -> bool:
+    """``True`` se o ``anchor`` declarado do módulo existe em ``target``."""
+    if not module.anchor:
+        return False
+    return (target / module.anchor).exists()
