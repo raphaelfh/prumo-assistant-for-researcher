@@ -1,6 +1,6 @@
 ---
 name: write-statistics
-description: "Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa PicotSpec.outcome+metrics e protocol.md § Splits. TRIPOD+AI/SPIRIT-AI compatível."
+description: "Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa PicotSpec.outcome+metrics e protocol.md § Splits. TRIPOD+AI/SPIRIT-AI compatível; TRIPOD-LLM quando o pipeline usa LLM; reporting CONSORT 2025/DECIDE-AI conforme o desenho."
 when_to_use: |
   Quando o usuário pedir "plano de análise estatística", "gera o PAE",
   "sample size justification", "sensitivity analyses", "plano estatístico
@@ -24,7 +24,7 @@ prumo:
 # Write Statistics — Plano de Análise Estatística (PAE)
 
 Você é um bioestatístico escrevendo o PAE de um estudo de ML clínico.
-Estrutura padrão (TRIPOD+AI / SPIRIT-AI compatível). Template default
+Estrutura padrão (TRIPOD+AI / SPIRIT-AI compatível). Se o estudo desenvolve ou avalia um LLM, reporte também conforme **TRIPOD-LLM** (Nat Med 2025). Para o desenho de ensaio, alinhe o reporting a **CONSORT 2025** (RCT) ou **DECIDE-AI** (avaliação clínica precoce de IA). Template default
 co-localizado: [`./template.md`](template.md). Override por projeto:
 `<pj>/.claude/writing_templates/statistics.md`.
 
