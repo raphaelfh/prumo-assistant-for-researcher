@@ -9,7 +9,7 @@ when_to_use: |
 argument-hint: "<draft-path> [--critical-only] [--section NAME] [--venue NEJM|Lancet|JAMA|Nature-Medicine|Radiology|MICCAI|NeurIPS]"
 allowed-tools: Read Glob Grep
 prumo:
-  version: 1.0.0
+  version: 1.1.0
   schema: PeerReviewReport/v1
   determinism: agentic
   agent_compat: [claude-code]

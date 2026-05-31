@@ -9,6 +9,11 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Mudado
 
+- **`peer-review` e `write-statistics` adotam os guidelines de 2025**:
+  TRIPOD-LLM (Nat Med, jan/2025), DECIDE-AI e CONSORT 2025 entram nos mental
+  models; CONSORT-AI deixa de ser citado isolado do CONSORT 2025. Card de
+  referência load-on-demand em
+  `skills/peer-review/references/reporting-guidelines.md`.
 - **`prumo write export --to docx` agora gera citações vivas do Zotero**
   editáveis pelo plugin do Word (campos `ADDIN ZOTERO_ITEM CSL_CITATION` +
   `ADDIN ZOTERO_BIBL CSL_BIBLIOGRAPHY`), em vez de texto plano renderizado
