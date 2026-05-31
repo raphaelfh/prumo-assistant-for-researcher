@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from prumo_assist.core.deps import DepStatus, check_external_deps
 
 
@@ -61,6 +63,21 @@ def test_dep_status_is_serializable() -> None:
         "detail": "d",
         "hint": "h",
     }
+
+
+def test_zotero_check_honors_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://example.test:1234")
+    captured: dict[str, object] = {}
+
+    def fake_port_open(host: str, port: int, timeout: float = 0.5) -> bool:
+        captured["host"] = host
+        captured["port"] = port
+        return False
+
+    monkeypatch.setattr("prumo_assist.core.deps._port_open", fake_port_open)
+    monkeypatch.setattr("prumo_assist.core.deps._binary_on_path", lambda name: None)
+    check_external_deps()
+    assert captured == {"host": "example.test", "port": 1234}
 
 
 def _by_name(statuses: list[DepStatus], name: str) -> DepStatus:

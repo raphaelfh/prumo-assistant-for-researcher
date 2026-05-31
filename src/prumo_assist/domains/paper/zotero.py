@@ -10,6 +10,7 @@ Usa **stdlib apenas** pra não acrescentar dependência (``urllib`` cobre HTTP).
 from __future__ import annotations
 
 import json
+import os
 import re
 import urllib.error
 import urllib.request
@@ -20,9 +21,26 @@ from typing import Any
 from prumo_assist.core.bib import parse_bib
 from prumo_assist.core.note_paths import annotations_path, meta_path
 
-ZOTERO_BASE = "http://localhost:23119"
-BBT_RPC = f"{ZOTERO_BASE}/better-bibtex/json-rpc"
-ZOTERO_API = f"{ZOTERO_BASE}/api"
+_DEFAULT_ZOTERO_BASE = "http://127.0.0.1:23119"
+
+
+def _zotero_base() -> str:
+    """Base URL da API local do Zotero. Override via ``PRUMO_ZOTERO_BASE``.
+
+    Default ``http://127.0.0.1:23119`` — unifica com os filtros Lua e evita
+    surpresas de resolução IPv6 (``::1``) que ``localhost`` às vezes traz.
+    """
+    return os.environ.get("PRUMO_ZOTERO_BASE", _DEFAULT_ZOTERO_BASE)
+
+
+def _bbt_rpc() -> str:
+    """Endpoint JSON-RPC do Better BibTeX."""
+    return f"{_zotero_base()}/better-bibtex/json-rpc"
+
+
+def _zotero_api() -> str:
+    """Base da API local do Zotero (``/api``)."""
+    return f"{_zotero_base()}/api"
 
 BEGIN = "<!-- BEGIN ZOTERO ANNOTATIONS -->"
 END = "<!-- END ZOTERO ANNOTATIONS -->"
@@ -67,7 +85,7 @@ def _http_post_json(url: str, payload: dict[str, Any], timeout: float = 10.0) ->
 def check_zotero_running() -> bool:
     """``True`` se Zotero 9 está expondo a API local em ``localhost:23119``."""
     try:
-        urllib.request.urlopen(ZOTERO_BASE, timeout=2)
+        urllib.request.urlopen(_zotero_base(), timeout=2)
         return True
     except (urllib.error.URLError, TimeoutError):
         return False
@@ -87,7 +105,7 @@ def resolve_citekey(citekey: str) -> tuple[int, str] | None:
         "id": 1,
     }
     try:
-        resp = _http_post_json(BBT_RPC, payload)
+        resp = _http_post_json(_bbt_rpc(), payload)
     except urllib.error.URLError:
         return None
     if not isinstance(resp, dict):
@@ -116,7 +134,7 @@ def resolve_citekey(citekey: str) -> tuple[int, str] | None:
 
 def fetch_children(library_id: int, item_key: str) -> list[dict[str, Any]]:
     """Lista bruta de child items (data dict por item)."""
-    url = f"{ZOTERO_API}/users/{library_id}/items/{item_key}/children?format=json&limit=200"
+    url = f"{_zotero_api()}/users/{library_id}/items/{item_key}/children?format=json&limit=200"
     try:
         resp = _http_get_json(url)
     except urllib.error.URLError:
@@ -328,7 +346,7 @@ def sync_annotations(pj_path: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"{notes_dir} não existe. Rode `prumo paper sync` primeiro.")
     if not check_zotero_running():
         raise ConnectionError(
-            f"Zotero não está rodando em {ZOTERO_BASE}. Abra o Zotero 9 e tente de novo."
+            f"Zotero não está rodando em {_zotero_base()}. Abra o Zotero 9 e tente de novo."
         )
 
     citekeys = [e.citekey for e in parse_bib(bib.read_text(encoding="utf-8"))]
@@ -419,7 +437,7 @@ def sync_notes(pj_path: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"{notes_dir} não existe. Rode `prumo paper sync` primeiro.")
     if not check_zotero_running():
         raise ConnectionError(
-            f"Zotero não está rodando em {ZOTERO_BASE}. Abra o Zotero 9 e tente de novo."
+            f"Zotero não está rodando em {_zotero_base()}. Abra o Zotero 9 e tente de novo."
         )
 
     citekeys = [e.citekey for e in parse_bib(bib.read_text(encoding="utf-8"))]

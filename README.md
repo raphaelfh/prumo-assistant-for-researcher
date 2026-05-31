@@ -66,6 +66,11 @@ O plugin orquestra duas ferramentas que vivem fora do pacote Python. Rode
 > com a dica de instalação. Dependência ausente é apenas um aviso — não impede
 > o uso das partes do plugin que não dependem dela.
 
+> [!note]
+> Por padrão o prumo fala com o Zotero em `http://127.0.0.1:23119`. Para usar
+> outra porta/host, exporte `PRUMO_ZOTERO_BASE` (ex.:
+> `export PRUMO_ZOTERO_BASE=http://localhost:23200`).
+
 ## Pressupostos de projeto
 
 Este plugin assume a estrutura de projeto `pj_*` do monorepo `monorepo-anterior`:
