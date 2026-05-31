@@ -2,11 +2,12 @@
 name: paper-manager
 description: "Gerencia o acervo bibliográfico do pj_* (references/): sincroniza .bib do Zotero/BBT, atualiza grafo de citação passivo, marca paper principal, lista bibliografia, busca por palavra-chave, vê quem cita quem, audita consistência .bib↔notas."
 when_to_use: |
-  Quando o usuário pedir para sincronizar bibliografia, atualizar grafo,
-  marcar paper principal, listar papers, "encontrar paper sobre Y",
-  "quem cita Z", auditar consistência, ou mencionar "bibliografia",
-  "paper principal", "referências do projeto".
-argument-hint: "[sync | update-cites | set-primary <citekey> | list | graph <citekey> | sync-bib | find <query>]"
+  Quando o usuário pedir para sincronizar bibliografia, importar anotações
+  ou child notes do Zotero, atualizar grafo, marcar paper principal, listar
+  papers, "encontrar paper sobre Y", "quem cita Z", auditar consistência, ou
+  mencionar "bibliografia", "paper principal", "referências do projeto",
+  "minhas notas do Zotero".
+argument-hint: "[sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary <citekey> | list | graph <citekey> | sync-bib | find <query>]"
 allowed-tools: Read Write Edit Glob Grep Bash(prumo paper *) Bash(rg *)
 prumo:
   version: 1.0.0
@@ -37,7 +38,7 @@ pj_*/references/
     ├── _meta.md                 # YAML CSL-JSON + body humano
     ├── _extract.md              # callout estruturado (gerado pela skill paper-extract)
     ├── _annotations.md          # highlights do Zotero (gerado pelo prumo paper sync-annotations)
-    └── note__<itemKey>__<slug>.md  # 1 child note Zotero por arquivo (PR-N2)
+    └── note__<itemKey>__<slug>.md  # 1 child note Zotero por arquivo (gerado pelo prumo paper sync-notes)
 ```
 
 > [!info]
@@ -84,6 +85,36 @@ Passos:
    ```
 
 4. **Órfãs** (citekey em `notes/` mas ausente do `.bib`) **não são deletadas** automaticamente — é aviso para o usuário renomear no Zotero ou deletar a nota à mão.
+
+### 1b. `sync-annotations`
+
+Importa highlights + comentários do PDF do Zotero pra `references/notes/<key>/_annotations.md` (arquivo dedicado). Read-only Zotero → repo.
+
+```bash
+prumo paper sync-annotations <pj_path_absoluto>
+```
+
+Requer **Zotero 9 aberto** + Better BibTeX instalado (API local em `http://localhost:23119`). Se o Zotero estiver fechado, o comando falha com mensagem clara (exit code 2).
+
+### 1c. `sync-notes`
+
+Projeta cada **child note** do Zotero (rascunhos de leitura: "ideias da intro", "crítica metodológica") num arquivo próprio `references/notes/<key>/note__<itemKey>__<slug>.md`. Um arquivo por nota; identificador estável é o `itemKey` do Zotero.
+
+```bash
+prumo paper sync-notes <pj_path_absoluto>
+```
+
+Read-only Zotero → repo. Edição da nota acontece **no Zotero**; o repo é espelho navegável. Texto humano escrito **após** o bloco `<!-- END ZOTERO -->` é preservado entre syncs. Requer Zotero aberto (mesmo pré-requisito do `sync-annotations`).
+
+### 1d. `sync-all`
+
+Atalho ergonômico: roda `sync` + `sync-annotations` + `sync-notes` em sequência.
+
+```bash
+prumo paper sync-all <pj_path_absoluto>
+```
+
+`sync` roda offline (lê o `.bib`). As fases que precisam do Zotero são **puladas com aviso** se ele estiver fechado — o comando não falha por isso. Use este como o comando padrão pós-leitura.
 
 ### 2. `update-cites`
 
