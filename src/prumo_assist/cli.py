@@ -37,6 +37,7 @@ from prumo_assist import (
 from prumo_assist.core.deps import check_external_deps
 from prumo_assist.core.output import Console
 from prumo_assist.core.paths import find_resource, resolve_resource
+from prumo_assist.core.scaffold import overlay as _overlay
 from prumo_assist.core.skills import load_skill_registry
 from prumo_assist.domains.capture.cli import capture_command
 from prumo_assist.domains.paper.cli import paper_app
@@ -137,29 +138,6 @@ def _is_dir_empty(p: Path) -> bool:
             continue
         return False
     return True
-
-
-def _merge_scaffold(template: Path, target: Path) -> tuple[list[str], list[str]]:
-    """Copia ``template/*`` para ``target/`` sem sobrescrever.
-
-    Retorna ``(copied, skipped)`` com paths relativos ao target. Cria
-    diretórios faltantes; ignora arquivos cujo destino já existe.
-    """
-    copied: list[str] = []
-    skipped: list[str] = []
-    for src in template.rglob("*"):
-        rel = src.relative_to(template)
-        dst = target / rel
-        if src.is_dir():
-            dst.mkdir(parents=True, exist_ok=True)
-            continue
-        if dst.exists():
-            skipped.append(str(rel))
-            continue
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
-        copied.append(str(rel))
-    return copied, skipped
 
 
 def _render_banner(console: Console) -> None:
@@ -407,7 +385,7 @@ def init_command(
 
         if mode == MODE_MERGE:
             target.mkdir(parents=True, exist_ok=True)
-            copied, skipped = _merge_scaffold(template, target)
+            copied, skipped = _overlay(template, target)
         else:  # MODE_NEW or MODE_FORCE
             shutil.copytree(template, target)
             copied = [str(p.relative_to(template)) for p in template.rglob("*") if p.is_file()]
