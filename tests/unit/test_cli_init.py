@@ -58,7 +58,7 @@ def test_init_merge_preserves_existing_files(tmp_path: Path) -> None:
     # Scaffold adicionado.
     assert (target / "CLAUDE.md").is_file()
     assert (target / "docs" / "_index.md").is_file()
-    assert (target / "references" / "_references.bib").is_file()
+    assert (target / "docs" / "project_guide.md").is_file()
 
     payload = json.loads(result.stdout)
     assert payload["mode"] == "merge"
