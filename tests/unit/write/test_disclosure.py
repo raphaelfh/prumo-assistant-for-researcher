@@ -114,3 +114,45 @@ def test_cli_disclosure_json(tmp_path: Path) -> None:
     result = CliRunner().invoke(write_app, ["disclosure", str(tmp_path), "--json"])
     assert result.exit_code == 0
     assert "AIDisclosure/v1" in result.stdout
+
+
+def test_record_from_canonical_meta_block() -> None:
+    from prumo_assist.domains.write.disclosure import _record_from_fm
+
+    rec = _record_from_fm(
+        {
+            "_meta": {
+                "skill": "peer-review",
+                "model": "claude-opus-4",
+                "timestamp_utc": "2026-05-03T00:00:00Z",
+                "human_reviewed": True,
+            }
+        }
+    )
+    assert rec is not None
+    assert rec.skill == "peer-review"
+    assert rec.model == "claude-opus-4"
+    assert rec.date == "2026-05-03T00:00:00Z"
+    assert rec.human_reviewed is True
+
+
+def test_aggregate_human_reviewed_is_and_across_group(tmp_path: Path) -> None:
+    from prumo_assist.domains.write.disclosure import generate_disclosure
+
+    base = tmp_path / "references" / "notes"
+    # Two paper-extract artifacts, same model → one aggregated tool group.
+    # One reviewed, one not → the group must NOT be marked human_reviewed.
+    (base / "a").mkdir(parents=True)
+    (base / "a" / "_meta.md").write_text(
+        "---\nextracted_model: m\nextracted_at: 2026-05-01\nhuman_reviewed: true\n---\n",
+        encoding="utf-8",
+    )
+    (base / "b").mkdir(parents=True)
+    (base / "b" / "_meta.md").write_text(
+        "---\nextracted_model: m\nextracted_at: 2026-05-02\nhuman_reviewed: false\n---\n",
+        encoding="utf-8",
+    )
+    disc = generate_disclosure(root=tmp_path)
+    assert len(disc.tools) == 1
+    assert disc.tools[0].count == 2
+    assert disc.tools[0].human_reviewed is False
