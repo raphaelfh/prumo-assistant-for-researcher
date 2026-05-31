@@ -8,6 +8,7 @@ Detecta problemas que quebram o pipeline de pesquisa:
 - Notas sem ``id:`` no frontmatter (citekey desalinhado).
 - Mais de uma nota com ``role: primary`` (deveria ter no máximo 1).
 - subdir_without_meta — pasta `notes/<key>/` sem `_meta.md` (migração interrompida ou pasta órfã).
+- duplicate_item_key — duas child notes (`note__*.md`) com o mesmo `zotero_item_key`.
 
 Tudo determinístico — sem LLM. ``prumo paper lint`` é seguro de rodar em CI.
 """
@@ -132,6 +133,27 @@ def lint(pj_path: Path) -> dict[str, Any]:
                         citekey=child.name,
                     )
                 )
+
+    # 7. itemKey duplicado entre child notes (mesmo note importada duas vezes)
+    if notes_dir.exists():
+        seen_item_keys: dict[str, str] = {}
+        for note_file in sorted(notes_dir.glob("*/note__*.md")):
+            data = read_nota_yaml(note_file)
+            item_key = str(data.get("zotero_item_key") or "")
+            if not item_key:
+                continue
+            if item_key in seen_item_keys:
+                issues.append(
+                    LintIssue(
+                        "warning",
+                        "duplicate_item_key",
+                        f"itemKey {item_key} duplicado: {seen_item_keys[item_key]} "
+                        f"e {note_file.name}",
+                        citekey=note_file.parent.name,
+                    )
+                )
+            else:
+                seen_item_keys[item_key] = note_file.name
 
     return _report(issues)
 
