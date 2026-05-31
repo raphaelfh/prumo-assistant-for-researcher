@@ -55,6 +55,7 @@ def archive_as_finding(
         "title": title,
         "added": date,
         "status": "active",
+        "generator": generator,
         "tags": tags or [],
         "sources": sources,
     }

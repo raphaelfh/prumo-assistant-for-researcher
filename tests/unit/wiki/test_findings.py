@@ -108,3 +108,23 @@ def test_archive_raises_when_pj_invalid(tmp_path: Path) -> None:
             pj_path=tmp_path / "nope",
             slug="x", title="T", body="B", sources=[], date="2026-05-03",
         )
+
+
+def test_archive_stamps_generator_in_frontmatter(tmp_path: Path) -> None:
+    import yaml
+
+    from prumo_assist.domains.wiki.findings import archive_as_finding
+
+    (tmp_path / "docs").mkdir()
+    out = archive_as_finding(
+        pj_path=tmp_path,
+        slug="q1",
+        title="Q1",
+        body="body",
+        sources=["[[@a]]"],
+        date="2026-05-30",
+        generator="wiki-query",
+    )
+    text = out.read_text(encoding="utf-8")
+    fm = yaml.safe_load(text.split("---", 2)[1])
+    assert fm["generator"] == "wiki-query"
