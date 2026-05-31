@@ -5,6 +5,9 @@ from __future__ import annotations
 import urllib.error
 from unittest.mock import patch
 
+import pytest
+
+import prumo_assist.domains.paper.zotero as zot
 from prumo_assist.domains.paper.zotero import (
     check_zotero_running,
     fetch_children,
@@ -170,3 +173,37 @@ def test_check_zotero_running_false_on_timeout() -> None:
         side_effect=TimeoutError(),
     ):
         assert check_zotero_running() is False
+
+
+# ---------------------------------------------------------------------------
+# Host configurável via PRUMO_ZOTERO_BASE
+# ---------------------------------------------------------------------------
+
+
+def test_zotero_base_default_is_loopback_ip(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PRUMO_ZOTERO_BASE", raising=False)
+    assert zot._zotero_base() == "http://127.0.0.1:23119"
+
+
+def test_zotero_base_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://localhost:9999")
+    assert zot._zotero_base() == "http://localhost:9999"
+
+
+def test_bbt_rpc_and_api_follow_base(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://example.test:1234")
+    assert zot._bbt_rpc() == "http://example.test:1234/better-bibtex/json-rpc"
+    assert zot._zotero_api() == "http://example.test:1234/api"
+
+
+def test_fetch_children_uses_overridden_base(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://example.test:1234")
+    captured: dict[str, str] = {}
+
+    def fake_get(url: str, timeout: float = 10.0) -> object:
+        captured["url"] = url
+        return []
+
+    monkeypatch.setattr(zot, "_http_get_json", fake_get)
+    zot.fetch_children(1, "PARENT01")
+    assert captured["url"].startswith("http://example.test:1234/api/")
