@@ -129,3 +129,29 @@ def test_lint_flags_dead_frontmatter_links(tmp_path: Path) -> None:
     assert any("missingkey" in m for m in dead)
     assert not any("alpha" in m for m in dead)   # exists
     assert not any("real" in m for m in dead)    # exists in .bib
+
+
+def test_lint_reports_concept_candidates_as_info(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path)
+    # "focal loss" wikilinked 3x but has no docs/concepts/focal loss.md page.
+    for i, name in enumerate(("p1", "p2", "p3")):
+        (pj / "docs" / "concepts" / f"{name}.md").write_text(
+            f"---\ntype: concept\n---\n\nSee [[focal loss]] here ({i}). Also [[p1]].\n",
+            encoding="utf-8",
+        )
+    report = lint(pj)
+    cand = [i for i in report["issues"] if i["code"] == "concept_candidate"]
+    assert any("focal loss" in i["message"] for i in cand)
+    assert all(i["severity"] == "info" for i in cand)
+    # info must not break ok:
+    assert report["ok"] is True
+
+
+def test_lint_ignores_low_frequency_concepts(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path)
+    (pj / "docs" / "concepts" / "p1.md").write_text(
+        "---\ntype: concept\n---\n\nMentions [[rare term]] once. And [[p1]].\n",
+        encoding="utf-8",
+    )
+    report = lint(pj)
+    assert not any(i["code"] == "concept_candidate" for i in report["issues"])

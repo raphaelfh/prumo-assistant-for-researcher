@@ -100,6 +100,7 @@ def lint(pj_path: Path) -> dict[str, Any]:
     issues.extend(_check_log_prefixes(docs))
     issues.extend(_check_single_primary(pj_path))
     issues.extend(_check_dead_frontmatter_links(pages, pj_path, page_stems, bib_keys))
+    issues.extend(_check_concept_candidates(pages, page_stems))
 
     return _report(issues)
 
@@ -197,4 +198,25 @@ def _check_dead_frontmatter_links(
                     issues.append(
                         WikiIssue("warning", "dead_link", f"{field}: [[{target}]] não existe no vault", page=rel)
                     )
+    return issues
+
+
+_CONCEPT_CANDIDATE_MIN = 3
+
+
+def _check_concept_candidates(pages: list[Path], page_stems: set[str]) -> list[WikiIssue]:
+    """Wikilink ``[[termo]]`` citado ≥3× sem página correspondente → candidato a concept."""
+    counts: dict[str, int] = {}
+    for page in pages:
+        text = page.read_text(encoding="utf-8")
+        for target in PAGE_LINK_RE.findall(text):
+            name = (target if isinstance(target, str) else target[0]).strip().split("#")[0]
+            if name and name not in page_stems:
+                counts[name] = counts.get(name, 0) + 1
+    issues: list[WikiIssue] = []
+    for name, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
+        if count >= _CONCEPT_CANDIDATE_MIN:
+            issues.append(
+                WikiIssue("info", "concept_candidate", f"'{name}' citado {count}× sem página (candidato a /wiki-ingest)")
+            )
     return issues
