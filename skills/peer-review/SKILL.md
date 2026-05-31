@@ -10,6 +10,7 @@ argument-hint: "<draft-path> [--critical-only] [--section NAME] [--venue NEJM|La
 allowed-tools: Read Glob Grep
 prumo:
   version: 1.1.0
+  guidelines_reviewed: "2026-05-30"
   schema: PeerReviewReport/v1
   determinism: agentic
   agent_compat: [claude-code]

@@ -37,6 +37,11 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Adicionado
 
+- **`prumo.guidelines_reviewed`** (frontmatter de skill) + aviso no
+  `prumo doctor` quando os reporting guidelines de uma skill não são
+  revisados há > 180 dias. Living guidelines (ex.: TRIPOD-LLM, revisado a cada
+  ~3 meses) deixam de envelhecer em silêncio. `peer-review` e
+  `write-statistics` já declaram o campo.
 - **`prumo write disclosure`** — gera a declaração de uso de IA (PT/EN) a partir
   da proveniência dos artefatos (`extracted_model` em `_meta.md`, `generator` em
   findings, e blocos `_meta:` canônicos futuros), no formato exigido por

@@ -9,6 +9,7 @@ argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH]"
 allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *)
 prumo:
   version: 1.1.0
+  guidelines_reviewed: "2026-05-30"
   schema: WriteOutput/v1
   determinism: agentic
   agent_compat: [claude-code]
