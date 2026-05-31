@@ -59,3 +59,25 @@ class WriteOutput(BaseModel):
     citations_used: list[str]
     references_missing: list[str]
     words_generated: int
+
+
+class AIToolUse(BaseModel):
+    """Um uso agregado de ferramenta de IA (uma skill + um modelo)."""
+
+    tool: str
+    model: str | None = None
+    task: str
+    count: int = 1
+    human_reviewed: bool = False
+
+
+class AIDisclosure(BaseModel):
+    """AIDisclosure/v1 — declaração de uso de IA derivada da proveniência."""
+
+    schema_version: Literal["AIDisclosure/v1"] = "AIDisclosure/v1"
+    generated_at: str
+    date_from: str | None = None
+    date_to: str | None = None
+    tools: list[AIToolUse] = Field(default_factory=list)
+    statement_pt: str
+    statement_en: str
