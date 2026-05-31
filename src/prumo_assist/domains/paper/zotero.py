@@ -27,6 +27,9 @@ ZOTERO_API = f"{ZOTERO_BASE}/api"
 BEGIN = "<!-- BEGIN ZOTERO ANNOTATIONS -->"
 END = "<!-- END ZOTERO ANNOTATIONS -->"
 
+NOTE_BEGIN = "<!-- BEGIN ZOTERO -->"
+NOTE_END = "<!-- END ZOTERO -->"
+
 COLOR_EMOJI = {
     "#ffd400": "🟡",
     "#ff6666": "🔴",
@@ -173,6 +176,67 @@ def html_to_markdown(html: str) -> str:
     return s.strip()
 
 
+def note_title_from_html(html: str) -> str:
+    """Deriva um título legível da child note: primeiro heading ou primeira linha.
+
+    Retorna ``"(sem título)"`` se vazia. Usado pro YAML ``title`` e pro slug.
+    """
+    md = html_to_markdown(html)
+    for line in md.splitlines():
+        stripped = line.strip().lstrip("#").strip()
+        if stripped:
+            return stripped
+    return "(sem título)"
+
+
+def render_child_note(note: dict[str, Any]) -> str:
+    """Conteúdo delimitado de uma child note: ``BEGIN ZOTERO`` … ``END ZOTERO``."""
+    body = html_to_markdown(note.get("note") or "")
+    return f"{NOTE_BEGIN}\n\n{body or '_(vazia)_'}\n\n{NOTE_END}"
+
+
+def _yaml_sq(s: str) -> str:
+    """Escapa uma string pra YAML single-quoted (aspas internas duplicadas)."""
+    return "'" + s.replace("'", "''") + "'"
+
+
+def _note_tags(note: dict[str, Any]) -> list[str]:
+    """Extrai tags do formato Zotero ``[{'tag': 'x'}, ...]`` → ``['x', ...]``."""
+    raw = note.get("tags") or []
+    out: list[str] = []
+    for t in raw:
+        if isinstance(t, dict) and t.get("tag"):
+            out.append(str(t["tag"]))
+    return out
+
+
+def compose_child_note_file(citekey: str, note: dict[str, Any]) -> str:
+    """Conteúdo completo de ``note__<itemKey>__<slug>.md``: YAML estável + bloco.
+
+    O contrato de YAML (``paper``, ``zotero_item_key``, ``source``,
+    ``date_added``, ``date_modified``, ``tags``, ``title``) é consumido pelas
+    skills ``write-*`` — não remover nem renomear campos sem coordenar.
+    """
+    item_key = str(note.get("key") or "")
+    title = note_title_from_html(note.get("note") or "")
+    date_added = str(note.get("dateAdded") or "")
+    date_modified = str(note.get("dateModified") or "")
+    tags = _note_tags(note)
+    tags_yaml = "[]" if not tags else "[" + ", ".join(_yaml_sq(t) for t in tags) + "]"
+    fm = (
+        f"---\n"
+        f"paper: {citekey}\n"
+        f"zotero_item_key: {item_key}\n"
+        f"source: zotero-child-note\n"
+        f"date_added: '{date_added}'\n"
+        f"date_modified: '{date_modified}'\n"
+        f"tags: {tags_yaml}\n"
+        f"title: {_yaml_sq(title)}\n"
+        f"---\n\n"
+    )
+    return fm + render_child_note(note) + "\n"
+
+
 def render_annotation(d: dict[str, Any]) -> list[str]:
     color = (d.get("annotationColor") or "").lower()
     emoji = COLOR_EMOJI.get(color, "•")
@@ -315,5 +379,96 @@ def sync_annotations(pj_path: Path) -> dict[str, Any]:
         "no_meta": no_meta,
         "no_resolve": no_resolve,
         "no_children": no_children,
+        "errors": errors,
+    }
+
+
+def _replace_note_block(existing: str, new_file_text: str) -> str:
+    """Regenera YAML + bloco ``BEGIN/END ZOTERO``, preservando texto humano após o END.
+
+    ``new_file_text`` é o output de ``compose_child_note_file`` (YAML + bloco).
+    Qualquer conteúdo no arquivo existente após ``NOTE_END`` é mantido.
+
+    Se o arquivo existente não contém ``NOTE_END`` (corrompido ou criado à mão
+    sem o marcador), não há tail confiável a preservar: o arquivo é regenerado
+    integralmente a partir de ``new_file_text``. Texto fora do contrato é perdido
+    nesse caso — documentado intencionalmente.
+    """
+    idx = existing.find(NOTE_END)
+    if idx == -1:
+        return new_file_text
+    human_tail = existing[idx + len(NOTE_END) :]
+    return new_file_text.rstrip("\n") + human_tail
+
+
+def sync_notes(pj_path: Path) -> dict[str, Any]:
+    """Sincroniza child notes do Zotero pra ``<key>/note__<itemKey>__<slug>.md``.
+
+    Read-only Zotero → repo. Um arquivo por child note. Só o bloco
+    ``BEGIN/END ZOTERO`` é regenerado; texto humano após o END é preservado.
+    Pré-requisitos: Zotero 9 aberto + Better BibTeX. Falha cedo se faltar.
+    """
+    from prumo_assist.core.note_paths import child_note_path, meta_path, slugify
+
+    bib = pj_path / "references" / "_references.bib"
+    notes_dir = pj_path / "references" / "notes"
+
+    if not bib.exists():
+        raise FileNotFoundError(f"{bib} não encontrado.")
+    if not notes_dir.exists():
+        raise FileNotFoundError(f"{notes_dir} não existe. Rode `prumo paper sync` primeiro.")
+    if not check_zotero_running():
+        raise ConnectionError(
+            f"Zotero não está rodando em {ZOTERO_BASE}. Abra o Zotero 9 e tente de novo."
+        )
+
+    citekeys = [e.citekey for e in parse_bib(bib.read_text(encoding="utf-8"))]
+    inserted = updated = unchanged = 0
+    no_meta: list[str] = []
+    no_resolve: list[str] = []
+    errors: list[tuple[str, str]] = []
+
+    for citekey in citekeys:
+        if not meta_path(pj_path, citekey).exists():
+            no_meta.append(citekey)
+            continue
+        resolved = resolve_citekey(citekey)
+        if not resolved:
+            no_resolve.append(citekey)
+            continue
+        lib_id, item_key = resolved
+        try:
+            children = fetch_children(lib_id, item_key)
+        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+            errors.append((citekey, str(exc)))
+            continue
+
+        _annots, notes_lst = split_children(children)
+        for note in notes_lst:
+            note_key = str(note.get("key") or "")
+            if not note_key:
+                continue
+            slug = slugify(note_title_from_html(note.get("note") or ""))
+            target = child_note_path(pj_path, citekey, note_key, slug)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            new_text = compose_child_note_file(citekey, note)
+            if target.exists():
+                old = target.read_text(encoding="utf-8")
+                merged = _replace_note_block(old, new_text)
+                if old == merged:
+                    unchanged += 1
+                    continue
+                target.write_text(merged, encoding="utf-8")
+                updated += 1
+            else:
+                target.write_text(new_text, encoding="utf-8")
+                inserted += 1
+
+    return {
+        "inserted": inserted,
+        "updated": updated,
+        "unchanged": unchanged,
+        "no_meta": no_meta,
+        "no_resolve": no_resolve,
         "errors": errors,
     }
