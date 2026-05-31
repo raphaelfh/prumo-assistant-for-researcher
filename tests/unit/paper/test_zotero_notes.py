@@ -176,3 +176,10 @@ def test_sync_notes_raises_when_zotero_offline(tmp_path: Path) -> None:
         pytest.raises(ConnectionError),
     ):
         sync_notes(pj)
+
+
+def test_api_reexports_sync_notes_and_sync_all() -> None:
+    from prumo_assist.domains.paper import api
+
+    assert hasattr(api, "sync_notes")
+    assert hasattr(api, "sync_all")

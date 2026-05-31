@@ -16,7 +16,8 @@ from prumo_assist.domains.paper.lint import lint, set_primary
 from prumo_assist.domains.paper.migrate import migrate_pj as migrate_layout
 from prumo_assist.domains.paper.pdfs import sync_pdfs
 from prumo_assist.domains.paper.sync import sync
-from prumo_assist.domains.paper.zotero import sync_annotations
+from prumo_assist.domains.paper.sync_all import sync_all
+from prumo_assist.domains.paper.zotero import sync_annotations, sync_notes
 
 __all__ = [
     "find",
@@ -24,7 +25,9 @@ __all__ = [
     "migrate_layout",
     "set_primary",
     "sync",
+    "sync_all",
     "sync_annotations",
+    "sync_notes",
     "sync_pdfs",
     "update_graph",
 ]
