@@ -195,6 +195,11 @@ def render_child_note(note: dict[str, Any]) -> str:
     return f"{NOTE_BEGIN}\n\n{body or '_(vazia)_'}\n\n{NOTE_END}"
 
 
+def _yaml_sq(s: str) -> str:
+    """Escapa uma string pra YAML single-quoted (aspas internas duplicadas)."""
+    return "'" + s.replace("'", "''") + "'"
+
+
 def _note_tags(note: dict[str, Any]) -> list[str]:
     """Extrai tags do formato Zotero ``[{'tag': 'x'}, ...]`` → ``['x', ...]``."""
     raw = note.get("tags") or []
@@ -217,7 +222,7 @@ def compose_child_note_file(citekey: str, note: dict[str, Any]) -> str:
     date_added = str(note.get("dateAdded") or "")
     date_modified = str(note.get("dateModified") or "")
     tags = _note_tags(note)
-    tags_yaml = "[]" if not tags else "[" + ", ".join(tags) + "]"
+    tags_yaml = "[]" if not tags else "[" + ", ".join(_yaml_sq(t) for t in tags) + "]"
     fm = (
         f"---\n"
         f"paper: {citekey}\n"
@@ -226,7 +231,7 @@ def compose_child_note_file(citekey: str, note: dict[str, Any]) -> str:
         f"date_added: '{date_added}'\n"
         f"date_modified: '{date_modified}'\n"
         f"tags: {tags_yaml}\n"
-        f"title: {title}\n"
+        f"title: {_yaml_sq(title)}\n"
         f"---\n\n"
     )
     return fm + render_child_note(note) + "\n"
@@ -383,6 +388,11 @@ def _replace_note_block(existing: str, new_file_text: str) -> str:
 
     ``new_file_text`` é o output de ``compose_child_note_file`` (YAML + bloco).
     Qualquer conteúdo no arquivo existente após ``NOTE_END`` é mantido.
+
+    Se o arquivo existente não contém ``NOTE_END`` (corrompido ou criado à mão
+    sem o marcador), não há tail confiável a preservar: o arquivo é regenerado
+    integralmente a partir de ``new_file_text``. Texto fora do contrato é perdido
+    nesse caso — documentado intencionalmente.
     """
     idx = existing.find(NOTE_END)
     if idx == -1:
@@ -440,6 +450,7 @@ def sync_notes(pj_path: Path) -> dict[str, Any]:
                 continue
             slug = slugify(note_title_from_html(note.get("note") or ""))
             target = child_note_path(pj_path, citekey, note_key, slug)
+            target.parent.mkdir(parents=True, exist_ok=True)
             new_text = compose_child_note_file(citekey, note)
             if target.exists():
                 old = target.read_text(encoding="utf-8")
