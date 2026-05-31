@@ -131,6 +131,20 @@ def test_version_flag() -> None:
     assert "prumo" in result.stdout
 
 
+def test_doctor_runs_with_guideline_check(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from typer.testing import CliRunner
+
+    from prumo_assist.cli import app
+
+    for d in (".claude", "docs", "references"):
+        (tmp_path / d).mkdir()
+    result = CliRunner().invoke(app, ["doctor", str(tmp_path), "--json"])
+    # Real plugin skills are fresh today, so the guideline path adds no issue;
+    # the assertion is that the new code path runs without crashing.
+    assert result.exit_code in (0, 1)
+    assert '"project"' in result.stdout
+
+
 def test_init_rejects_srpj_prefix(tmp_path: Path) -> None:
     """srpj_ deixou de ser aceito; só pj_."""
     target = tmp_path / "srpj_old"
