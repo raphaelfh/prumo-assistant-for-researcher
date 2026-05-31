@@ -105,9 +105,7 @@ def compose_adr(
 def extract_picot_snapshot(adr_text: str) -> str | None:
     """Extrai o conteúdo TOML do bloco ``picot-snapshot``. ``None`` se ausente."""
     pattern = re.compile(
-        re.escape(SNAPSHOT_BEGIN)
-        + r"\s*```toml\s*(?P<toml>.+?)```\s*"
-        + re.escape(SNAPSHOT_END),
+        re.escape(SNAPSHOT_BEGIN) + r"\s*```toml\s*(?P<toml>.+?)```\s*" + re.escape(SNAPSHOT_END),
         flags=re.DOTALL,
     )
     m = pattern.search(adr_text)

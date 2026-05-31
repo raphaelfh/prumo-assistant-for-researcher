@@ -27,7 +27,7 @@ def main() -> None:
     parser.add_argument(
         "--sources",
         default="[]",
-        help='JSON array de wikilinks: ''[\"[[a]]\", \"[[@k]]\"]''.',
+        help='JSON array de wikilinks: ["[[a]]", "[[@k]]"].',
     )
     args = parser.parse_args()
 

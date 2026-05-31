@@ -21,6 +21,7 @@ from __future__ import annotations
 import re
 import shutil
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
@@ -37,7 +38,12 @@ from prumo_assist import (
 from prumo_assist.core.deps import check_external_deps
 from prumo_assist.core.output import Console
 from prumo_assist.core.paths import find_resource, resolve_resource
-from prumo_assist.core.scaffold import discover_modules, get_module, is_applied
+from prumo_assist.core.scaffold import (
+    ModuleInfo,
+    discover_modules,
+    get_module,
+    is_applied,
+)
 from prumo_assist.core.scaffold import overlay as _overlay
 from prumo_assist.core.skills import load_skill_registry
 from prumo_assist.domains.capture.cli import capture_command
@@ -138,8 +144,7 @@ def _validate_project_name(raw: str) -> tuple[Path, str]:
     name = target.name
     if not name.startswith(_VALID_PREFIXES):
         raise typer.BadParameter(
-            f"Nome do projeto deve começar com {' ou '.join(_VALID_PREFIXES)} "
-            f"(recebido: {name!r})."
+            f"Nome do projeto deve começar com {' ou '.join(_VALID_PREFIXES)} (recebido: {name!r})."
         )
     if not _NAME_RE.match(name):
         raise typer.BadParameter(
@@ -171,7 +176,7 @@ def _render_banner(console: Console) -> None:
         ("Knowledge, bibliography & writing scaffold\n", ""),
         ("for clinical research projects.", "dim"),
     )
-    console._rich.print(Panel(body, border_style="cyan", padding=(0, 2)))  # type: ignore[attr-defined]
+    console._rich.print(Panel(body, border_style="cyan", padding=(0, 2)))
 
 
 def _render_next_steps(console: Console, target: Path, mode: str) -> None:
@@ -179,33 +184,40 @@ def _render_next_steps(console: Console, target: Path, mode: str) -> None:
     if console.json_mode:
         return
     rel = target.name
-    console._rich.print()  # type: ignore[attr-defined]
-    console._rich.print("[bold]Próximos passos:[/bold]")  # type: ignore[attr-defined]
-    console._rich.print(f"  [cyan]cd {rel}[/cyan]")  # type: ignore[attr-defined]
+    console._rich.print()
+    console._rich.print("[bold]Próximos passos:[/bold]")
+    console._rich.print(f"  [cyan]cd {rel}[/cyan]")
     if mode == MODE_NEW:
-        console._rich.print(  # type: ignore[attr-defined]
+        console._rich.print(
             "  Edite [cyan]docs/project_guide.md[/cyan] e [cyan].claude/rules/project_context.md[/cyan]"
         )
-        console._rich.print(  # type: ignore[attr-defined]
-            "  Ative módulos opcionais (clínico, ML): [cyan]prumo add[/cyan]"
-        )
-        console._rich.print(  # type: ignore[attr-defined]
-            "  No Claude Code, comece por: [cyan]/prumo-assist:start[/cyan]"
-        )
+        console._rich.print("  Ative módulos opcionais (clínico, ML): [cyan]prumo add[/cyan]")
+        console._rich.print("  No Claude Code, comece por: [cyan]/prumo-assist:start[/cyan]")
     elif mode == MODE_MERGE:
-        console._rich.print(  # type: ignore[attr-defined]
+        console._rich.print(
             "  Revise as diferenças no [cyan]git status[/cyan] — arquivos existentes foram preservados."
         )
-        console._rich.print(  # type: ignore[attr-defined]
+        console._rich.print(
             "  Ative módulos com [cyan]prumo add[/cyan]; no Claude Code: [cyan]/prumo-assist:start[/cyan]."
         )
     else:  # MODE_FORCE
-        console._rich.print(  # type: ignore[attr-defined]
+        console._rich.print(
             "  [yellow]Conteúdo anterior foi substituído.[/yellow] Confira [cyan]git status[/cyan]."
         )
 
 
-def _wizard(console: Console, default_target: str | None = None) -> dict[str, object]:
+@dataclass(frozen=True)
+class WizardAnswers:
+    """Respostas coletadas pelo wizard interativo de ``prumo init``."""
+
+    target: Path
+    mode: str
+    integrations: list[str]
+    modules: list[str]
+    init_git: bool
+
+
+def _wizard(console: Console, default_target: str | None = None) -> WizardAnswers:
     """Wizard interativo Speckit-style. Retorna respostas do usuário."""
     _render_banner(console)
     # 1. Nome do projeto
@@ -217,23 +229,23 @@ def _wizard(console: Console, default_target: str | None = None) -> dict[str, ob
 
     # 2. Modo
     if target.exists() and not _is_dir_empty(target):
-        console._rich.print(  # type: ignore[attr-defined]
+        console._rich.print(
             f"\n[yellow]⚠[/yellow]  [bold]{target}[/bold] já existe e tem conteúdo."
         )
         console._rich.print("Como prosseguir?\n")
-        console._rich.print(  # type: ignore[attr-defined]
+        console._rich.print(
             "  [bold cyan]1)[/bold cyan] Merge — preserva seus arquivos, adiciona só o que falta [dim](recomendado)[/dim]"
         )
-        console._rich.print("  [bold cyan]2)[/bold cyan] Force — apaga tudo e recria do zero [red](destrutivo)[/red]")  # type: ignore[attr-defined]
+        console._rich.print(
+            "  [bold cyan]2)[/bold cyan] Force — apaga tudo e recria do zero [red](destrutivo)[/red]"
+        )
         console._rich.print("  [bold cyan]3)[/bold cyan] Cancelar\n")
         choice = typer.prompt("Escolha [1/2/3]", default="1")
         if choice.strip() == "3":
             raise typer.Abort()
         mode = MODE_MERGE if choice.strip() == "1" else MODE_FORCE
         if mode == MODE_FORCE:
-            confirm = typer.confirm(
-                f"Confirma DELETAR tudo em {target}?", default=False
-            )
+            confirm = typer.confirm(f"Confirma DELETAR tudo em {target}?", default=False)
             if not confirm:
                 raise typer.Abort()
     else:
@@ -241,13 +253,13 @@ def _wizard(console: Console, default_target: str | None = None) -> dict[str, ob
 
     # 3. Integrações (multi-select simplificado)
     available = list(INTEGRATIONS.keys())
-    console._rich.print()  # type: ignore[attr-defined]
+    console._rich.print()
     if len(available) <= 1:
         integrations = available
     else:
-        console._rich.print("[bold]Integrações disponíveis:[/bold]")  # type: ignore[attr-defined]
+        console._rich.print("[bold]Integrações disponíveis:[/bold]")
         for i, key in enumerate(available, 1):
-            console._rich.print(f"  [cyan]{i})[/cyan] {key}")  # type: ignore[attr-defined]
+            console._rich.print(f"  [cyan]{i})[/cyan] {key}")
         raw = typer.prompt(
             "Quais instalar? (números separados por vírgula, ou 'all')",
             default="1" if len(available) >= 1 else "",
@@ -265,9 +277,9 @@ def _wizard(console: Console, default_target: str | None = None) -> dict[str, ob
     _modules = discover_modules()
     selected_modules: list[str] = []
     if _modules:
-        console._rich.print("\n[bold]Módulos opcionais (Enter para nenhum):[/bold]")  # type: ignore[attr-defined]
+        console._rich.print("\n[bold]Módulos opcionais (Enter para nenhum):[/bold]")
         for _i, _m in enumerate(_modules, 1):
-            console._rich.print(f"  [cyan]{_i})[/cyan] {_m.name} — {_m.description}")  # type: ignore[attr-defined]
+            console._rich.print(f"  [cyan]{_i})[/cyan] {_m.name} — {_m.description}")
         _raw = typer.prompt("Quais ativar? (números separados por vírgula)", default="")
         for _tok in _raw.split(","):
             _tok = _tok.strip()
@@ -285,13 +297,13 @@ def _wizard(console: Console, default_target: str | None = None) -> dict[str, ob
     if mode == MODE_NEW:
         init_git = typer.confirm("Inicializar repositório git?", default=True)
 
-    return {
-        "target": target,
-        "mode": mode,
-        "integrations": integrations,
-        "modules": selected_modules,
-        "init_git": init_git,
-    }
+    return WizardAnswers(
+        target=target,
+        mode=mode,
+        integrations=integrations,
+        modules=selected_modules,
+        init_git=init_git,
+    )
 
 
 def _init_git_repo(target: Path) -> bool:
@@ -388,12 +400,7 @@ def init_command(
         raise typer.Exit(code=2)
 
     # Decide se vai pro wizard ou modo direto.
-    interactive = (
-        project is None
-        and not yes
-        and not json_mode
-        and sys.stdin.isatty()
-    )
+    interactive = project is None and not yes and not json_mode and sys.stdin.isatty()
 
     if interactive:
         try:
@@ -401,10 +408,10 @@ def init_command(
         except typer.Abort:
             console.warn("Cancelado.")
             raise typer.Exit(code=130) from None  # 130 = SIGINT convention
-        target = answers["target"]  # type: ignore[assignment]
-        mode = answers["mode"]
-        integration_list = list(answers["integrations"])  # type: ignore[arg-type]
-        init_git_flag = bool(answers["init_git"])
+        target = answers.target
+        mode = answers.mode
+        integration_list = list(answers.integrations)
+        init_git_flag = answers.init_git
     else:
         if project is None:
             console.error("Informe o nome do projeto ou rode em terminal interativo (TTY).")
@@ -477,12 +484,10 @@ def init_command(
 
         # Módulos a ativar (wizard no modo interativo; --with no modo direto).
         if interactive:
-            module_names = list(answers.get("modules", []))  # type: ignore[union-attr]
+            module_names = list(answers.modules)
         else:
             module_names = (
-                [m.strip() for m in with_modules.split(",") if m.strip()]
-                if with_modules
-                else []
+                [m.strip() for m in with_modules.split(",") if m.strip()] if with_modules else []
             )
         modules_applied: list[str] = []
         for _name in module_names:
@@ -669,7 +674,7 @@ def add_command(
     console.emit(payload)
 
 
-def _emit_module_list(console: Console, modules: list, target: Path) -> None:
+def _emit_module_list(console: Console, modules: list[ModuleInfo], target: Path) -> None:
     payload = {
         "modules": [
             {
@@ -684,18 +689,20 @@ def _emit_module_list(console: Console, modules: list, target: Path) -> None:
     if not console.json_mode:
         for m in modules:
             mark = " [green][aplicado][/green]" if is_applied(target, m) else ""
-            console._rich.print(f"  [cyan]{m.name}[/cyan]{mark} — {m.description}")  # type: ignore[attr-defined]
+            console._rich.print(f"  [cyan]{m.name}[/cyan]{mark} — {m.description}")
     console.emit(payload)
 
 
-def _pick_module_interactive(console: Console, modules: list, target: Path) -> str | None:
+def _pick_module_interactive(
+    console: Console, modules: list[ModuleInfo], target: Path
+) -> str | None:
     if not modules:
         console.warn("Nenhum módulo disponível.")
         return None
-    console._rich.print("[bold]Módulos disponíveis:[/bold]")  # type: ignore[attr-defined]
+    console._rich.print("[bold]Módulos disponíveis:[/bold]")
     for i, m in enumerate(modules, 1):
         mark = " [green][aplicado][/green]" if is_applied(target, m) else ""
-        console._rich.print(f"  [cyan]{i})[/cyan] {m.name}{mark} — {m.description}")  # type: ignore[attr-defined]
+        console._rich.print(f"  [cyan]{i})[/cyan] {m.name}{mark} — {m.description}")
     raw = typer.prompt("Número do módulo (vazio para cancelar)", default="")
     raw = raw.strip()
     if not raw:

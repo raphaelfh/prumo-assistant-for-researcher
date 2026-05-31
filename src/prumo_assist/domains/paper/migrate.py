@@ -124,22 +124,12 @@ def migrate_pj(pj_path: Path) -> dict[str, Any]:
             child.unlink()
 
         if callout:
-            extract_text = (
-                f"---\n"
-                f"paper: {citekey}\n"
-                f"source: prumo-paper-extract\n"
-                f"---\n\n"
-                f"{callout}\n"
-            )
+            extract_text = f"---\npaper: {citekey}\nsource: prumo-paper-extract\n---\n\n{callout}\n"
             extract_path(pj_path, citekey).write_text(extract_text, encoding="utf-8")
 
         if zotero_block:
             annot_text = (
-                f"---\n"
-                f"paper: {citekey}\n"
-                f"source: prumo-zotero-annotations\n"
-                f"---\n\n"
-                f"{zotero_block}\n"
+                f"---\npaper: {citekey}\nsource: prumo-zotero-annotations\n---\n\n{zotero_block}\n"
             )
             annotations_path(pj_path, citekey).write_text(annot_text, encoding="utf-8")
 

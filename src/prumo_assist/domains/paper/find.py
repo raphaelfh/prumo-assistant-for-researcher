@@ -22,9 +22,7 @@ def build_index(pj_path: Path) -> dict[str, dict[str, Any]]:
         return index
 
     # Build a lookup from citekey → meta path (supports both α and legacy layouts)
-    meta_by_key = {
-        citekey_from_meta_path(p): p for p in iter_note_meta_files(pj_path)
-    }
+    meta_by_key = {citekey_from_meta_path(p): p for p in iter_note_meta_files(pj_path)}
 
     for entry in parse_bib(bib.read_text()):
         title = (extract_field(entry.body, "title") or "").strip()

@@ -159,10 +159,7 @@ def test_sync_notes_preserves_human_text_outside_block(tmp_path: Path) -> None:
 
 def test_replace_note_block_without_end_marker_regenerates() -> None:
     existing = "conteúdo sem marcador algum\n"
-    new = (
-        "---\npaper: x\n---\n\n"
-        "<!-- BEGIN ZOTERO -->\ncorpo\n<!-- END ZOTERO -->\n"
-    )
+    new = "---\npaper: x\n---\n\n<!-- BEGIN ZOTERO -->\ncorpo\n<!-- END ZOTERO -->\n"
     out = _replace_note_block(existing, new)
     assert out == new  # regenera integralmente quando não há END
 

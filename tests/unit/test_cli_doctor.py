@@ -26,8 +26,13 @@ def test_doctor_json_includes_external_deps(tmp_path: Path) -> None:
     pj = _project(tmp_path)
     fake = [
         DepStatus(name="qmd", present=True, required_by=["wiki-query"], detail="ok", hint=""),
-        DepStatus(name="zotero", present=False, required_by=["paper sync-annotations"],
-                  detail="down", hint="abra o Zotero"),
+        DepStatus(
+            name="zotero",
+            present=False,
+            required_by=["paper sync-annotations"],
+            detail="down",
+            hint="abra o Zotero",
+        ),
     ]
     with patch("prumo_assist.cli.check_external_deps", return_value=fake):
         result = runner.invoke(app, ["doctor", str(pj), "--json"])
@@ -41,8 +46,9 @@ def test_doctor_missing_dep_does_not_fail_exit_code(tmp_path: Path) -> None:
     """Dep externa ausente é informativa: não derruba o exit code (só estrutura derruba)."""
     pj = _project(tmp_path)
     fake = [
-        DepStatus(name="qmd", present=False, required_by=["wiki-query"],
-                  detail="missing", hint="instale"),
+        DepStatus(
+            name="qmd", present=False, required_by=["wiki-query"], detail="missing", hint="instale"
+        ),
     ]
     with patch("prumo_assist.cli.check_external_deps", return_value=fake):
         result = runner.invoke(app, ["doctor", str(pj), "--json"])
@@ -53,8 +59,13 @@ def test_doctor_missing_dep_does_not_fail_exit_code(tmp_path: Path) -> None:
 def test_doctor_human_output_shows_missing_dep_hint(tmp_path: Path) -> None:
     pj = _project(tmp_path)
     fake = [
-        DepStatus(name="qmd", present=False, required_by=["wiki-query"],
-                  detail="qmd não está no PATH", hint="bun install -g @tobilu/qmd"),
+        DepStatus(
+            name="qmd",
+            present=False,
+            required_by=["wiki-query"],
+            detail="qmd não está no PATH",
+            hint="bun install -g @tobilu/qmd",
+        ),
     ]
     with patch("prumo_assist.cli.check_external_deps", return_value=fake):
         result = runner.invoke(app, ["doctor", str(pj)])

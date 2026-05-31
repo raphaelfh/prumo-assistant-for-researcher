@@ -38,7 +38,11 @@ def test_child_note_path_with_itemkey_and_slug(tmp_path: Path) -> None:
     out = child_note_path(tmp_path, "smith2024", "ABCD1234", "ideias-da-introducao")
     assert (
         out
-        == tmp_path / "references" / "notes" / "smith2024" / "note__ABCD1234__ideias-da-introducao.md"
+        == tmp_path
+        / "references"
+        / "notes"
+        / "smith2024"
+        / "note__ABCD1234__ideias-da-introducao.md"
     )
 
 

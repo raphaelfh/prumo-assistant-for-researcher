@@ -146,11 +146,9 @@ def test_init_accepts_pj_prefix(tmp_path: Path) -> None:
 
 def test_init_with_modules_applies_them(tmp_path: Path) -> None:
     target = tmp_path / "pj_full"
-    result = runner.invoke(
-        app, ["init", str(target), "--with", "clinical,ml", "--json"]
-    )
+    result = runner.invoke(app, ["init", str(target), "--with", "clinical,ml", "--json"])
     assert result.exit_code == 0, result.output
-    assert (target / "docs" / "protocol.md").is_file()          # clinical
+    assert (target / "docs" / "protocol.md").is_file()  # clinical
     assert (target / ".claude" / "rules" / "ml_stack.md").is_file()  # ml
     payload = json.loads(result.stdout)
     assert sorted(payload["modules_applied"]) == ["clinical", "ml"]

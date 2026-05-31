@@ -61,17 +61,17 @@ def test_read_validates(tmp_path: Path) -> None:
     p = picot_path(tmp_path)
     p.parent.mkdir(parents=True)
     p.write_text(
-        '[picot]\n'
+        "[picot]\n"
         'type = "clinical"\n'
         'created_at = "2026-05-03"\n'
         'last_updated = "2026-05-03"\n'
-        'version = 1\n'
+        "version = 1\n"
         'population = ""\n'  # invalido
         'intervention = "X"\n'
         'comparison = "Y"\n'
         'outcome = "Z"\n'
         'time = "T"\n'
-        '[picot.hypothesis]\n'
+        "[picot.hypothesis]\n"
         'statement = "S"\n'
         'rationale = "R"\n'
         'metrics = ["m"]\n'

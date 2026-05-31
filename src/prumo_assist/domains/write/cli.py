@@ -165,9 +165,7 @@ def list_templates_command(
         plugin_root = find_resource("templates")
         for kind in kinds:
             project_path = path.resolve() / ".claude" / "writing_templates" / f"{kind}.md"
-            plugin_path = (
-                plugin_root / "writing" / f"{kind}.md" if plugin_root else None
-            )
+            plugin_path = plugin_root / "writing" / f"{kind}.md" if plugin_root else None
             result[kind] = {
                 "project_override": str(project_path) if project_path.exists() else None,
                 "plugin_default": (

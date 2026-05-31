@@ -10,6 +10,7 @@ import shutil
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from prumo_assist.core.paths import resolve_resource
 
@@ -57,7 +58,7 @@ def discover_modules() -> list[ModuleInfo]:
         return []
     out: list[ModuleInfo] = []
     for d in sorted(p for p in root.iterdir() if p.is_dir()):
-        meta: dict = {}
+        meta: dict[str, Any] = {}
         meta_path = d / "_module.toml"
         if meta_path.is_file():
             with meta_path.open("rb") as f:

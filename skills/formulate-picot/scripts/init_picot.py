@@ -73,9 +73,7 @@ def main() -> None:
         supersedes_path=None,
         date=args.date,
     )
-    adr_path = (
-        pj / "docs" / "decisions" / f"adr-{n:04d}-picot-v1-versao-inicial.md"
-    )
+    adr_path = pj / "docs" / "decisions" / f"adr-{n:04d}-picot-v1-versao-inicial.md"
     adr_path.parent.mkdir(parents=True, exist_ok=True)
     adr_path.write_text(body, encoding="utf-8")
 

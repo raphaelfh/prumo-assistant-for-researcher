@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from prumo_assist.cli import app
@@ -77,10 +79,8 @@ def test_add_no_arg_non_tty_lists(tmp_path: Path) -> None:
     assert "modules" in json.loads(res.stdout)
 
 
-def test_add_interactive_picks_by_number(tmp_path: Path, monkeypatch) -> None:
-    import prumo_assist.cli as climod
-
-    monkeypatch.setattr(climod.sys.stdin, "isatty", lambda: True)
+def test_add_interactive_picks_by_number(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     target = tmp_path / "pj_demo"
     _init(target)
     # módulos ordenados: clinical(1), ml(2). Input "2" → ml.

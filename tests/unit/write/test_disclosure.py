@@ -61,7 +61,9 @@ def test_collect_records_walks_and_skips_dotdirs(tmp_path: Path) -> None:
 
 def _paper(p: Path, model: str) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(f"---\nextracted_model: {model}\nextracted_at: 2026-05-01\n---\n", encoding="utf-8")
+    p.write_text(
+        f"---\nextracted_model: {model}\nextracted_at: 2026-05-01\n---\n", encoding="utf-8"
+    )
 
 
 def test_generate_disclosure_names_tool_and_model(tmp_path: Path) -> None:

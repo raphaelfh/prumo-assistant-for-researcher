@@ -95,7 +95,7 @@ def finalize_session(
     fm["references_missing"] = references_missing
     fm["finding_archived"] = str(finding_archived) if finding_archived else None
     new_yaml = yaml.safe_dump(fm, sort_keys=False, allow_unicode=True).strip()
-    body = text[m.end():]
+    body = text[m.end() :]
     log_path.write_text(f"---\n{new_yaml}\n---\n{body}", encoding="utf-8")
 
 

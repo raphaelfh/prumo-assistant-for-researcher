@@ -17,18 +17,27 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
 
     # Núcleo: presentes
     for rel in [
-        "CLAUDE.md", "README.md", "Makefile", "pyproject.toml",
-        "docs/project_guide.md", "docs/canvas/project.canvas",
-        ".claude/rules/documentation.md", ".claude/rules/project_context.md",
-        ".claude/make", "references/_references.bib",
+        "CLAUDE.md",
+        "README.md",
+        "Makefile",
+        "pyproject.toml",
+        "docs/project_guide.md",
+        "docs/canvas/project.canvas",
+        ".claude/rules/documentation.md",
+        ".claude/rules/project_context.md",
+        ".claude/make",
+        "references/_references.bib",
     ]:
         assert (target / rel).exists(), f"faltou núcleo: {rel}"
 
     # Núcleo: ausentes (são módulo / nascem on-demand)
     for rel in [
-        "docs/protocol.md", "docs/templates",
-        ".claude/rules/ml_stack.md", ".claude/rules/coding_style.md",
-        "docs/concepts", "docs/findings",
+        "docs/protocol.md",
+        "docs/templates",
+        ".claude/rules/ml_stack.md",
+        ".claude/rules/coding_style.md",
+        "docs/concepts",
+        "docs/findings",
     ]:
         assert not (target / rel).exists(), f"núcleo não deveria ter: {rel}"
 

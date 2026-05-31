@@ -132,9 +132,7 @@ def resolve_template(
 ) -> Path:
     """Resolve template via fallback chain ``explicit > project > plugin``."""
     if kind not in _VALID_KINDS:
-        raise ValueError(
-            f"kind inválido '{kind}'; esperado um de {list(_VALID_KINDS)}"
-        )
+        raise ValueError(f"kind inválido '{kind}'; esperado um de {list(_VALID_KINDS)}")
     if explicit is not None:
         if not explicit.exists():
             raise FileNotFoundError(f"--template {explicit} não existe.")
@@ -191,7 +189,12 @@ def write_output(
 ) -> WriteOutput:
     """Escreve ``content`` no destino conforme ``mode`` e retorna ``WriteOutput``."""
     target = compose_path(
-        pj_path=pj_path, kind=kind, date=date, slug=slug, into=into, out=out,
+        pj_path=pj_path,
+        kind=kind,
+        date=date,
+        slug=slug,
+        into=into,
+        out=out,
     )
 
     if mode == "into":
@@ -217,9 +220,7 @@ def write_output(
         target.write_text(updated, encoding="utf-8")
     elif mode == "out":
         if target.exists() and not force:
-            raise FileExistsError(
-                f"{target} já existe. Use force=True pra sobrescrever."
-            )
+            raise FileExistsError(f"{target} já existe. Use force=True pra sobrescrever.")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
     else:  # drafts
