@@ -134,6 +134,23 @@ def extract_comments_command(
         console.emit({"docx": str(docx.resolve()), "output": str(out)})
 
 
+@write_app.command("disclosure")
+def disclosure_command(
+    path: Annotated[Path, typer.Argument(help="Raiz do pj_* a escanear.")] = Path("."),
+    lang: Annotated[str, typer.Option("--lang", help="Idioma da declaração: en | pt.")] = "en",
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Gera a declaração de uso de IA a partir da proveniência dos artefatos."""
+    with cli_run(json_mode=json_mode) as console:
+        from prumo_assist.domains.write.disclosure import generate_disclosure
+
+        disc = generate_disclosure(root=path.resolve())
+        if json_mode:
+            console.emit(disc.model_dump())
+        else:
+            console.emit(disc.statement_pt if lang == "pt" else disc.statement_en)
+
+
 @write_app.command("list-templates")
 def list_templates_command(
     path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),

@@ -10,6 +10,7 @@ from prumo_assist.domains.write.compose import (
     resolve_template,
     write_output,
 )
+from prumo_assist.domains.write.disclosure import generate_disclosure
 from prumo_assist.domains.write.export import compose, export, list_styles
 from prumo_assist.domains.write.schemas.v1 import (
     ComposeInputs,
@@ -28,6 +29,7 @@ __all__ = [
     "export",
     "extract_comments",
     "extract_missing_refs",
+    "generate_disclosure",
     "list_styles",
     "read_inputs",
     "resolve_template",

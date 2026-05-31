@@ -94,3 +94,23 @@ def test_generate_disclosure_missing_root_raises() -> None:
 
     with pytest.raises(PrumoError):
         generate_disclosure(root=Path("/no/such/dir/xyz123"))
+
+
+def test_reexported() -> None:
+    from prumo_assist.domains.write.api import generate_disclosure
+
+    assert callable(generate_disclosure)
+
+
+def test_cli_disclosure_json(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from prumo_assist.domains.write.cli import write_app
+
+    (tmp_path / "references" / "notes" / "a").mkdir(parents=True)
+    (tmp_path / "references" / "notes" / "a" / "_meta.md").write_text(
+        "---\nextracted_model: claude-opus-4\nextracted_at: 2026-05-01\n---\n", encoding="utf-8"
+    )
+    result = CliRunner().invoke(write_app, ["disclosure", str(tmp_path), "--json"])
+    assert result.exit_code == 0
+    assert "AIDisclosure/v1" in result.stdout
