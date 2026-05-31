@@ -82,3 +82,14 @@ def test_trace_writer_handles_unwriteable_dir(tmp_path: Path, capsys) -> None:  
     tw = TraceWriter(project_dir=blocker)
     # Não deve lançar:
     tw.emit("evt", run_id="x", payload={"k": 1})
+
+
+def test_build_meta_human_reviewed_default_false() -> None:
+    m = build_meta(schema="X/v1")
+    assert m.human_reviewed is False
+    assert m.to_dict()["human_reviewed"] is False
+
+
+def test_build_meta_records_human_reviewed() -> None:
+    m = build_meta(schema="X/v1", human_reviewed=True)
+    assert m.to_dict()["human_reviewed"] is True
