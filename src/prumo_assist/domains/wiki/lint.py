@@ -23,6 +23,9 @@ from prumo_assist.core.bib import parse_bib
 EXPECTED_DIRS = ("concepts", "entities", "findings", "sources", "decisions")
 WIKILINK_RE = re.compile(r"\[\[@([A-Za-z0-9_-]+)\]\]")
 PAGE_LINK_RE = re.compile(r"\[\[([^\]@\|]+)(?:\|[^\]]+)?\]\]")
+LOG_PREFIX_RE = re.compile(
+    r"^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|decision|milestone|note) \| .+$"
+)
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,8 @@ def lint(pj_path: Path) -> dict[str, Any]:
                 WikiIssue("warning", "orphan_page", "página sem links de entrada", page=stem)
             )
 
+    issues.extend(_check_log_prefixes(docs))
+
     return _report(issues)
 
 
@@ -103,3 +108,17 @@ def _report(issues: list[WikiIssue]) -> dict[str, Any]:
         "summary": {"errors": errors, "warnings": warnings, "total": len(issues)},
         "issues": [asdict(i) for i in issues],
     }
+
+
+def _check_log_prefixes(docs: Path) -> list[WikiIssue]:
+    """Cada ``## `` em ``_log.md`` deve casar ``[YYYY-MM-DD] <verbo> | <texto>``."""
+    log = docs / "_log.md"
+    if not log.is_file():
+        return []
+    issues: list[WikiIssue] = []
+    for line in log.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## ") and not LOG_PREFIX_RE.match(line):
+            issues.append(
+                WikiIssue("warning", "broken_log_prefix", f"entrada de log fora do padrão: {line!r}")
+            )
+    return issues

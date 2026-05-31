@@ -71,3 +71,20 @@ def test_lint_flags_orphan_pages(tmp_path: Path) -> None:
     pages_orphans = [i["page"] for i in report["issues"] if i["code"] == "orphan_page"]
     assert "beta" in pages_orphans
     assert "alpha" not in pages_orphans  # alpha é referenciada por beta
+
+
+def test_lint_flags_broken_log_prefix(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path)
+    (pj / "docs" / "_log.md").write_text(
+        "# Log\n\n"
+        "## [2026-05-30] ingest | added smith2024\n\n"
+        "## not a valid header line\n\n"
+        "## [2026-05-30] frobnicate | bad verb\n",
+        encoding="utf-8",
+    )
+    report = lint(pj)
+    codes = {i["code"] for i in report["issues"]}
+    assert "broken_log_prefix" in codes
+    msgs = [i["message"] for i in report["issues"] if i["code"] == "broken_log_prefix"]
+    assert any("not a valid header" in m for m in msgs)
+    assert any("frobnicate" in m for m in msgs)
