@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from prumo_assist.core.deps import DepStatus, check_external_deps
 
 
@@ -63,7 +65,7 @@ def test_dep_status_is_serializable() -> None:
     }
 
 
-def test_zotero_check_honors_env_override(monkeypatch) -> None:
+def test_zotero_check_honors_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://example.test:1234")
     captured: dict[str, object] = {}
 
