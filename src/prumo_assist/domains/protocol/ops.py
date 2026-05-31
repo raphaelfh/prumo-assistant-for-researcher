@@ -45,7 +45,7 @@ class PropagateReport:
 
 
 def propagate(pj_path: Path) -> PropagateReport:
-    """Lê ``picot.toml``, regenera blocos delimitados em protocol.md e project.md.
+    """Lê ``picot.toml``, regenera blocos delimitados em protocol.md e project_guide.md.
 
     Status por destino:
 
@@ -64,7 +64,7 @@ def propagate(pj_path: Path) -> PropagateReport:
         new_hash8=h,
     )
     project_status = _propagate_one(
-        target=pj_path / "docs" / "project.md",
+        target=pj_path / "docs" / "project_guide.md",
         block=render_project_block(spec, hash8=h),
         anchor=r"^---\n.*?\n---",
         new_hash8=h,

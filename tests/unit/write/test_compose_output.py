@@ -29,7 +29,7 @@ def test_write_output_drafts_creates_file(tmp_path: Path) -> None:
 def test_write_output_into_replaces_block(tmp_path: Path) -> None:
     pj = tmp_path / "pj"
     (pj / "docs").mkdir(parents=True)
-    target = pj / "docs" / "project.md"
+    target = pj / "docs" / "project_guide.md"
     target.write_text(
         "# Projeto\n\n"
         "<!-- write:begin kind=paper section=intro -->\n"
@@ -57,7 +57,7 @@ def test_write_output_into_replaces_block(tmp_path: Path) -> None:
 def test_write_output_into_inserts_when_block_absent(tmp_path: Path) -> None:
     pj = tmp_path / "pj"
     (pj / "docs").mkdir(parents=True)
-    target = pj / "docs" / "project.md"
+    target = pj / "docs" / "project_guide.md"
     target.write_text("# Projeto\n\nIntro existente.\n")
     write_output(
         content="generated",

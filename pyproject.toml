@@ -93,6 +93,7 @@ ignore = ["E501", "RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B011"]
+"templates/**/*.ipynb" = ["F401"]
 # B008/B006: Typer.Option/Annotated requer chamadas no default — padrão da lib
 "src/prumo_assist/cli.py" = ["B006", "B008"]
 

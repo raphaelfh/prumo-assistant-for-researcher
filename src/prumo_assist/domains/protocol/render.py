@@ -62,7 +62,7 @@ def render_protocol_block(spec: PicotSpec, *, hash8: str) -> str:
 
 
 def render_project_block(spec: PicotSpec, *, hash8: str) -> str:
-    """Render acadêmico pra ``docs/project.md`` (prosa formal)."""
+    """Render acadêmico pra ``docs/project_guide.md`` (prosa formal)."""
     header = f"{PICOT_BEGIN_PREFIX}v={spec.version} hash={hash8} -->"
     lines = [header, "", "## Pergunta de pesquisa", ""]
     if spec.type == "clinical":

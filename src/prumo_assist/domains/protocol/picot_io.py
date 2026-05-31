@@ -4,7 +4,7 @@ Usa ``tomllib`` (stdlib) pra leitura e ``tomli_w`` pra escrita. Validação via
 Pydantic (``PicotSpec/v1``) acontece no read; write pré-condiciona spec válido.
 
 Hash sha256[:8] do conteúdo serve pra detectar drift nos blocos delimitados
-dos destinos (``protocol.md``, ``project.md``).
+dos destinos (``protocol.md``, ``project_guide.md``).
 """
 
 from __future__ import annotations

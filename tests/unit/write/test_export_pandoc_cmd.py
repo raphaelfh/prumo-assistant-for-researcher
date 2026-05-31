@@ -30,7 +30,6 @@ from prumo_assist.domains.write.export import (
     scan_citekeys,
 )
 
-
 # ---------- filter resolution ----------
 
 

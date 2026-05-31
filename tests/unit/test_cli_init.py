@@ -58,7 +58,7 @@ def test_init_merge_preserves_existing_files(tmp_path: Path) -> None:
     # Scaffold adicionado.
     assert (target / "CLAUDE.md").is_file()
     assert (target / "docs" / "_index.md").is_file()
-    assert (target / "docs" / "templates" / "README.md").is_file()
+    assert (target / "docs" / "project_guide.md").is_file()
 
     payload = json.loads(result.stdout)
     assert payload["mode"] == "merge"
@@ -129,3 +129,37 @@ def test_version_flag() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert "prumo" in result.stdout
+
+
+def test_init_rejects_srpj_prefix(tmp_path: Path) -> None:
+    """srpj_ deixou de ser aceito; só pj_."""
+    target = tmp_path / "srpj_old"
+    result = runner.invoke(app, ["init", str(target), "--yes"])
+    assert result.exit_code != 0
+
+
+def test_init_accepts_pj_prefix(tmp_path: Path) -> None:
+    target = tmp_path / "pj_ok"
+    result = runner.invoke(app, ["init", str(target), "--json"])
+    assert result.exit_code == 0, result.output
+
+
+def test_init_with_modules_applies_them(tmp_path: Path) -> None:
+    target = tmp_path / "pj_full"
+    result = runner.invoke(
+        app, ["init", str(target), "--with", "clinical,ml", "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    assert (target / "docs" / "protocol.md").is_file()          # clinical
+    assert (target / ".claude" / "rules" / "ml_stack.md").is_file()  # ml
+    payload = json.loads(result.stdout)
+    assert sorted(payload["modules_applied"]) == ["clinical", "ml"]
+
+
+def test_init_without_modules_is_minimal(tmp_path: Path) -> None:
+    target = tmp_path / "pj_min"
+    result = runner.invoke(app, ["init", str(target), "--json"])
+    assert result.exit_code == 0, result.output
+    assert not (target / "docs" / "protocol.md").exists()
+    assert not (target / ".claude" / "rules" / "ml_stack.md").exists()
+    assert json.loads(result.stdout)["modules_applied"] == []

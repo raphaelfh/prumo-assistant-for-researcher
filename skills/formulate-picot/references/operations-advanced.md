@@ -8,7 +8,7 @@ basta — não precisa abrir este arquivo.
 
 **Quando**: ``.claude/picot.toml`` existe e há ADR baseline, mas os blocos
 delimitados ``<!-- picot:begin -->`` em ``docs/protocol.md`` e
-``docs/project.md`` estão stale (hash mismatch). Sem mudança estrutural.
+``docs/project_guide.md`` estão stale (hash mismatch). Sem mudança estrutural.
 
 Executar:
 

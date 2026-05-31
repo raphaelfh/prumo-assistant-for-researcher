@@ -32,7 +32,7 @@ def _bootstrap(tmp_path: Path) -> Path:
     docs = pj / "docs"
     docs.mkdir()
     (docs / "protocol.md").write_text("# Protocolo\n\nContexto operacional.\n")
-    (docs / "project.md").write_text("# Projeto\n\nProse formal.\n")
+    (docs / "project_guide.md").write_text("# Projeto\n\nProse formal.\n")
     return pj
 
 

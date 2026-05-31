@@ -37,6 +37,8 @@ from prumo_assist import (
 from prumo_assist.core.deps import check_external_deps
 from prumo_assist.core.output import Console
 from prumo_assist.core.paths import find_resource, resolve_resource
+from prumo_assist.core.scaffold import discover_modules, get_module, is_applied
+from prumo_assist.core.scaffold import overlay as _overlay
 from prumo_assist.core.skills import load_skill_registry
 from prumo_assist.domains.capture.cli import capture_command
 from prumo_assist.domains.paper.cli import paper_app
@@ -62,6 +64,26 @@ app.add_typer(write_app)
 app.command(
     "capture", help="Classifica input (URL, DOI, arXiv, PDF, citekey) e sugere próximo passo."
 )(capture_command)
+
+# Referência ao stdin capturada na importação. Usada para decidir se um comando
+# roda em modo interativo. Capturamos o objeto (em vez de ler ``sys.stdin``
+# direto no momento da decisão) porque o ``CliRunner`` dos testes substitui
+# ``sys.stdin`` por um wrapper durante o ``invoke`` — ler o objeto vivo nesse
+# instante perderia o ``isatty`` injetado pelo teste no stdin original.
+_STDIN = sys.stdin
+
+
+def _stdin_isatty() -> bool:
+    """``True`` se a entrada padrão é um terminal interativo.
+
+    Lê do objeto stdin capturado na importação (ver ``_STDIN``), de modo que
+    permaneça testável via ``monkeypatch.setattr(cli.sys.stdin, "isatty", ...)``
+    mesmo quando o ``CliRunner`` troca ``sys.stdin`` por baixo dos panos.
+    """
+    try:
+        return _STDIN.isatty()
+    except (ValueError, OSError):  # stdin fechado/sem fd (ex.: alguns runners)
+        return False
 
 
 def _version_callback(value: bool) -> None:
@@ -90,7 +112,7 @@ MODE_NEW = "new"
 MODE_MERGE = "merge"
 MODE_FORCE = "force"
 
-_VALID_PREFIXES = ("srpj_", "pj_")
+_VALID_PREFIXES = ("pj_",)
 _NAME_RE = re.compile(r"^[a-z0-9_]+$")
 
 
@@ -107,7 +129,7 @@ def _resolve_skills_dir() -> Path | None:
 def _validate_project_name(raw: str) -> tuple[Path, str]:
     """Normaliza e valida o nome do projeto.
 
-    Aceita: ``srpj_x``, ``pj_x``, ``./srpj_x``, ``/tmp/srpj_x``.
+    Aceita: ``pj_x``, ``./pj_x``, ``/tmp/pj_x``.
     Rejeita: nomes sem prefixo válido, caracteres inválidos.
 
     Retorna ``(absolute_path, basename)``.
@@ -139,29 +161,6 @@ def _is_dir_empty(p: Path) -> bool:
     return True
 
 
-def _merge_scaffold(template: Path, target: Path) -> tuple[list[str], list[str]]:
-    """Copia ``template/*`` para ``target/`` sem sobrescrever.
-
-    Retorna ``(copied, skipped)`` com paths relativos ao target. Cria
-    diretórios faltantes; ignora arquivos cujo destino já existe.
-    """
-    copied: list[str] = []
-    skipped: list[str] = []
-    for src in template.rglob("*"):
-        rel = src.relative_to(template)
-        dst = target / rel
-        if src.is_dir():
-            dst.mkdir(parents=True, exist_ok=True)
-            continue
-        if dst.exists():
-            skipped.append(str(rel))
-            continue
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
-        copied.append(str(rel))
-    return copied, skipped
-
-
 def _render_banner(console: Console) -> None:
     """Banner Rich estilo Speckit para abrir o wizard interativo."""
     if console.json_mode:
@@ -185,17 +184,20 @@ def _render_next_steps(console: Console, target: Path, mode: str) -> None:
     console._rich.print(f"  [cyan]cd {rel}[/cyan]")  # type: ignore[attr-defined]
     if mode == MODE_NEW:
         console._rich.print(  # type: ignore[attr-defined]
-            "  Edite [cyan]CLAUDE.md[/cyan] e [cyan].claude/rules/project_context.md[/cyan]"
+            "  Edite [cyan]docs/project_guide.md[/cyan] e [cyan].claude/rules/project_context.md[/cyan]"
         )
         console._rich.print(  # type: ignore[attr-defined]
-            "  Quando tiver papers no Zotero: [cyan]/prumo-assist:paper-manager sync[/cyan]"
+            "  Ative módulos opcionais (clínico, ML): [cyan]prumo add[/cyan]"
+        )
+        console._rich.print(  # type: ignore[attr-defined]
+            "  No Claude Code, comece por: [cyan]/prumo-assist:start[/cyan]"
         )
     elif mode == MODE_MERGE:
         console._rich.print(  # type: ignore[attr-defined]
             "  Revise as diferenças no [cyan]git status[/cyan] — arquivos existentes foram preservados."
         )
         console._rich.print(  # type: ignore[attr-defined]
-            "  Veja [cyan]docs/templates/README.md[/cyan] para usar os modelos administrativos."
+            "  Ative módulos com [cyan]prumo add[/cyan]; no Claude Code: [cyan]/prumo-assist:start[/cyan]."
         )
     else:  # MODE_FORCE
         console._rich.print(  # type: ignore[attr-defined]
@@ -208,8 +210,8 @@ def _wizard(console: Console, default_target: str | None = None) -> dict[str, ob
     _render_banner(console)
     # 1. Nome do projeto
     name = typer.prompt(
-        "Nome do projeto (ex.: srpj_my_study)",
-        default=default_target or "srpj_",
+        "Nome do projeto (ex.: pj_my_study)",
+        default=default_target or "pj_",
     )
     target, _ = _validate_project_name(name)
 
@@ -259,6 +261,25 @@ def _wizard(console: Console, default_target: str | None = None) -> dict[str, ob
             except ValueError:
                 integrations = ["claude_code"] if "claude_code" in available else available[:1]
 
+    # Módulos opcionais (à la carte, todos desmarcados).
+    _modules = discover_modules()
+    selected_modules: list[str] = []
+    if _modules:
+        console._rich.print("\n[bold]Módulos opcionais (Enter para nenhum):[/bold]")  # type: ignore[attr-defined]
+        for _i, _m in enumerate(_modules, 1):
+            console._rich.print(f"  [cyan]{_i})[/cyan] {_m.name} — {_m.description}")  # type: ignore[attr-defined]
+        _raw = typer.prompt("Quais ativar? (números separados por vírgula)", default="")
+        for _tok in _raw.split(","):
+            _tok = _tok.strip()
+            if not _tok:
+                continue
+            try:
+                _idx = int(_tok) - 1
+            except ValueError:
+                continue
+            if 0 <= _idx < len(_modules):
+                selected_modules.append(_modules[_idx].name)
+
     # 4. git init (apenas se MODE_NEW)
     init_git = False
     if mode == MODE_NEW:
@@ -268,6 +289,7 @@ def _wizard(console: Console, default_target: str | None = None) -> dict[str, ob
         "target": target,
         "mode": mode,
         "integrations": integrations,
+        "modules": selected_modules,
         "init_git": init_git,
     }
 
@@ -304,6 +326,13 @@ def init_command(
             "--integration",
             "-i",
             help="Adapter de agent-host a configurar. Pode repetir. Default: claude_code.",
+        ),
+    ] = None,
+    with_modules: Annotated[
+        str | None,
+        typer.Option(
+            "--with",
+            help="Módulos a ativar na criação, separados por vírgula (ex.: clinical,ml).",
         ),
     ] = None,
     json_mode: Annotated[
@@ -347,10 +376,10 @@ def init_command(
 
     \b
     - ``prumo init`` (sem args, TTY) → wizard interativo (Speckit-style)
-    - ``prumo init srpj_x`` → cria do zero (erro se já existir)
-    - ``prumo init srpj_x --merge`` → mescla sem sobrescrever existentes
-    - ``prumo init srpj_x --force`` → apaga e recria (DESTRUTIVO)
-    - ``prumo init srpj_x --yes`` → não-interativo (CI)
+    - ``prumo init pj_x`` → cria do zero (erro se já existir)
+    - ``prumo init pj_x --merge`` → mescla sem sobrescrever existentes
+    - ``prumo init pj_x --force`` → apaga e recria (DESTRUTIVO)
+    - ``prumo init pj_x --yes`` → não-interativo (CI)
     """
     console = Console(json_mode=json_mode)
 
@@ -371,7 +400,7 @@ def init_command(
             answers = _wizard(console)
         except typer.Abort:
             console.warn("Cancelado.")
-            raise typer.Exit(code=130)  # 130 = SIGINT convention
+            raise typer.Exit(code=130) from None  # 130 = SIGINT convention
         target = answers["target"]  # type: ignore[assignment]
         mode = answers["mode"]
         integration_list = list(answers["integrations"])  # type: ignore[arg-type]
@@ -407,7 +436,7 @@ def init_command(
 
         if mode == MODE_MERGE:
             target.mkdir(parents=True, exist_ok=True)
-            copied, skipped = _merge_scaffold(template, target)
+            copied, skipped = _overlay(template, target)
         else:  # MODE_NEW or MODE_FORCE
             shutil.copytree(template, target)
             copied = [str(p.relative_to(template)) for p in template.rglob("*") if p.is_file()]
@@ -446,6 +475,24 @@ def init_command(
                     {"integration": adapter.name, "installed": [], "skipped": []}
                 )
 
+        # Módulos a ativar (wizard no modo interativo; --with no modo direto).
+        if interactive:
+            module_names = list(answers.get("modules", []))  # type: ignore[union-attr]
+        else:
+            module_names = (
+                [m.strip() for m in with_modules.split(",") if m.strip()]
+                if with_modules
+                else []
+            )
+        modules_applied: list[str] = []
+        for _name in module_names:
+            _info = get_module(_name)
+            if _info is None:
+                console.warn(f"Módulo '{_name}' desconhecido; ignorado.")
+                continue
+            _overlay(_info.path, target)
+            modules_applied.append(_name)
+
         payload = {
             "project": str(target),
             "template": str(template),
@@ -454,6 +501,7 @@ def init_command(
             "files_skipped": len(skipped),
             "git_initialized": git_initialized,
             "integrations": installed_summary,
+            "modules_applied": modules_applied,
             "version": __version__,
         }
 
@@ -567,6 +615,98 @@ def skills_command(
         ]
     }
     console.emit(payload)
+
+
+# ---------------------------------------------------------------------------
+# prumo add (módulos opcionais via overlay não-destrutivo)
+# ---------------------------------------------------------------------------
+
+
+@app.command("add")
+def add_command(
+    module: Annotated[
+        str | None,
+        typer.Argument(help="Módulo a ativar (ex.: clinical, ml). Omita para listar/escolher."),
+    ] = None,
+    target: Annotated[
+        Path, typer.Option("--target", "-t", help="Projeto alvo (default: cwd).")
+    ] = Path("."),
+    list_only: Annotated[
+        bool, typer.Option("--list", help="Só lista módulos disponíveis.")
+    ] = False,
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Ativa um módulo no projeto (overlay não-destrutivo)."""
+    console = Console(json_mode=json_mode)
+    target = target.resolve()
+    modules = discover_modules()
+
+    if list_only or (module is None and (json_mode or not _stdin_isatty())):
+        _emit_module_list(console, modules, target)
+        return
+
+    if module is None:
+        module = _pick_module_interactive(console, modules, target)
+        if module is None:
+            console.warn("Nenhum módulo selecionado.")
+            raise typer.Exit(code=130)
+
+    info = get_module(module)
+    if info is None:
+        console.error(f"Módulo '{module}' não encontrado. Use `prumo add --list`.")
+        raise typer.Exit(code=1)
+
+    copied, skipped = _overlay(info.path, target)
+    payload = {
+        "module": module,
+        "target": str(target),
+        "files_copied": len(copied),
+        "files_skipped": len(skipped),
+    }
+    console.success(f"Módulo '{module}' aplicado em {target}")
+    if not json_mode and skipped:
+        console.info(f"  [dim]{len(skipped)} arquivo(s) já existiam (preservados).[/dim]")
+    console.emit(payload)
+
+
+def _emit_module_list(console: Console, modules: list, target: Path) -> None:
+    payload = {
+        "modules": [
+            {
+                "name": m.name,
+                "description": m.description,
+                "when_to_use": m.when_to_use,
+                "applied": is_applied(target, m),
+            }
+            for m in modules
+        ]
+    }
+    if not console.json_mode:
+        for m in modules:
+            mark = " [green][aplicado][/green]" if is_applied(target, m) else ""
+            console._rich.print(f"  [cyan]{m.name}[/cyan]{mark} — {m.description}")  # type: ignore[attr-defined]
+    console.emit(payload)
+
+
+def _pick_module_interactive(console: Console, modules: list, target: Path) -> str | None:
+    if not modules:
+        console.warn("Nenhum módulo disponível.")
+        return None
+    console._rich.print("[bold]Módulos disponíveis:[/bold]")  # type: ignore[attr-defined]
+    for i, m in enumerate(modules, 1):
+        mark = " [green][aplicado][/green]" if is_applied(target, m) else ""
+        console._rich.print(f"  [cyan]{i})[/cyan] {m.name}{mark} — {m.description}")  # type: ignore[attr-defined]
+    raw = typer.prompt("Número do módulo (vazio para cancelar)", default="")
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        idx = int(raw) - 1
+    except ValueError:
+        return None
+    if 0 <= idx < len(modules):
+        return modules[idx].name
+    return None
 
 
 def _entry() -> None:

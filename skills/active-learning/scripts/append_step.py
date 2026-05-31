@@ -27,8 +27,8 @@ import json
 import sys
 from pathlib import Path
 
-from prumo_assist.domains.wiki.study import append_step
 from prumo_assist.domains.wiki.schemas.v1 import StepLog
+from prumo_assist.domains.wiki.study import append_step
 
 
 def main() -> None:

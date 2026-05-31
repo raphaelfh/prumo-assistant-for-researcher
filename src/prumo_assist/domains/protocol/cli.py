@@ -23,11 +23,11 @@ def propagate_command(
     path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Regenera blocos ``<!-- picot:begin -->`` em ``protocol.md`` e ``project.md``."""
+    """Regenera blocos ``<!-- picot:begin -->`` em ``protocol.md`` e ``project_guide.md``."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         report = ops.propagate(path.resolve())
         console.success(
-            f"protocol.md: {report.protocol_status} · project.md: {report.project_status} "
+            f"protocol.md: {report.protocol_status} · project_guide.md: {report.project_status} "
             f"(hash {report.hash8})"
         )
         console.emit(asdict(report))

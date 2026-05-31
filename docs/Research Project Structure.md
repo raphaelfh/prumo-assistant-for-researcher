@@ -31,8 +31,7 @@ pj_<nome>/
 ├── docs/
 │   ├── _index.md                ← MOC content-oriented (catálogo)
 │   ├── _log.md                  ← append-only (ingests, decisões, queries)
-│   ├── project.md               ← escrita do projeto (documento-vida)
-│   ├── protocol.md              ← operacional clínico (coorte, métricas, ética)
+│   ├── project_guide.md         ← guia enxuto (Objetivo/Hipótese/Research Questions)
 │   ├── decisions/               ← ADRs (governança imutável)
 │   └── canvas/
 │       └── project.canvas       ← whiteboard panorâmico
@@ -49,8 +48,7 @@ pj_<nome>/
 |---|---|---|
 | `README.md` | Tour de 1 página pra humano externo | Pesquisador (raro) |
 | `CLAUDE.md` | Persona, stack, dependências, hierarquia de instruções | Pesquisador |
-| `project.md` | Texto formal do projeto (tese, hipótese, pilares, RQs, papers planejados, cronograma). É a **escrita-vida** — vira a entrega final. | Pesquisador |
-| `protocol.md` | Operacional clínico (coorte, critérios, labels, métricas, splits, ética) | Pesquisador |
+| `project_guide.md` | Guia enxuto do projeto — **Objetivo**, **Hipótese**, **Research Questions**. Orienta o trabalho, não é a entrega final (escrita formal vive nos módulos `peer-review-loop`/`versioned-milestones`). | Pesquisador |
 | `docs/_index.md` | Catálogo do wiki — uma linha por página existente | Skill `wiki-ingest` |
 | `docs/_log.md` | Diário append-only de eventos (ingest, decisão, query) | Skill `wiki-ingest` + manual |
 | `docs/decisions/` | ADRs numeradas (`adr-NNNN-*.md`); imutável após aceito | Pesquisador |
@@ -80,18 +78,19 @@ Cada módulo é independente. Ative quando o trigger acontecer; não ative antes
 | `brainstorm-pipeline` | `docs/brainstorm/{daily, topics}/` | Projeto ≥3 meses; ideação volumosa; precisa de pipeline `daily → topic → ADR` |
 | `peer-review-loop` | `docs/comments/` | Vai submeter / receberá feedback de orientador ou revisor |
 | `versioned-milestones` | `docs/<marco>/{<doc>.md, versions/, README.md}` | Há entregas formais (banca, submissão de paper, capítulo de tese) |
-| `data-pipeline` | `content/{01_raw, 02_processed}/` + notebooks numerados | Há dados primários + análise tabular/imagem |
+| `ml` | `content/{01_raw, 02_processed}/` + `eda.ipynb` + `.claude/rules/` (stack, governança, código) — ative com `prumo add ml` | Vai treinar modelos ou fazer análise tabular/de imagem |
+| `clinical` | `docs/protocol.md` + `docs/templates/` (projeto CEP, plano estatístico/SAP, dicionário de dados) — ative com `prumo add clinical` | Estudo clínico/empírico com coorte e submissão a CEP |
 | `obsidian-power` | `references/{templates, views}/` + plugins zotero/pandoc/linter | Vault Obsidian é a ferramenta principal de trabalho |
 | `specify-workflow` | `docs/superpowers/{specs, plans}/` | Usa skills `superpowers:brainstorming` / `writing-plans` pra design formal |
 
 ### Detalhamento dos módulos mais densos
 
-**`brainstorm-pipeline`** — pipeline `daily → topic → ADR → project.md` :
+**`brainstorm-pipeline`** — pipeline `daily → topic → ADR → project_guide.md` :
 
 - `daily/YYYY-MM-DD.md` — escrita livre, sem schema, sem lint. Captura e segue.
 - `topics/<kebab-case>.md` — promovido quando uma ideia aparece em ≥2 dailies. Tem **tese**, **contras**, **perguntas em aberto**, **status** (aberto/amadurecendo/pronto-para-ADR/arquivado).
 - Quando topic fecha → ADR em `docs/decisions/adr-NNNN-*.md`.
-- Quando decisão pesa → seção atualizada em `docs/project.md`.
+- Quando decisão pesa → seção atualizada em `docs/project_guide.md`.
 
 **`extended-wiki`** — quatro tipos canônicos + domínios custom:
 
@@ -121,7 +120,7 @@ Pj_piloto_ml usa esse padrão pra `qualification/`. Outros projetos podem usar p
 |---|---|---|
 | **L0 — exploratório curto** (≤3 meses) | Estudo de viabilidade, PoC, scoping review rápido | só núcleo mínimo |
 | **L1 — paper único** | Submissão única, sem multi-marco | + `peer-review-loop` + `obsidian-power` |
-| **L2 — paper com leitura profunda** | Paper que exige RSL ou benchmark amplo | L1 + `extended-wiki` + `data-pipeline` |
+| **L2 — paper com leitura profunda** | Paper que exige RSL ou benchmark amplo | L1 + `extended-wiki` + `ml` |
 | **L3 — tese / dissertação** | Multi-ano, multi-paper, banca, capítulos | tudo + `brainstorm-pipeline` + `versioned-milestones` + `specify-workflow` |
 
 Esses níveis não são prescritivos. São pontos de partida para você compor.
@@ -133,6 +132,6 @@ Esses níveis não são prescritivos. São pontos de partida para você compor.
 - **Ative um módulo no momento da dor**, não antes. Sintoma típico: você está prestes a fazer um workaround manual repetidamente — o módulo já existe pra esse padrão.
 - **Não desative módulos retroativamente**. Se ativou e não usa mais, deixe ali — o histórico tem valor.
 - **Module novo** que não está nesta lista é candidato a ser proposto aqui. Se aparecer em ≥2 projetos, formaliza.
-- **Variantes do mínimo** (ex.: cortar `protocol.md` se o projeto não é clínico) são aceitas — esta lista é guia, não lei.
+- **Variantes do mínimo** (ex.: ativar o módulo `clinical` só quando o projeto for clínico) são aceitas — esta lista é guia, não lei.
 
 Ver também: [[actions-by-context|Contextos → ações]] e [[journey|Canvas de jornada]].
