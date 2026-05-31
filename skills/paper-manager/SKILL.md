@@ -15,7 +15,7 @@ prumo:
   agent_compat: [claude-code]
   cost_estimate: ~1-3k tokens
   inputs:
-    operation: required (sync | update-cites | set-primary | list | graph | sync-bib | find)
+    operation: required (sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary | list | graph | sync-bib | find)
     args: optional (operation-specific)
 ---
 

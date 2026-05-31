@@ -118,3 +118,8 @@ def test_paper_sync_all_cli_runs_offline_sync(tmp_path: Path) -> None:
     # sync (offline) succeeds; annotations/notes skipped with warnings -> exit 0
     assert result.exit_code == 0, result.output
     assert (refs / "notes" / "smith2024" / "_meta.md").is_file()
+    # Verify JSON payload has null sub-reports for offline syncs
+    payload = _last_json(result.stdout)
+    assert payload["annotations"] is None
+    assert payload["notes"] is None
+    assert isinstance(payload["warnings"], list) and payload["warnings"]
