@@ -186,7 +186,7 @@ def _wizard(console: Console, default_target: str | None = None) -> dict[str, ob
     _render_banner(console)
     # 1. Nome do projeto
     name = typer.prompt(
-        "Nome do projeto (ex.: srpj_my_study)",
+        "Nome do projeto (ex.: pj_my_study)",
         default=default_target or "pj_",
     )
     target, _ = _validate_project_name(name)
@@ -349,7 +349,7 @@ def init_command(
             answers = _wizard(console)
         except typer.Abort:
             console.warn("Cancelado.")
-            raise typer.Exit(code=130)  # 130 = SIGINT convention
+            raise typer.Exit(code=130) from None  # 130 = SIGINT convention
         target = answers["target"]  # type: ignore[assignment]
         mode = answers["mode"]
         integration_list = list(answers["integrations"])  # type: ignore[arg-type]
