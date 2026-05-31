@@ -31,8 +31,9 @@ avaliação task-specific, e a etapa de verificação humana.
 
 Reporting da avaliação clínica **precoce** (small-scale, live) de sistemas de
 apoio à decisão baseados em IA — o estágio entre desenvolvimento do modelo
-(TRIPOD+AI) e o RCT completo (CONSORT-AI). 27 itens; ênfase em fatores
-humanos, segurança, e desempenho em uso real.
+(TRIPOD+AI) e o RCT completo (CONSORT 2025, + CONSORT-AI se houver IA no
+pipeline). 27 itens; ênfase em fatores humanos, segurança, e desempenho em
+uso real.
 
 ## CONSORT 2025
 
