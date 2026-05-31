@@ -1,6 +1,6 @@
 ---
 name: peer-review
-description: "Simula revisão crítica de draft acadêmico (paper, capítulo, grant, proposta) produzindo feedback estruturado por seção com forças, fraquezas, claims sem evidência e sugestões acionáveis. Aplica mental model adequado (TRIPOD+AI / CLAIM / CONSORT-AI / PRISMA / STROBE)."
+description: "Simula revisão crítica de draft acadêmico (paper, capítulo, grant, proposta) produzindo feedback estruturado por seção com forças, fraquezas, claims sem evidência e sugestões acionáveis. Aplica mental model adequado (TRIPOD+AI / TRIPOD-LLM / DECIDE-AI / CLAIM / CONSORT 2025 / PRISMA / STROBE)."
 when_to_use: |
   Quando o usuário pedir "revisa este draft", "me dá um peer review do meu paper",
   "critica essa introdução", "quais buracos no meu argumento", ou ao terminar
@@ -52,12 +52,18 @@ endereçar antes de submeter.
 Identifique o gênero antes de revisar:
 
 - **Paper de modelo de predição** → aplicar mental model TRIPOD+AI.
+- **Paper que desenvolve/avalia um LLM em saúde** → aplicar TRIPOD-LLM
+  (Nat Med 2025; living guideline).
+- **Avaliação clínica precoce de IA de apoio à decisão** → aplicar DECIDE-AI.
 - **Paper de imaging AI** → aplicar mental model CLAIM/MI-CLAIM.
-- **RCT** → CONSORT (e CONSORT-AI se houver IA no pipeline).
+- **RCT** → CONSORT 2025 (e CONSORT-AI se houver IA no pipeline).
 - **Revisão sistemática** → PRISMA.
 - **Estudo observacional** → STROBE.
 - **Capítulo de tese** → estrutura de argumento + clareza pra banca.
 - **Grant/proposta** → alinhamento problema-método-impacto.
+
+> Detalhamento de cada guideline (quando carregar): ver
+> [`references/reporting-guidelines.md`](references/reporting-guidelines.md).
 
 Não cite a checklist explicitamente no review final (a menos que faça sentido);
 use como _mental model_ pra identificar lacunas.
@@ -104,7 +110,7 @@ O JSON segue este shape (`PeerReviewReport/v1`):
   "minor_weaknesses": [{"section": "...", "point": "...", "fix": "..."}],
   "claims_without_evidence": [{"section": "...", "claim": "...", "where_to_find_evidence_or_remove": "..."}],
   "suggestions_by_section": [{"section": "...", "suggestion": "..."}],
-  "mental_model_applied": "TRIPOD+AI | CLAIM | CONSORT-AI | PRISMA | STROBE | thesis-defense | grant-impact | none"
+  "mental_model_applied": "TRIPOD+AI | TRIPOD-LLM | DECIDE-AI | CLAIM | CONSORT 2025 | CONSORT-AI | PRISMA | STROBE | thesis-defense | grant-impact | none"
 }
 ```
 
