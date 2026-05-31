@@ -129,3 +129,16 @@ def test_version_flag() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert "prumo" in result.stdout
+
+
+def test_init_rejects_srpj_prefix(tmp_path: Path) -> None:
+    """srpj_ deixou de ser aceito; só pj_."""
+    target = tmp_path / "srpj_old"
+    result = runner.invoke(app, ["init", str(target), "--yes"])
+    assert result.exit_code != 0
+
+
+def test_init_accepts_pj_prefix(tmp_path: Path) -> None:
+    target = tmp_path / "pj_ok"
+    result = runner.invoke(app, ["init", str(target), "--json"])
+    assert result.exit_code == 0, result.output

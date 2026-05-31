@@ -91,7 +91,7 @@ MODE_NEW = "new"
 MODE_MERGE = "merge"
 MODE_FORCE = "force"
 
-_VALID_PREFIXES = ("srpj_", "pj_")
+_VALID_PREFIXES = ("pj_",)
 _NAME_RE = re.compile(r"^[a-z0-9_]+$")
 
 
@@ -187,7 +187,7 @@ def _wizard(console: Console, default_target: str | None = None) -> dict[str, ob
     # 1. Nome do projeto
     name = typer.prompt(
         "Nome do projeto (ex.: srpj_my_study)",
-        default=default_target or "srpj_",
+        default=default_target or "pj_",
     )
     target, _ = _validate_project_name(name)
 
