@@ -71,3 +71,87 @@ def test_lint_flags_orphan_pages(tmp_path: Path) -> None:
     pages_orphans = [i["page"] for i in report["issues"] if i["code"] == "orphan_page"]
     assert "beta" in pages_orphans
     assert "alpha" not in pages_orphans  # alpha é referenciada por beta
+
+
+def test_lint_flags_broken_log_prefix(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path)
+    (pj / "docs" / "_log.md").write_text(
+        "# Log\n\n"
+        "## [2026-05-30] ingest | added smith2024\n\n"
+        "## not a valid header line\n\n"
+        "## [2026-05-30] frobnicate | bad verb\n",
+        encoding="utf-8",
+    )
+    report = lint(pj)
+    codes = {i["code"] for i in report["issues"]}
+    assert "broken_log_prefix" in codes
+    msgs = [i["message"] for i in report["issues"] if i["code"] == "broken_log_prefix"]
+    assert any("not a valid header" in m for m in msgs)
+    assert any("frobnicate" in m for m in msgs)
+
+
+def test_lint_flags_multiple_primary_notes(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path)
+    notes = pj / "references" / "notes"
+    for key in ("a", "b"):
+        d = notes / key
+        d.mkdir(parents=True)
+        (d / "_meta.md").write_text(f"---\nid: {key}\nrole: primary\n---\n", encoding="utf-8")
+    report = lint(pj)
+    codes = {i["code"] for i in report["issues"]}
+    assert "multiple_primary" in codes
+
+
+def test_lint_single_primary_is_clean(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path)
+    d = pj / "references" / "notes" / "a"
+    d.mkdir(parents=True)
+    (d / "_meta.md").write_text("---\nid: a\nrole: primary\n---\n", encoding="utf-8")
+    report = lint(pj)
+    codes = {i["code"] for i in report["issues"]}
+    assert "multiple_primary" not in codes
+
+
+def test_lint_flags_dead_frontmatter_links(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path, "@article{real,title={X}}\n")
+    (pj / "docs" / "concepts" / "alpha.md").write_text(
+        "---\ntype: concept\n---\n\nbody\n", encoding="utf-8"
+    )
+    (pj / "docs" / "concepts" / "beta.md").write_text(
+        "---\ntype: concept\nrelated:\n  - '[[alpha]]'\n  - '[[ghost]]'\n"
+        "sources:\n  - '[[@real]]'\n  - '[[@missingkey]]'\n---\n\n"
+        "Links to [[alpha]] so beta is not orphan.\n",
+        encoding="utf-8",
+    )
+    report = lint(pj)
+    dead = [i["message"] for i in report["issues"] if i["code"] == "dead_link"]
+    assert any("ghost" in m for m in dead)
+    assert any("missingkey" in m for m in dead)
+    assert not any("alpha" in m for m in dead)  # exists
+    assert not any("real" in m for m in dead)  # exists in .bib
+
+
+def test_lint_reports_concept_candidates_as_info(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path)
+    # "focal loss" wikilinked 3x but has no docs/concepts/focal loss.md page.
+    for i, name in enumerate(("p1", "p2", "p3")):
+        (pj / "docs" / "concepts" / f"{name}.md").write_text(
+            f"---\ntype: concept\n---\n\nSee [[focal loss]] here ({i}). Also [[p1]].\n",
+            encoding="utf-8",
+        )
+    report = lint(pj)
+    cand = [i for i in report["issues"] if i["code"] == "concept_candidate"]
+    assert any("focal loss" in i["message"] for i in cand)
+    assert all(i["severity"] == "info" for i in cand)
+    # info must not break ok:
+    assert report["ok"] is True
+
+
+def test_lint_ignores_low_frequency_concepts(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path)
+    (pj / "docs" / "concepts" / "p1.md").write_text(
+        "---\ntype: concept\n---\n\nMentions [[rare term]] once. And [[p1]].\n",
+        encoding="utf-8",
+    )
+    report = lint(pj)
+    assert not any(i["code"] == "concept_candidate" for i in report["issues"])

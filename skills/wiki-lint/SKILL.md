@@ -8,7 +8,7 @@ when_to_use: |
 argument-hint: "[--quick]"
 allowed-tools: Read Write Edit Glob Grep Bash(rg *)
 prumo:
-  version: 1.0.0
+  version: 1.1.0
   schema: WikiLintReport/v1
   determinism: hybrid
   agent_compat: [claude-code]
@@ -27,6 +27,13 @@ Aplica as regras de integridade listadas em `/docs/wiki-schema.md` do monorepo. 
 - Se o wiki é recém-criado e vazio, a skill retorna "Wiki vazio — nada a auditar" e sai.
 
 ## Checklist (ordem fixa)
+
+> **Determinístico vs. agêntico.** As seções 2, 3, 4, 8 e 9 agora são cobertas
+> por `prumo wiki lint` (Python, reprodutível, custo zero de LLM). Rode-o
+> primeiro e gaste orçamento de LLM apenas nas seções **6 (contradições)** e
+> **7 (stale claims)**, que exigem julgamento semântico. Códigos emitidos:
+> `broken_citekey`, `orphan_page`, `broken_log_prefix`, `multiple_primary`,
+> `dead_link`, `concept_candidate` (severity `info`).
 
 ### 1. Páginas órfãs
 

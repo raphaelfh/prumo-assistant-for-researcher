@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +58,7 @@ class SkillManifest:
     determinism: str = "agentic"
     agent_compat: tuple[str, ...] = ()
     cost_estimate: str | None = None
+    guidelines_reviewed: str | None = None
     inputs: dict[str, str] = field(default_factory=dict)
 
     extra: dict[str, Any] = field(default_factory=dict)
@@ -123,6 +125,7 @@ def parse_skill_file(path: Path) -> SkillManifest:
         "determinism",
         "agent_compat",
         "cost_estimate",
+        "guidelines_reviewed",
         "inputs",
     }
     extra = {k: prumo_block[k] for k in extra_keys}
@@ -138,6 +141,11 @@ def parse_skill_file(path: Path) -> SkillManifest:
         agent_compat=agent_compat,
         cost_estimate=(
             str(prumo_block["cost_estimate"]) if prumo_block.get("cost_estimate") else None
+        ),
+        guidelines_reviewed=(
+            str(prumo_block["guidelines_reviewed"])
+            if prumo_block.get("guidelines_reviewed")
+            else None
         ),
         inputs=inputs,
         extra=extra,
@@ -209,3 +217,36 @@ def load_skill_registry(
         found[manifest.name] = manifest
 
     return SkillRegistry(skills=found), warnings
+
+
+def stale_guideline_warnings(
+    registry: SkillRegistry,
+    *,
+    today: date,
+    max_age_days: int = 180,
+) -> list[str]:
+    """Avisos para skills cujo ``guidelines_reviewed`` está velho ou inválido.
+
+    Só considera skills que **declaram** o campo — é opt-in por skill. Mantém o
+    julgamento de validade fora do LLM (Princípio II): living guidelines como
+    TRIPOD-LLM mudam a cada ~3 meses; sem revisão a prose envelhece em silêncio.
+    """
+    out: list[str] = []
+    for name in registry.names():
+        raw = registry.get(name).guidelines_reviewed
+        if not raw:
+            continue
+        try:
+            reviewed = date.fromisoformat(raw)
+        except ValueError:
+            out.append(
+                f"skill '{name}': prumo.guidelines_reviewed inválido ({raw!r}); use ISO YYYY-MM-DD."
+            )
+            continue
+        age = (today - reviewed).days
+        if age > max_age_days:
+            out.append(
+                f"skill '{name}': checklists revisados há {age} dias "
+                f"(> {max_age_days}); revalide os reporting guidelines e atualize guidelines_reviewed."
+            )
+    return out

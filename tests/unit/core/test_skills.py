@@ -140,3 +140,61 @@ def test_registry_strict_mode_aborts_on_malformed(tmp_path: Path) -> None:
     _write(tmp_path / "bad" / "SKILL.md", "---\n: invalid\n---\nbody\n")
     with pytest.raises(ManifestError):
         load_skill_registry(tmp_path, strict=True)
+
+
+def test_parses_guidelines_reviewed(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "pr" / "SKILL.md",
+        '---\nname: pr\ndescription: d\nprumo:\n  guidelines_reviewed: "2026-05-30"\n---\nbody\n',
+    )
+    m = parse_skill_file(skill)
+    assert m.guidelines_reviewed == "2026-05-30"
+
+
+def test_guidelines_reviewed_defaults_none(tmp_path: Path) -> None:
+    skill = _write(tmp_path / "x" / "SKILL.md", "---\nname: x\ndescription: d\n---\nbody\n")
+    assert parse_skill_file(skill).guidelines_reviewed is None
+
+
+def test_guidelines_reviewed_not_in_extra(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "x" / "SKILL.md",
+        '---\nname: x\ndescription: d\nprumo:\n  guidelines_reviewed: "2026-01-01"\n---\nbody\n',
+    )
+    assert "guidelines_reviewed" not in parse_skill_file(skill).extra
+
+
+def test_stale_guideline_warnings_flags_old(tmp_path: Path) -> None:
+    from datetime import date
+
+    from prumo_assist.core.skills import stale_guideline_warnings
+
+    _write(
+        tmp_path / "old" / "SKILL.md",
+        '---\nname: old\ndescription: d\nprumo:\n  guidelines_reviewed: "2025-12-01"\n---\nb\n',
+    )
+    _write(
+        tmp_path / "fresh" / "SKILL.md",
+        '---\nname: fresh\ndescription: d\nprumo:\n  guidelines_reviewed: "2026-05-30"\n---\nb\n',
+    )
+    _write(tmp_path / "nodate" / "SKILL.md", "---\nname: nodate\ndescription: d\n---\nb\n")
+    reg, _ = load_skill_registry(tmp_path)
+    warns = stale_guideline_warnings(reg, today=date(2026, 6, 1), max_age_days=180)
+    joined = " ".join(warns)
+    assert "old" in joined
+    assert "fresh" not in joined
+    assert "nodate" not in joined
+
+
+def test_stale_guideline_warnings_flags_malformed_date(tmp_path: Path) -> None:
+    from datetime import date
+
+    from prumo_assist.core.skills import stale_guideline_warnings
+
+    _write(
+        tmp_path / "bad" / "SKILL.md",
+        '---\nname: bad\ndescription: d\nprumo:\n  guidelines_reviewed: "not-a-date"\n---\nb\n',
+    )
+    reg, _ = load_skill_registry(tmp_path)
+    warns = stale_guideline_warnings(reg, today=date(2026, 6, 1))
+    assert any("bad" in w and "inválid" in w for w in warns)

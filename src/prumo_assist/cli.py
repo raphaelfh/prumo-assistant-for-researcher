@@ -555,6 +555,16 @@ def doctor_command(
         adapter = adapter_cls()
         issues.extend(adapter.doctor(target))
 
+    # Staleness das checklists clínicas (Princípio II: validade sem LLM).
+    skills_dir = _resolve_skills_dir()
+    if skills_dir is not None:
+        from datetime import UTC, datetime
+
+        from prumo_assist.core.skills import stale_guideline_warnings
+
+        registry, _warns = load_skill_registry(skills_dir, strict=False)
+        issues.extend(stale_guideline_warnings(registry, today=datetime.now(UTC).date()))
+
     deps = check_external_deps()
 
     payload = {
