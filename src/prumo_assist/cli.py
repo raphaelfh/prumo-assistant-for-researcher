@@ -34,6 +34,7 @@ from prumo_assist import (
     PrumoError,
     __version__,
 )
+from prumo_assist.core.deps import check_external_deps
 from prumo_assist.core.output import Console
 from prumo_assist.core.paths import find_resource, resolve_resource
 from prumo_assist.core.skills import load_skill_registry
@@ -482,7 +483,12 @@ def doctor_command(
     ] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
 ) -> None:
-    """Health-check do projeto: estrutura, skills instaladas, integrations OK?"""
+    """Health-check do projeto: estrutura, skills instaladas, integrations OK?
+
+    Também reporta dependências externas (qmd, Zotero). Dependência externa
+    ausente é informativa — não muda o exit code; só problemas estruturais
+    (diretórios/skills faltando) retornam 1.
+    """
     console = Console(json_mode=json_mode)
     target = path.resolve()
     issues: list[str] = []
@@ -496,18 +502,30 @@ def doctor_command(
         adapter = adapter_cls()
         issues.extend(adapter.doctor(target))
 
+    deps = check_external_deps()
+
     payload = {
         "project": str(target),
         "ok": not issues,
         "issues": issues,
+        "external_deps": [d.as_dict() for d in deps],
         "version": __version__,
     }
     if issues:
-        console.warn(f"{len(issues)} problema(s) encontrado(s).")
+        console.warn(f"{len(issues)} problema(s) estrutural(is) encontrado(s).")
         for i in issues:
             console.info(f"  • {i}")
     else:
-        console.success("Tudo certo.")
+        console.success("Estrutura do projeto OK.")
+
+    console.info("")
+    console.info("Dependências externas:")
+    for d in deps:
+        mark = "✓" if d.present else "○"
+        console.info(f"  {mark} {d.name} — {d.detail}")
+        if not d.present:
+            console.info(f"      ↳ {d.hint}")
+
     console.emit(payload)
     if issues:
         raise typer.Exit(code=1)
