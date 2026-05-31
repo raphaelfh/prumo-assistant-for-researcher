@@ -17,16 +17,16 @@ from typing import Any
 
 import yaml
 
-from prumo_assist import PrumoError  # noqa: F401  # used by generate_disclosure (Task 5)
+from prumo_assist import PrumoError
 from prumo_assist.core.provenance import (
-    now_utc,  # noqa: F401  # used by generate_disclosure (Task 5)
+    now_utc,
 )
-from prumo_assist.domains.write.schemas.v1 import (  # noqa: F401  # used by generate_disclosure (Task 5)
+from prumo_assist.domains.write.schemas.v1 import (
     AIDisclosure,
     AIToolUse,
 )
 
-__all__ = ["collect_records", "generate_disclosure"]  # noqa: F822  # generate_disclosure added by Task 5
+__all__ = ["collect_records", "generate_disclosure"]
 
 _SKIP_PARTS = {".prumo", ".git", "build", "node_modules", ".venv"}
 
@@ -105,3 +105,67 @@ def collect_records(root: Path) -> list[ProvRecord]:
         if rec is not None:
             records.append(rec)
     return records
+
+
+def _aggregate(records: list[ProvRecord]) -> list[AIToolUse]:
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    for r in records:
+        slot = grouped.setdefault((r.skill, r.model or ""), {"count": 0, "reviewed": True})
+        slot["count"] = int(slot["count"]) + 1
+        slot["reviewed"] = bool(slot["reviewed"]) and r.human_reviewed
+    uses: list[AIToolUse] = []
+    for (skill, model), slot in sorted(grouped.items()):
+        tool = skill if skill.startswith("prumo-assist") else f"prumo-assist:{skill}"
+        uses.append(
+            AIToolUse(
+                tool=tool,
+                model=model or None,
+                task=_TASK_BY_SKILL.get(skill, _DEFAULT_TASK),
+                count=int(slot["count"]),
+                human_reviewed=bool(slot["reviewed"]),
+            )
+        )
+    return uses
+
+
+def _phrase(use: AIToolUse) -> str:
+    head = f"{use.tool} ({use.model})" if use.model else use.tool
+    return f"{head} for {use.task}"
+
+
+def _render(uses: list[AIToolUse], lang: str) -> str:
+    if not uses:
+        if lang == "pt":
+            return "Nenhuma ferramenta de IA generativa foi usada na preparação deste trabalho."
+        return "No generative AI tools were used in the preparation of this work."
+    items = "; ".join(_phrase(u) for u in uses)
+    if lang == "pt":
+        return (
+            f"Durante a preparação deste trabalho, o(s) autor(es) utilizaram {items}. "
+            "Após o uso dessas ferramentas, o(s) autor(es) revisaram e editaram o "
+            "conteúdo conforme necessário e assumem total responsabilidade pelo "
+            "conteúdo da publicação."
+        )
+    return (
+        f"During the preparation of this work, the author(s) used {items}. "
+        "After using these tools, the author(s) reviewed and edited the content as "
+        "needed and take full responsibility for the content of the publication."
+    )
+
+
+def generate_disclosure(*, root: Path | None = None) -> AIDisclosure:
+    """Varre ``root`` (default: cwd) e devolve uma ``AIDisclosure``."""
+    root = root or Path.cwd()
+    if not root.exists():
+        raise PrumoError(f"diretório não encontrado: {root}")
+    records = collect_records(root)
+    uses = _aggregate(records)
+    dates = sorted(r.date for r in records if r.date)
+    return AIDisclosure(
+        generated_at=now_utc(),
+        date_from=dates[0] if dates else None,
+        date_to=dates[-1] if dates else None,
+        tools=uses,
+        statement_pt=_render(uses, "pt"),
+        statement_en=_render(uses, "en"),
+    )

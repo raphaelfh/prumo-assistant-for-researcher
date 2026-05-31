@@ -57,3 +57,40 @@ def test_collect_records_walks_and_skips_dotdirs(tmp_path: Path) -> None:
     )
     recs = collect_records(tmp_path)
     assert [r.model for r in recs] == ["m1"]
+
+
+def _paper(p: Path, model: str) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(f"---\nextracted_model: {model}\nextracted_at: 2026-05-01\n---\n", encoding="utf-8")
+
+
+def test_generate_disclosure_names_tool_and_model(tmp_path: Path) -> None:
+    from prumo_assist.domains.write.disclosure import generate_disclosure
+
+    _paper(tmp_path / "references/notes/a/_meta.md", "claude-opus-4")
+    _paper(tmp_path / "references/notes/b/_meta.md", "claude-opus-4")
+    disc = generate_disclosure(root=tmp_path)
+    assert len(disc.tools) == 1
+    assert disc.tools[0].count == 2
+    assert disc.tools[0].tool == "prumo-assist:paper-extract"
+    assert "claude-opus-4" in disc.statement_en
+    assert "responsibility" in disc.statement_en
+    assert "responsabilidade" in disc.statement_pt
+
+
+def test_generate_disclosure_empty(tmp_path: Path) -> None:
+    from prumo_assist.domains.write.disclosure import generate_disclosure
+
+    disc = generate_disclosure(root=tmp_path)
+    assert disc.tools == []
+    assert "No generative AI" in disc.statement_en
+
+
+def test_generate_disclosure_missing_root_raises() -> None:
+    import pytest
+
+    from prumo_assist import PrumoError
+    from prumo_assist.domains.write.disclosure import generate_disclosure
+
+    with pytest.raises(PrumoError):
+        generate_disclosure(root=Path("/no/such/dir/xyz123"))
