@@ -15,16 +15,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from prumo_assist import PrumoError
-from prumo_assist.core.provenance import (
-    now_utc,
-)
-from prumo_assist.domains.write.schemas.v1 import (
-    AIDisclosure,
-    AIToolUse,
-)
+from prumo_assist.core.obsidian import split_frontmatter
+from prumo_assist.core.provenance import now_utc
+from prumo_assist.domains.write.schemas.v1 import AIDisclosure, AIToolUse
 
 __all__ = ["collect_records", "generate_disclosure"]
 
@@ -52,17 +46,8 @@ class ProvRecord:
 
 
 def _read_frontmatter(md: Path) -> dict[str, Any] | None:
-    text = md.read_text(encoding="utf-8")
-    if not text.startswith("---"):
-        return None
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        return None
-    try:
-        fm = yaml.safe_load(parts[1])
-    except yaml.YAMLError:
-        return None
-    return fm if isinstance(fm, dict) else None
+    fm, _ = split_frontmatter(md.read_text(encoding="utf-8"))
+    return fm or None
 
 
 def _record_from_fm(fm: dict[str, Any]) -> ProvRecord | None:
@@ -107,12 +92,18 @@ def collect_records(root: Path) -> list[ProvRecord]:
     return records
 
 
+@dataclass
+class _Group:
+    count: int = 0
+    all_reviewed: bool = True
+
+
 def _aggregate(records: list[ProvRecord]) -> list[AIToolUse]:
-    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    grouped: dict[tuple[str, str], _Group] = {}
     for r in records:
-        slot = grouped.setdefault((r.skill, r.model or ""), {"count": 0, "reviewed": True})
-        slot["count"] = int(slot["count"]) + 1
-        slot["reviewed"] = bool(slot["reviewed"]) and r.human_reviewed
+        slot = grouped.setdefault((r.skill, r.model or ""), _Group())
+        slot.count += 1
+        slot.all_reviewed = slot.all_reviewed and r.human_reviewed
     uses: list[AIToolUse] = []
     for (skill, model), slot in sorted(grouped.items()):
         tool = skill if skill.startswith("prumo-assist") else f"prumo-assist:{skill}"
@@ -121,8 +112,8 @@ def _aggregate(records: list[ProvRecord]) -> list[AIToolUse]:
                 tool=tool,
                 model=model or None,
                 task=_TASK_BY_SKILL.get(skill, _DEFAULT_TASK),
-                count=int(slot["count"]),
-                human_reviewed=bool(slot["reviewed"]),
+                count=slot.count,
+                human_reviewed=slot.all_reviewed,
             )
         )
     return uses
