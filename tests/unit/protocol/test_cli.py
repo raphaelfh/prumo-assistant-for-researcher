@@ -18,7 +18,7 @@ def _bootstrap(tmp_path: Path) -> Path:
     pj = tmp_path / "pj_demo"
     (pj / "docs").mkdir(parents=True)
     (pj / "docs" / "protocol.md").write_text("# Protocolo\n")
-    (pj / "docs" / "project.md").write_text("---\ntitle: x\n---\n\n# Projeto\n")
+    (pj / "docs" / "project_guide.md").write_text("---\ntitle: x\n---\n\n# Projeto\n")
     (pj / "docs" / "decisions").mkdir()
     return pj
 

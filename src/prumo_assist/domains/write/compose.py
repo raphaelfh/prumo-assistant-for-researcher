@@ -4,7 +4,7 @@ Funções:
 
 - ``read_inputs`` — carrega ``ComposeInputs`` lendo ``.claude/picot.toml``,
   ``references/_references.bib``, callouts ``_extract.md``, ``protocol.md``,
-  ``project.md``, ``findings/*.md``.
+  ``project_guide.md``, ``findings/*.md``.
 - ``resolve_template`` — chain ``--template`` > ``.claude/writing_templates/`` > skill bundle.
 - ``compose_path`` — resolve output path por modo (drafts/into/out).
 - ``write_output`` — escreve conteúdo no destino + retorna ``WriteOutput``.
@@ -38,7 +38,7 @@ def read_inputs(pj_path: Path) -> ComposeInputs:
         citekeys=_read_citekeys(pj_path),
         papers=_read_papers(pj_path),
         protocol=_read_text(pj_path / "docs" / "protocol.md"),
-        project=_read_text(pj_path / "docs" / "project.md"),
+        project=_read_text(pj_path / "docs" / "project_guide.md"),
         findings=_read_findings(pj_path),
     )
 

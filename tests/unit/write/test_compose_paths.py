@@ -59,7 +59,7 @@ def test_compose_path_drafts_default(tmp_path: Path) -> None:
 def test_compose_path_into_uses_path_arg(tmp_path: Path) -> None:
     pj = tmp_path / "pj"
     (pj / "docs").mkdir(parents=True)
-    target = pj / "docs" / "project.md"
+    target = pj / "docs" / "project_guide.md"
     target.write_text("# Projeto\n")
     out = compose_path(
         pj_path=pj, kind="paper", date="2026-05-03", slug="x", into=target,

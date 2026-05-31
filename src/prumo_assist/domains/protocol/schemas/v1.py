@@ -1,7 +1,7 @@
 """``PicotSpec/v1`` — schema canônico da PICOT do projeto.
 
 Vive em ``.claude/picot.toml`` e é a fonte única de verdade. Os 3 destinos
-(``docs/protocol.md``, ``docs/project.md``, ADRs) são renders.
+(``docs/protocol.md``, ``docs/project_guide.md``, ADRs) são renders.
 
 Versionamento forward-only: nunca remover ou renomear campos; novos campos
 sempre opcionais com default. ``v2`` lê ``v1``.

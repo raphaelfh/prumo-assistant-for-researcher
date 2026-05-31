@@ -1,4 +1,4 @@
-"""Tests para render TOML → blocos delimitados em protocol.md / project.md."""
+"""Tests para render TOML → blocos delimitados em protocol.md / project_guide.md."""
 
 from __future__ import annotations
 

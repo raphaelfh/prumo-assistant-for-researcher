@@ -4,7 +4,7 @@ Cobre o ciclo de vida da PICOT do projeto:
 
 - ``schemas.v1.PicotSpec`` — schema canônico (Pydantic)
 - ``picot_io`` — read/write de ``.claude/picot.toml``
-- ``render`` — TOML → blocos delimitados em ``protocol.md`` / ``project.md``
+- ``render`` — TOML → blocos delimitados em ``protocol.md`` / ``project_guide.md``
 - ``diff`` — deep diff entre versões pra detectar mudança estrutural
 - ``adr`` — gera ADRs append-only quando versão muda
 - ``ops`` — orquestra ``propagate`` e ``diff_against_last_adr``

@@ -40,7 +40,7 @@ def _bootstrap_pj(tmp_path: Path) -> Path:
     (pj / "docs" / "protocol.md").write_text(
         "# Protocolo do estudo\n\n## Contexto da pesquisa\n\nProse humana inicial.\n"
     )
-    (pj / "docs" / "project.md").write_text(
+    (pj / "docs" / "project_guide.md").write_text(
         "---\ntitle: Projeto\n---\n\n# Projeto\n\nIntro.\n"
     )
     (pj / "docs" / "decisions").mkdir()
@@ -55,7 +55,7 @@ def test_propagate_inserts_blocks_when_absent(tmp_path: Path) -> None:
     assert report.protocol_status == "inserted"
     assert report.project_status == "inserted"
     protocol_text = (pj / "docs" / "protocol.md").read_text()
-    project_text = (pj / "docs" / "project.md").read_text()
+    project_text = (pj / "docs" / "project_guide.md").read_text()
     assert "<!-- picot:begin" in protocol_text
     assert "<!-- picot:begin" in project_text
     assert "DS_A" in protocol_text
