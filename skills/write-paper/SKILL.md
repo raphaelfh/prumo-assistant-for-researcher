@@ -1,6 +1,6 @@
 ---
 name: write-paper
-description: "Gera draft de paper IMRaD venue-aware a partir do PICOT, callouts _extract.md, protocol.md e project.md, com citação strict do acervo ([REF FALTANTE] quando ausente)."
+description: "Gera draft de paper IMRaD venue-aware a partir do PICOT, callouts _extract.md, protocol.md e project_guide.md, com citação strict do acervo ([REF FALTANTE] quando ausente)."
 when_to_use: |
   Quando o usuário pedir "escreve um draft do meu paper", "gera o paper sobre X",
   "rascunho IMRaD pra Y", "me ajuda a começar o draft", ou ao fechar PICOT e

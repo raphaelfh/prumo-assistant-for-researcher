@@ -129,7 +129,7 @@ def _resolve_skills_dir() -> Path | None:
 def _validate_project_name(raw: str) -> tuple[Path, str]:
     """Normaliza e valida o nome do projeto.
 
-    Aceita: ``srpj_x``, ``pj_x``, ``./srpj_x``, ``/tmp/srpj_x``.
+    Aceita: ``pj_x``, ``./pj_x``, ``/tmp/pj_x``.
     Rejeita: nomes sem prefixo válido, caracteres inválidos.
 
     Retorna ``(absolute_path, basename)``.
@@ -376,10 +376,10 @@ def init_command(
 
     \b
     - ``prumo init`` (sem args, TTY) → wizard interativo (Speckit-style)
-    - ``prumo init srpj_x`` → cria do zero (erro se já existir)
-    - ``prumo init srpj_x --merge`` → mescla sem sobrescrever existentes
-    - ``prumo init srpj_x --force`` → apaga e recria (DESTRUTIVO)
-    - ``prumo init srpj_x --yes`` → não-interativo (CI)
+    - ``prumo init pj_x`` → cria do zero (erro se já existir)
+    - ``prumo init pj_x --merge`` → mescla sem sobrescrever existentes
+    - ``prumo init pj_x --force`` → apaga e recria (DESTRUTIVO)
+    - ``prumo init pj_x --yes`` → não-interativo (CI)
     """
     console = Console(json_mode=json_mode)
 

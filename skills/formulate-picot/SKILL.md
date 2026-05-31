@@ -1,6 +1,6 @@
 ---
 name: formulate-picot
-description: "Formaliza, propaga e versiona a PICOT do projeto em 3 destinos (.claude/picot.toml canônico, docs/protocol.md operacional, docs/project.md acadêmico) + ADR append-only quando muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado."
+description: "Formaliza, propaga e versiona a PICOT do projeto em 3 destinos (.claude/picot.toml canônico, docs/protocol.md operacional, docs/project_guide.md acadêmico) + ADR append-only quando muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado."
 when_to_use: |
   Quando o usuário pedir "fechar PICOT", "formalizar pergunta de pesquisa",
   "propagar PICOT pra protocol/project/ADR", "PICOT mudou — gera novo ADR",
@@ -24,12 +24,12 @@ Skill que mantém a PICOT do projeto consistente em **três destinos**:
 
 - `.claude/picot.toml` — canônico (machine-readable, validado por `PicotSpec/v1`)
 - `docs/protocol.md` — render operacional (concreto, conferível)
-- `docs/project.md` — render acadêmico (prosa formal)
+- `docs/project_guide.md` — render acadêmico (prosa formal)
 - `docs/decisions/adr-NNNN-picot-v<N>-<slug>.md` — ADR append-only quando versão muda
 
 ## Pressupostos
 
-- cwd é um `pj_*` com `docs/protocol.md` e `docs/project.md` (mesmo que vazios) e `docs/decisions/`.
+- cwd é um `pj_*` com `docs/protocol.md` e `docs/project_guide.md` (mesmo que vazios) e `docs/decisions/`.
 - A parte determinística (read/write TOML, render, diff, ADR) vive em `prumo_assist.domains.protocol`. A skill **só** cuida do agêntico (Socrático e Formalize).
 
 ## Auto-detect
@@ -106,27 +106,27 @@ Passos:
    ```
 
    O script grava ``.claude/picot.toml``, propaga blocos em
-   ``docs/protocol.md`` + ``docs/project.md`` e cria ``adr-0001-picot-v1-versao-inicial.md``.
+   ``docs/protocol.md`` + ``docs/project_guide.md`` e cria ``adr-0001-picot-v1-versao-inicial.md``.
    Saída em stdout é JSON ``{"propagate": ..., "adr_path": ...}``.
 
 8. **Reportar ao usuário**: arquivos criados (``.claude/picot.toml``,
    ``docs/decisions/adr-NNNN-picot-v1-*.md``) e blocos atualizados em
-   ``protocol.md`` / ``project.md``.
+   ``protocol.md`` / ``project_guide.md``.
 
 ## Operação 2: `formalize` — extrair de prosa existente
 
-Pré-condição: `.claude/picot.toml` ausente, mas `docs/protocol.md` ou `docs/project.md` têm prose com sinais de PICOT.
+Pré-condição: `.claude/picot.toml` ausente, mas `docs/protocol.md` ou `docs/project_guide.md` têm prose com sinais de PICOT.
 
 Passos:
 
-1. **Ler `protocol.md` e `project.md`**, identificar candidatos pra cada campo (heurística: parágrafo após heading "## Contexto" / "## Coorte" / "## Desfecho").
+1. **Ler `protocol.md` e `project_guide.md`**, identificar candidatos pra cada campo (heurística: parágrafo após heading "## Contexto" / "## Coorte" / "## Desfecho").
 
 2. **Apresentar tabela**:
 
 | Campo | Candidato extraído | Fonte |
 |---|---|---|
 | `population` | "..." | `protocol.md § Coorte` |
-| `intervention` | "..." | `project.md § Hipótese` |
+| `intervention` | "..." | `project_guide.md § Hipótese` |
 | ... | ... | ... |
 
 3. **Confirmar/editar campo a campo** com o usuário.
@@ -147,13 +147,13 @@ Conteúdo migrado para
 
 - Skill **nunca** edita `.claude/picot.toml` sem confirmação do usuário.
 - Skill **nunca** edita ADR existente (append-only).
-- Skill **nunca** edita prose fora dos blocos `<!-- picot:begin/end -->` em protocol.md/project.md.
+- Skill **nunca** edita prose fora dos blocos `<!-- picot:begin/end -->` em protocol.md/project_guide.md.
 - Skill **não** invoca LLM para validar PICOT semanticamente — só estrutura.
-- Para escrita acadêmica do `project.md` § não delimitado, delegar à família `write-*` (spec separada).
+- Para escrita acadêmica do `project_guide.md` § não delimitado, delegar à família `write-*` (spec separada).
 
 ## Erros comuns
 
 - `picot.toml` corrompido (não-parseable) → reportar erro do `tomllib`, sugerir `git diff .claude/picot.toml`.
-- `docs/protocol.md` ou `docs/project.md` ausentes → reportar `missing` e seguir; humano cria depois.
+- `docs/protocol.md` ou `docs/project_guide.md` ausentes → reportar `missing` e seguir; humano cria depois.
 - Nenhum ADR baseline mas `picot.toml` existe → tratar como ADR-0001 inicial; criar.
 - `type` mudou (`clinical` → `methodological`) → ADR especial com warning explícito sobre campos abandonados.
