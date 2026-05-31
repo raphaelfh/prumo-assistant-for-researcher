@@ -9,6 +9,9 @@ dependencies = [
 
 # Ativar os grupos conforme necessidade do projeto:
 #   uv sync --group tabular --group viz
+# Grupos opcionais — não instalam nada até `uv sync --group <nome>`.
+# Para a stack de ML/dados, ative o módulo: `prumo add ml` (guia + regras),
+# e instale: `uv sync --group tabular --group viz`.
 [dependency-groups]
 tabular = [
     "openpyxl>=3.1",
