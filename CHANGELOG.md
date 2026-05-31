@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.61.0] - 2026-05-31
+
 ### Mudado
 
 - **`peer-review` e `write-statistics` adotam os guidelines de 2025**:
