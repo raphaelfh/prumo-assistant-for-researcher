@@ -32,6 +32,13 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Adicionado
 
+- **`prumo write disclosure`** — gera a declaração de uso de IA (PT/EN) a partir
+  da proveniência dos artefatos (`extracted_model` em `_meta.md`, `generator` em
+  findings, e blocos `_meta:` canônicos futuros), no formato exigido por
+  periódicos (Elsevier, Springer Nature, Wiley, T&F, SAGE) e pelo EU AI Act.
+  Schema `AIDisclosure/v1`.
+- **`Meta.human_reviewed`** (provenance) — registra verificação humana; aditivo,
+  Princípio IV. Findings agora gravam `generator` no frontmatter.
 - **`prumo_assist/_filters/zotero.lua`** — filtro vendored do Better BibTeX
   ([upstream](https://retorque.re/zotero-better-bibtex/exporting/pandoc/),
   rev `199d652`, 54 KB). Atualizar com `curl -L https://raw.githubusercontent.com/retorquere/zotero-better-bibtex/master/site/content/exporting/zotero.lua -o src/prumo_assist/_filters/zotero.lua`.
