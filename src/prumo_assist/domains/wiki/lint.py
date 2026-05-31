@@ -6,9 +6,13 @@ Detecta problemas estruturais que LLM não precisa ver:
 - Páginas órfãs (sem links de entrada).
 - Frontmatter ausente em páginas tipadas (``concepts/``, ``entities/``, etc.).
 - ``_index.md`` ou ``_log.md`` ausentes.
+- Entradas de ``_log.md`` fora do padrão de prefixo (``broken_log_prefix``).
+- Mais de uma nota com ``role: primary`` (``multiple_primary``).
+- Links mortos em campos de frontmatter ``links_to``/``sources``/``related`` (``dead_link``).
+- Conceitos citados ≥3× sem página correspondente (``concept_candidate``, severity ``info``).
 
-Não detecta "conceitos sem página" — esse é trabalho semântico que vai pra
-skill ``wiki-lint`` (modo agêntico via host).
+Contradições e stale claims permanecem semânticas — trabalho da skill
+``wiki-lint`` (modo agêntico via host), não deste módulo determinístico.
 """
 
 from __future__ import annotations
