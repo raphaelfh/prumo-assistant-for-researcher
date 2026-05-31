@@ -37,6 +37,7 @@ from prumo_assist import (
 from prumo_assist.core.deps import check_external_deps
 from prumo_assist.core.output import Console
 from prumo_assist.core.paths import find_resource, resolve_resource
+from prumo_assist.core.scaffold import discover_modules, get_module, is_applied
 from prumo_assist.core.scaffold import overlay as _overlay
 from prumo_assist.core.skills import load_skill_registry
 from prumo_assist.domains.capture.cli import capture_command
@@ -63,6 +64,26 @@ app.add_typer(write_app)
 app.command(
     "capture", help="Classifica input (URL, DOI, arXiv, PDF, citekey) e sugere próximo passo."
 )(capture_command)
+
+# Referência ao stdin capturada na importação. Usada para decidir se um comando
+# roda em modo interativo. Capturamos o objeto (em vez de ler ``sys.stdin``
+# direto no momento da decisão) porque o ``CliRunner`` dos testes substitui
+# ``sys.stdin`` por um wrapper durante o ``invoke`` — ler o objeto vivo nesse
+# instante perderia o ``isatty`` injetado pelo teste no stdin original.
+_STDIN = sys.stdin
+
+
+def _stdin_isatty() -> bool:
+    """``True`` se a entrada padrão é um terminal interativo.
+
+    Lê do objeto stdin capturado na importação (ver ``_STDIN``), de modo que
+    permaneça testável via ``monkeypatch.setattr(cli.sys.stdin, "isatty", ...)``
+    mesmo quando o ``CliRunner`` troca ``sys.stdin`` por baixo dos panos.
+    """
+    try:
+        return _STDIN.isatty()
+    except (ValueError, OSError):  # stdin fechado/sem fd (ex.: alguns runners)
+        return False
 
 
 def _version_callback(value: bool) -> None:
@@ -545,6 +566,98 @@ def skills_command(
         ]
     }
     console.emit(payload)
+
+
+# ---------------------------------------------------------------------------
+# prumo add (módulos opcionais via overlay não-destrutivo)
+# ---------------------------------------------------------------------------
+
+
+@app.command("add")
+def add_command(
+    module: Annotated[
+        str | None,
+        typer.Argument(help="Módulo a ativar (ex.: clinical, ml). Omita para listar/escolher."),
+    ] = None,
+    target: Annotated[
+        Path, typer.Option("--target", "-t", help="Projeto alvo (default: cwd).")
+    ] = Path("."),
+    list_only: Annotated[
+        bool, typer.Option("--list", help="Só lista módulos disponíveis.")
+    ] = False,
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Ativa um módulo no projeto (overlay não-destrutivo)."""
+    console = Console(json_mode=json_mode)
+    target = target.resolve()
+    modules = discover_modules()
+
+    if list_only or (module is None and (json_mode or not _stdin_isatty())):
+        _emit_module_list(console, modules, target)
+        return
+
+    if module is None:
+        module = _pick_module_interactive(console, modules, target)
+        if module is None:
+            console.warn("Nenhum módulo selecionado.")
+            raise typer.Exit(code=130)
+
+    info = get_module(module)
+    if info is None:
+        console.error(f"Módulo '{module}' não encontrado. Use `prumo add --list`.")
+        raise typer.Exit(code=1)
+
+    copied, skipped = _overlay(info.path, target)
+    payload = {
+        "module": module,
+        "target": str(target),
+        "files_copied": len(copied),
+        "files_skipped": len(skipped),
+    }
+    console.success(f"Módulo '{module}' aplicado em {target}")
+    if not json_mode and skipped:
+        console.info(f"  [dim]{len(skipped)} arquivo(s) já existiam (preservados).[/dim]")
+    console.emit(payload)
+
+
+def _emit_module_list(console: Console, modules: list, target: Path) -> None:
+    payload = {
+        "modules": [
+            {
+                "name": m.name,
+                "description": m.description,
+                "when_to_use": m.when_to_use,
+                "applied": is_applied(target, m),
+            }
+            for m in modules
+        ]
+    }
+    if not console.json_mode:
+        for m in modules:
+            mark = " [green][aplicado][/green]" if is_applied(target, m) else ""
+            console._rich.print(f"  [cyan]{m.name}[/cyan]{mark} — {m.description}")  # type: ignore[attr-defined]
+    console.emit(payload)
+
+
+def _pick_module_interactive(console: Console, modules: list, target: Path) -> str | None:
+    if not modules:
+        console.warn("Nenhum módulo disponível.")
+        return None
+    console._rich.print("[bold]Módulos disponíveis:[/bold]")  # type: ignore[attr-defined]
+    for i, m in enumerate(modules, 1):
+        mark = " [green][aplicado][/green]" if is_applied(target, m) else ""
+        console._rich.print(f"  [cyan]{i})[/cyan] {m.name}{mark} — {m.description}")  # type: ignore[attr-defined]
+    raw = typer.prompt("Número do módulo (vazio para cancelar)", default="")
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        idx = int(raw) - 1
+    except ValueError:
+        return None
+    if 0 <= idx < len(modules):
+        return modules[idx].name
+    return None
 
 
 def _entry() -> None:
