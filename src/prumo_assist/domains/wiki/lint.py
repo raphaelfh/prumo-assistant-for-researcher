@@ -25,6 +25,7 @@ from typing import Any
 import yaml
 
 from prumo_assist.core.bib import parse_bib
+from prumo_assist.core.obsidian import split_frontmatter
 
 EXPECTED_DIRS = ("concepts", "entities", "findings", "sources", "decisions")
 WIKILINK_RE = re.compile(r"\[\[@([A-Za-z0-9_-]+)\]\]")
@@ -36,7 +37,7 @@ LOG_PREFIX_RE = re.compile(
 
 @dataclass(frozen=True)
 class WikiIssue:
-    severity: str  # "error" | "warning"
+    severity: str  # "error" | "warning" | "info"
     code: str
     message: str
     page: str | None = None
@@ -63,9 +64,12 @@ def lint(pj_path: Path) -> dict[str, Any]:
 
     pages: list[Path] = sorted(docs.rglob("*.md"))
     page_stems = {p.stem for p in pages}
+    # Lê cada página uma vez (evita 3-4 leituras/parses redundantes por arquivo).
+    texts = {page: page.read_text(encoding="utf-8") for page in pages}
 
+    incoming: dict[str, int] = dict.fromkeys(page_stems, 0)
     for page in pages:
-        text = page.read_text()
+        text = texts[page]
         rel = page.relative_to(pj_path).as_posix()
 
         # Frontmatter check em páginas tipadas
@@ -85,15 +89,11 @@ def lint(pj_path: Path) -> dict[str, Any]:
                     )
                 )
 
-    # Páginas órfãs (não linkadas de nada)
-    incoming: dict[str, int] = dict.fromkeys(page_stems, 0)
-    for page in pages:
-        text = page.read_text()
-        for m in PAGE_LINK_RE.findall(text):
-            target = m if isinstance(m, str) else m[0]
-            target = target.strip().split("#")[0]
-            if target in incoming:
-                incoming[target] += 1
+        # Links de entrada (para detectar páginas órfãs)
+        for target in PAGE_LINK_RE.findall(text):
+            stem = _link_stem(target)
+            if stem in incoming:
+                incoming[stem] += 1
 
     for stem, count in sorted(incoming.items()):
         if count == 0 and not stem.startswith("_") and stem not in {"README", "protocol"}:
@@ -103,18 +103,30 @@ def lint(pj_path: Path) -> dict[str, Any]:
 
     issues.extend(_check_log_prefixes(docs))
     issues.extend(_check_single_primary(pj_path))
-    issues.extend(_check_dead_frontmatter_links(pages, pj_path, page_stems, bib_keys))
-    issues.extend(_check_concept_candidates(pages, page_stems))
+    issues.extend(_check_dead_frontmatter_links(texts, pj_path, page_stems, bib_keys))
+    issues.extend(_check_concept_candidates(texts, page_stems))
 
     return _report(issues)
+
+
+def _link_stem(match: str | tuple[str, ...]) -> str:
+    """Normaliza um match de ``PAGE_LINK_RE`` para o stem do alvo (sem âncora)."""
+    target = match if isinstance(match, str) else match[0]
+    return target.strip().split("#")[0]
 
 
 def _report(issues: list[WikiIssue]) -> dict[str, Any]:
     errors = sum(1 for i in issues if i.severity == "error")
     warnings = sum(1 for i in issues if i.severity == "warning")
+    info = sum(1 for i in issues if i.severity == "info")
     return {
         "ok": errors == 0,
-        "summary": {"errors": errors, "warnings": warnings, "total": len(issues)},
+        "summary": {
+            "errors": errors,
+            "warnings": warnings,
+            "info": info,
+            "total": len(issues),
+        },
         "issues": [asdict(i) for i in issues],
     }
 
@@ -164,25 +176,19 @@ _WIKILINK_TARGET_RE = re.compile(r"\[\[(@?[^\]|#]+)")
 
 
 def _check_dead_frontmatter_links(
-    pages: list[Path],
+    texts: dict[Path, str],
     pj_path: Path,
     page_stems: set[str],
     bib_keys: set[str],
 ) -> list[WikiIssue]:
     """Wikilinks em ``links_to``/``sources``/``related`` cujo alvo não existe."""
     issues: list[WikiIssue] = []
-    for page in pages:
-        text = page.read_text(encoding="utf-8")
-        if not text.startswith("---"):
-            continue
-        parts = text.split("---", 2)
-        if len(parts) < 3:
-            continue
+    for page, text in texts.items():
         try:
-            fm = yaml.safe_load(parts[1])
+            fm, _ = split_frontmatter(text)
         except yaml.YAMLError:
             continue
-        if not isinstance(fm, dict):
+        if not fm:
             continue
         rel = page.relative_to(pj_path).as_posix()
         for field in _FM_LINK_FIELDS:
@@ -220,13 +226,12 @@ def _check_dead_frontmatter_links(
 _CONCEPT_CANDIDATE_MIN = 3
 
 
-def _check_concept_candidates(pages: list[Path], page_stems: set[str]) -> list[WikiIssue]:
+def _check_concept_candidates(texts: dict[Path, str], page_stems: set[str]) -> list[WikiIssue]:
     """Wikilink ``[[termo]]`` citado ≥3× sem página correspondente → candidato a concept."""
     counts: dict[str, int] = {}
-    for page in pages:
-        text = page.read_text(encoding="utf-8")
+    for text in texts.values():
         for target in PAGE_LINK_RE.findall(text):
-            name = (target if isinstance(target, str) else target[0]).strip().split("#")[0]
+            name = _link_stem(target)
             if name and name not in page_stems:
                 counts[name] = counts.get(name, 0) + 1
     issues: list[WikiIssue] = []
