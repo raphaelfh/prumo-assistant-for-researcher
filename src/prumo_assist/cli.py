@@ -184,17 +184,20 @@ def _render_next_steps(console: Console, target: Path, mode: str) -> None:
     console._rich.print(f"  [cyan]cd {rel}[/cyan]")  # type: ignore[attr-defined]
     if mode == MODE_NEW:
         console._rich.print(  # type: ignore[attr-defined]
-            "  Edite [cyan]CLAUDE.md[/cyan] e [cyan].claude/rules/project_context.md[/cyan]"
+            "  Edite [cyan]docs/project_guide.md[/cyan] e [cyan].claude/rules/project_context.md[/cyan]"
         )
         console._rich.print(  # type: ignore[attr-defined]
-            "  Quando tiver papers no Zotero: [cyan]/prumo-assist:paper-manager sync[/cyan]"
+            "  Ative módulos opcionais (clínico, ML): [cyan]prumo add[/cyan]"
+        )
+        console._rich.print(  # type: ignore[attr-defined]
+            "  No Claude Code, comece por: [cyan]/prumo-assist:start[/cyan]"
         )
     elif mode == MODE_MERGE:
         console._rich.print(  # type: ignore[attr-defined]
             "  Revise as diferenças no [cyan]git status[/cyan] — arquivos existentes foram preservados."
         )
         console._rich.print(  # type: ignore[attr-defined]
-            "  Veja [cyan]docs/templates/README.md[/cyan] para usar os modelos administrativos."
+            "  Ative módulos com [cyan]prumo add[/cyan]; no Claude Code: [cyan]/prumo-assist:start[/cyan]."
         )
     else:  # MODE_FORCE
         console._rich.print(  # type: ignore[attr-defined]
@@ -258,6 +261,25 @@ def _wizard(console: Console, default_target: str | None = None) -> dict[str, ob
             except ValueError:
                 integrations = ["claude_code"] if "claude_code" in available else available[:1]
 
+    # Módulos opcionais (à la carte, todos desmarcados).
+    _modules = discover_modules()
+    selected_modules: list[str] = []
+    if _modules:
+        console._rich.print("\n[bold]Módulos opcionais (Enter para nenhum):[/bold]")  # type: ignore[attr-defined]
+        for _i, _m in enumerate(_modules, 1):
+            console._rich.print(f"  [cyan]{_i})[/cyan] {_m.name} — {_m.description}")  # type: ignore[attr-defined]
+        _raw = typer.prompt("Quais ativar? (números separados por vírgula)", default="")
+        for _tok in _raw.split(","):
+            _tok = _tok.strip()
+            if not _tok:
+                continue
+            try:
+                _idx = int(_tok) - 1
+            except ValueError:
+                continue
+            if 0 <= _idx < len(_modules):
+                selected_modules.append(_modules[_idx].name)
+
     # 4. git init (apenas se MODE_NEW)
     init_git = False
     if mode == MODE_NEW:
@@ -267,6 +289,7 @@ def _wizard(console: Console, default_target: str | None = None) -> dict[str, ob
         "target": target,
         "mode": mode,
         "integrations": integrations,
+        "modules": selected_modules,
         "init_git": init_git,
     }
 
@@ -303,6 +326,13 @@ def init_command(
             "--integration",
             "-i",
             help="Adapter de agent-host a configurar. Pode repetir. Default: claude_code.",
+        ),
+    ] = None,
+    with_modules: Annotated[
+        str | None,
+        typer.Option(
+            "--with",
+            help="Módulos a ativar na criação, separados por vírgula (ex.: clinical,ml).",
         ),
     ] = None,
     json_mode: Annotated[
@@ -445,6 +475,24 @@ def init_command(
                     {"integration": adapter.name, "installed": [], "skipped": []}
                 )
 
+        # Módulos a ativar (wizard no modo interativo; --with no modo direto).
+        if interactive:
+            module_names = list(answers.get("modules", []))  # type: ignore[union-attr]
+        else:
+            module_names = (
+                [m.strip() for m in with_modules.split(",") if m.strip()]
+                if with_modules
+                else []
+            )
+        modules_applied: list[str] = []
+        for _name in module_names:
+            _info = get_module(_name)
+            if _info is None:
+                console.warn(f"Módulo '{_name}' desconhecido; ignorado.")
+                continue
+            _overlay(_info.path, target)
+            modules_applied.append(_name)
+
         payload = {
             "project": str(target),
             "template": str(template),
@@ -453,6 +501,7 @@ def init_command(
             "files_skipped": len(skipped),
             "git_initialized": git_initialized,
             "integrations": installed_summary,
+            "modules_applied": modules_applied,
             "version": __version__,
         }
 
