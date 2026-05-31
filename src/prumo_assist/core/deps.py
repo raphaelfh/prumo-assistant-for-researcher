@@ -14,12 +14,13 @@ evita espalhar ``shutil.which`` e checagem de porta pelo CLI.
 
 from __future__ import annotations
 
+import os
 import shutil
 import socket
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
-ZOTERO_HOST = "127.0.0.1"
-ZOTERO_PORT = 23119
+_DEFAULT_ZOTERO_BASE = "http://127.0.0.1:23119"
 
 
 @dataclass
@@ -56,6 +57,13 @@ def _port_open(host: str, port: int, timeout: float = 0.5) -> bool:
         return False
 
 
+def _zotero_host_port() -> tuple[str, int]:
+    """Host/porta da API local do Zotero, honrando ``PRUMO_ZOTERO_BASE``."""
+    base = os.environ.get("PRUMO_ZOTERO_BASE", _DEFAULT_ZOTERO_BASE)
+    parsed = urlparse(base)
+    return parsed.hostname or "127.0.0.1", parsed.port or 23119
+
+
 def check_external_deps() -> list[DepStatus]:
     """Audita dependências externas. Nunca levanta — sempre retorna a lista."""
     statuses: list[DepStatus] = []
@@ -74,20 +82,21 @@ def check_external_deps() -> list[DepStatus]:
         )
     )
 
-    zotero_up = _port_open(ZOTERO_HOST, ZOTERO_PORT)
+    host, port = _zotero_host_port()
+    zotero_up = _port_open(host, port)
     statuses.append(
         DepStatus(
             name="zotero",
             present=zotero_up,
             required_by=["paper sync-annotations", "paper sync-notes", "write export --to docx"],
             detail=(
-                f"API local respondendo em {ZOTERO_HOST}:{ZOTERO_PORT}"
+                f"API local respondendo em {host}:{port}"
                 if zotero_up
-                else f"nada escutando em {ZOTERO_HOST}:{ZOTERO_PORT}"
+                else f"nada escutando em {host}:{port}"
             ),
             hint=(
                 f"Abra o Zotero 9 (com Better BibTeX instalado) — ele expõe a API "
-                f"local em {ZOTERO_HOST}:{ZOTERO_PORT}. Só é necessário pros comandos "
+                f"local em {host}:{port}. Só é necessário pros comandos "
                 f"que leem anotações/notas; o resto do prumo funciona sem ele."
             ),
         )
