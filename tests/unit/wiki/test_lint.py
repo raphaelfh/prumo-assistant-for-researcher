@@ -110,3 +110,22 @@ def test_lint_single_primary_is_clean(tmp_path: Path) -> None:
     report = lint(pj)
     codes = {i["code"] for i in report["issues"]}
     assert "multiple_primary" not in codes
+
+
+def test_lint_flags_dead_frontmatter_links(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path, "@article{real,title={X}}\n")
+    (pj / "docs" / "concepts" / "alpha.md").write_text(
+        "---\ntype: concept\n---\n\nbody\n", encoding="utf-8"
+    )
+    (pj / "docs" / "concepts" / "beta.md").write_text(
+        "---\ntype: concept\nrelated:\n  - '[[alpha]]'\n  - '[[ghost]]'\n"
+        "sources:\n  - '[[@real]]'\n  - '[[@missingkey]]'\n---\n\n"
+        "Links to [[alpha]] so beta is not orphan.\n",
+        encoding="utf-8",
+    )
+    report = lint(pj)
+    dead = [i["message"] for i in report["issues"] if i["code"] == "dead_link"]
+    assert any("ghost" in m for m in dead)
+    assert any("missingkey" in m for m in dead)
+    assert not any("alpha" in m for m in dead)   # exists
+    assert not any("real" in m for m in dead)    # exists in .bib

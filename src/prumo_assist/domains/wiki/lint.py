@@ -18,6 +18,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from prumo_assist.core.bib import parse_bib
 
 EXPECTED_DIRS = ("concepts", "entities", "findings", "sources", "decisions")
@@ -97,6 +99,7 @@ def lint(pj_path: Path) -> dict[str, Any]:
 
     issues.extend(_check_log_prefixes(docs))
     issues.extend(_check_single_primary(pj_path))
+    issues.extend(_check_dead_frontmatter_links(pages, pj_path, page_stems, bib_keys))
 
     return _report(issues)
 
@@ -146,4 +149,52 @@ def _check_log_prefixes(docs: Path) -> list[WikiIssue]:
             issues.append(
                 WikiIssue("warning", "broken_log_prefix", f"entrada de log fora do padrão: {line!r}")
             )
+    return issues
+
+
+_FM_LINK_FIELDS = ("links_to", "sources", "related")
+_WIKILINK_TARGET_RE = re.compile(r"\[\[(@?[^\]|#]+)")
+
+
+def _check_dead_frontmatter_links(
+    pages: list[Path],
+    pj_path: Path,
+    page_stems: set[str],
+    bib_keys: set[str],
+) -> list[WikiIssue]:
+    """Wikilinks em ``links_to``/``sources``/``related`` cujo alvo não existe."""
+    issues: list[WikiIssue] = []
+    for page in pages:
+        text = page.read_text(encoding="utf-8")
+        if not text.startswith("---"):
+            continue
+        parts = text.split("---", 2)
+        if len(parts) < 3:
+            continue
+        try:
+            fm = yaml.safe_load(parts[1])
+        except yaml.YAMLError:
+            continue
+        if not isinstance(fm, dict):
+            continue
+        rel = page.relative_to(pj_path).as_posix()
+        for field in _FM_LINK_FIELDS:
+            value = fm.get(field)
+            if not isinstance(value, list):
+                continue
+            for raw in value:
+                m = _WIKILINK_TARGET_RE.search(str(raw))
+                if not m:
+                    continue
+                target = m.group(1).strip()
+                if target.startswith("@"):
+                    key = target[1:]
+                    if bib_keys and key not in bib_keys:
+                        issues.append(
+                            WikiIssue("warning", "dead_link", f"{field}: [[@{key}]] ausente do .bib", page=rel)
+                        )
+                elif target not in page_stems:
+                    issues.append(
+                        WikiIssue("warning", "dead_link", f"{field}: [[{target}]] não existe no vault", page=rel)
+                    )
     return issues
