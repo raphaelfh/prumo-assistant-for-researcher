@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import urllib.error
+from unittest.mock import patch
+
 from prumo_assist.domains.paper.zotero import (
     html_to_markdown,
     render_note,
+    resolve_citekey,
     split_children,
 )
 
@@ -70,3 +74,50 @@ def test_render_note_empty_marks_vazia() -> None:
     lines = render_note(note)
     joined = "\n".join(lines)
     assert "vazia" in joined.lower()
+
+
+def test_resolve_citekey_exact_match() -> None:
+    rpc_response = {
+        "jsonrpc": "2.0",
+        "result": [
+            {"citationKey": "smith2024", "itemKey": "ABCD1234", "library": {"id": 1}},
+        ],
+        "id": 1,
+    }
+    with patch("prumo_assist.domains.paper.zotero._http_post_json", return_value=rpc_response):
+        result = resolve_citekey("smith2024")
+    assert result == (1, "ABCD1234")
+
+
+def test_resolve_citekey_falls_back_to_first_result() -> None:
+    rpc_response = {
+        "jsonrpc": "2.0",
+        "result": [
+            {"citationKey": "other2023", "itemKey": "ZZZZ9999", "library": {"id": 3}},
+        ],
+        "id": 1,
+    }
+    with patch("prumo_assist.domains.paper.zotero._http_post_json", return_value=rpc_response):
+        result = resolve_citekey("smith2024")
+    assert result == (3, "ZZZZ9999")
+
+
+def test_resolve_citekey_empty_result_is_none() -> None:
+    with patch(
+        "prumo_assist.domains.paper.zotero._http_post_json",
+        return_value={"jsonrpc": "2.0", "result": [], "id": 1},
+    ):
+        assert resolve_citekey("missing") is None
+
+
+def test_resolve_citekey_network_error_is_none() -> None:
+    with patch(
+        "prumo_assist.domains.paper.zotero._http_post_json",
+        side_effect=urllib.error.URLError("connection refused"),
+    ):
+        assert resolve_citekey("smith2024") is None
+
+
+def test_resolve_citekey_non_dict_response_is_none() -> None:
+    with patch("prumo_assist.domains.paper.zotero._http_post_json", return_value=["unexpected"]):
+        assert resolve_citekey("smith2024") is None
