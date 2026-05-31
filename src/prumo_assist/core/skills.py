@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -216,3 +217,34 @@ def load_skill_registry(
         found[manifest.name] = manifest
 
     return SkillRegistry(skills=found), warnings
+
+
+def stale_guideline_warnings(
+    registry: SkillRegistry,
+    *,
+    today: date,
+    max_age_days: int = 180,
+) -> list[str]:
+    """Avisos para skills cujo ``guidelines_reviewed`` está velho ou inválido.
+
+    Só considera skills que **declaram** o campo — é opt-in por skill. Mantém o
+    julgamento de validade fora do LLM (Princípio II): living guidelines como
+    TRIPOD-LLM mudam a cada ~3 meses; sem revisão a prose envelhece em silêncio.
+    """
+    out: list[str] = []
+    for name in registry.names():
+        raw = registry.get(name).guidelines_reviewed
+        if not raw:
+            continue
+        try:
+            reviewed = date.fromisoformat(raw)
+        except ValueError:
+            out.append(f"skill '{name}': prumo.guidelines_reviewed inválido ({raw!r}); use ISO YYYY-MM-DD.")
+            continue
+        age = (today - reviewed).days
+        if age > max_age_days:
+            out.append(
+                f"skill '{name}': checklists revisados há {age} dias "
+                f"(> {max_age_days}); revalide os reporting guidelines e atualize guidelines_reviewed."
+            )
+    return out
