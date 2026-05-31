@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path  # noqa: F401  # used by later tasks
+from pathlib import Path
 
 from prumo_assist.domains.write.schemas.v1 import AIDisclosure, AIToolUse
 
@@ -18,3 +18,42 @@ def test_aidisclosure_schema_version() -> None:
     d = AIDisclosure(generated_at="t", statement_pt="p", statement_en="e")
     assert d.schema_version == "AIDisclosure/v1"
     assert d.tools == []
+
+
+def test_record_from_paper_meta() -> None:
+    from prumo_assist.domains.write.disclosure import _record_from_fm
+
+    rec = _record_from_fm({"extracted_model": "claude-opus-4", "extracted_at": "2026-05-01"})
+    assert rec is not None
+    assert rec.skill == "paper-extract"
+    assert rec.model == "claude-opus-4"
+
+
+def test_record_from_finding_generator() -> None:
+    from prumo_assist.domains.write.disclosure import _record_from_fm
+
+    rec = _record_from_fm({"type": "finding", "generator": "wiki-query", "added": "2026-05-02"})
+    assert rec is not None
+    assert rec.skill == "wiki-query"
+    assert rec.model is None
+
+
+def test_record_from_plain_frontmatter_is_none() -> None:
+    from prumo_assist.domains.write.disclosure import _record_from_fm
+
+    assert _record_from_fm({"title": "just a note"}) is None
+
+
+def test_collect_records_walks_and_skips_dotdirs(tmp_path: Path) -> None:
+    from prumo_assist.domains.write.disclosure import collect_records
+
+    (tmp_path / "references" / "notes" / "a").mkdir(parents=True)
+    (tmp_path / "references" / "notes" / "a" / "_meta.md").write_text(
+        "---\nextracted_model: m1\nextracted_at: 2026-05-01\n---\n", encoding="utf-8"
+    )
+    (tmp_path / ".prumo").mkdir()
+    (tmp_path / ".prumo" / "leak.md").write_text(
+        "---\nextracted_model: leak\n---\n", encoding="utf-8"
+    )
+    recs = collect_records(tmp_path)
+    assert [r.model for r in recs] == ["m1"]
