@@ -140,3 +140,25 @@ def test_registry_strict_mode_aborts_on_malformed(tmp_path: Path) -> None:
     _write(tmp_path / "bad" / "SKILL.md", "---\n: invalid\n---\nbody\n")
     with pytest.raises(ManifestError):
         load_skill_registry(tmp_path, strict=True)
+
+
+def test_parses_guidelines_reviewed(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "pr" / "SKILL.md",
+        '---\nname: pr\ndescription: d\nprumo:\n  guidelines_reviewed: "2026-05-30"\n---\nbody\n',
+    )
+    m = parse_skill_file(skill)
+    assert m.guidelines_reviewed == "2026-05-30"
+
+
+def test_guidelines_reviewed_defaults_none(tmp_path: Path) -> None:
+    skill = _write(tmp_path / "x" / "SKILL.md", "---\nname: x\ndescription: d\n---\nbody\n")
+    assert parse_skill_file(skill).guidelines_reviewed is None
+
+
+def test_guidelines_reviewed_not_in_extra(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "x" / "SKILL.md",
+        '---\nname: x\ndescription: d\nprumo:\n  guidelines_reviewed: "2026-01-01"\n---\nbody\n',
+    )
+    assert "guidelines_reviewed" not in parse_skill_file(skill).extra

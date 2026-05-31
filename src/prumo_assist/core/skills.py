@@ -57,6 +57,7 @@ class SkillManifest:
     determinism: str = "agentic"
     agent_compat: tuple[str, ...] = ()
     cost_estimate: str | None = None
+    guidelines_reviewed: str | None = None
     inputs: dict[str, str] = field(default_factory=dict)
 
     extra: dict[str, Any] = field(default_factory=dict)
@@ -123,6 +124,7 @@ def parse_skill_file(path: Path) -> SkillManifest:
         "determinism",
         "agent_compat",
         "cost_estimate",
+        "guidelines_reviewed",
         "inputs",
     }
     extra = {k: prumo_block[k] for k in extra_keys}
@@ -138,6 +140,11 @@ def parse_skill_file(path: Path) -> SkillManifest:
         agent_compat=agent_compat,
         cost_estimate=(
             str(prumo_block["cost_estimate"]) if prumo_block.get("cost_estimate") else None
+        ),
+        guidelines_reviewed=(
+            str(prumo_block["guidelines_reviewed"])
+            if prumo_block.get("guidelines_reviewed")
+            else None
         ),
         inputs=inputs,
         extra=extra,
