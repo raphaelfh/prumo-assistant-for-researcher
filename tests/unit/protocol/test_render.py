@@ -83,9 +83,7 @@ def test_replace_or_insert_inserts_when_absent() -> None:
 
 
 def test_replace_or_insert_replaces_existing() -> None:
-    block_old = (
-        f"{PICOT_BEGIN_PREFIX}v=1 hash=11111111 -->\nold content\n{PICOT_END}"
-    )
+    block_old = f"{PICOT_BEGIN_PREFIX}v=1 hash=11111111 -->\nold content\n{PICOT_END}"
     block_new = render_protocol_block(_spec(), hash8="a1b2c3d4")
     text = f"# Doc\n\n{block_old}\n\nFooter humano.\n"
     out = replace_or_insert_block(text, block_new, anchor_pattern=r"^# Doc.*$")

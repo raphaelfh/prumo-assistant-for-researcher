@@ -53,9 +53,7 @@ class PicotSpec(BaseModel):
             for field in ("population", "intervention", "comparison", "outcome", "time"):
                 value = getattr(self, field)
                 if not value:
-                    raise ValueError(
-                        f"type='clinical': campo '{field}' é obrigatório (não-vazio)."
-                    )
+                    raise ValueError(f"type='clinical': campo '{field}' é obrigatório (não-vazio).")
         elif self.type == "methodological":
             for field in ("contribution", "hypothesis_validity_condition"):
                 value = getattr(self, field)

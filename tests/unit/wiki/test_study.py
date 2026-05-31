@@ -53,7 +53,10 @@ def test_create_session_log_writes_yaml_frontmatter(tmp_path: Path) -> None:
 def test_append_step_adds_section(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     log_path = create_session_log(
-        pj_path=pj, topic="x", date="2026-05-03", sources_consulted=[],
+        pj_path=pj,
+        topic="x",
+        date="2026-05-03",
+        sources_consulted=[],
     )
     append_step(
         log_path,
@@ -75,7 +78,10 @@ def test_append_step_adds_section(tmp_path: Path) -> None:
 def test_append_multiple_steps_sequentially_numbered(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     log_path = create_session_log(
-        pj_path=pj, topic="x", date="2026-05-03", sources_consulted=[],
+        pj_path=pj,
+        topic="x",
+        date="2026-05-03",
+        sources_consulted=[],
     )
     for name in ("recall", "anchor", "connect"):
         append_step(
@@ -91,7 +97,10 @@ def test_append_multiple_steps_sequentially_numbered(tmp_path: Path) -> None:
 def test_finalize_session_updates_yaml(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     log_path = create_session_log(
-        pj_path=pj, topic="x", date="2026-05-03", sources_consulted=[],
+        pj_path=pj,
+        topic="x",
+        date="2026-05-03",
+        sources_consulted=[],
     )
     finalize_session(
         log_path,

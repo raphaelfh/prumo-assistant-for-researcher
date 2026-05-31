@@ -202,7 +202,7 @@ def _assert_no_missing_citekeys(filter_stdout: str) -> None:
         f"zotero.lua não encontrou {len(missing)} citekey(s) na biblioteca ativa: "
         + ", ".join(missing)
         + ". Causas comuns: (1) os itens estão num grupo do Zotero — adicione "
-        "`zotero: {library: \"<Nome do Grupo>\"}` no frontmatter da página "
+        '`zotero: {library: "<Nome do Grupo>"}` no frontmatter da página '
         "e abra a janela principal do Zotero antes de exportar; (2) os "
         "citekeys do .bib divergem dos do BBT — rode `make sync-paper`."
     )

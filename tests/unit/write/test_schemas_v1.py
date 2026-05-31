@@ -67,16 +67,26 @@ def test_write_output_minimal() -> None:
 def test_write_output_invalid_mode() -> None:
     with pytest.raises(ValidationError):
         WriteOutput(
-            output_path=Path("x.md"), mode="bogus", kind="paper",  # type: ignore[arg-type]
-            sections_filled=[], sections_skipped=[], citations_used=[],
-            references_missing=[], words_generated=0,
+            output_path=Path("x.md"),
+            mode="bogus",  # type: ignore[arg-type]
+            kind="paper",
+            sections_filled=[],
+            sections_skipped=[],
+            citations_used=[],
+            references_missing=[],
+            words_generated=0,
         )
 
 
 def test_write_output_invalid_kind() -> None:
     with pytest.raises(ValidationError):
         WriteOutput(
-            output_path=Path("x.md"), mode="drafts", kind="bogus",  # type: ignore[arg-type]
-            sections_filled=[], sections_skipped=[], citations_used=[],
-            references_missing=[], words_generated=0,
+            output_path=Path("x.md"),
+            mode="drafts",
+            kind="bogus",  # type: ignore[arg-type]
+            sections_filled=[],
+            sections_skipped=[],
+            citations_used=[],
+            references_missing=[],
+            words_generated=0,
         )

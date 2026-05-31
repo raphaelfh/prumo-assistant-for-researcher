@@ -27,13 +27,15 @@ def test_render_annotation_yellow_highlight() -> None:
 def test_compose_annotations_file_has_yaml_and_block() -> None:
     text = compose_annotations_file(
         citekey="smith2024",
-        annotations=[{
-            "annotationColor": "#ffd400",
-            "annotationPageLabel": "1",
-            "annotationType": "highlight",
-            "annotationText": "Hello",
-            "annotationSortIndex": "00001",
-        }],
+        annotations=[
+            {
+                "annotationColor": "#ffd400",
+                "annotationPageLabel": "1",
+                "annotationType": "highlight",
+                "annotationText": "Hello",
+                "annotationSortIndex": "00001",
+            }
+        ],
         notes=[],
     )
     assert text.startswith("---\n")

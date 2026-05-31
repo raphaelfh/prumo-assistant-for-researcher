@@ -99,9 +99,7 @@ def test_sync_creates_meta_md_for_each_entry(tmp_path: Path) -> None:
 def test_sync_re_run_is_idempotent(tmp_path: Path) -> None:
     refs = tmp_path / "references"
     refs.mkdir()
-    (refs / "_references.bib").write_text(
-        "@article{smith2024,\n  title = {X},\n  year = 2024\n}\n"
-    )
+    (refs / "_references.bib").write_text("@article{smith2024,\n  title = {X},\n  year = 2024\n}\n")
     sync(tmp_path)
     report = sync(tmp_path)
     assert report["created"] == 0

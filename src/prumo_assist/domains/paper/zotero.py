@@ -42,6 +42,7 @@ def _zotero_api() -> str:
     """Base da API local do Zotero (``/api``)."""
     return f"{_zotero_base()}/api"
 
+
 BEGIN = "<!-- BEGIN ZOTERO ANNOTATIONS -->"
 END = "<!-- END ZOTERO ANNOTATIONS -->"
 
@@ -317,12 +318,7 @@ def compose_annotations_file(
     notes: list[dict[str, Any]],
 ) -> str:
     """Conteúdo completo de _annotations.md: YAML + bloco delimitado."""
-    fm = (
-        f"---\n"
-        f"paper: {citekey}\n"
-        f"source: prumo-zotero-annotations\n"
-        f"---\n\n"
-    )
+    fm = f"---\npaper: {citekey}\nsource: prumo-zotero-annotations\n---\n\n"
     block = render_block(annotations, notes)
     return fm + block
 

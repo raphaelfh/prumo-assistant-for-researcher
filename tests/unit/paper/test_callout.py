@@ -88,7 +88,9 @@ def test_apply_extraction_updates_meta_yaml_extracted_fields(tmp_path: Path) -> 
     )
     meta_text = meta.read_text()
     assert "extracted_at: '2026-05-03'" in meta_text or 'extracted_at: "2026-05-03"' in meta_text
-    assert "extracted_model: claude-test" in meta_text or "extracted_model: 'claude-test'" in meta_text
+    assert (
+        "extracted_model: claude-test" in meta_text or "extracted_model: 'claude-test'" in meta_text
+    )
 
 
 def test_apply_extraction_idempotent_when_content_unchanged(tmp_path: Path) -> None:

@@ -13,9 +13,9 @@ def _bootstrap(tmp_path: Path) -> Path:
     refs.mkdir(parents=True)
     (refs / "_references.bib").write_text(
         "@article{smith2024,\n  title = {Combinado Fusion},\n"
-        "  author = \"Smith, J.\",\n  year = 2024\n}\n"
+        '  author = "Smith, J.",\n  year = 2024\n}\n'
         "@article{doe2025,\n  title = {Other},\n"
-        "  author = \"Doe, A.\",\n  year = 2025\n}\n"
+        '  author = "Doe, A.",\n  year = 2025\n}\n'
     )
     (refs / "notes" / "smith2024").mkdir(parents=True)
     (refs / "notes" / "smith2024" / "_meta.md").write_text(
@@ -51,17 +51,17 @@ def test_read_inputs_picot_loaded_when_exists(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     (pj / ".claude").mkdir()
     (pj / ".claude" / "picot.toml").write_text(
-        '[picot]\n'
+        "[picot]\n"
         'type = "clinical"\n'
         'created_at = "2026-05-03"\n'
         'last_updated = "2026-05-03"\n'
-        'version = 1\n'
+        "version = 1\n"
         'population = "DS_A"\n'
         'intervention = "IntervencaoX"\n'
         'comparison = "best baseline"\n'
         'outcome = "AUROC ≥ 0.85"\n'
         'time = "retrospectivo"\n'
-        '[picot.hypothesis]\n'
+        "[picot.hypothesis]\n"
         'statement = "combinado supera comparador"\n'
         'rationale = "piloto"\n'
         'metrics = ["AUROC"]\n'

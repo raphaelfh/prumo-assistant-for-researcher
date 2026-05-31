@@ -64,8 +64,7 @@ def sync(version: str) -> list[str]:
     for entry in marketplace.get("plugins", []):
         if entry.get("name") == plugin_name and entry.get("version") != version:
             changes.append(
-                f"  • marketplace.json#{entry['name']}: "
-                f"{entry.get('version')} → {version}"
+                f"  • marketplace.json#{entry['name']}: {entry.get('version')} → {version}"
             )
             entry["version"] = version
     if changes:
@@ -79,10 +78,7 @@ def check(version: str) -> list[str]:
     issues: list[str] = []
     plugin = read_json(PLUGIN_JSON)
     if plugin.get("version") != version:
-        issues.append(
-            f"plugin.json#version={plugin.get('version')!r} ≠ "
-            f"_version.py={version!r}"
-        )
+        issues.append(f"plugin.json#version={plugin.get('version')!r} ≠ _version.py={version!r}")
     marketplace = read_json(MARKETPLACE_JSON)
     plugin_name = plugin.get("name")
     for entry in marketplace.get("plugins", []):

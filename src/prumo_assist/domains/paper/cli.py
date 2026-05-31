@@ -169,9 +169,7 @@ def sync_all_command(
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         report = _sync_all(path.resolve())
         s = report["sync"]
-        console.success(
-            f"meta: {s['created']} novas / {s['updated']} atualizadas."
-        )
+        console.success(f"meta: {s['created']} novas / {s['updated']} atualizadas.")
         if report["annotations"] is not None:
             a = report["annotations"]
             console.info(f"  annotations: {a['inserted']} novas / {a['updated']} atualizadas.")

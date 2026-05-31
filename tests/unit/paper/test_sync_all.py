@@ -24,13 +24,26 @@ def test_sync_all_runs_three_phases(tmp_path: Path) -> None:
         ) as m_sync,
         patch(
             "prumo_assist.domains.paper.sync_all.sync_annotations",
-            return_value={"inserted": 2, "updated": 0, "unchanged": 0,
-                          "no_meta": [], "no_resolve": [], "no_children": [], "errors": []},
+            return_value={
+                "inserted": 2,
+                "updated": 0,
+                "unchanged": 0,
+                "no_meta": [],
+                "no_resolve": [],
+                "no_children": [],
+                "errors": [],
+            },
         ) as m_annot,
         patch(
             "prumo_assist.domains.paper.sync_all.sync_notes",
-            return_value={"inserted": 3, "updated": 0, "unchanged": 0,
-                          "no_meta": [], "no_resolve": [], "errors": []},
+            return_value={
+                "inserted": 3,
+                "updated": 0,
+                "unchanged": 0,
+                "no_meta": [],
+                "no_resolve": [],
+                "errors": [],
+            },
         ) as m_notes,
     ):
         report = sync_all(pj)

@@ -92,8 +92,5 @@ def _append_to_log(pj_path: Path, slug: str, generator: str, date: str) -> None:
         log.write_text("# Log\n", encoding="utf-8")
 
     head = log.read_text(encoding="utf-8")
-    entry = (
-        f"\n## [{date}] {generator} | finding arquivado\n\n"
-        f"- [[{slug}]]\n"
-    )
+    entry = f"\n## [{date}] {generator} | finding arquivado\n\n- [[{slug}]]\n"
     log.write_text(head.rstrip() + "\n" + entry, encoding="utf-8")

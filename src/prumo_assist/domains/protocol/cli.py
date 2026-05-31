@@ -49,8 +49,7 @@ def diff_command(
             console.success("Sem mudanças desde o último ADR (ou sem baseline).")
         else:
             console.info(
-                f"{len(diff.changes)} campo(s) mudaram "
-                f"(estrutural: {diff.has_structural})."
+                f"{len(diff.changes)} campo(s) mudaram (estrutural: {diff.has_structural})."
             )
             for c in diff.changes:
                 console.info(

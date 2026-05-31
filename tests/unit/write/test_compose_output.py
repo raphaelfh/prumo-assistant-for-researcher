@@ -61,8 +61,13 @@ def test_write_output_into_inserts_when_block_absent(tmp_path: Path) -> None:
     target.write_text("# Projeto\n\nIntro existente.\n")
     write_output(
         content="generated",
-        pj_path=pj, kind="paper", mode="into", date="2026-05-03", slug="x",
-        into=target, section="methods",
+        pj_path=pj,
+        kind="paper",
+        mode="into",
+        date="2026-05-03",
+        slug="x",
+        into=target,
+        section="methods",
     )
     text = target.read_text()
     assert "<!-- write:begin kind=paper section=methods -->" in text
@@ -75,7 +80,11 @@ def test_write_output_out_writes_to_path(tmp_path: Path) -> None:
     target = tmp_path / "anywhere" / "file.md"
     out = write_output(
         content="# X\n",
-        pj_path=pj, kind="paper", mode="out", date="2026-05-03", slug="x",
+        pj_path=pj,
+        kind="paper",
+        mode="out",
+        date="2026-05-03",
+        slug="x",
         out=target,
     )
     assert target.exists()
@@ -88,7 +97,11 @@ def test_write_output_out_refuses_overwrite_without_force(tmp_path: Path) -> Non
     with pytest.raises(FileExistsError):
         write_output(
             content="new",
-            pj_path=tmp_path, kind="paper", mode="out", date="2026-05-03", slug="x",
+            pj_path=tmp_path,
+            kind="paper",
+            mode="out",
+            date="2026-05-03",
+            slug="x",
             out=target,
         )
 
@@ -98,7 +111,12 @@ def test_write_output_out_force_overwrites(tmp_path: Path) -> None:
     target.write_text("existing")
     write_output(
         content="new",
-        pj_path=tmp_path, kind="paper", mode="out", date="2026-05-03", slug="x",
-        out=target, force=True,
+        pj_path=tmp_path,
+        kind="paper",
+        mode="out",
+        date="2026-05-03",
+        slug="x",
+        out=target,
+        force=True,
     )
     assert target.read_text() == "new"

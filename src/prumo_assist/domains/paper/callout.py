@@ -128,13 +128,7 @@ def apply_extraction(
 
 def _compose_extract_file(citekey: str, callout: str, date: str) -> str:
     """Monta o conteúdo de _extract.md: YAML mínimo + callout."""
-    fm = (
-        f"---\n"
-        f"paper: {citekey}\n"
-        f"source: prumo-paper-extract\n"
-        f"generated_at: '{date}'\n"
-        f"---\n\n"
-    )
+    fm = f"---\npaper: {citekey}\nsource: prumo-paper-extract\ngenerated_at: '{date}'\n---\n\n"
     return fm + callout + "\n"
 
 

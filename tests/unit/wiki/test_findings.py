@@ -42,7 +42,12 @@ def test_archive_uses_extended_wiki_when_dir_exists(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     (pj / "docs" / "wiki" / "findings").mkdir(parents=True)
     out = archive_as_finding(
-        pj_path=pj, slug="x", title="T", body="B", sources=[], date="2026-05-03",
+        pj_path=pj,
+        slug="x",
+        title="T",
+        body="B",
+        sources=[],
+        date="2026-05-03",
     )
     assert "wiki" in out.parts
     assert out == pj / "docs" / "wiki" / "findings" / "x.md"
@@ -51,7 +56,12 @@ def test_archive_uses_extended_wiki_when_dir_exists(tmp_path: Path) -> None:
 def test_archive_falls_back_to_docs_findings(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     out = archive_as_finding(
-        pj_path=pj, slug="y", title="T", body="B", sources=[], date="2026-05-03",
+        pj_path=pj,
+        slug="y",
+        title="T",
+        body="B",
+        sources=[],
+        date="2026-05-03",
     )
     assert out == pj / "docs" / "findings" / "y.md"
 
@@ -59,8 +69,12 @@ def test_archive_falls_back_to_docs_findings(tmp_path: Path) -> None:
 def test_archive_updates_index(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     archive_as_finding(
-        pj_path=pj, slug="my-finding", title="My Finding", body="B",
-        sources=[], date="2026-05-03",
+        pj_path=pj,
+        slug="my-finding",
+        title="My Finding",
+        body="B",
+        sources=[],
+        date="2026-05-03",
     )
     index_text = (pj / "docs" / "_index.md").read_text()
     assert "[[my-finding]]" in index_text or "[[findings/my-finding]]" in index_text
@@ -69,8 +83,13 @@ def test_archive_updates_index(tmp_path: Path) -> None:
 def test_archive_appends_log(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     archive_as_finding(
-        pj_path=pj, slug="my-finding", title="My Finding", body="B",
-        sources=["[[@a]]"], date="2026-05-03", generator="active-learning",
+        pj_path=pj,
+        slug="my-finding",
+        title="My Finding",
+        body="B",
+        sources=["[[@a]]"],
+        date="2026-05-03",
+        generator="active-learning",
     )
     log_text = (pj / "docs" / "_log.md").read_text()
     assert "2026-05-03" in log_text
@@ -81,8 +100,13 @@ def test_archive_appends_log(tmp_path: Path) -> None:
 def test_archive_yaml_includes_tags(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     out = archive_as_finding(
-        pj_path=pj, slug="z", title="T", body="B", sources=[],
-        date="2026-05-03", tags=["curvas-roc", "mnar"],
+        pj_path=pj,
+        slug="z",
+        title="T",
+        body="B",
+        sources=[],
+        date="2026-05-03",
+        tags=["curvas-roc", "mnar"],
     )
     assert "tags:" in out.read_text()
 
@@ -90,10 +114,20 @@ def test_archive_yaml_includes_tags(tmp_path: Path) -> None:
 def test_archive_idempotent_overwrite(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     archive_as_finding(
-        pj_path=pj, slug="x", title="T1", body="B1", sources=[], date="2026-05-03",
+        pj_path=pj,
+        slug="x",
+        title="T1",
+        body="B1",
+        sources=[],
+        date="2026-05-03",
     )
     archive_as_finding(
-        pj_path=pj, slug="x", title="T2", body="B2", sources=[], date="2026-05-03",
+        pj_path=pj,
+        slug="x",
+        title="T2",
+        body="B2",
+        sources=[],
+        date="2026-05-03",
     )
     out = pj / "docs" / "findings" / "x.md"
     text = out.read_text()
@@ -106,7 +140,11 @@ def test_archive_raises_when_pj_invalid(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         archive_as_finding(
             pj_path=tmp_path / "nope",
-            slug="x", title="T", body="B", sources=[], date="2026-05-03",
+            slug="x",
+            title="T",
+            body="B",
+            sources=[],
+            date="2026-05-03",
         )
 
 

@@ -55,10 +55,7 @@ def main() -> None:
         supersedes_path=last_adr,
         date=args.date,
     )
-    adr_path = (
-        pj / "docs" / "decisions"
-        / f"adr-{n:04d}-picot-v{spec.version}-{args.slug}.md"
-    )
+    adr_path = pj / "docs" / "decisions" / f"adr-{n:04d}-picot-v{spec.version}-{args.slug}.md"
     adr_path.parent.mkdir(parents=True, exist_ok=True)
     adr_path.write_text(body, encoding="utf-8")
     report = propagate(pj)
