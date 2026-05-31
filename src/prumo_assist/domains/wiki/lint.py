@@ -96,6 +96,7 @@ def lint(pj_path: Path) -> dict[str, Any]:
             )
 
     issues.extend(_check_log_prefixes(docs))
+    issues.extend(_check_single_primary(pj_path))
 
     return _report(issues)
 
@@ -108,6 +109,30 @@ def _report(issues: list[WikiIssue]) -> dict[str, Any]:
         "summary": {"errors": errors, "warnings": warnings, "total": len(issues)},
         "issues": [asdict(i) for i in issues],
     }
+
+
+_ROLE_PRIMARY_RE = re.compile(r"^role:\s*primary\s*$", re.MULTILINE)
+
+
+def _check_single_primary(pj_path: Path) -> list[WikiIssue]:
+    """``role: primary`` deve aparecer em no máximo 1 nota de ``references/notes/``."""
+    notes_dir = pj_path / "references" / "notes"
+    if not notes_dir.is_dir():
+        return []
+    primaries = [
+        meta.parent.name
+        for meta in sorted(notes_dir.rglob("_meta.md"))
+        if _ROLE_PRIMARY_RE.search(meta.read_text(encoding="utf-8"))
+    ]
+    if len(primaries) >= 2:
+        return [
+            WikiIssue(
+                "warning",
+                "multiple_primary",
+                f"{len(primaries)} notas com role: primary ({', '.join(primaries)}); esperado ≤ 1",
+            )
+        ]
+    return []
 
 
 def _check_log_prefixes(docs: Path) -> list[WikiIssue]:

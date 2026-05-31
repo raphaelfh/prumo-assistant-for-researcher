@@ -88,3 +88,25 @@ def test_lint_flags_broken_log_prefix(tmp_path: Path) -> None:
     msgs = [i["message"] for i in report["issues"] if i["code"] == "broken_log_prefix"]
     assert any("not a valid header" in m for m in msgs)
     assert any("frobnicate" in m for m in msgs)
+
+
+def test_lint_flags_multiple_primary_notes(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path)
+    notes = pj / "references" / "notes"
+    for key in ("a", "b"):
+        d = notes / key
+        d.mkdir(parents=True)
+        (d / "_meta.md").write_text(f"---\nid: {key}\nrole: primary\n---\n", encoding="utf-8")
+    report = lint(pj)
+    codes = {i["code"] for i in report["issues"]}
+    assert "multiple_primary" in codes
+
+
+def test_lint_single_primary_is_clean(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path)
+    d = pj / "references" / "notes" / "a"
+    d.mkdir(parents=True)
+    (d / "_meta.md").write_text("---\nid: a\nrole: primary\n---\n", encoding="utf-8")
+    report = lint(pj)
+    codes = {i["code"] for i in report["issues"]}
+    assert "multiple_primary" not in codes
