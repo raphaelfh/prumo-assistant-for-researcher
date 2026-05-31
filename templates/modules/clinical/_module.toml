@@ -1,0 +1,3 @@
+description = "Camada clínica: protocolo, projeto CEP, plano estatístico, contexto de ética."
+when_to_use = "Estudo clínico/empírico com coorte e submissão a CEP."
+anchor = "docs/protocol.md"
