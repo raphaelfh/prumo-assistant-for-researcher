@@ -37,6 +37,13 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Adicionado
 
+- **`prumo wiki lint` ganha 4 checks determinísticos** que antes custavam LLM na
+  skill `wiki-lint`: prefixo de `_log.md` fora do padrão (`broken_log_prefix`),
+  múltiplas notas `role: primary` (`multiple_primary`), links mortos em
+  frontmatter `links_to`/`sources`/`related` (`dead_link`) e conceitos citados
+  ≥3× sem página (`concept_candidate`, severity `info`). Contradições e stale
+  claims permanecem agênticas (Princípio II). Nova severidade `info` não altera
+  `ok`.
 - **`prumo.guidelines_reviewed`** (frontmatter de skill) + aviso no
   `prumo doctor` quando os reporting guidelines de uma skill não são
   revisados há > 180 dias. Living guidelines (ex.: TRIPOD-LLM, revisado a cada
