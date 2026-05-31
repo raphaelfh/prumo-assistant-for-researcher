@@ -39,7 +39,7 @@ Arquitetura e princípios de design em [`ARCHITECTURE.md`](ARCHITECTURE.md); sta
 
 ### MCP
 
-- **`qmd`** — servidor MCP para busca BM25 + vector + rerank local no wiki dos projetos.
+- **`qmd`** — servidor MCP para busca BM25 + vector + rerank local no wiki dos projetos. **Requer instalação** — ver [Pré-requisitos externos](#pré-requisitos-externos).
 
 ## Instalação
 
@@ -50,6 +50,21 @@ Arquitetura e princípios de design em [`ARCHITECTURE.md`](ARCHITECTURE.md); sta
 ```
 
 Após a instalação, as skills aparecem com o prefixo `/prumo-assist:...` e os agents ficam disponíveis via `Agent` tool.
+
+## Pré-requisitos externos
+
+O plugin orquestra duas ferramentas que vivem fora do pacote Python. Rode
+`prumo doctor` a qualquer momento para checar o estado delas.
+
+| Dependência | Necessária para | Como instalar / habilitar |
+|---|---|---|
+| **`qmd`** (MCP de busca) | `/prumo-assist:wiki-query`, `/prumo-assist:wiki-ingest`, `/prumo-assist:active-learning` | `bun install -g @tobilu/qmd` (repo: [github.com/tobi/qmd](https://github.com/tobi/qmd)). Precisa estar no `PATH`. Declarado em `.mcp.json` como servidor `qmd`. |
+| **Zotero 9 + Better BibTeX** | `paper sync-annotations`, `paper sync-notes`, `write export --to docx` (citações vivas) | Abra o Zotero 9 com o [Better BibTeX](https://retorque.re/zotero-better-bibtex/) instalado. Ele expõe a API local em `127.0.0.1:23119`. Só é necessário para os comandos que leem anotações/notas — o resto do prumo funciona sem ele. |
+
+> [!tip]
+> `prumo doctor` lista o estado de cada dependência (`✓` presente / `○` ausente)
+> com a dica de instalação. Dependência ausente é apenas um aviso — não impede
+> o uso das partes do plugin que não dependem dela.
 
 ## Pressupostos de projeto
 
