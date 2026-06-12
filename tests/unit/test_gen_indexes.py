@@ -1,7 +1,8 @@
 """Testa o gerador de índices (.github/scripts/gen_indexes.py).
 
 O script é carregado via importlib (vive fora de src/). Testa as funções puras
-de renderização/substituição e o contrato --check contra o repo real.
+de renderização/substituição contra o repo real (o contrato --check é exercido
+no CI, depois que os marcadores existem nos alvos).
 """
 
 from __future__ import annotations
@@ -42,6 +43,12 @@ def test_replace_block_eh_idempotente(gen: ModuleType) -> None:
 def test_replace_block_falha_sem_marcadores(gen: ModuleType) -> None:
     with pytest.raises(SystemExit):
         gen.replace_block("sem marcadores", "x", "corpo")
+
+
+def test_replace_block_nao_interpreta_template_de_regex(gen: ModuleType) -> None:
+    text = "<!-- prumo:x:begin -->\na\n<!-- prumo:x:end -->\n"
+    out = gen.replace_block(text, "x", r"usa regex \d+ e \g<0> literais")
+    assert r"usa regex \d+ e \g<0> literais" in out
 
 
 def test_skills_table_cobre_o_registry_inteiro(gen: ModuleType) -> None:

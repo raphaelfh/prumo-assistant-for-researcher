@@ -24,14 +24,19 @@ from prumo_assist.core.skills import load_skill_registry  # noqa: E402
 _FRONT_RE = re.compile(r"\A---\n(.*?)\n---", re.DOTALL)
 
 
-def replace_block(text: str, tag: str, body: str) -> str:
-    """Substitui o miolo entre os marcadores `prumo:<tag>` preservando o resto."""
+def replace_block(text: str, tag: str, body: str, *, where: str = "") -> str:
+    """Substitui o miolo entre os marcadores `prumo:<tag>` preservando o resto.
+
+    O corpo é inserido via lambda pra não ser interpretado como template de
+    replacement do ``re.sub`` (um ``\\d`` ou ``\\g<0>`` em texto livre quebraria).
+    """
     begin = f"<!-- prumo:{tag}:begin -->"
     end = f"<!-- prumo:{tag}:end -->"
     pattern = re.compile(re.escape(begin) + r".*?" + re.escape(end), re.DOTALL)
+    suffix = f" em {where}" if where else ""
     if not pattern.search(text):
-        raise SystemExit(f"gen_indexes: marcadores 'prumo:{tag}' não encontrados.")
-    return pattern.sub(begin + "\n" + body.strip() + "\n" + end, text)
+        raise SystemExit(f"gen_indexes: marcadores 'prumo:{tag}' não encontrados{suffix}.")
+    return pattern.sub(lambda _: begin + "\n" + body.strip() + "\n" + end, text)
 
 
 def _front_field(path: Path, field: str) -> str:
@@ -105,14 +110,17 @@ def main() -> int:
     check = "--check" in sys.argv
     stale: list[str] = []
     for path, tag, body in _targets():
+        rel = str(path.relative_to(REPO))
+        if not path.exists():
+            raise SystemExit(f"gen_indexes: alvo ausente: {rel}")
         old = path.read_text(encoding="utf-8")
-        new = replace_block(old, tag, body)
+        new = replace_block(old, tag, body, where=rel)
         if new != old:
             if check:
-                stale.append(str(path.relative_to(REPO)))
+                stale.append(rel)
             else:
                 path.write_text(new, encoding="utf-8")
-                print(f"gen_indexes: atualizado {path.relative_to(REPO)}")
+                print(f"gen_indexes: atualizado {rel}")
     if check and stale:
         print("gen_indexes --check: índices dessincronizados:", ", ".join(stale))
         print("Rode: uv run python .github/scripts/gen_indexes.py")
