@@ -1,6 +1,6 @@
 ---
 name: wiki-lint
-description: "Health-check do wiki de um pj_*: detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos sem página, links mortos, prefixo de log inválido, múltiplos role:primary. Gera relatório timestamped em docs/findings/_lint_<data>.md."
+description: "Health-check do wiki de um pj_*: detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos sem página, links mortos, prefixo de log inválido, múltiplos role:primary. Gera relatório timestamped em docs/wiki/findings/_lint_<data>.md (fallback: docs/findings/)."
 when_to_use: |
   Quando o usuário pedir "audite o wiki", "health check", "encontre páginas órfãs",
   "o wiki está consistente?", "o que está quebrado?", ou periodicamente após
@@ -105,7 +105,7 @@ Reportar findings em violação.
 
 Delegar à inteligência do LLM (não é regex):
 
-1. Ler `docs/findings/*.md` e `docs/concepts/*.md` (limite: 30 arquivos por rodada — se maior, reportar "coverage parcial" e listar quais foram analisados).
+1. Ler `docs/wiki/findings/*.md` (ou `docs/findings/*.md` como fallback) e `docs/concepts/*.md` (limite: 30 arquivos por rodada — se maior, reportar "coverage parcial" e listar quais foram analisados).
 2. Identificar claims conflitantes entre páginas (ex.: "AUROC >= 0.85 em coorte X" vs "AUROC 0.72 em coorte X").
 3. Reportar pares `[[a]] ↔ [[b]]` com o conflito sumarizado.
 
@@ -145,7 +145,7 @@ Reportar pares (página origem, link morto).
 
 ## Relatório
 
-Gerar `docs/findings/_lint_<YYYY-MM-DD>.md`:
+Gerar `docs/wiki/findings/_lint_<YYYY-MM-DD>.md`:
 
 ```yaml
 ---
@@ -216,17 +216,17 @@ Anexar ao topo de `docs/_log.md`:
 
 ```
 ✓ Lint completo — <N> issues encontradas
-  Relatório: docs/findings/_lint_YYYY-MM-DD.md
+  Relatório: docs/wiki/findings/_lint_YYYY-MM-DD.md
   Log:       docs/_log.md atualizado
 
 Sugestão de próximas ações:
   - Órfãs: linkar do _index.md ou deletar
-  - Citekeys: rodar /paper-manager sync-bib
-  - Conceitos candidatos: /wiki-ingest para criar páginas
+  - Citekeys: rodar /prumo-assist:paper-manager sync-bib
+  - Conceitos candidatos: /prumo-assist:wiki-ingest para criar páginas
 ```
 
 ## Boundaries
 
-- **Não corrige** — só reporta. Correções vão para o usuário ou para outras skills (`/paper-manager`, `/wiki-ingest`).
+- **Não corrige** — só reporta. Correções vão para o usuário ou para outras skills (`/prumo-assist:paper-manager`, `/prumo-assist:wiki-ingest`).
 - **Não apaga páginas órfãs** — pode ser que sejam drafts; listar e deixar decisão com o humano.
 - **Seções 6/7 (LLM-based)** são caras — respeitar o limite de arquivos por rodada e reportar "coverage parcial" honestamente.

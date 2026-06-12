@@ -175,7 +175,7 @@ Sugerir ao usuário criar snapshot versionado em `docs/qualification/versions/<d
 
 ## Anti-padrões da skill
 
-- ❌ Não reescrever introdução inteira porque parece "fraca". Isso é peer-review (use `/peer-review`).
+- ❌ Não reescrever introdução inteira porque parece "fraca". Isso é peer-review (use `/prumo-assist:peer-review`).
 - ❌ Não acrescentar citação que não está no draft, mesmo se obviamente faltante. Apenas marcar `<!-- REVER: faltam refs sobre X -->`.
 - ❌ Não traduzir termo técnico estabelecido (`missing data`, `cross-modal`, `late fusion`, `foundation model`, `gated product-of-experts` ficam em inglês com itálico).
 - ❌ Não converter Markdown em outro formato. Manter Markdown puro.
@@ -192,9 +192,9 @@ Após o passe, reportar ao usuário:
 
 ## Integração com outras skills
 
-- **Antes desta skill.** `/peer-review` para revisão de conteúdo. Esta skill assume que o conteúdo já está estável.
+- **Antes desta skill.** `/prumo-assist:peer-review` para revisão de conteúdo. Esta skill assume que o conteúdo já está estável.
 - **Depois desta skill.** Pipeline de export `build_reference_docx.py` (ou equivalente) consome o draft com convenções aplicadas e gera DOCX/PDF com citações fundidas em campo único pelo normalizador.
-- **Em paralelo.** `/wiki-lint` se o draft é parte de um wiki ingerido.
+- **Em paralelo.** `/prumo-assist:wiki-lint` se o draft é parte de um wiki ingerido.
 
 ## Notas de manutenção
 

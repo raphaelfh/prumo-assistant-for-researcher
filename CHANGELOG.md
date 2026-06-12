@@ -7,6 +7,20 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.62.0] - 2026-06-12
+
+### Removido
+- **⚠ Breaking** — agents `ml-theory-expert` e `stack-docs-researcher` (pré-pivot, quebrados como distribuídos; [ADR-0012](docs/adr/adr-0012-remocao-agents-ml.md)). Conteúdo preservado no histórico git.
+
+### Mudado
+- Skills `paper-extract` e `wiki-ingest` leem PDF com a tool `Read` nativa — removida a dependência fantasma do MCP `pdf-reader` ([ADR-0013](docs/adr/adr-0013-pdf-via-read-nativo.md)).
+- Caminho de findings unificado na prosa das skills: `docs/wiki/findings/` com fallback `docs/findings/`, espelhando o resolver real ([ADR-0014](docs/adr/adr-0014-findings-canonico.md)).
+- `paper-extract` invoca os backends reais do pacote (`core/config.py`, `domains/paper/callout.py`) — o import legado de `.claude/scripts/` estava quebrado desde a migração pro pacote.
+
+### Documentação
+- Slash-commands citados na prosa das skills padronizados na forma qualificada `/prumo-assist:<skill>`.
+- Router `start` ganhou catálogo completo gerado (14 skills) — Princípio VII.
+
 ## [0.61.0] - 2026-05-31
 
 ### Mudado
@@ -230,7 +244,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.61.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.0...HEAD
+[0.62.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.61.0...v0.62.0
 [0.61.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.6.0...v0.61.0
 [0.6.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.4.0...v0.5.0

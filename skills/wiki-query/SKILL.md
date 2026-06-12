@@ -1,6 +1,6 @@
 ---
 name: wiki-query
-description: "Responde pergunta ancorada no wiki do pj_* (docs/ + references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [[@citekeys]]). Oferece arquivar a resposta como finding em docs/findings/ quando útil. NÃO é para perguntas de código."
+description: "Responde pergunta ancorada no wiki do pj_* (docs/ + references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [[@citekeys]]). Oferece arquivar a resposta como finding em docs/wiki/findings/ (ou docs/findings/ em projetos sem docs/wiki/) quando útil. NÃO é para perguntas de código."
 when_to_use: |
   Quando o usuário perguntar "o que a literatura diz sobre X", "compare Y e Z",
   "gere tabela comparativa", "resuma os achados sobre W", "quais decisões
@@ -40,7 +40,7 @@ Se a pergunta for ambígua ou genérica ("tudo sobre X"), pedir refinamento em *
    - `mcp__qmd__query "<pergunta>"` (hybrid com rerank) → top 10.
    - Fallback BM25: `mcp__qmd__search`.
 3. **Fallback sem qmd**: `Grep` com termos-chave em `docs/ references/notes/`.
-4. Se o tópico é bibliográfico puro, considerar também `references/_references.bib` e `/paper-manager list`.
+4. Se o tópico é bibliográfico puro, considerar também `references/_references.bib` e `/prumo-assist:paper-manager list`.
 
 ### 3. Ler as páginas mais relevantes
 
@@ -66,7 +66,7 @@ Formato padrão (adaptar quando a pergunta pedir tabela/diagrama explícito):
 - <limitação 2>
 
 **Gaps identificados** _(opcional)_:
-- <nenhuma página cobre X — candidato a /wiki-ingest ou pergunta a ir buscar na literatura>
+- <nenhuma página cobre X — candidato a /prumo-assist:wiki-ingest ou pergunta a ir buscar na literatura>
 ```
 
 Regras:
@@ -78,7 +78,7 @@ Regras:
 
 Depois da resposta, perguntar **exatamente uma vez**:
 
-> Quer arquivar essa resposta como finding? (`docs/findings/<slug>.md`) — útil se a síntese for reutilizada.
+> Quer arquivar essa resposta como finding? (`docs/wiki/findings/<slug>.md`) — útil se a síntese for reutilizada.
 
 Se **sim**, executar via `Bash`:
 
@@ -120,17 +120,17 @@ log.write_text(log.read_text() + "\n## [<data>] wiki-query | <pergunta curta>\n\
 ### 6. Visualizações inline
 
 Quando a resposta pedir gráfico (comparação numérica, distribuição, timeline):
-- Gerar bloco Python com **seaborn + matplotlib** (ver rule `.claude/rules/coding_style.md`), renderizado em notebook ou salvo em `docs/findings/_assets/<slug>.png` referenciado no markdown do finding.
+- Gerar bloco Python com **seaborn + matplotlib** (ver rule `.claude/rules/coding_style.md`), renderizado em notebook ou salvo em `docs/wiki/findings/_assets/<slug>.png` referenciado no markdown do finding.
 - Plotly **só** se o usuário pedir explicitamente um dashboard interativo.
 
 ## Boundaries
 
 - **Não executa notebooks** nem roda código de modelagem — isso é escopo das skills `clinical-metrics`, `data-cleaning`, etc.
-- **Não cria páginas `concept`/`entity`** — isso é `/wiki-ingest`.
+- **Não cria páginas `concept`/`entity`** — isso é `/prumo-assist:wiki-ingest`.
 - **Limite de leitura**: até 8 páginas por query para manter contexto enxuto. Se a pergunta for enorme, quebrar em sub-perguntas e rodar em sequência.
 
 ## Erros comuns
 
 - **qmd retorna 0 resultados** → rodar `qmd embed` antes; ou recair em `Grep` + `Read docs/_index.md`.
-- **Usuário pergunta algo que não está no wiki** → responder "Não há páginas sobre isso no wiki" + sugerir `/wiki-ingest` com fontes candidatas + registrar no log como `query | <pergunta> — gap`.
+- **Usuário pergunta algo que não está no wiki** → responder "Não há páginas sobre isso no wiki" + sugerir `/prumo-assist:wiki-ingest` com fontes candidatas + registrar no log como `query | <pergunta> — gap`.
 - **Resposta exige mais de 8 páginas** → pedir ao usuário para refinar OU responder em partes e arquivar como 2 findings ligados por `related:`.
