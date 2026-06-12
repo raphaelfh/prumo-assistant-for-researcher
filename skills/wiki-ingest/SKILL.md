@@ -6,7 +6,7 @@ when_to_use: |
   "salvar este link no wiki", "indexar artigo", ou ao colar URL/DOI/arXiv/PDF
   com intenção de processar.
 argument-hint: "[url | path | doi]"
-allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) mcp__pdf-reader__read_pdf mcp__qmd__embed mcp__qmd__query
+allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) mcp__qmd__embed mcp__qmd__query
 prumo:
   version: 1.0.0
   schema: WikiSource/v1
@@ -34,7 +34,7 @@ Opera sobre o schema canônico em `/docs/wiki-schema.md` do monorepo. Não reesc
 |---|---|
 | DOI, arXiv ID, URL de journal | **Orientar o usuário a adicionar o paper no Zotero** e rodar `/paper-manager sync`. A skill não resolve metadata diretamente; Zotero é a fonte de verdade. |
 | URL de blog, tutorial, doc, slide, vídeo, transcript | Continuar nesta skill. Cria `docs/sources/<slug>.md`. |
-| PDF local que não é paper acadêmico (relatório, white paper, slide deck) | Continuar nesta skill. Usar `mcp__pdf-reader__read_pdf` para extrair conteúdo. |
+| PDF local que não é paper acadêmico (relatório, white paper, slide deck) | Continuar nesta skill. Ler com a tool `Read` (lê PDF nativamente; use o parâmetro de páginas se >10). |
 | Decisão clínica ou editorial (memo, ata) | Continuar nesta skill. `kind: decision`. |
 
 Se houver dúvida, perguntar ao usuário uma vez antes de escolher o caminho.
@@ -42,7 +42,7 @@ Se houver dúvida, perguntar ao usuário uma vez antes de escolher o caminho.
 ### 2. Ler a fonte
 
 - `WebFetch` para URL pública (passar prompt pedindo takeaways + autores + data).
-- `mcp__pdf-reader__read_pdf` para PDF local (páginas específicas se >10).
+- Tool `Read` para PDF local (lê PDF nativamente; páginas específicas se >10).
 - Quando inacessível, pedir ao usuário o conteúdo colado.
 
 ### 3. Discutir takeaways com o usuário

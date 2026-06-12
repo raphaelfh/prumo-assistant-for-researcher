@@ -6,7 +6,7 @@ when_to_use: |
   "processa todos os papers novos", ou quando um pj_* acabou de sincronizar
   papers do Zotero e o usuário quer alimentar o callout automaticamente.
 argument-hint: "[citekey] | --all [--limit N] [--stale-only]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 *) Bash(uv run python *) Bash(test *) Bash(readlink *) Agent mcp__pdf-reader__read_pdf
+allowed-tools: Read Write Edit Glob Grep Bash(python3 *) Bash(uv run python *) Bash(test *) Bash(readlink *) Agent
 prumo:
   version: 1.0.0
   schema: PaperExtract/v1
@@ -47,14 +47,15 @@ Passos:
 
 2. **Ler config:**
    ```bash
-   python3 -c "import sys, json; sys.path.insert(0, '../.claude/scripts'); from _project_config import load_config; print(json.dumps(load_config(__import__('pathlib').Path('.'))))"
+   uv run python -c "import json; from pathlib import Path; from prumo_assist.core.config import load_project_config; print(json.dumps(load_project_config(Path('.'))))"
    ```
    Extrair `paper_extract.language`.
 
 3. **Despachar 1 subagent** via tool `Agent` com `subagent_type="general-purpose"`:
    - Prompt:
      ```
-     Leia o PDF em <absolute_path_to_pdf> usando mcp__pdf-reader__read_pdf.
+     Leia o PDF em <absolute_path_to_pdf> com a tool Read (lê PDF nativamente;
+     leia em blocos de páginas se o PDF tiver >10 páginas).
      Para cada seção do template em <absolute_path_to_paper_extraction.md>,
      preencha APENAS com conteúdo do PDF. Grounding rigoroso: sem opinião,
      sem inferência fora do texto. Cite página quando souber: (p.5).
@@ -72,16 +73,16 @@ Passos:
 
 4. **Receber JSON** do subagent. Se `error`, abortar mostrando motivo.
 
-5. **Aplicar extração** via `Bash`:
+5. **Aplicar extração** via `Bash` (backend determinístico em `domains/paper/callout.py`):
    ```bash
-   python3 -c '
-   import sys; sys.path.insert(0, "../.claude/scripts")
-   from pathlib import Path
-   from paper_extract import apply_extraction
+   uv run python -c '
    import json
+   from pathlib import Path
+   from prumo_assist.domains.paper.callout import apply_extraction
    content = json.loads("""<JSON_AQUI>""")
    changed = apply_extraction(
-       nota_path=Path("references/notes/<citekey>/_extract.md"),
+       pj_path=Path("."),
+       citekey="<citekey>",
        template_path=Path(".claude/paper_extraction.md"),
        content=content,
        model="<modelo_atual>",
@@ -132,7 +133,7 @@ Passos:
 
 ## Erros comuns
 
-- `paper_extraction.md` ausente → "Restaure do scaffold: `cp ../.claude/templates/pj_projeto/.claude/paper_extraction.md .claude/`"
+- `paper_extraction.md` ausente → "Restaure rodando `prumo init --merge` no diretório do projeto (recoloca arquivos ausentes do template sem sobrescrever os existentes)."
 - `pj_config.toml` ausente → usa DEFAULTS (não é erro fatal).
 - Subagent retorna JSON malformado → retry 1x com prompt "corrija o JSON anterior"; depois skip com erro "JSON malformado após 2 tentativas".
 - Callout com delimitadores corrompidos (usuário mexeu dentro) → abortar com "Restaure ou delete as linhas entre `<!-- paper-extract:begin -->` e `<!-- paper-extract:end -->` em references/notes/<citekey>/_extract.md."
