@@ -4,11 +4,11 @@
 > Lives between Zotero, Obsidian, and your agent-host.
 
 Plugin do [Claude Code](https://code.claude.com) **e** CLI Python (`prumo`)
-para pesquisa clínica. Cobre quatro pilares: gerir conhecimento (wiki),
-gerir bibliografia (Zotero ↔ notas), capturar fontes, e escrever (export
-Pandoc/Typst + revisão crítica).
+para pesquisa clínica. Cobre cinco domínios: gerir conhecimento (wiki),
+gerir bibliografia (Zotero ↔ notas), capturar fontes, formalizar o
+protocolo (PICOT) e escrever (export Pandoc/Typst + revisão crítica).
 
-Arquitetura e princípios de design em [`ARCHITECTURE.md`](ARCHITECTURE.md); status atual e próximas fases em [`ROADMAP.md`](ROADMAP.md).
+Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de design em [`docs/constitution.md`](docs/constitution.md); decisões registradas em [`docs/adr/`](docs/adr/); status atual e próximas fases em [`ROADMAP.md`](ROADMAP.md).
 
 ## Conteúdo
 

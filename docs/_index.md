@@ -19,7 +19,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 | Como ficam as notas Zotero ↔ repo (B1)? | [[canvas/zotero-notes-architecture\|Canvas de arquitetura Zotero-notas]] |
 | Quais são os princípios não-negociáveis do projeto? | [[constitution\|Constitution]] |
 | Por que essa decisão estrutural foi tomada? | [[adr/_index\|Índice de ADRs]] |
-| Spec da skill `scientific-writing` | [[superpowers/specs/2026-04-29-prumo-scientific-writer-design]] |
+| Spec da família de skills de escrita (`write-*`) | [[superpowers/specs/2026-05-03-write-family-design]] |
 | Spec da integração de notas Zotero (B1 + qmd) | [[superpowers/specs/2026-05-03-zotero-notes-integration-design]] |
 
 ## Como o vault está organizado

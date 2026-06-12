@@ -49,6 +49,7 @@ Mudanças invisíveis para o consumidor não viram release:
 
 - Edição em `.github/workflows/`, `.github/schemas/`, `.github/scripts/`.
 - Edição em `README.md`, `CHANGELOG.md`, `RELEASING.md`, `LICENSE`.
+- Edição em `docs/` (vault, specs, plans, ADRs) — reorganização de documentação nunca é release.
 - Edição em `.gitignore`, `.editorconfig`.
 - Refator interno de skill que não muda comportamento perceptível.
 - Comentário em código.
