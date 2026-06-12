@@ -1,5 +1,5 @@
 ---
-status: draft
+status: in-progress
 verified: null
 release: null
 spec: "[[2026-06-11-repo-organization-redesign-design]]"
