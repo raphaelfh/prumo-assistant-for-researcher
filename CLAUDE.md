@@ -17,7 +17,7 @@ Plugin Claude Code + CLI Python (`prumo`) de pesquisa clínica: bibliografia (Zo
 ## Armadilhas deste repo
 
 - `templates/pj_base/CLAUDE.md` é PRODUTO (scaffolding de projetos `pj_*`), não orientação deste repo.
-- `skills/` e `templates/` são force-included no wheel (pyproject) e resolvidos por `core/paths.py` — mover qualquer um exige atualizar os dois lados juntos.
+- `skills/` e `templates/` são force-included no wheel (pyproject) e resolvidos por `src/prumo_assist/core/paths.py` — mover qualquer um exige atualizar os dois lados juntos.
 - Plugin root = raiz do repo (`.claude-plugin/marketplace.json` usa `source: "./"`) — não mover `skills/`, `.mcp.json`, `.claude-plugin/`.
 - `.mcp.json` é, ao mesmo tempo, config MCP deste projeto E config MCP distribuída aos consumidores do plugin.
 - Reorganização de docs/.github NÃO bumpa versão (RELEASING.md, "Quando NÃO bumpar").
