@@ -13,7 +13,7 @@
 | 0.6.0 | 2026-05-17 | Wizard interativo do `prumo init` |
 | 0.61.0 | 2026-05-31 | Disclosure de IA, citações Word vivas (zotero_live_docx.lua), sync-notes/sync-all, doctor de deps externas, pj_base simplificado (módulos clinical/ml), wiki-lint determinístico, refresh de guidelines |
 | — | 2026-06-11 | Reorganização do repo (CLAUDE.md, `docs/adr/`, lifecycle, índices gerados — não-releasável) |
-| 0.62.0 | planejado | Remoção agents ML (ADR-0012) + pdf-reader → Read (ADR-0013) + contratos de skill reconciliados (ADR-0014) |
+| 0.62.0 | 2026-06-12 | Remoção agents ML (ADR-0012) + pdf-reader → Read (ADR-0013) + contratos de skill reconciliados (ADR-0014) |
 
 ## Em curso
 

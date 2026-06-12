@@ -133,7 +133,7 @@ Passos:
 
 ## Erros comuns
 
-- `paper_extraction.md` ausente → "Restaure rodando `prumo init --merge` no diretório do projeto (recoloca arquivos ausentes do template sem sobrescrever os existentes)."
+- `paper_extraction.md` ausente → "Restaure rodando `prumo init . --merge` no diretório do projeto (recoloca arquivos ausentes do template sem sobrescrever os existentes)."
 - `pj_config.toml` ausente → usa DEFAULTS (não é erro fatal).
 - Subagent retorna JSON malformado → retry 1x com prompt "corrija o JSON anterior"; depois skip com erro "JSON malformado após 2 tentativas".
 - Callout com delimitadores corrompidos (usuário mexeu dentro) → abortar com "Restaure ou delete as linhas entre `<!-- paper-extract:begin -->` e `<!-- paper-extract:end -->` em references/notes/<citekey>/_extract.md."
