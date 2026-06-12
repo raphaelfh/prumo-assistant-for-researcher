@@ -5,7 +5,7 @@ when_to_use: |
   Quando o usuário pedir "revisa este draft", "me dá um peer review do meu paper",
   "critica essa introdução", "quais buracos no meu argumento", ou ao terminar
   uma seção e querer feedback antes de submeter. NÃO é correção gramatical
-  (use /scientific-writing) — é critique substantiva.
+  (use /prumo-assist:scientific-writing) — é critique substantiva.
 argument-hint: "<draft-path> [--critical-only] [--section NAME] [--venue NEJM|Lancet|JAMA|Nature-Medicine|Radiology|MICCAI|NeurIPS]"
 allowed-tools: Read Glob Grep
 prumo:
@@ -126,13 +126,13 @@ O JSON segue este shape (`PeerReviewReport/v1`):
 
 ## Variações úteis
 
-- **`/peer-review --critical-only`**: foca só em fraquezas críticas (quando o
+- **`/prumo-assist:peer-review --critical-only`**: foca só em fraquezas críticas (quando o
   usuário só quer saber o que precisa fixar antes de submeter).
-- **`/peer-review --section X`**: revisa só uma seção específica.
-- **`/peer-review --venue NEJM`**: aplica mental model do venue alvo (NEJM,
+- **`/prumo-assist:peer-review --section X`**: revisa só uma seção específica.
+- **`/prumo-assist:peer-review --venue NEJM`**: aplica mental model do venue alvo (NEJM,
   Lancet, JAMA, Nature Medicine, Radiology, MICCAI, NeurIPS).
 
 ## Pós-review
 
-Ofereça ao usuário arquivar o relatório em `docs/findings/_peer_review_<draft-stem>_<YYYY-MM-DD>.md`
+Ofereça ao usuário arquivar o relatório em `docs/wiki/findings/_peer_review_<draft-stem>_<YYYY-MM-DD>.md` (ou `docs/findings/` em projetos sem `docs/wiki/`)
 pra rastreamento histórico. Se aceito, escreva o markdown legível lá.

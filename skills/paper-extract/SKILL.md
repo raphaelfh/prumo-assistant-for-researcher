@@ -1,6 +1,6 @@
 ---
 name: paper-extract
-description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em references/notes/<citekey>/_extract.md. Pressupõe /paper-manager sync executado + symlinks via make sync-pdfs."
+description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em references/notes/<citekey>/_extract.md. Pressupõe /prumo-assist:paper-manager sync executado + symlinks via make sync-pdfs."
 when_to_use: |
   Quando o usuário pedir "resuma o paper X", "extraia os principais pontos",
   "processa todos os papers novos", ou quando um pj_* acabou de sincronizar
@@ -28,13 +28,13 @@ Skill que lê o PDF (via symlink em `references/pdfs/<citekey>.pdf`), gera conte
 - cwd é um `pj_*` com `.claude/paper_extraction.md` e `.claude/pj_config.toml` presentes (scaffold default atende).
 - `_references.bib` exportado pelo BBT.
 - `references/pdfs/<citekey>.pdf` é symlink válido (rode `make sync-pdfs` primeiro).
-- `references/notes/<citekey>/_meta.md` já existe (rode `/paper-manager sync` ou `make sync-paper` primeiro).
+- `references/notes/<citekey>/_meta.md` já existe (rode `/prumo-assist:paper-manager sync` ou `make sync-paper` primeiro).
 
 Se qualquer pré-requisito falha, abortar com mensagem clara.
 
 ## Operações
 
-### 1. `/paper-extract <citekey>` — single
+### 1. `/prumo-assist:paper-extract <citekey>` — single
 
 Interativo, 1 paper.
 
@@ -92,9 +92,9 @@ Passos:
    '
    ```
 
-6. **Mostrar diff** do callout ao usuário e perguntar: "Arquivar TL;DR como finding em `docs/findings/`?". Se sim, delegar a `/wiki-query` ou criar finding direto.
+6. **Mostrar diff** do callout ao usuário e perguntar: "Arquivar TL;DR como finding em `docs/wiki/findings/` (ou `docs/findings/` em projetos sem `docs/wiki/`)?". Se sim, delegar a `/prumo-assist:wiki-query` ou criar finding direto.
 
-### 2. `/paper-extract-all [--limit N] [--stale-only]` — batch
+### 2. `/prumo-assist:paper-extract-all [--limit N] [--stale-only]` — batch
 
 Non-interactive em modo headless (via `make extract-paper-all`) ou interactive.
 

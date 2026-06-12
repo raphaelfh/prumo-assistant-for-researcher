@@ -59,7 +59,7 @@ Regras:
 ## Operações
 
 > [!note]
-> A operação `add <doi>` (fetching CrossRef direto) foi removida. Hoje o Zotero é a fonte única de metadata e PDF. Para adicionar um paper: (1) insira no Zotero (arraste o PDF, cole o DOI, etc.); (2) o Better BibTeX regrava `_references.bib` automaticamente; (3) rode `/paper-manager sync` (ou `make sync-paper PJ=pj_x`). Para os PDFs: `make sync-pdfs PJ=pj_x` (ou `make sync-pdf-paper` que faz os dois).
+> A operação `add <doi>` (fetching CrossRef direto) foi removida. Hoje o Zotero é a fonte única de metadata e PDF. Para adicionar um paper: (1) insira no Zotero (arraste o PDF, cole o DOI, etc.); (2) o Better BibTeX regrava `_references.bib` automaticamente; (3) rode `/prumo-assist:paper-manager sync` (ou `make sync-paper PJ=pj_x`). Para os PDFs: `make sync-pdfs PJ=pj_x` (ou `make sync-pdf-paper` que faz os dois).
 
 ### 1. `sync`
 
@@ -81,7 +81,7 @@ Passos:
    ```
    ✓ N notas novas, M atualizadas, K órfãs.
    ✓ Grafo: +X arestas, -Y removidas.
-   Para extrair conteúdo dos PDFs: /paper-extract-all (ou make extract-paper-all PJ=pj_<nome>)
+   Para extrair conteúdo dos PDFs: /prumo-assist:paper-extract-all (ou make extract-paper-all PJ=pj_<nome>)
    ```
 
 4. **Órfãs** (citekey em `notes/` mas ausente do `.bib`) **não são deletadas** automaticamente — é aviso para o usuário renomear no Zotero ou deletar a nota à mão.
