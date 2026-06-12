@@ -1,7 +1,7 @@
 ---
-status: in-progress
-verified: null
-release: null
+status: implemented
+verified: 2026-06-12
+release: "0.62.0"
 spec: "[[2026-06-11-repo-organization-redesign-design]]"
 ---
 

@@ -55,9 +55,9 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 
 **Plans ativos:**
 
-- [[superpowers/plans/2026-06-11-repo-organization-redesign]] · in-progress
+- (nenhum)
 
-**Plans arquivados:** 12 em `superpowers/plans/archive/`
+**Plans arquivados:** 13 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->
