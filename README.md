@@ -33,13 +33,6 @@ Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de
 | `/prumo-assist:write-statistics` | Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa PicotSpec.outcome+metrics e protocol.md § Splits. TRIPOD+AI/SPIRIT-AI compatível; TRIPOD-LLM quando o pipeline usa LLM; reporting CONSORT 2025/DECIDE-AI conforme o desenho. |
 <!-- prumo:skills-table:end -->
 
-### Agents
-
-| Agent | Uso |
-|---|---|
-| `ml-theory-expert` | Fundamentação teórica (estatística/ML) com citações da base de conhecimento. |
-| `stack-docs-researcher` | Consulta documentação atualizada da stack (scikit-learn, Lightning, albumentations, etc.). |
-
 ### MCP
 
 - **`qmd`** — servidor MCP para busca BM25 + vector + rerank local no wiki dos projetos. **Requer instalação** — ver [Pré-requisitos externos](#pré-requisitos-externos).
@@ -52,7 +45,7 @@ Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de
 /plugin install prumo-assist@prumo-assist
 ```
 
-Após a instalação, as skills aparecem com o prefixo `/prumo-assist:...` e os agents ficam disponíveis via `Agent` tool.
+Após a instalação, as skills aparecem com o prefixo `/prumo-assist:...`.
 
 ## Pré-requisitos externos
 
