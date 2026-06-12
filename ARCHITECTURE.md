@@ -75,7 +75,8 @@ prumo-assist/
 │   ├── _filters/              ← filtros Lua vendorados do Pandoc (zotero_live_docx.lua)
 │   ├── core/                  ← transversal; NUNCA importa domains/ (ADR-0005)
 │   ├── domains/               ← paper · wiki · capture · protocol · write
-│   │   └── <X>/               ← cli.py + api.py + <op>.py + schemas/v1.py (ADR-0006)
+│   │   └── <X>/               ← cli.py + api.py + <op>.py + schemas/v1.py (ADR-0006);
+│   │                             exceção: capture é mínimo (cli.py + route.py, sem api/schemas)
 │   └── integrations/          ← adapters por agent-host (claude_code)
 │
 ├── skills/                    ← 14 skills (SKILL.md = única metadata, ADR-0003)
