@@ -49,6 +49,7 @@ Mudanças invisíveis para o consumidor não viram release:
 
 - Edição em `.github/workflows/`, `.github/schemas/`, `.github/scripts/`.
 - Edição em `README.md`, `CHANGELOG.md`, `RELEASING.md`, `LICENSE`.
+- Edição em `docs/` (vault, specs, plans, ADRs) — reorganização de documentação nunca é release.
 - Edição em `.gitignore`, `.editorconfig`.
 - Refator interno de skill que não muda comportamento perceptível.
 - Comentário em código.
@@ -82,14 +83,17 @@ Suposição: você está num branch de trabalho ou direto no `main`, com mudanç
    python .github/scripts/validate_manifests.py
    python .github/scripts/sync_manifest_version.py --check
    ```
-5. **Commit** com mensagem `release: X.Y.Z - <resumo>`:
+5. **Atualize também `CITATION.cff`** (campo `version`) no mesmo commit.
+6. **Commit via branch de release + PR** (fluxo adotado desde a v0.61.0):
    ```bash
-   git add CHANGELOG.md .claude-plugin/plugin.json .claude-plugin/marketplace.json
+   git checkout -b release/vX.Y.Z
+   git add CHANGELOG.md CITATION.cff src/prumo_assist/_version.py .claude-plugin/plugin.json .claude-plugin/marketplace.json
    git commit -m "release: X.Y.Z - resumo curto"
-   git push origin main
+   git push -u origin release/vX.Y.Z
+   gh pr create --title "release: vX.Y.Z" --fill
    ```
-6. **Aguarde o CI passar** (workflow `validate-manifests`).
-7. **Crie a tag e o release no GitHub:**
+   Aguarde o CI (`CI` + `validate-manifests`) e faça o merge.
+7. **Crie a tag e o release no GitHub (obrigatório — tags retroativas v0.3.0–v0.61.0 criadas em 2026-06-11):**
    ```bash
    git tag -a vX.Y.Z -m "vX.Y.Z"
    git push origin vX.Y.Z

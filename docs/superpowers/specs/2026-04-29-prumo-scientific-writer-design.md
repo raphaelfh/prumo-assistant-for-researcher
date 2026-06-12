@@ -1,3 +1,11 @@
+---
+title: prumo scientific writer — design original
+date: 2026-04-29
+status: superseded
+superseded-by: "[[2026-05-03-write-family-design]]"
+tags: [write, superseded]
+---
+
 # Skill `scientific-writer` — design
 
 > Spec de brainstorming. Documenta a decisão arquitetural antes do plano de
