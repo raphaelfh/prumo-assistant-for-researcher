@@ -1,23 +1,24 @@
 # Roadmap
 
-> Status atual + próximas fases. Princípios e layout estão em [`ARCHITECTURE.md`](ARCHITECTURE.md). Histórico narrativo em [`CHANGELOG.md`](CHANGELOG.md).
+> Status atual + próximas fases. Layout em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios em [`docs/constitution.md`](docs/constitution.md); histórico narrativo em [`CHANGELOG.md`](CHANGELOG.md).
 
-## Status (atualizado 2026-05-03)
+## Status (atualizado 2026-06-11)
 
-| PR  | Status      | Conteúdo |
-|-----|-------------|----------|
-| PR0 | ✅ entregue | Fundação `core/` + Typer + `prumo init/doctor/skills` + integration `claude_code` + templates |
-| PR1 | ✅ entregue | Domínio `paper` completo (7 subcomandos, 6 scripts migrados + `lint.py` + schemas v1) |
-| PR2 | ✅ entregue | Domínios `wiki`, `capture`, `write` (subcomandos por pilar) |
-| PR3 | ✅ entregue | Skill `peer-review` + `CITATION.cff` + CHANGELOG + 97 testes |
-| PR4 | ✅ entregue | Spin-off de skills de código + simplificação interna (CLI helper, paths, docs split) — v0.3.0 |
-| PR5 | 📌 backlog | Pack `clinical-checklists` (TRIPOD+AI, CLAIM, CONSORT-AI, PRISMA, STROBE) |
-| PR6 | 📌 backlog | Multi-host (Cursor, Codex, Gemini, Jupyter integrations) |
+| Release | Data | Conteúdo |
+|---------|------|----------|
+| 0.2.0 | 2026-04-28 | Fundação do CLI Python (core/ + Typer + domains paper/wiki/capture/write + peer-review + 97 testes) |
+| 0.3.0 | 2026-05-03 | Spin-off das skills de código + simplificação interna + split ARCHITECTURE/ROADMAP |
+| 0.4.0 | 2026-05-03 | Layout α de notas (`references/notes/<citekey>/`) + `paper migrate-layout` |
+| 0.5.0 | 2026-05-04 | Domínio `protocol` (PICOT + ADRs) + família `write-*` + `formulate-picot` + `active-learning` |
+| 0.6.0 | 2026-05-17 | Wizard interativo do `prumo init` |
+| 0.61.0 | 2026-05-31 | Disclosure de IA, citações Word vivas (zotero_live_docx.lua), sync-notes/sync-all, doctor de deps externas, pj_base simplificado (módulos clinical/ml), wiki-lint determinístico, refresh de guidelines |
+| — | 2026-06-11 | Reorganização do repo (CLAUDE.md, `docs/adr/`, lifecycle, índices gerados — não-releasável) |
+| 0.62.0 | planejado | Remoção agents ML (ADR-0012) + pdf-reader → Read (ADR-0013) + contratos de skill reconciliados (ADR-0014) |
 
 ## Em curso
 
-- `prumo-code-assist` ainda **não existe**. As skills `tabular-eda`, `data-cleaning`, `clinical-metrics` foram removidas deste repo na v0.3.0; o conteúdo continua acessível via histórico git. Mover para `prumo-code-assist` quando o repo for criado.
-- Agents `ml-theory-expert` e `stack-docs-researcher` mantidos provisoriamente. Reavaliar na próxima minor.
+- `prumo-code-assist` ainda **não existe**. As skills `tabular-eda`, `data-cleaning`, `clinical-metrics` (removidas na v0.3.0) seguem acessíveis via histórico git. Mover quando o repo for criado.
+- Agents `ml-theory-expert` e `stack-docs-researcher`: decisão tomada em [ADR-0012](docs/adr/adr-0012-remocao-agents-ml.md) — remoção no v0.62.0.
 
 ## Fases pós-MVP (cada uma justificada por dor real, **nunca antes**)
 
@@ -34,9 +35,12 @@
 
 ## Decisões deliberadas postergadas
 
+> Espelhadas em [ADR-0011](docs/adr/adr-0011-semver-por-visibilidade.md); promover qualquer item exige citar o trigger atingido.
+
 - **Sem hooks system.** Trace e provenance são chamadas explícitas em `domains/`, não decoradores plugáveis. Quando ≥3 cross-cutting forem competir, refatora.
 - **Sem cache de LLM.** Idempotência por hash do input fica para quando algum caller real precisar.
 - **Sem lockfile.** Faz sentido quando packs externos virarem realidade.
 - **Sem multi-host.** Um adapter (`claude_code`) prova a interface; expandir é trivial depois (não é refactor, é adição).
 - **Sem packs externos.** Único pack hoje é o implícito da raiz (`skills/` na raiz). Estrutura `packs/<name>/` está prevista mas vazia.
 - **Sem MkDocs publicado.** Documentação vive no repo em Markdown. Site só quando `prumo --version` justificar (volume de usuários externos).
+- **Produto continua gerando `docs/decisions/`** nos `pj_*` enquanto o repo usa `docs/adr/` — alinhar na próxima mudança em `domains/protocol/adr.py` ([ADR-0001](docs/adr/adr-0001-adr-log-em-docs-adr.md)).
