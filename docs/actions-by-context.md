@@ -27,8 +27,7 @@ tags: [journey, playbook]
 *Busca exploratória pré-PICOT. Objetivo: ver o terreno.*
 1. `/prumo-assist:wiki-query` — pergunta livre, retorna síntese com citações do que já existe no acervo.
 2. `prumo paper find "<keyword>"` — fuzzy lookup, ver o que está perto.
-3. Agente `ml-theory-expert` — pra fundamentação teórica do tema.
-4. Capturar achados como rascunhos em `docs/brainstorm/daily/<data>.md` (se módulo `brainstorm-pipeline` ativado).
+3. Capturar achados como rascunhos em `docs/brainstorm/daily/<data>.md` (se módulo `brainstorm-pipeline` ativado).
 
 ### "Achei um paper que parece relevante"
 1. `prumo capture <doi|arxiv|url>` — classifica o input.
@@ -145,16 +144,6 @@ tags: [journey, playbook]
 1. `prumo write extract-comments revisado.docx` — checklist Markdown em `docs/comments/`.
 2. Endereçar item por item; commitar a cada lote.
 3. Repetir o ciclo `scientific-writing` → `peer-review`.
-
----
-
-## Apoio teórico (qualquer fase)
-
-### "Estou patinando num conceito de estatística/ML"
-- Agent `ml-theory-expert` — fundamentação teórica com citações do próprio acervo.
-
-### "Não sei como funciona uma lib da stack"
-- Agent `stack-docs-researcher` — consulta documentação atualizada (scikit-learn, Lightning, albumentations, ...).
 
 ---
 
