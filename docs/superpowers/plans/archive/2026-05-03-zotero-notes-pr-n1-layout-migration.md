@@ -1,3 +1,9 @@
+---
+status: implemented
+verified: 2026-06-11
+release: "0.4.0"
+---
+
 # PR-N1 — Migração de Layout (`<key>.md` → `<key>/_meta.md`) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
