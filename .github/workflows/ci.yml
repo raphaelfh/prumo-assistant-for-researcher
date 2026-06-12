@@ -42,3 +42,9 @@ jobs:
 
       - name: Pytest
         run: uv run pytest --cov=prumo_assist --cov-report=term-missing
+
+      - name: Índices gerados em dia (constitution VII)
+        run: uv run python .github/scripts/gen_indexes.py --check
+
+      - name: Versão sincronizada nos manifests
+        run: uv run python .github/scripts/sync_manifest_version.py --check

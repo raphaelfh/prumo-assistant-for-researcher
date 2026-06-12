@@ -18,6 +18,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 | Como uma ideia ou citação atravessa o repo? | [[canvas/project-flow\|Canvas de fluxo]] |
 | Como ficam as notas Zotero ↔ repo (B1)? | [[canvas/zotero-notes-architecture\|Canvas de arquitetura Zotero-notas]] |
 | Quais são os princípios não-negociáveis do projeto? | [[constitution\|Constitution]] |
+| Por que essa decisão estrutural foi tomada? | [[adr/_index\|Índice de ADRs]] |
 | Spec da skill `scientific-writing` | [[superpowers/specs/2026-04-29-prumo-scientific-writer-design]] |
 | Spec da integração de notas Zotero (B1 + qmd) | [[superpowers/specs/2026-05-03-zotero-notes-integration-design]] |
 
@@ -29,10 +30,34 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 - `canvas/project-flow.canvas` — fluxo de informação (ideia + citação) atravessando o repo.
 - `actions-by-context.md` — playbook de bolso por gatilho.
 - `constitution.md` — rule do projeto (princípios, restrições, governança).
-- `superpowers/specs/` — specs vivas de design de skills (não-perecíveis).
+- `superpowers/specs/` — specs vivas de design (não-perecíveis; `status: approved | superseded`).
+- `superpowers/plans/` — planos ativos; implementados movem pra `plans/archive/` com `status/verified/release`.
+- `adr/` — decisões registradas (MADR minimal, imutáveis). Índice: [[adr/_index]].
 
 ## Convenções
 
 - Citação interna via wikilink: `[[constitution]]`, `[[constitution#I · Lógica em um lugar só]]`.
 - Português técnico no corpo; identificadores e comandos podem permanecer em inglês.
 - Documento que não cabe em uma tela é candidato a ser dividido — coerência com o princípio I da [[constitution]].
+
+## Catálogo vivo (gerado — não editar à mão)
+
+<!-- prumo:kb-index:begin -->
+**Specs** (não-perecíveis):
+
+- [[superpowers/specs/2026-04-29-prumo-scientific-writer-design]] · superseded
+- [[superpowers/specs/2026-05-03-active-learning-design]] · approved
+- [[superpowers/specs/2026-05-03-formulate-picot-design]] · approved
+- [[superpowers/specs/2026-05-03-write-family-design]] · approved
+- [[superpowers/specs/2026-05-03-zotero-notes-integration-design]] · approved
+- [[superpowers/specs/2026-05-30-pj-base-simplification-design]] · approved
+- [[superpowers/specs/2026-06-11-repo-organization-redesign-design]] · approved
+
+**Plans ativos:**
+
+- [[superpowers/plans/2026-06-11-repo-organization-redesign]] · draft
+
+**Plans arquivados:** 12 em `superpowers/plans/archive/`
+
+**ADRs:** ver [[adr/_index|índice de ADRs]]
+<!-- prumo:kb-index:end -->
