@@ -15,6 +15,9 @@ htmlcov/
 docs/.obsidian/workspace.json
 docs/.obsidian/graph.json
 
-# Obsidian — accidental "Untitled" stubs
-docs/Untitled.*
+# Obsidian — accidental "Untitled" stubs (qualquer variante: Untitled.canvas, Untitled Kanban.md, ...)
+docs/Untitled*
+
+# graphify — grafo de conhecimento local (regenerável)
+graphify-out/
 
