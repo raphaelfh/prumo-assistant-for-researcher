@@ -7,8 +7,10 @@ from pathlib import Path
 import pytest
 
 from prumo_assist.domains.protocol.ops import (
+    AdrResult,
     InitResult,
     PropagateReport,
+    create_picot_adr,
     detect_mode,
     diff_against_last_adr,
     init_picot_spec,
@@ -168,3 +170,15 @@ def test_init_picot_spec_writes_toml_and_adr(tmp_path: Path) -> None:
     assert result.adr_path.exists()
     assert "picot-v1-versao-inicial" in result.adr_path.name
     assert result.report.hash8 != ""
+
+
+def test_create_picot_adr_writes_and_propagates(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs").mkdir(parents=True)
+    (pj / "docs" / "protocol.md").write_text("# Protocolo\n", encoding="utf-8")
+    (pj / "docs" / "project_guide.md").write_text("---\ntitle: x\n---\n\n# P\n", encoding="utf-8")
+    write_picot(pj, _spec(version=2, population="DS_A + DS_BB"))
+    result = create_picot_adr(pj, motivation="novo dataset", slug="novo-dataset", date="2026-06-14")
+    assert isinstance(result, AdrResult)
+    assert result.adr_path.exists()
+    assert "picot-v2-novo-dataset" in result.adr_path.name

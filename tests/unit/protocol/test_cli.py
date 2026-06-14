@@ -121,3 +121,47 @@ def _last_json(stdout: str) -> dict[str, object]:
             continue
     assert last is not None, f"nenhum JSON na saída: {stdout!r}"
     return last
+
+
+def test_protocol_adr_writes(tmp_path: Path) -> None:
+    pj = _bootstrap(tmp_path)
+    write_picot(pj, _spec())
+    result = runner.invoke(
+        app,
+        [
+            "protocol",
+            "adr",
+            "--motivation",
+            "novo dataset",
+            "--slug",
+            "novo-dataset",
+            "--date",
+            "2026-06-14",
+            "--path",
+            str(pj),
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    out = _last_json(result.stdout)
+    assert Path(str(out["adr_path"])).exists()
+
+
+def test_protocol_adr_missing_picot_fails(tmp_path: Path) -> None:
+    pj = _bootstrap(tmp_path)  # sem picot.toml
+    result = runner.invoke(
+        app,
+        [
+            "protocol",
+            "adr",
+            "--motivation",
+            "x",
+            "--slug",
+            "y",
+            "--date",
+            "2026-06-14",
+            "--path",
+            str(pj),
+        ],
+    )
+    assert result.exit_code == 1

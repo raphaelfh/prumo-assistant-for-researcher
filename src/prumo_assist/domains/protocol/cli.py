@@ -104,6 +104,21 @@ def init_command(
         console.emit({"adr_path": str(result.adr_path), "propagate": asdict(result.report)})
 
 
+@protocol_app.command("adr")
+def adr_command(
+    motivation: Annotated[str, typer.Option("--motivation", help="Motivação do ADR.")],
+    slug: Annotated[str, typer.Option("--slug", help="Slug kebab-case curto.")],
+    date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
+    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Registra o ADR-N para a versão atual do picot.toml (após bump) e propaga blocos."""
+    with cli_run(json_mode=json_mode, catches=(ValueError, FileNotFoundError)) as console:
+        result = ops.create_picot_adr(path.resolve(), motivation=motivation, slug=slug, date=date)
+        console.success(f"ADR criado: {result.adr_path}")
+        console.emit({"adr_path": str(result.adr_path), "propagate": asdict(result.report)})
+
+
 def _change_to_dict(change: object) -> dict[str, object]:
     if is_dataclass(change):
         return asdict(change)  # type: ignore[arg-type]

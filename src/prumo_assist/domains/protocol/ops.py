@@ -138,6 +138,35 @@ def init_picot_spec(pj_path: Path, *, spec: PicotSpec, motivation: str, date: st
     return InitResult(report=report, adr_path=adr_path)
 
 
+@dataclass(frozen=True)
+class AdrResult:
+    """Resultado de ``create_picot_adr``: relatório de propagação + caminho do ADR."""
+
+    report: PropagateReport
+    adr_path: Path
+
+
+def create_picot_adr(pj_path: Path, *, motivation: str, slug: str, date: str) -> AdrResult:
+    """Grava o ADR-N para a versão atual do ``picot.toml`` (após bump) e propaga."""
+    spec = read_picot(pj_path)
+    diff = diff_against_last_adr(pj_path) or PicotDiff(changes=[])
+    last_adr = find_last_picot_adr(pj_path)
+    n = next_adr_number(pj_path)
+    body = compose_adr(
+        adr_number=n,
+        spec=spec,
+        diff=diff,
+        motivation=motivation,
+        supersedes_path=last_adr,
+        date=date,
+    )
+    adr_path = pj_path / "docs" / "decisions" / f"adr-{n:04d}-picot-v{spec.version}-{slug}.md"
+    adr_path.parent.mkdir(parents=True, exist_ok=True)
+    adr_path.write_text(body, encoding="utf-8")
+    report = propagate(pj_path)
+    return AdrResult(report=report, adr_path=adr_path)
+
+
 def diff_against_last_adr(pj_path: Path) -> PicotDiff | None:
     """Compara ``picot.toml`` atual contra snapshot do último ADR ``picot-v<N>``.
 
