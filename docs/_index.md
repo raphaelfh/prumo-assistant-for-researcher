@@ -52,6 +52,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-05-03-zotero-notes-integration-design]] · approved
 - [[superpowers/specs/2026-05-30-pj-base-simplification-design]] · approved
 - [[superpowers/specs/2026-06-11-repo-organization-redesign-design]] · approved
+- [[superpowers/specs/2026-06-13-researcher-pipeline-design]] · approved
 
 **Plans ativos:**
 
