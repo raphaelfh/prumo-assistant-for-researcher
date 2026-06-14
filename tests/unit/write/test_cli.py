@@ -96,3 +96,64 @@ def test_write_draft_invalid_mode_fails(tmp_path: Path) -> None:
     )
     assert result.exit_code == 1
     assert "--mode" in result.output
+
+
+def test_write_draft_into_mode_inserts_block(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs").mkdir(parents=True)
+    target = pj / "docs" / "existing.md"
+    target.write_text("# Existing\n\nSome intro.\n", encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "write",
+            "draft",
+            "--kind",
+            "paper",
+            "--mode",
+            "into",
+            "--into",
+            str(target),
+            "--section",
+            "Methods",
+            "--date",
+            "2026-06-14",
+            "--slug",
+            "x",
+            "--path",
+            str(pj),
+            "--json",
+        ],
+        input="Methods content here.",
+    )
+    assert result.exit_code == 0, result.output
+    out = _last_json(result.stdout)
+    assert Path(str(out["output_path"])) == target
+    text = target.read_text(encoding="utf-8")
+    assert "write:begin kind=paper section=Methods" in text
+    assert "Methods content here." in text
+
+
+def test_write_draft_invalid_kind_fails(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs").mkdir(parents=True)
+    result = runner.invoke(
+        app,
+        [
+            "write",
+            "draft",
+            "--kind",
+            "bogus",
+            "--mode",
+            "drafts",
+            "--date",
+            "2026-06-14",
+            "--slug",
+            "x",
+            "--path",
+            str(pj),
+        ],
+        input="conteúdo",
+    )
+    assert result.exit_code == 1
+    assert "--kind" in result.output

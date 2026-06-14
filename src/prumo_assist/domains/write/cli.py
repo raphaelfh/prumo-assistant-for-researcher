@@ -209,6 +209,9 @@ def draft_command(
     date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
     slug: Annotated[str, typer.Option("--slug", help="Slug do output.")],
     mode: Annotated[str, typer.Option("--mode", help="drafts|into|out.")] = "drafts",
+    section: Annotated[
+        str, typer.Option("--section", help="Nome da seção alvo (obrigatório no modo into).")
+    ] = "",
     sections: Annotated[
         str, typer.Option("--sections", help="Array JSON de seções preenchidas.")
     ] = "[]",
@@ -233,6 +236,7 @@ def draft_command(
             pj_path=path.resolve(),
             kind=cast(WriteKind, kind),
             mode=cast(WriteMode, mode),
+            section=section or None,
             date=date,
             slug=slug,
             into=Path(into) if into else None,
