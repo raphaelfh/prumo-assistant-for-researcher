@@ -236,9 +236,10 @@ def extract_command(
     """Aplica a extração (dict via stdin JSON) ao callout do paper; grava _extract.md."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         content = read_stdin_json()
-        template_path = path.resolve() / ".claude" / "paper_extraction.md"
+        pj = path.resolve()
+        template_path = pj / ".claude" / "paper_extraction.md"
         changed = apply_extraction(
-            pj_path=path.resolve(),
+            pj_path=pj,
             citekey=citekey,
             template_path=template_path,
             content=content,

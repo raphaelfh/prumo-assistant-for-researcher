@@ -115,8 +115,6 @@ def test_paper_extract_prep_emits_language(tmp_path: Path) -> None:
 
 
 def test_paper_extract_applies_content_from_stdin(tmp_path: Path) -> None:
-    import json
-
     from tests.unit.paper.test_prep import _bootstrap
 
     pj = _bootstrap(tmp_path)
@@ -146,6 +144,33 @@ def test_paper_extract_applies_content_from_stdin(tmp_path: Path) -> None:
     extract_md = pj / "references" / "notes" / "smith2020" / "_extract.md"
     assert extract_md.exists()
     assert "Estudo de coorte" in extract_md.read_text(encoding="utf-8")
+
+
+def test_paper_extract_idempotent_second_apply_reports_unchanged(tmp_path: Path) -> None:
+    from tests.unit.paper.test_prep import _bootstrap
+
+    pj = _bootstrap(tmp_path)
+    (pj / ".claude" / "paper_extraction.md").write_text(
+        "### Resumo\n<!-- instrução -->\n", encoding="utf-8"
+    )
+    body = json.dumps({"Resumo": "Estudo de coorte sobre RWE."})
+    args = [
+        "paper",
+        "extract",
+        "smith2020",
+        "--model",
+        "claude-x",
+        "--date",
+        "2026-06-14",
+        str(pj),
+        "--json",
+    ]
+    first = runner.invoke(app, args, input=body)
+    assert first.exit_code == 0, first.output
+    assert _last_json(first.stdout)["changed"] is True
+    second = runner.invoke(app, args, input=body)
+    assert second.exit_code == 0, second.output
+    assert _last_json(second.stdout)["changed"] is False
 
 
 def test_paper_sync_all_cli_runs_offline_sync(tmp_path: Path) -> None:
