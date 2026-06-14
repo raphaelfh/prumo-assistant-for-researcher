@@ -14,6 +14,7 @@ Funções:
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -40,6 +41,22 @@ def read_inputs(pj_path: Path) -> ComposeInputs:
         protocol=_read_text(pj_path / "docs" / "protocol.md"),
         project=_read_text(pj_path / "docs" / "project_guide.md"),
         findings=_read_findings(pj_path),
+    )
+
+
+@dataclass(frozen=True)
+class WritePrep:
+    """Contexto de escrita: inputs compostos + template resolvido."""
+
+    inputs: ComposeInputs
+    template_path: Path
+
+
+def prep(pj_path: Path, *, kind: WriteKind) -> WritePrep:
+    """Compõe ``read_inputs`` + ``resolve_template`` num só passo de contexto."""
+    return WritePrep(
+        inputs=read_inputs(pj_path),
+        template_path=resolve_template(pj_path=pj_path, kind=kind),
     )
 
 

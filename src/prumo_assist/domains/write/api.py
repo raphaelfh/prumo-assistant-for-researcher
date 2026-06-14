@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from prumo_assist.domains.write.comments import extract_to_file as extract_comments
 from prumo_assist.domains.write.compose import (
+    WritePrep,
     compose_path,
     extract_missing_refs,
+    prep,
     read_inputs,
     resolve_template,
     write_output,
@@ -24,6 +26,7 @@ __all__ = [
     "FindingSummary",
     "PaperSummary",
     "WriteOutput",
+    "WritePrep",
     "compose",
     "compose_path",
     "export",
@@ -31,6 +34,7 @@ __all__ = [
     "extract_missing_refs",
     "generate_disclosure",
     "list_styles",
+    "prep",
     "read_inputs",
     "resolve_template",
     "write_output",

@@ -3,18 +3,22 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
 
+from prumo_assist import PrumoError
 from prumo_assist.core.cli_op import cli_run
-from prumo_assist.domains.write import comments, export
+from prumo_assist.domains.write import comments, compose, export
+from prumo_assist.domains.write.schemas.v1 import WriteKind
 
 write_app = typer.Typer(
     name="write",
     help="Escrita: export Pandoc/Typst, composição multi-página, extração de comentários.",
     no_args_is_help=True,
 )
+
+_WRITE_KINDS = ("paper", "projeto-cep", "statistics", "scientific")
 
 
 @write_app.command("export")
@@ -173,3 +177,25 @@ def list_templates_command(
                 ),
             }
         console.emit(result)
+
+
+@write_app.command("prep")
+def prep_command(
+    kind: Annotated[
+        str, typer.Option("--kind", help="paper|projeto-cep|statistics|scientific.")
+    ] = "paper",
+    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Lê inputs do projeto + resolve o template (contexto pra escrita) num só passo."""
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
+        if kind not in _WRITE_KINDS:
+            raise PrumoError(f"--kind deve ser um de {list(_WRITE_KINDS)}.")
+        result = compose.prep(path.resolve(), kind=cast(WriteKind, kind))
+        console.success(f"Contexto pronto (template {result.template_path.name}).")
+        console.emit(
+            {
+                "inputs": result.inputs.model_dump(mode="json"),
+                "template_path": str(result.template_path),
+            }
+        )
