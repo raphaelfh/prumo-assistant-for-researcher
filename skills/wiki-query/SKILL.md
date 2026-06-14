@@ -6,7 +6,7 @@ when_to_use: |
   "gere tabela comparativa", "resuma os achados sobre W", "quais decisões
   tomamos sobre Z", ou qualquer pergunta aberta cujo contexto esteja no wiki.
 argument-hint: "<pergunta>"
-allowed-tools: Read Glob Grep Bash(qmd *) Bash(prumo paper *) mcp__qmd__query mcp__qmd__search
+allowed-tools: Read Glob Grep Bash(qmd *) Bash(prumo *) Bash(cat *) mcp__qmd__query mcp__qmd__search
 prumo:
   version: 1.0.0
   schema: WikiQueryResponse/v1
@@ -26,6 +26,8 @@ Opera sobre o wiki estruturado em `/docs/wiki-schema.md` (monorepo). Usa `qmd` (
 - cwd é um `pj_*` com `docs/_index.md`, `docs/_log.md` e subdirs.
 - qmd está instalado (ver `docs/operations.md` do monorepo) e o wiki foi indexado ao menos uma vez (`qmd collection add . --name <pj>` + `qmd embed`).
 - Se não indexado, fluxo ainda funciona usando só `_index.md` + `Grep` + `Read`, mas resposta perde cobertura semântica.
+- O CLI `prumo` precisa estar no PATH (rode `prumo doctor`; se ausente:
+  `uv tool install git+https://github.com/raphaelfh/prumo-assist`).
 
 ## Fluxo
 
@@ -83,38 +85,41 @@ Depois da resposta, perguntar **exatamente uma vez**:
 Se **sim**, executar via `Bash`:
 
 ```bash
-python3 -c '
-from pathlib import Path
-from prumo_assist.domains.wiki.findings import archive_as_finding
+cat <<'BODY' | prumo wiki finding \
+    --slug "<slug>" \
+    --title "<pergunta ou síntese>" \
+    --date "<hoje ISO>" \
+    --tags '[<tags JSON>]' \
+    --sources '[<wikilinks JSON>]' \
+    --generator wiki-query --json
+## Pergunta
 
-out = archive_as_finding(
-    pj_path=Path("."),
-    slug="<slug>",
-    title="<pergunta ou síntese>",
-    body=(
-        "## Pergunta\n\n<pergunta>\n\n"
-        "## Resposta consolidada\n\n<resposta>\n\n"
-        "## Evidências\n\n<lista de wikilinks>\n\n"
-        "## Limitações\n\n<ressalvas>\n"
-    ),
-    sources=["[[<page-a>]]", "[[@<citekey>]]"],
-    date="<hoje ISO>",
-    tags=[<tags>],
-    generator="wiki-query",
-)
-print(f"finding: {out}")
-'
+<pergunta>
+
+## Resposta consolidada
+
+<resposta>
+
+## Evidências
+
+<lista de wikilinks>
+
+## Limitações
+
+<ressalvas>
+BODY
 ```
 
-A função cuida de criar o arquivo, atualizar `_index.md` e `_log.md` em uma operação atômica (vide ``prumo_assist.domains.wiki.findings``).
+`prumo wiki finding` cria o arquivo e atualiza `_index.md` e `_log.md` em uma operação.
 
 Se **não**: registrar no log via:
 ```bash
-python3 -c '
-from pathlib import Path
-log = Path("docs/_log.md")
-log.write_text(log.read_text() + "\n## [<data>] wiki-query | <pergunta curta>\n\n- Respondida sem arquivar.\n")
-'
+cat <<'LOG' >> docs/_log.md
+
+## [<data>] wiki-query | <pergunta curta>
+
+- Respondida sem arquivar.
+LOG
 ```
 
 ### 6. Visualizações inline
