@@ -46,6 +46,7 @@ def test_study_step_anexa_step_do_stdin(tmp_path: Path) -> None:
         app,
         ["wiki", "study-start", "Tópico X", "--date", "2026-06-14", "--path", str(pj), "--json"],
     )
+    assert start.exit_code == 0, start.output
     log_path = json.loads(start.stdout)["log_path"]
     step_json = json.dumps({"question": "O que é PECO?", "answer": "Exposição..."})
     result = runner.invoke(
@@ -64,6 +65,7 @@ def test_study_step_json_invalido_falha_limpo(tmp_path: Path) -> None:
     start = runner.invoke(
         app, ["wiki", "study-start", "Y", "--date", "2026-06-14", "--path", str(pj), "--json"]
     )
+    assert start.exit_code == 0, start.output
     log_path = json.loads(start.stdout)["log_path"]
     result = runner.invoke(
         app, ["wiki", "study-step", "--log-path", log_path, "--step", "recall"], input=""
