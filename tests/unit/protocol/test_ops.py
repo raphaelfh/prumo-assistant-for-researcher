@@ -173,10 +173,7 @@ def test_init_picot_spec_writes_toml_and_adr(tmp_path: Path) -> None:
 
 
 def test_create_picot_adr_writes_and_propagates(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
-    (pj / "docs" / "protocol.md").write_text("# Protocolo\n", encoding="utf-8")
-    (pj / "docs" / "project_guide.md").write_text("---\ntitle: x\n---\n\n# P\n", encoding="utf-8")
+    pj = _bootstrap_pj(tmp_path)
     write_picot(pj, _spec(version=2, population="DS_A + DS_BB"))
     result = create_picot_adr(pj, motivation="novo dataset", slug="novo-dataset", date="2026-06-14")
     assert isinstance(result, AdrResult)

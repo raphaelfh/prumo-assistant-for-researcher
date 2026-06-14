@@ -149,6 +149,8 @@ class AdrResult:
 def create_picot_adr(pj_path: Path, *, motivation: str, slug: str, date: str) -> AdrResult:
     """Grava o ADR-N para a versão atual do ``picot.toml`` (após bump) e propaga."""
     spec = read_picot(pj_path)
+    # read_picot acima já garante que o picot.toml existe, então diff_against_last_adr
+    # nunca retorna None aqui; o ``or`` apenas estreita PicotDiff | None -> PicotDiff p/ mypy.
     diff = diff_against_last_adr(pj_path) or PicotDiff(changes=[])
     last_adr = find_last_picot_adr(pj_path)
     n = next_adr_number(pj_path)
