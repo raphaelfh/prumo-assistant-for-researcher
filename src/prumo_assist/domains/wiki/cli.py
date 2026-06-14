@@ -7,8 +7,10 @@ from typing import Annotated
 
 import typer
 
+from prumo_assist.core.cli_io import parse_json_list
 from prumo_assist.core.cli_op import cli_run
-from prumo_assist.domains.wiki import index, lint, stats
+from prumo_assist.core.note_paths import slugify
+from prumo_assist.domains.wiki import index, lint, stats, study
 
 wiki_app = typer.Typer(
     name="wiki",
@@ -60,3 +62,22 @@ def stats_command(
     """Contagem de páginas por tipo + total."""
     with cli_run(json_mode=json_mode) as console:
         console.emit(stats.stats(path.resolve()))
+
+
+@wiki_app.command("study-start")
+def study_start_command(
+    topic: Annotated[str, typer.Argument(help="Tópico da sessão (texto livre; vira slug).")],
+    date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
+    sources: Annotated[str, typer.Option("--sources", help="Array JSON de wikilinks.")] = "[]",
+    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Cria o log de uma sessão de estudo (slugifica o tópico) e imprime o caminho."""
+    with cli_run(json_mode=json_mode, catches=(ValueError,)) as console:
+        sources_list = parse_json_list(sources, "--sources")
+        slug = slugify(topic)
+        log_path = study.create_session_log(
+            pj_path=path.resolve(), topic=slug, date=date, sources_consulted=sources_list
+        )
+        console.success(f"Sessão criada: {log_path}")
+        console.emit({"log_path": str(log_path), "slug": slug})
