@@ -5,7 +5,7 @@ when_to_use: |
   Quando o usuário pedir "escreve essa seção", "expande este parágrafo",
   "me ajuda a redigir X", sem gênero formal específico.
 argument-hint: "[--section NAME] [--seed TEXT] [--template PATH] [--into PATH | --out PATH]"
-allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *)
+allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *)
 prumo:
   version: 1.0.0
   schema: WriteOutput/v1
@@ -37,7 +37,26 @@ projeto: `<pj>/.claude/writing_templates/scientific.md`. Override ad-hoc:
 
 ## Fluxo
 
-(idêntico aos outros, mais permissivo)
+Mesmo fluxo do `write-paper`, com `--kind scientific` — mais permissivo (PicotSpec
+opcional; se ausente, gere a partir do seed/template):
+
+1. **Carregar inputs** — `prumo write prep --kind scientific --json > /tmp/compose_prep.json`.
+   Leia `inputs` + `template_path`. Use `--seed`/stdin como texto-base e `--section`
+   pra focar uma seção, quando passados.
+2-4. Resolver template → gerar prose → validar citação strict (idêntico aos outros).
+5. **Escrever output** via `prumo write draft`:
+   ```bash
+   cat <<'DRAFT' | prumo write draft \
+       --kind scientific \
+       --mode drafts \
+       --date "<hoje ISO>" \
+       --slug "<slug derivado>" \
+       --sections '["<seção>"]' --json
+   <draft completo gerado>
+   DRAFT
+   ```
+   (`--mode into --into <path> --section <nome>` ou `--mode out --out <path>` quando aplicável.)
+6. Reportar.
 
 ## Boundaries
 
