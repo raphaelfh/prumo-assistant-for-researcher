@@ -1,6 +1,6 @@
 ---
-status: draft
-verified: null
+status: implemented
+verified: 2026-06-14
 release: null
 spec: "[[2026-06-13-researcher-pipeline-design]]"
 phase: "A1 de A1–A4 (Fase A do spec)"

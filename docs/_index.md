@@ -56,9 +56,9 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 
 **Plans ativos:**
 
-- [[superpowers/plans/2026-06-14-phase-a1-wiki-cli-bridge]] · draft
+- (nenhum)
 
-**Plans arquivados:** 13 em `superpowers/plans/archive/`
+**Plans arquivados:** 14 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->
