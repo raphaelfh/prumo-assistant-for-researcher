@@ -71,3 +71,43 @@ def test_study_step_json_invalido_falha_limpo(tmp_path: Path) -> None:
         app, ["wiki", "study-step", "--log-path", log_path, "--step", "recall"], input=""
     )
     assert result.exit_code == 1
+
+
+def test_study_finish_grava_frontmatter(tmp_path: Path) -> None:
+    pj = _pj(tmp_path)
+    start = runner.invoke(
+        app, ["wiki", "study-start", "Z", "--date", "2026-06-14", "--path", str(pj), "--json"]
+    )
+    assert start.exit_code == 0, start.output
+    log_path = json.loads(start.stdout)["log_path"]
+    result = runner.invoke(
+        app,
+        [
+            "wiki",
+            "study-finish",
+            "--log-path",
+            log_path,
+            "--duration",
+            "20",
+            "--status",
+            "completed",
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    text = Path(log_path).read_text(encoding="utf-8")
+    assert "duration_minutes: 20" in text
+    assert "status: completed" in text
+
+
+def test_study_finish_status_invalido_falha(tmp_path: Path) -> None:
+    pj = _pj(tmp_path)
+    start = runner.invoke(
+        app, ["wiki", "study-start", "W", "--date", "2026-06-14", "--path", str(pj), "--json"]
+    )
+    assert start.exit_code == 0, start.output
+    log_path = json.loads(start.stdout)["log_path"]
+    result = runner.invoke(
+        app, ["wiki", "study-finish", "--log-path", log_path, "--duration", "5", "--status", "foo"]
+    )
+    assert result.exit_code == 1
