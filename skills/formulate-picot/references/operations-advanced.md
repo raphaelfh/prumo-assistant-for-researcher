@@ -65,10 +65,10 @@ Editar ``.claude/picot.toml`` via ``Edit``:
 ### Passo 5. Gerar ADR + propagar
 
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/diff_and_adr.py \
+prumo protocol adr \
     --motivation "<motivação capturada>" \
     --slug "<slug>" \
-    --date "<hoje ISO>"
+    --date "<hoje ISO>" --json
 ```
 
 A saída em stdout é JSON com ``adr_path`` e ``propagate``.
