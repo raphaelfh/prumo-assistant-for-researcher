@@ -11,9 +11,11 @@ from typing import Annotated
 
 import typer
 
+from prumo_assist.core.cli_io import read_stdin_json
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.domains.paper import find, graph, lint, migrate, pdfs, sync, zotero
 from prumo_assist.domains.paper import prep as paper_prep
+from prumo_assist.domains.paper.callout import apply_extraction
 from prumo_assist.domains.paper.sync_all import sync_all as _sync_all
 
 paper_app = typer.Typer(
@@ -221,3 +223,27 @@ def migrate_layout_command(
             for w in report["warnings"]:
                 console.warn(w)
         console.emit(report)
+
+
+@paper_app.command("extract")
+def extract_command(
+    citekey: Annotated[str, typer.Argument(help="Citekey do paper.")],
+    model: Annotated[str, typer.Option("--model", help="Modelo que gerou a extração.")],
+    date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Aplica a extração (dict via stdin JSON) ao callout do paper; grava _extract.md."""
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
+        content = read_stdin_json()
+        template_path = path.resolve() / ".claude" / "paper_extraction.md"
+        changed = apply_extraction(
+            pj_path=path.resolve(),
+            citekey=citekey,
+            template_path=template_path,
+            content=content,
+            model=model,
+            date=date,
+        )
+        console.success("MUDOU" if changed else "IDÊNTICO")
+        console.emit({"changed": changed})
