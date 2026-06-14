@@ -15,11 +15,14 @@ from prumo_assist.domains.paper.graph import update_graph
 from prumo_assist.domains.paper.lint import lint, set_primary
 from prumo_assist.domains.paper.migrate import migrate_pj as migrate_layout
 from prumo_assist.domains.paper.pdfs import sync_pdfs
+from prumo_assist.domains.paper.prep import ExtractPrep, extract_prep
 from prumo_assist.domains.paper.sync import sync
 from prumo_assist.domains.paper.sync_all import sync_all
 from prumo_assist.domains.paper.zotero import sync_annotations, sync_notes
 
 __all__ = [
+    "ExtractPrep",
+    "extract_prep",
     "find",
     "lint",
     "migrate_layout",

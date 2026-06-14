@@ -103,6 +103,17 @@ def test_paper_sync_notes_cli_writes_files(tmp_path: Path) -> None:
     assert (refs / "notes" / "smith2024" / "note__ABCD1234__ideia.md").is_file()
 
 
+def test_paper_extract_prep_emits_language(tmp_path: Path) -> None:
+    from tests.unit.paper.test_prep import _bootstrap
+
+    pj = _bootstrap(tmp_path)
+    result = runner.invoke(app, ["paper", "extract-prep", "smith2020", str(pj), "--json"])
+    assert result.exit_code == 0, result.output
+    out = _last_json(result.stdout)
+    assert out["language"] == "pt-BR"
+    assert Path(str(out["meta_path"])).exists()
+
+
 def test_paper_sync_all_cli_runs_offline_sync(tmp_path: Path) -> None:
     from unittest.mock import patch
 

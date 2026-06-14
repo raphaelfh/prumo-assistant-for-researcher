@@ -13,6 +13,7 @@ import typer
 
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.domains.paper import find, graph, lint, migrate, pdfs, sync, zotero
+from prumo_assist.domains.paper import prep as paper_prep
 from prumo_assist.domains.paper.sync_all import sync_all as _sync_all
 
 paper_app = typer.Typer(
@@ -179,6 +180,26 @@ def sync_all_command(
         for w in report["warnings"]:
             console.warn(w)
         console.emit(report)
+
+
+@paper_app.command("extract-prep")
+def extract_prep_command(
+    citekey: Annotated[str, typer.Argument(help="Citekey do paper.")],
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Valida pré-requisitos de extração e imprime idioma + caminhos."""
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
+        prep = paper_prep.extract_prep(path.resolve(), citekey)
+        console.success(f"Pronto pra extrair {citekey} (idioma {prep.language}).")
+        console.emit(
+            {
+                "language": prep.language,
+                "template_path": str(prep.template_path),
+                "pdf_path": str(prep.pdf_path),
+                "meta_path": str(prep.meta_path),
+            }
+        )
 
 
 @paper_app.command("migrate-layout")
