@@ -163,7 +163,7 @@ cat <<'BODY' | prumo wiki finding \
 BODY
 ```
 
-Capture o path impresso para ``finalize_session``.
+Capture o path impresso e guarde como `finding_path` para o passo 4.
 
 Anexar step Reflect com `step_name="reflect"` antes do finalize.
 
@@ -202,4 +202,4 @@ Sessão concluída — `<topic>`
 - `mcp__qmd__query` indisponível → fallback `Grep` + `Read`. Aviso no log: cobertura semântica reduzida.
 - Acervo vazio → todas as citations viram `[REF FALTANTE]`. Avise no início e ofereça abortar.
 - Mais de 50% das respostas precisam `[REF FALTANTE]` no Recall+Anchor → aborta com sugestão de ingest.
-- Usuário abandona sessão → status = `partial`, `finalize_session` captura quantos steps completaram.
+- Usuário abandona sessão → status = `partial`, `prumo wiki study-finish` captura quantos steps completaram.
