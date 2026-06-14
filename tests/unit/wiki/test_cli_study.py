@@ -111,3 +111,4 @@ def test_study_finish_status_invalido_falha(tmp_path: Path) -> None:
         app, ["wiki", "study-finish", "--log-path", log_path, "--duration", "5", "--status", "foo"]
     )
     assert result.exit_code == 1
+    assert "--status deve ser completed|abandoned|partial" in result.output

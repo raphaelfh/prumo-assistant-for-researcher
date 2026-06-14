@@ -115,6 +115,7 @@ def study_finish_command(
 ) -> None:
     """Finaliza a sessão: grava duração/status/missing/finding no frontmatter."""
     with cli_run(json_mode=json_mode, catches=(ValueError, FileNotFoundError)) as console:
+        # mantenha em sincronia com SessionStatus (Literal) em schemas/v1.py
         if status not in ("completed", "abandoned", "partial"):
             raise PrumoError("--status deve ser completed|abandoned|partial.")
         missing_list = parse_json_list(missing, "--missing")
