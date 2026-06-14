@@ -34,7 +34,10 @@ def read_stdin_json(stream: TextIO | None = None) -> dict[str, Any]:
     except json.JSONDecodeError as e:
         raise PrumoError(f"JSON inválido no stdin: {e}") from e
     if not isinstance(data, dict):
-        raise PrumoError("payload JSON deve ser um objeto (mapping).")
+        raise PrumoError(
+            "payload JSON deve ser um objeto (mapping), não lista ou escalar "
+            '(ex.: echo \'{"chave": "valor"}\' | prumo ...).'
+        )
     return data
 
 
