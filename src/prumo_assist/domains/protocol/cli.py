@@ -64,6 +64,16 @@ def diff_command(
         )
 
 
+@protocol_app.command("detect-mode")
+def detect_mode_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Imprime o modo da skill (init|formalize|propagate|diff) pelo estado do projeto."""
+    with cli_run(json_mode=json_mode) as console:
+        console.emit(ops.detect_mode(path.resolve()))
+
+
 def _change_to_dict(change: object) -> dict[str, object]:
     if is_dataclass(change):
         return asdict(change)  # type: ignore[arg-type]

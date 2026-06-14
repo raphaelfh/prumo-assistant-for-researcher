@@ -94,6 +94,22 @@ def _propagate_one(
     return "updated" if existing else "inserted"
 
 
+def detect_mode(pj_path: Path) -> str:
+    """Detecta o modo da skill ``formulate-picot`` pelo estado do projeto.
+
+    Retorna ``init`` | ``formalize`` | ``propagate`` | ``diff``.
+    """
+    toml = picot_path(pj_path)
+    last_adr = find_last_picot_adr(pj_path)
+    protocol_md = pj_path / "docs" / "protocol.md"
+    if not toml.exists():
+        has_prose = protocol_md.exists() and protocol_md.read_text(errors="ignore").strip() != ""
+        return "formalize" if has_prose else "init"
+    if last_adr is None:
+        return "propagate"
+    return "diff"
+
+
 def diff_against_last_adr(pj_path: Path) -> PicotDiff | None:
     """Compara ``picot.toml`` atual contra snapshot do último ADR ``picot-v<N>``.
 

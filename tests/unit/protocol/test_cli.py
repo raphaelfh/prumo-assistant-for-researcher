@@ -69,6 +69,14 @@ def test_protocol_propagate_missing_picot(tmp_path: Path) -> None:
     assert "picot.toml" in result.output or "picot.toml" in result.stderr
 
 
+def test_protocol_detect_mode_init(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs").mkdir(parents=True)
+    result = runner.invoke(app, ["protocol", "detect-mode", str(pj)])
+    assert result.exit_code == 0, result.output
+    assert result.stdout.strip() == "init"
+
+
 def _last_json(stdout: str) -> dict[str, object]:
     last: dict[str, object] | None = None
     for line in stdout.splitlines():
