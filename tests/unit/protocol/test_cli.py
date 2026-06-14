@@ -109,6 +109,7 @@ def test_protocol_init_invalid_payload_fails(tmp_path: Path) -> None:
         app, ["protocol", "init", "--date", "2026-06-14", "--path", str(pj)], input="{}"
     )
     assert result.exit_code == 1
+    assert "hypothesis" in result.output
 
 
 def _last_json(stdout: str) -> dict[str, object]:

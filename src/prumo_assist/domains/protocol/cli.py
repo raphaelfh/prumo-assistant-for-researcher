@@ -94,7 +94,10 @@ def init_command(
         payload = read_stdin_json()
         hypothesis_data = payload.pop("hypothesis", None)
         if not isinstance(hypothesis_data, dict):
-            raise PrumoError("payload PicotSpec exige a chave 'hypothesis' (objeto).")
+            raise PrumoError(
+                "payload PicotSpec exige a chave 'hypothesis' (objeto JSON); ex.: "
+                '{"hypothesis": {"statement": "...", "rationale": "...", "metrics": ["AUROC"]}, ...}'
+            )
         spec = PicotSpec(**payload, hypothesis=Hypothesis(**hypothesis_data))
         result = ops.init_picot_spec(path.resolve(), spec=spec, motivation=motivation, date=date)
         console.success(f"PicotSpec v{spec.version} inicializado; ADR em {result.adr_path}")
