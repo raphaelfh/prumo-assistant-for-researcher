@@ -6,11 +6,13 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from pydantic import ValidationError
 
-from prumo_assist.core.cli_io import parse_json_list
+from prumo_assist.core.cli_io import parse_json_list, read_stdin_json
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.core.note_paths import slugify
 from prumo_assist.domains.wiki import index, lint, stats, study
+from prumo_assist.domains.wiki.schemas.v1 import StepLog
 
 wiki_app = typer.Typer(
     name="wiki",
@@ -81,3 +83,21 @@ def study_start_command(
         )
         console.success(f"Sessão criada: {log_path}")
         console.emit({"log_path": str(log_path), "slug": slug})
+
+
+@wiki_app.command("study-step")
+def study_step_command(
+    log_path: Annotated[Path, typer.Option("--log-path", help="Caminho do log da sessão.")],
+    step: Annotated[str, typer.Option("--step", help="recall|anchor|connect|apply|reflect.")],
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Anexa um step (StepLog via stdin JSON) ao log da sessão."""
+    with cli_run(
+        json_mode=json_mode, catches=(ValueError, FileNotFoundError, ValidationError)
+    ) as console:
+        payload = read_stdin_json()
+        payload["step_name"] = step
+        step_obj = StepLog(**payload)
+        study.append_step(log_path, step_obj)
+        console.success(f"Step '{step}' anexado.")
+        console.emit({"ok": True, "step": step})
