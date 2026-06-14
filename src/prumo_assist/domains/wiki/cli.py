@@ -9,10 +9,10 @@ import typer
 from pydantic import ValidationError
 
 from prumo_assist import PrumoError
-from prumo_assist.core.cli_io import parse_json_list, read_stdin_json
+from prumo_assist.core.cli_io import parse_json_list, read_stdin_json, read_stdin_text
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.core.note_paths import slugify
-from prumo_assist.domains.wiki import index, lint, stats, study
+from prumo_assist.domains.wiki import findings, index, lint, stats, study
 from prumo_assist.domains.wiki.schemas.v1 import StepLog
 
 wiki_app = typer.Typer(
@@ -129,3 +129,33 @@ def study_finish_command(
         )
         console.success("Sessão finalizada.")
         console.emit({"ok": True, "status": status})
+
+
+@wiki_app.command("finding")
+def finding_command(
+    slug: Annotated[str, typer.Option("--slug", help="Slug do finding.")],
+    title: Annotated[str, typer.Option("--title", help="Título.")],
+    date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
+    tags: Annotated[str, typer.Option("--tags", help="Array JSON de tags.")] = "[]",
+    sources: Annotated[str, typer.Option("--sources", help="Array JSON de wikilinks.")] = "[]",
+    generator: Annotated[str, typer.Option("--generator", help="Skill geradora.")] = "wiki-query",
+    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Arquiva um finding (corpo markdown via stdin) em docs/wiki/findings/."""
+    with cli_run(json_mode=json_mode, catches=(ValueError, FileNotFoundError)) as console:
+        body = read_stdin_text()
+        tags_list = parse_json_list(tags, "--tags")
+        sources_list = parse_json_list(sources, "--sources")
+        out = findings.archive_as_finding(
+            pj_path=path.resolve(),
+            slug=slug,
+            title=title,
+            body=body,
+            sources=sources_list,
+            date=date,
+            tags=tags_list,
+            generator=generator,
+        )
+        console.success(f"Finding arquivado: {out}")
+        console.emit({"finding_path": str(out)})

@@ -112,3 +112,31 @@ def test_study_finish_status_invalido_falha(tmp_path: Path) -> None:
     )
     assert result.exit_code == 1
     assert "--status deve ser completed|abandoned|partial" in result.output
+
+
+def test_finding_arquiva_corpo_do_stdin(tmp_path: Path) -> None:
+    pj = _pj(tmp_path)
+    body = "## Pergunta\n\nO que é RWE?\n\n## Resposta\n\nReal-world evidence."
+    result = runner.invoke(
+        app,
+        [
+            "wiki",
+            "finding",
+            "--slug",
+            "rwe-definicao",
+            "--title",
+            "RWE",
+            "--date",
+            "2026-06-14",
+            "--generator",
+            "active-learning",
+            "--path",
+            str(pj),
+            "--json",
+        ],
+        input=body,
+    )
+    assert result.exit_code == 0, result.output
+    out = Path(json.loads(result.stdout)["finding_path"])
+    assert out.exists()
+    assert "Real-world evidence." in out.read_text(encoding="utf-8")
