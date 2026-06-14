@@ -7,9 +7,13 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from pydantic import ValidationError
 
+from prumo_assist import PrumoError
+from prumo_assist.core.cli_io import read_stdin_json
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.domains.protocol import ops
+from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 protocol_app = typer.Typer(
     name="protocol",
@@ -62,6 +66,57 @@ def diff_command(
                 "has_structural": diff.has_structural,
             }
         )
+
+
+@protocol_app.command("detect-mode")
+def detect_mode_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Imprime o modo da skill (init|formalize|propagate|diff) pelo estado do projeto."""
+    with cli_run(json_mode=json_mode) as console:
+        console.emit(ops.detect_mode(path.resolve()))
+
+
+@protocol_app.command("init")
+def init_command(
+    date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
+    motivation: Annotated[
+        str, typer.Option("--motivation", help="Motivação do ADR-0001.")
+    ] = "versão inicial — primeira formalização",
+    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Cria o PicotSpec inicial (JSON via stdin), propaga blocos e grava o ADR-0001."""
+    with cli_run(
+        json_mode=json_mode, catches=(ValueError, FileNotFoundError, ValidationError)
+    ) as console:
+        payload = read_stdin_json()
+        hypothesis_data = payload.pop("hypothesis", None)
+        if not isinstance(hypothesis_data, dict):
+            raise PrumoError(
+                "payload PicotSpec exige a chave 'hypothesis' (objeto JSON); ex.: "
+                '{"hypothesis": {"statement": "...", "rationale": "...", "metrics": ["AUROC"]}, ...}'
+            )
+        spec = PicotSpec(**payload, hypothesis=Hypothesis(**hypothesis_data))
+        result = ops.init_picot_spec(path.resolve(), spec=spec, motivation=motivation, date=date)
+        console.success(f"PicotSpec v{spec.version} inicializado; ADR em {result.adr_path}")
+        console.emit({"adr_path": str(result.adr_path), "propagate": asdict(result.report)})
+
+
+@protocol_app.command("adr")
+def adr_command(
+    motivation: Annotated[str, typer.Option("--motivation", help="Motivação do ADR.")],
+    slug: Annotated[str, typer.Option("--slug", help="Slug kebab-case curto.")],
+    date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
+    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Registra o ADR-N para a versão atual do picot.toml (após bump) e propaga blocos."""
+    with cli_run(json_mode=json_mode, catches=(ValueError, FileNotFoundError)) as console:
+        result = ops.create_picot_adr(path.resolve(), motivation=motivation, slug=slug, date=date)
+        console.success(f"ADR criado: {result.adr_path}")
+        console.emit({"adr_path": str(result.adr_path), "propagate": asdict(result.report)})
 
 
 def _change_to_dict(change: object) -> dict[str, object]:

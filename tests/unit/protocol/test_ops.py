@@ -7,11 +7,16 @@ from pathlib import Path
 import pytest
 
 from prumo_assist.domains.protocol.ops import (
+    AdrResult,
+    InitResult,
     PropagateReport,
+    create_picot_adr,
+    detect_mode,
     diff_against_last_adr,
+    init_picot_spec,
     propagate,
 )
-from prumo_assist.domains.protocol.picot_io import write_picot
+from prumo_assist.domains.protocol.picot_io import picot_path, write_picot
 from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 
@@ -124,3 +129,53 @@ def test_diff_against_last_adr_detects_structural_change(tmp_path: Path) -> None
     assert diff is not None
     assert diff.has_structural is True
     assert any(c.field == "population" for c in diff.changes)
+
+
+def test_detect_mode_init_when_nothing(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs").mkdir(parents=True)
+    assert detect_mode(pj) == "init"
+
+
+def test_detect_mode_formalize_when_protocol_prose(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs").mkdir(parents=True)
+    (pj / "docs" / "protocol.md").write_text("# Protocolo\n\nprosa humana.\n", encoding="utf-8")
+    assert detect_mode(pj) == "formalize"
+
+
+def test_detect_mode_propagate_when_picot_no_adr(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs").mkdir(parents=True)
+    write_picot(pj, _spec())
+    assert detect_mode(pj) == "propagate"
+
+
+def test_detect_mode_diff_when_baseline_adr(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs" / "decisions").mkdir(parents=True)
+    write_picot(pj, _spec())
+    (pj / "docs" / "decisions" / "adr-0001-picot-v1-versao-inicial.md").write_text(
+        "# adr\n", encoding="utf-8"
+    )
+    assert detect_mode(pj) == "diff"
+
+
+def test_init_picot_spec_writes_toml_and_adr(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs").mkdir(parents=True)
+    result = init_picot_spec(pj, spec=_spec(), motivation="inicial", date="2026-06-14")
+    assert isinstance(result, InitResult)
+    assert picot_path(pj).exists()
+    assert result.adr_path.exists()
+    assert "picot-v1-versao-inicial" in result.adr_path.name
+    assert result.report.hash8 != ""
+
+
+def test_create_picot_adr_writes_and_propagates(tmp_path: Path) -> None:
+    pj = _bootstrap_pj(tmp_path)
+    write_picot(pj, _spec(version=2, population="DS_A + DS_BB"))
+    result = create_picot_adr(pj, motivation="novo dataset", slug="novo-dataset", date="2026-06-14")
+    assert isinstance(result, AdrResult)
+    assert result.adr_path.exists()
+    assert "picot-v2-novo-dataset" in result.adr_path.name

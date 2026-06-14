@@ -6,7 +6,7 @@ when_to_use: |
   "propagar PICOT pra protocol/project/ADR", "PICOT mudou — gera novo ADR",
   ou na transição de busca ampla pra busca focada (Fase 1 da journey).
 argument-hint: "[init | formalize | propagate | diff]"
-allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *) Bash(cat *) Bash(prumo protocol *)
+allowed-tools: Read Write Edit Glob Grep Bash(cat *) Bash(prumo protocol *)
 prumo:
   version: 1.0.0
   schema: PicotSpec/v1
@@ -30,14 +30,16 @@ Skill que mantém a PICOT do projeto consistente em **três destinos**:
 ## Pressupostos
 
 - cwd é um `pj_*` com `docs/protocol.md` e `docs/project_guide.md` (mesmo que vazios) e `docs/decisions/`.
-- A parte determinística (read/write TOML, render, diff, ADR) vive em `prumo_assist.domains.protocol`. A skill **só** cuida do agêntico (Socrático e Formalize).
+- A parte determinística (read/write TOML, render, diff, ADR) é exposta via `prumo protocol *` (detect-mode/init/adr/propagate/diff). A skill **só** cuida do agêntico (Socrático e Formalize).
+- O CLI `prumo` precisa estar no PATH (rode `prumo doctor`; se ausente:
+  `uv tool install git+https://github.com/raphaelfh/prumo-assist`).
 
 ## Auto-detect
 
 A skill escolhe o modo baseado no estado:
 
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/detect_mode.py
+prumo protocol detect-mode
 ```
 
 A saída (``init`` / ``formalize`` / ``propagate`` / ``diff``) define qual
@@ -100,7 +102,7 @@ Passos:
 7. **Após confirmação, escrever**:
 
    ```bash
-   cat <<'JSON' | uv run python ${CLAUDE_SKILL_DIR}/scripts/init_picot.py --date "<hoje ISO>"
+   cat <<'JSON' | prumo protocol init --date "<hoje ISO>" --json
    <PicotSpec JSON aprovado>
    JSON
    ```

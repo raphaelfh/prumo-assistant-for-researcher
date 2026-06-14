@@ -6,7 +6,7 @@ when_to_use: |
   "rascunho IMRaD pra Y", "me ajuda a começar o draft", ou ao fechar PICOT e
   querer iniciar o draft.
 argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH] [--venue NAME]"
-allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *)
+allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *)
 prumo:
   version: 1.0.0
   schema: WriteOutput/v1
@@ -43,33 +43,19 @@ template, usando os inputs estruturados do projeto.
 ### 1. Carregar inputs
 
 ```bash
-uv run python -c '
-import json
-from pathlib import Path
-from prumo_assist.domains.write.api import read_inputs
-inputs = read_inputs(Path("."))
-print(inputs.model_dump_json(indent=2))
-' > /tmp/compose_inputs.json
+prumo write prep --kind paper --json > /tmp/compose_prep.json
 ```
 
-Ler o JSON; identificar:
-- `picot` (se None, abortar com mensagem "rode `/prumo-assist:formulate-picot` primeiro")
-- `citekeys` (lista pra validação de citação)
-- `papers` (citekey → metadata + extract_content)
-- `protocol`, `project` (raw text)
-- `findings` (insights consolidados)
+Ler o JSON; os inputs estruturados estão sob a chave `inputs`. Identificar:
+- `inputs.picot` (se None, abortar com mensagem "rode `/prumo-assist:formulate-picot` primeiro")
+- `inputs.citekeys` (lista pra validação de citação)
+- `inputs.papers` (citekey → metadata + extract_content)
+- `inputs.protocol`, `inputs.project` (raw text)
+- `inputs.findings` (insights consolidados)
 
 ### 2. Resolver template
 
-```bash
-uv run python -c '
-from pathlib import Path
-from prumo_assist.domains.write.api import resolve_template
-print(resolve_template(pj_path=Path("."), kind="paper"))
-'
-```
-
-Ler conteúdo via `Read`. Identificar sections (cabeçalhos `#`).
+Ler `template_path` do JSON gerado no passo 1 (`/tmp/compose_prep.json`). Usar a ferramenta `Read` nesse caminho para carregar o conteúdo do template. Identificar sections (cabeçalhos `#`).
 
 ### 3. Gerar prose por section
 
@@ -89,7 +75,7 @@ Tom de cada section:
 
 ### 4. Validar citação antes de gravar
 
-Cada `[[@<key>]]` deve estar em `inputs.citekeys`. Se não está, substituir por `[REF FALTANTE: <descrição>]`.
+Cada `[[@<key>]]` deve estar em `inputs.citekeys` (conforme JSON do passo 1). Se não está, substituir por `[REF FALTANTE: <descrição>]`.
 
 ### 5. Escrever output
 
@@ -98,25 +84,19 @@ Modos:
 - **into** (`--into <path> --section <name>`): bloco delimitado em arquivo existente
 - **out** (`--out <path>`): caminho livre
 
-Comando:
+Comando (via `prumo write draft`):
 ```bash
-uv run python -c '
-from pathlib import Path
-from prumo_assist.domains.write.api import write_output
-
-content = """<draft completo gerado>"""
-out = write_output(
-    content=content,
-    pj_path=Path("."),
-    kind="paper",
-    mode="drafts",   # ou "into" ou "out"
-    date="<hoje ISO>",
-    slug="<slug derivado>",
-    sections_filled=["Introduction", "Methods", ...],
-)
-print(out.model_dump_json(indent=2))
-'
+cat <<'DRAFT' | prumo write draft \
+    --kind paper \
+    --mode drafts \
+    --date "<hoje ISO>" \
+    --slug "<slug derivado>" \
+    --sections '["Introduction", "Methods", "..."]' --json
+<draft completo gerado>
+DRAFT
 ```
+
+(Para `--mode into`, acrescente `--into <path>` e `--section <nome>` — insere um bloco delimitado num arquivo existente. Para `--mode out`, acrescente `--out <path>` (com `--force` para sobrescrever).)
 
 ### 6. Reportar
 

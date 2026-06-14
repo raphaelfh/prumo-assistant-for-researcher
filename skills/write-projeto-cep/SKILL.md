@@ -5,7 +5,7 @@ when_to_use: |
   Quando o usuário pedir "gera o projeto CEP", "preciso submeter pra CEP",
   "projeto pra Plataforma Brasil", "documento de submissão ética".
 argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH]"
-allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *)
+allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *)
 prumo:
   version: 1.0.0
   schema: WriteOutput/v1
@@ -38,7 +38,25 @@ Resolução CNS 466/2012 + 510/2016, LGPD). Template default co-localizado:
 
 ## Fluxo
 
-(idêntico ao write-paper: 1. carregar inputs → 2. resolver template `projeto-cep.md` → 3. gerar por section → 4. validar citação → 5. escrever output → 6. reportar)
+Mesmo fluxo de 6 passos do `write-paper`, com `--kind projeto-cep`:
+
+1. **Carregar inputs** — `prumo write prep --kind projeto-cep --json > /tmp/compose_prep.json`.
+   PicotSpec + `protocol.md` obrigatórios (aborta se faltarem).
+2. Resolver template `projeto-cep.md` (leia `template_path` do JSON).
+3. Gerar prose por section.
+4. Validar citação strict.
+5. **Escrever output** via `prumo write draft`:
+   ```bash
+   cat <<'DRAFT' | prumo write draft \
+       --kind projeto-cep \
+       --mode drafts \
+       --date "<hoje ISO>" \
+       --slug "<slug derivado>" \
+       --sections '["Resumo", "Métodos", "..."]' --json
+   <draft completo gerado>
+   DRAFT
+   ```
+6. Reportar.
 
 ## Boundaries
 

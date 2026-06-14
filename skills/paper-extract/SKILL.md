@@ -6,7 +6,7 @@ when_to_use: |
   "processa todos os papers novos", ou quando um pj_* acabou de sincronizar
   papers do Zotero e o usuário quer alimentar o callout automaticamente.
 argument-hint: "[citekey] | --all [--limit N] [--stale-only]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 *) Bash(uv run python *) Bash(test *) Bash(readlink *) Agent
+allowed-tools: Read Write Edit Glob Grep Bash(prumo paper *) Bash(cat *) Agent
 prumo:
   version: 1.0.0
   schema: PaperExtract/v1
@@ -25,12 +25,11 @@ Skill que lê o PDF (via symlink em `references/pdfs/<citekey>.pdf`), gera conte
 
 ## Pressupostos
 
-- cwd é um `pj_*` com `.claude/paper_extraction.md` e `.claude/pj_config.toml` presentes (scaffold default atende).
-- `_references.bib` exportado pelo BBT.
-- `references/pdfs/<citekey>.pdf` é symlink válido (rode `make sync-pdfs` primeiro).
-- `references/notes/<citekey>/_meta.md` já existe (rode `/prumo-assist:paper-manager sync` ou `make sync-paper` primeiro).
-
-Se qualquer pré-requisito falha, abortar com mensagem clara.
+- cwd é um `pj_*` (scaffold default atende). A skill lê o PDF e escreve o callout em `_extract.md`.
+- A validação de pré-requisitos (template, `.bib`, PDF, `_meta.md`) e a leitura de
+  config são feitas por `prumo paper extract-prep <citekey>` (aborta com o comando de correção).
+- O CLI `prumo` precisa estar no PATH (rode `prumo doctor`; se ausente:
+  `uv tool install git+https://github.com/raphaelfh/prumo-assist`).
 
 ## Operações
 
@@ -40,18 +39,13 @@ Interativo, 1 paper.
 
 Passos:
 
-1. **Validar** via `Bash`:
-   - `test -f "references/notes/<citekey>/_meta.md" && test -L "references/pdfs/<citekey>.pdf" && test -f "$(readlink references/pdfs/<citekey>.pdf)"`
-   - `test -f ".claude/paper_extraction.md"` (config opcional: ausente → usa DEFAULTS)
-   - Qualquer falha → abortar com mensagem de qual pré-requisito falta e o que rodar.
-
-2. **Ler config:**
+1. **Validar pré-requisitos + ler config** via `Bash`:
    ```bash
-   uv run python -c "import json; from pathlib import Path; from prumo_assist.core.config import load_project_config; print(json.dumps(load_project_config(Path('.'))))"
+   prumo paper extract-prep <citekey> --json
    ```
-   Extrair `paper_extract.language`.
+   Capture `language`, `template_path`, `pdf_path` e `meta_path` do JSON. Se falhar (exit ≠ 0), aborte mostrando a mensagem (ela já traz o comando de correção).
 
-3. **Despachar 1 subagent** via tool `Agent` com `subagent_type="general-purpose"`:
+2. **Despachar 1 subagent** via tool `Agent` com `subagent_type="general-purpose"`:
    - Prompt:
      ```
      Leia o PDF em <absolute_path_to_pdf> com a tool Read (lê PDF nativamente;
@@ -71,28 +65,17 @@ Passos:
       "Resultados": "...", "Limitações": "..."}
      ```
 
-4. **Receber JSON** do subagent. Se `error`, abortar mostrando motivo.
+3. **Receber JSON** do subagent. Se `error`, abortar mostrando motivo.
 
-5. **Aplicar extração** via `Bash` (backend determinístico em `domains/paper/callout.py`):
+4. **Aplicar extração** via `Bash` (escreve o callout em `references/notes/<citekey>/_extract.md` e atualiza `_meta.md`):
    ```bash
-   uv run python -c '
-   import json
-   from pathlib import Path
-   from prumo_assist.domains.paper.callout import apply_extraction
-   content = json.loads("""<JSON_AQUI>""")
-   changed = apply_extraction(
-       pj_path=Path("."),
-       citekey="<citekey>",
-       template_path=Path(".claude/paper_extraction.md"),
-       content=content,
-       model="<modelo_atual>",
-       date="<hoje>",
-   )
-   print("MUDOU" if changed else "IDÊNTICO")
-   '
+   cat <<'JSON' | prumo paper extract <citekey> --model "<modelo_atual>" --date "<hoje>" --json
+   { "TL;DR": "<conteúdo extraído>", "Problema": "...", "Método": "...", "Resultados": "...", "Limitações": "..." }
+   JSON
    ```
+   Emite `{"changed": true}` (MUDOU) ou `{"changed": false}` (IDÊNTICO).
 
-6. **Mostrar diff** do callout ao usuário e perguntar: "Arquivar TL;DR como finding em `docs/wiki/findings/` (ou `docs/findings/` em projetos sem `docs/wiki/`)?". Se sim, delegar a `/prumo-assist:wiki-query` ou criar finding direto.
+5. **Mostrar diff** do callout ao usuário e perguntar: "Arquivar TL;DR como finding em `docs/wiki/findings/` (ou `docs/findings/` em projetos sem `docs/wiki/`)?". Se sim, delegar a `/prumo-assist:wiki-query` ou criar finding direto.
 
 ### 2. `/prumo-assist:paper-extract-all [--limit N] [--stale-only]` — batch
 
@@ -100,17 +83,17 @@ Non-interactive em modo headless (via `make extract-paper-all`) ou interactive.
 
 Passos:
 
-1. **Ler config** → `default_limit` e `subagents_per_wave`.
+1. **Ler config:** leia `.claude/pj_config.toml` (via `Read`) e pegue `paper_extract.batch.default_limit` (default 20) e `paper_extract.batch.subagents_per_wave` (default 8); se o arquivo ou as chaves não existirem, use os defaults.
 
 2. **Elegíveis:**
    - Todas as notas em `references/notes/*/_meta.md` com:
-     - `references/pdfs/<citekey>.pdf` symlink existe e aponta para arquivo real;
-     - `extracted_at: null` **OU** (`--stale-only` AND hash atual do template != `extracted_template_hash`).
+     - `references/pdfs/<citekey>.pdf` symlink existe e aponta para arquivo real (validado via `prumo paper extract-prep <citekey>` — reporta symlink quebrado ou PDF ausente);
+     - `extracted_at: null` **OU** (`--stale-only` AND hash atual do template != `extracted_template_hash`) — verificado lendo cada `_meta.md` com `Read`.
    - Aplicar `--limit` (default: `config.paper_extract.batch.default_limit`).
 
 3. **Despachar em ondas de `subagents_per_wave` (default 8)**:
    - Cada onda = 1 message com N tool calls em paralelo para `Agent(subagent_type="general-purpose", ...)`.
-   - Cada subagent recebe prompt idêntico ao single, escreve DIRETO no disco (chama `apply_extraction` via `Bash`), retorna apenas `{citekey, status, error?}`.
+   - Cada subagent recebe prompt idêntico ao single, escreve DIRETO no disco (chama `prumo paper extract` via `Bash`, dict via stdin, idêntico ao single), retorna apenas `{citekey, status, error?}`.
 
 4. **Coletar** status de todas as ondas em uma lista.
 
