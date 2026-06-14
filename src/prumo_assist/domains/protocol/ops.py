@@ -99,13 +99,11 @@ def detect_mode(pj_path: Path) -> str:
 
     Retorna ``init`` | ``formalize`` | ``propagate`` | ``diff``.
     """
-    toml = picot_path(pj_path)
-    last_adr = find_last_picot_adr(pj_path)
     protocol_md = pj_path / "docs" / "protocol.md"
-    if not toml.exists():
+    if not picot_path(pj_path).exists():
         has_prose = protocol_md.exists() and protocol_md.read_text(errors="ignore").strip() != ""
         return "formalize" if has_prose else "init"
-    if last_adr is None:
+    if find_last_picot_adr(pj_path) is None:
         return "propagate"
     return "diff"
 

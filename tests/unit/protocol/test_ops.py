@@ -8,6 +8,7 @@ import pytest
 
 from prumo_assist.domains.protocol.ops import (
     PropagateReport,
+    detect_mode,
     diff_against_last_adr,
     propagate,
 )
@@ -129,8 +130,6 @@ def test_diff_against_last_adr_detects_structural_change(tmp_path: Path) -> None
 def test_detect_mode_init_when_nothing(tmp_path: Path) -> None:
     pj = tmp_path / "pj_demo"
     (pj / "docs").mkdir(parents=True)
-    from prumo_assist.domains.protocol.ops import detect_mode
-
     assert detect_mode(pj) == "init"
 
 
@@ -138,8 +137,6 @@ def test_detect_mode_formalize_when_protocol_prose(tmp_path: Path) -> None:
     pj = tmp_path / "pj_demo"
     (pj / "docs").mkdir(parents=True)
     (pj / "docs" / "protocol.md").write_text("# Protocolo\n\nprosa humana.\n", encoding="utf-8")
-    from prumo_assist.domains.protocol.ops import detect_mode
-
     assert detect_mode(pj) == "formalize"
 
 
@@ -147,8 +144,6 @@ def test_detect_mode_propagate_when_picot_no_adr(tmp_path: Path) -> None:
     pj = tmp_path / "pj_demo"
     (pj / "docs").mkdir(parents=True)
     write_picot(pj, _spec())
-    from prumo_assist.domains.protocol.ops import detect_mode
-
     assert detect_mode(pj) == "propagate"
 
 
@@ -159,6 +154,4 @@ def test_detect_mode_diff_when_baseline_adr(tmp_path: Path) -> None:
     (pj / "docs" / "decisions" / "adr-0001-picot-v1-versao-inicial.md").write_text(
         "# adr\n", encoding="utf-8"
     )
-    from prumo_assist.domains.protocol.ops import detect_mode
-
     assert detect_mode(pj) == "diff"
