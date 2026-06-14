@@ -8,9 +8,10 @@ from typing import Annotated, cast
 import typer
 
 from prumo_assist import PrumoError
+from prumo_assist.core.cli_io import parse_json_list, read_stdin_text
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.domains.write import comments, compose, export
-from prumo_assist.domains.write.schemas.v1 import WriteKind
+from prumo_assist.domains.write.schemas.v1 import WriteKind, WriteMode
 
 write_app = typer.Typer(
     name="write",
@@ -19,6 +20,7 @@ write_app = typer.Typer(
 )
 
 _WRITE_KINDS = ("paper", "projeto-cep", "statistics", "scientific")
+_WRITE_MODES = ("drafts", "into", "out")
 
 
 @write_app.command("export")
@@ -199,3 +201,46 @@ def prep_command(
                 "template_path": str(result.template_path),
             }
         )
+
+
+@write_app.command("draft")
+def draft_command(
+    kind: Annotated[str, typer.Option("--kind", help="paper|projeto-cep|statistics|scientific.")],
+    date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
+    slug: Annotated[str, typer.Option("--slug", help="Slug do output.")],
+    mode: Annotated[str, typer.Option("--mode", help="drafts|into|out.")] = "drafts",
+    sections: Annotated[
+        str, typer.Option("--sections", help="Array JSON de seções preenchidas.")
+    ] = "[]",
+    into: Annotated[str, typer.Option("--into", help="Caminho destino (modo into).")] = "",
+    out: Annotated[str, typer.Option("--out", help="Caminho destino (modo out).")] = "",
+    force: Annotated[bool, typer.Option("--force", help="Sobrescreve no modo out.")] = False,
+    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Grava o draft (markdown via stdin) conforme o modo; reporta o WriteOutput."""
+    with cli_run(
+        json_mode=json_mode, catches=(ValueError, FileNotFoundError, FileExistsError)
+    ) as console:
+        if kind not in _WRITE_KINDS:
+            raise PrumoError(f"--kind deve ser um de {list(_WRITE_KINDS)}.")
+        if mode not in _WRITE_MODES:
+            raise PrumoError(f"--mode deve ser um de {list(_WRITE_MODES)}.")
+        content = read_stdin_text()
+        sections_list = parse_json_list(sections, "--sections")
+        result = compose.write_output(
+            content=content,
+            pj_path=path.resolve(),
+            kind=cast(WriteKind, kind),
+            mode=cast(WriteMode, mode),
+            date=date,
+            slug=slug,
+            into=Path(into) if into else None,
+            out=Path(out) if out else None,
+            force=force,
+            sections_filled=sections_list,
+        )
+        console.success(
+            f"Draft gravado em {result.output_path} ({result.words_generated} palavras)."
+        )
+        console.emit(result.model_dump(mode="json"))
