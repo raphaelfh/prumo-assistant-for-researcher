@@ -14,4 +14,5 @@ def test_prep_returns_inputs_and_template(tmp_path: Path) -> None:
     result = prep(pj, kind="paper")
     assert isinstance(result, WritePrep)
     assert isinstance(result.inputs, ComposeInputs)
-    assert result.template_path.name.endswith(".md")
+    assert result.template_path.exists()
+    assert result.template_path.name == "template.md"
