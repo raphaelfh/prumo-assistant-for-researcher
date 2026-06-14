@@ -2,7 +2,7 @@
 title: Pipeline do pesquisador — espinha de processo estilo superpowers sobre as capacidades do prumo-assist
 date: 2026-06-13
 status: approved
-tags: [pipeline, process, superpowers, hybrid-architecture, hooks, deterministic-core, cli-bridge, picot, peco, rwe, omop, prisma, equator, ai-reporting, skills, governance]
+tags: [pipeline, process, superpowers, hybrid-architecture, hooks, deterministic-core, skills, governance]
 ---
 
 # Pipeline do pesquisador — a fórmula superpowers aplicada ao ciclo de pesquisa clínica
@@ -11,7 +11,7 @@ tags: [pipeline, process, superpowers, hybrid-architecture, hooks, deterministic
 
 O prumo-assist tem todas as **capacidades** do ciclo de pesquisa (PICOT, Zotero/bibliografia, wiki, escrita, peer-review) mas quase nada da **camada de processo** que faz o [obra/superpowers](https://github.com/obra/superpowers) funcionar: bootstrap ativo por sessão, Iron Laws, gates encadeados, red flags contra racionalizações, e disparo testado como comportamento. Este é o espelho invertido do superpowers, que tem ~14 skills e *nenhuma* é uma capacidade — todas são processo.
 
-Esta spec é um **guarda-chuva** que adiciona a espinha de processo sobre as capacidades existentes e preenche as lacunas do ciclo, em 5 fases sequenciais, cada uma com fronteira de release limpa.
+Esta spec é um **guarda-chuva** que adiciona a espinha de processo sobre as capacidades existentes e preenche as lacunas do ciclo, em fases A→B→C sequenciais (D/E transversais e contínuas), cada uma com fronteira de release limpa.
 
 A arquitetura é **híbrida em 3 camadas** (decidida após investigação `agentic-vs-cli`, 2026-06-13, que confrontou o approach agêntico-puro do superpowers com a constitution): (1) **hooks determinísticos** enforçam as Iron Laws e provenance no hot path; (2) **subagentes** para fan-out e verificação adversarial; (3) **núcleo determinístico mínimo** acessível por `prumo` — só as poucas operações *exatas* (parse, resolução, validação, hash, contagem, export). Tudo que é **julgamento** (síntese, triagem de fronteira, redação, crítica) fica **agêntico e fluido**, sem CLI. Isto captura a baixa fricção do superpowers onde ela cabe, sem o que quebraria o prumo: o superpowers é agêntico-puro porque seu domínio é texto/código; o prumo emite números auditáveis, citações e hashes que LLM não pode produzir de forma reprodutível (evidência: LLMs fabricam ~20% das citações e contam perto do acaso). A ponte para o núcleo também resolve a fragilidade de import que motivou o trabalho, e remove a lógica embutida em `skills/*/scripts/` — fazendo a constitution I virar literal na árvore de arquivos.
 
@@ -22,7 +22,7 @@ Decisões travadas com o dono: **arquitetura híbrida** (hooks + subagentes + n�
 ## Contexto e problema
 
 ### O gatilho imediato (fragilidade de import)
-`grep -rn "uv run python -c\|python3 -c\|from prumo_assist" skills/*/SKILL.md` mostra que `paper-extract`, `write-*` e `wiki-query` instruem o agente a `from prumo_assist...` dentro do projeto consumidor `pj_*`. Mas o pacote é distribuído via `uv tool install` (venv isolado) e `templates/pj_base/pyproject.toml` **não** declara prumo-assist como dependência — o import pode falhar no ambiente do consumidor. Além disso, 8 scripts em `skills/{active-learning,formulate-picot}/scripts/*.py` importam o pacote pelo mesmo caminho frágil.
+`grep -rln "from prumo_assist" skills/*/SKILL.md` mostra **3 skills** (`paper-extract`, `write-paper`, `wiki-query`) instruindo o agente a `from prumo_assist...` dentro do projeto consumidor `pj_*`. Mas o pacote é distribuído via `uv tool install` (venv isolado) e `templates/pj_base/pyproject.toml` **não** declara prumo-assist como dependência — o import pode falhar no ambiente do consumidor. Além disso, **2 skills** (`active-learning`, `formulate-picot`) têm 8 scripts em `scripts/*.py` que importam o pacote pelo mesmo caminho frágil. Os dois conjuntos são disjuntos: **5 skills afetados no total**.
 
 ### O problema estrutural (a camada que falta)
 A destilação do superpowers (workflow `distill-superpowers`, 2026-06-12) identificou os mecanismos transferíveis, por impacto:
@@ -43,7 +43,7 @@ A pesquisa de taxonomia (workflow `research-clinical-lifecycle`, fontes: Röhrig
 - **D0 — Híbrido em 3 camadas, não CLI-para-tudo nem agêntico-puro.** (1) Hooks determinísticos enforçam Iron Laws/provenance no hot path; (2) subagentes para fan-out e verificação adversarial; (3) núcleo determinístico **mínimo** via `prumo` só para operações exatas. Julgamento fica agêntico, sem CLI. O agêntico-puro estilo superpowers foi avaliado e **rejeitado** para o prumo: viola o Princípio II (LLM no caminho de parse/contagem/citekey) e o V (output não-reprodutível mesmo a temperatura 0). A fronteira exata está na Seção 0.5. Registrado em ADR.
 
 ### Distribuição e ponte
-- **D1 — Núcleo determinístico mínimo via CLI, não import direto.** Cada operação **exata** hoje invocada por `uv run python -c "from prumo_assist..."` na prosa vira subcomando `prumo` do **núcleo mínimo** (CLI já entra no PATH via `uv tool`) — *não* "toda op determinística" indiscriminada, e *nada* que seja julgamento. Regra de membership (Seção 0.5): vira número/referência/hash/decisão auditável → CLI; é prosa/mapeamento de termo livre/triagem de fronteira → skill agêntica. Os 8 `skills/*/scripts/*.py` são deletados; sua lógica já vive (ou passa a viver) em `domains/`. Alinha à constitution I e II. Registrado em ADR.
+- **D1 — Núcleo determinístico mínimo via CLI, não import direto.** Cada operação **exata** hoje invocada por `uv run python -c "from prumo_assist..."` na prosa vira subcomando `prumo` do **núcleo mínimo** (CLI já entra no PATH via `uv tool`) — *não* "toda op determinística" indiscriminada, e *nada* que seja julgamento. Regra de membership (Seção 0.5): vira número/referência/hash/decisão auditável → CLI; é prosa/mapeamento de termo livre/triagem de fronteira → skill agêntica. Os 8 `skills/*/scripts/*.py` são deletados; sua lógica já vive (ou passa a viver) em `domains/`. Alinha à constitution I e II. Registrado em ADR novo que **supersede em parte o ADR-0004** — cuja cláusula lista `uv run python -c` importando `prumo_assist.domains.*` como caminho legítimo de delegação; o ADR novo cita ADR-0004 como *superseded-in-part* (ADR é imutável, revisão = ADR novo).
 - **D2 — Distribuição via git+https por ora.** Pré-requisito documentado: `uv tool install git+https://github.com/raphaelfh/prumo-assist`. Sem PyPI agora (trigger de revisão: publicação no PyPI reabre a opção `uv run --with`). README/`prumo doctor` passam a checar o CLI.
 
 ### Forma do programa
@@ -51,7 +51,7 @@ A pesquisa de taxonomia (workflow `research-clinical-lifecycle`, fontes: Röhrig
 - **D4 — Escopo: retrofit + lacunas, ambas as trilhas.** Aplicar a anatomia superpowers aos 14 skills existentes e adicionar skills de lacuna, cobrindo trilha primária e trilha de síntese.
 
 ### Enforcement (adoção)
-- **D5 — Iron Law dura (via hook), gate de etapa suave.** Inviolável (bloqueia sempre): integridade — nenhuma afirmação factual sem citekey resolvível no Zotero; nenhum item EQUATOR marcado sem evidência no texto; nenhum output sem `_meta`/provenance. O enforcement é um **hook determinístico** (`PreToolUse`/`Stop`) que chama a verificação do núcleo (`prumo`, nunca um segundo LLM) e **bloqueia falha-fechado** — não é só prosa que o agente pode racionalizar (a diferença do superpowers, que só persuade). O hook entra já na **Fase A** consumindo as primitivas de verificação do núcleo. Adotar hooks de enforcement dispara o deferral de "hooks plugáveis" do Princípio VI → registrado em **ADR novo** (não emenda da constitution). Transições de etapa (ex.: ir ao manuscrito sem protocolo) **avisam** com forte recomendação e pedem confirmação, mas não travam.
+- **D5 — Iron Law dura (via hook), gate de etapa suave.** Inviolável (bloqueia sempre): integridade — nenhuma afirmação factual sem citekey resolvível no Zotero; nenhum item EQUATOR marcado sem evidência no texto; nenhum output sem `_meta`/provenance. O enforcement é um **hook determinístico** (`PreToolUse`/`Stop`) que chama a verificação do núcleo (`prumo`, nunca um segundo LLM) e **bloqueia falha-fechado** — não é só prosa que o agente pode racionalizar (a diferença do superpowers, que só persuade). O hook entra já na **Fase A** consumindo as primitivas de verificação do núcleo. Adotar hooks atende o trigger do deferral "hooks plugáveis" do Princípio VI ("≥3 cross-cutting concerns"): os três são (1) enforcement de integridade de citação, (2) provenance/`_meta` em todo output, (3) bootstrap de disciplina por sessão — registrado em **ADR novo** que cita esses concerns (não emenda da constitution). Transições de etapa (ex.: ir ao manuscrito sem protocolo) **avisam** com forte recomendação e pedem confirmação, mas não travam.
 
 ### Trilhas e artefatos
 - **D6 — Síntese = protocolo + artefatos, sem orquestrar triagem.** prumo gera protocolo PRISMA-P, strings de busca por base, scaffold do fluxograma PRISMA e template de extração; delega a dupla-triagem/extração a Covidence/Rayyan. Não reconstrói um Covidence pela metade.
@@ -77,7 +77,7 @@ Toda fase A–E obedece a este mapa. Cada arquivo escrito tem um lar único e ó
 | `skills/<n>/references/*.md` | conhecimento de domínio pesado, on-demand | referência (nome = responsabilidade) |
 | `skills/<n>/<papel>-prompt.md` | template de prompt de subagente | template |
 | `skills/<n>/template.md`, `examples/` | template de saída / exemplo de referência | conteúdo |
-| `skills/using-prumo/` (injetada por hook) | a disciplina: mapa do ciclo, regra 1%, red flags, índice de Iron Laws | meta-skill |
+| `skills/using-prumo/` (injetada por hook) | a disciplina: mapa do ciclo, regra do 1% (se há ≥1% de chance de uma skill se aplicar, invoque-a), red flags, índice de Iron Laws | meta-skill |
 | `hooks/` | mecanismo de bootstrap (injeção) | infra do plugin |
 | `docs/constitution.md` | princípios (normas vivas) | governança |
 | `docs/adr/` | decisões pontuais (imutáveis após aceitas) | registro |
@@ -106,7 +106,7 @@ Regra divisora: **se o output vira número, referência, hash ou decisão audit�
 | Parse de `.bib`/BibTeX | DETERMINÍSTICA | estruturado; erro de LLM corrompe metadado em silêncio |
 | Resolução de citekey (contra Zotero/`_references.bib`) | DETERMINÍSTICA | é *a* Iron Law (D5); ~20% de fabricação por LLM é inaceitável no hot path |
 | Validação de schema (Pydantic) | DETERMINÍSTICA | Princípio IV; binária, não julgamento |
-| Hash de bloco delimitado (ADR-0009) | DETERMINÍSTICA | `input_hash` do `_meta`; precisa bater na auditoria |
+| Hash de staleness de bloco (ADR-0009) e `input_hash` de provenance (Princípio V) | DETERMINÍSTICA | dois hashes distintos (detectar bloco stale vs proveniência do run); ambos precisam bater na auditoria |
 | Contagem PRISMA (identificados/triados/incluídos) | DETERMINÍSTICA | LLM ~acaso em contar; é o registro auditável da seleção |
 | Export docx/Pandoc com citações Word vivas | DETERMINÍSTICA | integridade referencial do manuscrito |
 | Propagação de versão / sync de manifests / índices | DETERMINÍSTICA | Princípio VII; derivado de fonte única |
@@ -116,11 +116,16 @@ Regra divisora: **se o output vira número, referência, hash ou decisão audit�
 | Síntese narrativa / revisão da literatura | AGÊNTICA | geração fundamentada; sem resposta única |
 | Redação / cover letter / resposta a revisor | AGÊNTICA | criação textual |
 | Crítica de draft / peer-review | AGÊNTICA | julgamento (mas o gate de citekey por trás é determinístico) |
-| Recomendação de desenho (gate D10) | AGÊNTICA | julgamento; a *viabilidade no CDM* tende a determinística (item aberto) |
+| Recomendação de desenho (gate D10) | AGÊNTICA | julgamento; o *probe* de viabilidade no CDM (concept existe? N de pacientes?) é determinístico, a interpretação go/no-go é agêntica |
 
-**Núcleo mínimo (conjunto fechado, a ratificar no plano da Fase A):** `parse_bibtex`, `resolve_citekey`, `validate_schema`, `hash_block`, `count_records`, `render_pandoc`, + helpers de template (strings de busca, scaffold PRISMA). Boa parte já existe em `domains/` (sync usa parse; export usa pandoc; protocol usa hash) — a Fase A expõe/consolida o conjunto e adiciona as primitivas de verificação que o hook consome. Regra de governança: **nada que seja julgamento entra no núcleo** (resistir a inchar é o que mantém a simplicidade).
+**Núcleo mínimo (conjunto FECHADO — contrato da Fase A):** exatamente estas 7 primitivas — `parse_bibtex`, `resolve_citekey`, `validate_schema`, `hash_block` (staleness de bloco + `input_hash` de provenance), `count_records`, `render_pandoc`, `template_artifact` (strings de busca por base, scaffold PRISMA). Boa parte já existe em `domains/` (sync usa parse; export usa pandoc; protocol usa hash) — a Fase A expõe/consolida o conjunto e adiciona as primitivas de verificação que o hook consome. **Regra de governança:** o conjunto só cresce por ADR explícito, e **nada que seja julgamento entra no núcleo** (resistir a inchar é o que mantém a simplicidade).
 
 ## Pipeline corrigido
+
+### O caminho de 80% (golden path)
+O fluxo que a maioria dos projetos segue, com as skills disparadas em ordem — o engenheiro testa este caminho primeiro, e o pesquisador encaixa a própria pesquisa nele:
+`ideia → wiki-ingest/paper-extract (revisão da literatura) → formulate-picot (pergunta + desenho) → protocolo + ética → condução → write-paper → peer-review → submissão`.
+Os desvios (síntese/PRISMA, RWE/OMOP, camada `-AI`, INAEP) são ramos especializados da minoria — ficam na periferia, acionados só quando o desenho os exige.
 
 ### Tronco comum (todo projeto, qualquer desenho)
 ```
@@ -148,25 +153,21 @@ manuscrito → peer-review → submissão
 ```
 com três gates por ramo: (1) protocolo + registro + ética (pré-estudo); (2) condução/diagnostics; (3) manuscrito + checklist de relato + número de registro (submissão). Diretriz anexada por ramo (STROBE/RECORD p/ observacional, PRISMA p/ síntese, CONSORT p/ ECR); camada `-AI` combinável (D9).
 
-### Mapa etapa → diretriz/registro → artefato (resumo)
-| Etapa / ramo | Diretriz | Registro | Artefato canônico |
-|---|---|---|---|
-| Tronco — revisão da literatura | (passo) | — | notas, lacuna, introdução |
-| Tronco — pergunta estruturada | — | — | PICOT/PECO; hipótese; objetivos |
-| Primário intervencional (ECR) | CONSORT 2025 (+CONSORT-AI) | ClinicalTrials.gov / ReBEC | protocolo SPIRIT 2025; SAP; CONSORT flow |
-| Primário observacional | STROBE | OSF | protocolo; SAP |
-| Sub-trilha RWE/OMOP | RECORD/RECORD-PE (+STROBE) | OSF | fenótipo (JSON+concept sets); SAP; study diagnostics |
-| Secundário — revisão sistemática | PRISMA 2020 | PROSPERO/OSF | protocolo PRISMA-P; strings; fluxograma PRISMA; tabela de extração |
-| Modelos de predição (ML/LLM) | TRIPOD+AI / TRIPOD-LLM | OSF | especificação do modelo; validação |
-| Acurácia diagnóstica / imagem | STARD 2015 / CLAIM 2024 (+ -AI) | OSF | tabela 2×2; STARD flow |
-| Ética (Brasil) | — | Plataforma Brasil/CEP (INAEP = TODO) | projeto CEP, TCLE |
+### Mapa etapa → diretriz/registro (3 ramos canônicos)
+| Ramo | Diretriz | Registro |
+|---|---|---|
+| Primário intervencional (ECR) | CONSORT | ClinicalTrials.gov / ReBEC |
+| Primário observacional (inclui RWE/OMOP) | STROBE (+RECORD p/ dados de rotina) | OSF |
+| Secundário — revisão sistemática | PRISMA | PROSPERO / OSF |
 
-Lacunas embutidas: CONSORT/SPIRIT 2025 saíram sem guidance de IA (camada `-AI` é combinável); **não existe RECORD-AI** (fallback explícito); STROBE ainda 2007.
+Ética (Brasil): Plataforma Brasil/CEP em todos os ramos com sujeitos humanos; INAEP como TODO sinalizado (D12).
+
+O **catálogo completo** etapa→diretriz→artefato (variantes `-AI`: TRIPOD+AI/-LLM, STARD-AI, CLAIM; siglas de protocolo SPIRIT/PRISMA-P; artefatos por ramo) é **conhecimento de domínio on-demand** — vive em `references/equator-by-design.md`, anexado pela skill de submissão (D9), não no corpo deste spec. Lacuna a tratar pela camada `-AI`: **não existe RECORD-AI** (fallback explícito).
 
 ## Fases (cada uma um plano + release próprio)
 
 ### Fase A — Núcleo determinístico mínimo + hook de enforcement (pré-requisito; release MINOR)
-**Núcleo mínimo (Seção 0.5):** as ~6-8 primitivas exatas como subcomandos `prumo`, fachadas finas via `cli_run`, todos com `--json`, substituindo snippets de prosa e os 8 scripts. Contrato único: corpo markdown via stdin (heredoc, nunca escapado em JSON); payload estruturado via stdin JSON quando já é schema; metadados via flags; relatório via `--json`. Comandos *prep* compõem validação + leitura de contexto num só (paper-extract: 4 passos → 2). `prumo config` standalone morre (YAGNI). Deleta `skills/{active-learning,formulate-picot}/scripts/`. Check `command -v prumo` com erro acionável nas Pressupostos dos 9 skills afetados.
+**Núcleo mínimo (Seção 0.5):** as 7 primitivas fechadas como subcomandos `prumo`, fachadas finas via `cli_run`, todos com `--json`, substituindo snippets de prosa e os 8 scripts. Contrato único: corpo markdown via stdin (heredoc, nunca escapado em JSON); payload estruturado via stdin JSON quando já é schema; metadados via flags; relatório via `--json`. Comandos *prep* compõem validação + leitura de contexto num só. O snippet inline `load_project_config` (paper-extract) é absorvido no comando *prep* — não há `prumo config` standalone (YAGNI). Deleta `skills/{active-learning,formulate-picot}/scripts/` (8 scripts). A presença do CLI é checada num lar único — `prumo doctor` (que já roda `integrations.doctor`) — referenciado nas Pressupostos dos 5 skills afetados, não duplicado por `command -v` em cada SKILL.md (constitution I).
 **Hook de enforcement (D5):** `PreToolUse`/`Stop` shipped em `hooks/` + wiring no `plugin.json`, que chama as primitivas de verificação do núcleo (`resolve_citekey`, checagem de `_meta`/hash) e bloqueia falha-fechado output sem citekey resolvível ou sem provenance. Convive com o hook PreToolUse do graphify. Self-contained (não depende de import do pacote no `pj_*`; usa `prumo` no PATH).
 ADRs: arquitetura híbrida (D0); núcleo determinístico via CLI (D1); enforcement determinístico via hook + trigger do deferral do Princípio VI (D5); `--audit` reverso do bump (pega CITATION.cff).
 
@@ -205,18 +206,20 @@ ADRs de cada modo/decisão; `bump --audit`; ROADMAP atualizado; eventual emenda 
 1. Nenhum skill instrui `from prumo_assist` na prosa; `grep -rn "from prumo_assist" skills/` vazio; `skills/*/scripts/` não existe.
 2. `prumo --help` expõe os subcomandos novos; cada um com `--json` e erro acionável quando pré-requisito falta.
 3. Sessão nova injeta `using-prumo` (mapa do ciclo + Iron Laws + red flags); sobrevive a `/clear` e compaction.
-4. Cada um dos 14 skills segue a anatomia da Seção 0; `gen_indexes.py --check` não acusa SKILL.md acima do orçamento.
-5. Iron Law de citação bloqueia afirmação factual sem citekey resolvível — via **hook determinístico** que chama `prumo` (falha-fechado), não persuasão textual nem segundo LLM; toda operação exata sai do núcleo, nenhuma operação de julgamento virou subcomando (Seção 0.5).
+4. Cada um dos 14 skills segue a anatomia da Seção 0; `gen_indexes.py --check` não acusa SKILL.md acima do limite (250 linhas de corpo; meta-skill isenta).
+5. Iron Law de citação bloqueia afirmação factual sem citekey resolvível — via **hook determinístico** que chama `prumo` (falha-fechado), não persuasão textual nem segundo LLM; as 7 primitivas fechadas do núcleo (Seção 0.5) cobrem toda operação exata, e nenhuma operação de julgamento virou subcomando.
 6. `formulate-picot` aceita PECO e emite recomendação de desenho com gate de viabilidade; o pipeline ramifica corretamente primário/observacional/RWE-OMOP/síntese.
 7. Skill de síntese gera protocolo PRISMA-P + strings + scaffold PRISMA sem reconstruir triagem; skill de submissão anexa o checklist EQUATOR correto por ramo com camada `-AI` combinável.
 8. Fenótipo OMOP versionado e congelável no `protocol`; pré-registro gerado da spec e congelando-a.
 9. `tests/skills/` roda localmente: prompt ingênuo dispara a skill certa; draft com erros plantados é recusado pelo peer-review.
 10. Cada fase liberável tem release MINOR próprio com tag; fases D/E não bumpam versão.
+11. `prumo doctor` reporta CLI ausente no PATH com o comando de instalação acionável (D2).
+12. Gate de ética emite artefato CEP/Plataforma Brasil e sinaliza INAEP como TODO (D12).
+13. A Fase B não reimplementa verificação na prosa: as Iron Laws referenciam o hook entregue na Fase A (costura A→B verificável — D3).
 
 ## Itens abertos / triggers
 - Publicar no PyPI → reabre `uv run --with prumo-assist` e simplifica o pré-requisito (revisar a Fase A).
 - INAEP normatizado → materializar o gate de ética além do TODO sinalizado.
 - RECORD-AI publicado → trocar o fallback da camada `-AI` pelo checklist real.
 - `domains/protocol/adr.py` tocado → reavaliar alinhamento `docs/decisions/`→`docs/adr/` no produto (ADR-0001).
-- Fronteira de média confiança (decidir no plano da Fase C): **viabilidade no CDM** do gate de desenho (consulta determinística ao OMOP vs julgamento) e **scaffold do fluxograma PRISMA** (conta o *n* deterministicamente via `count_records` vs só desenha a moldura). Recomendação inicial: a contagem/probe é determinística, a interpretação go/no-go é agêntica.
-- Ratificar o conjunto fechado do núcleo mínimo no plano da Fase A.
+*(Núcleo mínimo fechado na Seção 0.5 — 7 primitivas; cresce só por ADR. Fronteira CDM/PRISMA resolvida na Seção 0.5: probe/contagem determinísticos, go/no-go agêntico. Nenhum dos dois é mais item aberto.)*
