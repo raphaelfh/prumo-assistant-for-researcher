@@ -6,7 +6,7 @@ when_to_use: |
   "me coloca à prova sobre Y", "preciso fixar Z", ou ao terminar de ler
   papers e querer consolidar entendimento.
 argument-hint: "[topic]"
-allowed-tools: Read Write Edit Glob Grep Bash(uv run python *) Bash(python3 *) Bash(echo *) Bash(cat *) mcp__qmd__query mcp__qmd__search
+allowed-tools: Read Write Edit Glob Grep Bash(prumo *) Bash(echo *) Bash(cat *) mcp__qmd__query mcp__qmd__search
 prumo:
   version: 1.0.0
   schema: SessionLog/v1
@@ -28,8 +28,10 @@ ou num wikilink interno**. Se a fonte não está no acervo, emita
 ## Pressupostos
 
 - cwd é um `pj_*` com `docs/_index.md` e `references/_references.bib` (mesmo que vazios).
-- A parte determinística (criar log, anexar steps, arquivar finding) vive em
-  `prumo_assist.domains.wiki.{study,findings}`. Você só cuida do agêntico.
+- A parte determinística (criar log, anexar steps, arquivar finding) é exposta
+  via `prumo wiki *` (study-start/step/finish, finding). Você só cuida do agêntico.
+- O CLI `prumo` precisa estar no PATH (rode `prumo doctor`; se ausente:
+  `uv tool install git+https://github.com/raphaelfh/prumo-assist`).
 
 ## Fluxo
 
@@ -39,11 +41,7 @@ Se foi passado positional `<topic>`, use direto. Senão pergunte (1 vez):
 
 > Qual tópico vamos estudar?
 
-Slugify o tópico:
-
-```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/slug.py "<topic raw>"
-```
+O slug é derivado automaticamente do tópico ao criar o log (passo 2).
 
 ### 1. Context gathering (pré-sessão)
 
@@ -65,13 +63,12 @@ uv run python ${CLAUDE_SKILL_DIR}/scripts/slug.py "<topic raw>"
 ### 2. Criar log skeleton
 
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/create_log.py \
-    --topic "<slug>" \
+prumo wiki study-start "<topic raw>" \
     --date "<hoje ISO>" \
-    --sources '[<lista JSON de wikilinks>]'
+    --sources '[<lista JSON de wikilinks>]' --json
 ```
 
-Capture o path impresso para os append_step subsequentes.
+Capture `slug` e `log_path` do JSON impresso para os passos seguintes.
 
 ### 3. Loop dos 5 steps
 
@@ -80,8 +77,7 @@ usuário, avalie com citação strict, e anexe via:
 
 ```bash
 echo '{"question":"...","answer":"...","feedback":"...","citations":["[[@k]]"],"references_missing":[]}' \
-  | uv run python ${CLAUDE_SKILL_DIR}/scripts/append_step.py \
-      --log-path "<log_path>" --step <recall|anchor|connect|apply|reflect>
+  | prumo wiki study-step --log-path "<log_path>" --step <recall|anchor|connect|apply|reflect> --json
 ```
 
 #### Step 1: Recall
@@ -142,13 +138,13 @@ Em seguida, ofereça arquivamento (1 vez):
 Se **sim**, executar:
 
 ```bash
-cat <<'BODY' | uv run python ${CLAUDE_SKILL_DIR}/scripts/archive_finding.py \
+cat <<'BODY' | prumo wiki finding \
     --slug "<slug-derivado>" \
     --title "<título-do-insight>" \
     --date "<hoje ISO>" \
     --tags '[<tags JSON>]' \
     --sources '[<wikilinks JSON>]' \
-    --generator active-learning
+    --generator active-learning --json
 ## Pergunta
 
 <pergunta sintetizada>
@@ -174,12 +170,12 @@ Anexar step Reflect com `step_name="reflect"` antes do finalize.
 ### 4. Finalizar
 
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/finalize_session.py \
+prumo wiki study-finish \
     --log-path "<log_path>" \
     --duration <elapsed_minutes> \
     --status completed \
     --missing '[<lista JSON de REF FALTANTE>]' \
-    --finding "<finding_path ou string vazia>"
+    --finding "<finding_path ou string vazia>" --json
 ```
 
 ### 5. Reportar ao usuário
