@@ -15,14 +15,17 @@ from pathlib import Path
 from typing import Literal
 
 from prumo_assist.domains.protocol.adr import (
+    compose_adr,
     extract_picot_snapshot,
     find_last_picot_adr,
+    next_adr_number,
 )
 from prumo_assist.domains.protocol.diff import PicotDiff, diff_picot
 from prumo_assist.domains.protocol.picot_io import (
     picot_hash,
     picot_path,
     read_picot,
+    write_picot,
 )
 from prumo_assist.domains.protocol.render import (
     BLOCK_BEGIN_RE,
@@ -106,6 +109,33 @@ def detect_mode(pj_path: Path) -> str:
     if find_last_picot_adr(pj_path) is None:
         return "propagate"
     return "diff"
+
+
+@dataclass(frozen=True)
+class InitResult:
+    """Resultado de ``init_picot_spec``: relatório de propagação + caminho do ADR-0001."""
+
+    report: PropagateReport
+    adr_path: Path
+
+
+def init_picot_spec(pj_path: Path, *, spec: PicotSpec, motivation: str, date: str) -> InitResult:
+    """Escreve o ``PicotSpec`` inicial, propaga os blocos e cria o ADR-0001."""
+    write_picot(pj_path, spec)
+    report = propagate(pj_path)
+    n = next_adr_number(pj_path)
+    body = compose_adr(
+        adr_number=n,
+        spec=spec,
+        diff=PicotDiff(changes=[]),
+        motivation=motivation,
+        supersedes_path=None,
+        date=date,
+    )
+    adr_path = pj_path / "docs" / "decisions" / f"adr-{n:04d}-picot-v1-versao-inicial.md"
+    adr_path.parent.mkdir(parents=True, exist_ok=True)
+    adr_path.write_text(body, encoding="utf-8")
+    return InitResult(report=report, adr_path=adr_path)
 
 
 def diff_against_last_adr(pj_path: Path) -> PicotDiff | None:

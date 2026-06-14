@@ -7,12 +7,14 @@ from pathlib import Path
 import pytest
 
 from prumo_assist.domains.protocol.ops import (
+    InitResult,
     PropagateReport,
     detect_mode,
     diff_against_last_adr,
+    init_picot_spec,
     propagate,
 )
-from prumo_assist.domains.protocol.picot_io import write_picot
+from prumo_assist.domains.protocol.picot_io import picot_path, write_picot
 from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 
@@ -155,3 +157,14 @@ def test_detect_mode_diff_when_baseline_adr(tmp_path: Path) -> None:
         "# adr\n", encoding="utf-8"
     )
     assert detect_mode(pj) == "diff"
+
+
+def test_init_picot_spec_writes_toml_and_adr(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs").mkdir(parents=True)
+    result = init_picot_spec(pj, spec=_spec(), motivation="inicial", date="2026-06-14")
+    assert isinstance(result, InitResult)
+    assert picot_path(pj).exists()
+    assert result.adr_path.exists()
+    assert "picot-v1-versao-inicial" in result.adr_path.name
+    assert result.report.hash8 != ""

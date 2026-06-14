@@ -77,6 +77,40 @@ def test_protocol_detect_mode_init(tmp_path: Path) -> None:
     assert result.stdout.strip() == "init"
 
 
+def test_protocol_init_writes_and_emits(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs").mkdir(parents=True)
+    payload = {
+        "type": "clinical",
+        "created_at": "2026-06-14",
+        "last_updated": "2026-06-14",
+        "version": 1,
+        "population": "DS_A",
+        "intervention": "IntervencaoX",
+        "comparison": "best baseline",
+        "outcome": "AUROC ≥ 0.85",
+        "time": "retrospectivo",
+        "hypothesis": {"statement": "x", "rationale": "y", "metrics": ["AUROC"]},
+    }
+    result = runner.invoke(
+        app,
+        ["protocol", "init", "--date", "2026-06-14", "--path", str(pj), "--json"],
+        input=json.dumps(payload),
+    )
+    assert result.exit_code == 0, result.output
+    out = _last_json(result.stdout)
+    assert Path(str(out["adr_path"])).exists()
+
+
+def test_protocol_init_invalid_payload_fails(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / "docs").mkdir(parents=True)
+    result = runner.invoke(
+        app, ["protocol", "init", "--date", "2026-06-14", "--path", str(pj)], input="{}"
+    )
+    assert result.exit_code == 1
+
+
 def _last_json(stdout: str) -> dict[str, object]:
     last: dict[str, object] | None = None
     for line in stdout.splitlines():
