@@ -41,6 +41,13 @@ def test_extract_prep_missing_meta_raises(tmp_path: Path) -> None:
         extract_prep(pj, "smith2020")
 
 
+def test_extract_prep_missing_template_raises(tmp_path: Path) -> None:
+    pj = _bootstrap(tmp_path)
+    (pj / ".claude" / "paper_extraction.md").unlink()
+    with pytest.raises(FileNotFoundError, match="paper_extraction"):
+        extract_prep(pj, "smith2020")
+
+
 def test_extract_prep_invalid_language_raises_configerror(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     (pj / ".claude" / "pj_config.toml").write_text(
