@@ -140,3 +140,25 @@ def test_finding_arquiva_corpo_do_stdin(tmp_path: Path) -> None:
     out = Path(json.loads(result.stdout)["finding_path"])
     assert out.exists()
     assert "Real-world evidence." in out.read_text(encoding="utf-8")
+
+
+def test_finding_sem_docs_falha_com_dica(tmp_path: Path) -> None:
+    # tmp_path não tem docs/ → archive_as_finding levanta FileNotFoundError acionável.
+    result = runner.invoke(
+        app,
+        [
+            "wiki",
+            "finding",
+            "--slug",
+            "x",
+            "--title",
+            "X",
+            "--date",
+            "2026-06-14",
+            "--path",
+            str(tmp_path),
+        ],
+        input="corpo",
+    )
+    assert result.exit_code == 1
+    assert "docs/" in result.output
