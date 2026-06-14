@@ -56,7 +56,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 
 **Plans ativos:**
 
-- (nenhum)
+- [[superpowers/plans/2026-06-14-phase-a3-paper-write-cli-bridge]] · draft
 
 **Plans arquivados:** 15 em `superpowers/plans/archive/`
 
