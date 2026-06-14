@@ -1,10 +1,13 @@
-"""Orquestradores para ``propagate`` e ``diff_against_last_adr``.
+"""Orquestradores determinísticos de ``protocol``, expostos como ``prumo protocol *``.
 
-Lado determinístico Python das operações. A skill ``formulate-picot`` usa
-estas funções via Python -c após coletar inputs do usuário.
+Lado determinístico Python das operações: ``detect_mode`` (estado → modo),
+``init_picot_spec`` (escreve PicotSpec + propaga + ADR-0001), ``create_picot_adr``
+(ADR-N + propaga), ``propagate`` (regenera blocos) e ``diff_against_last_adr``.
+A skill ``formulate-picot`` chama estas funções via CLI (``prumo protocol …``),
+não por import.
 
-``init`` e ``formalize`` (modos agênticos) ficam no SKILL.md — escrevem
-``.claude/picot.toml`` via ``write_picot`` e chamam ``propagate``.
+O julgamento agêntico (diálogo Socrático, ``formalize`` de prosa → PicotSpec)
+fica no ``SKILL.md``; aqui mora só o que é exato/auditável.
 """
 
 from __future__ import annotations
