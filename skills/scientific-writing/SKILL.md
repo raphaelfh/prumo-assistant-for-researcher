@@ -116,11 +116,11 @@ Você é um editor de texto científico para um pesquisador clínico de pós-gra
 Rodar audit antes de aplicar mudança. Reportar contagem de cada violação.
 
 ```bash
-# C1: citações no meio do período (heurística — wikilink seguido de palavra e depois ponto)
-Grep "\[\[@[^\]]+\]\][^.]*[a-záéíóúâêôãõç]\." <draft>
+# C1: citações no meio do período (heurística — citação seguida de palavra e depois ponto)
+Grep "\[@[^\]]+\][^.]*[a-záéíóúâêôãõç]\." <draft>
 
-# C2: vírgula entre wikilinks adjacentes
-Grep "\]\], \[\[" <draft>
+# C2: colchetes de citação adjacentes ([@a] [@b]) ou vírgula entre citações ([@a], [@b]) — deveriam estar agrupados num único colchete ([@a; @b])
+Grep "\]\s*,?\s*\[@" <draft>
 
 # C3a: travessões em texto corrido (excluir tabelas e refs)
 Grep " — " <draft>
