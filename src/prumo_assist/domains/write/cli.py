@@ -277,9 +277,18 @@ def zettlr_export_entry() -> None:
     """
     import sys
 
-    with cli_run(json_mode=False, catches=(FileNotFoundError, ValueError, RuntimeError)) as console:
-        if len(sys.argv) != 2:
-            raise PrumoError("uso: prumo-zettlr-export <arquivo.md>")
-        page = Path(sys.argv[1]).resolve()
-        result = export.export(page=page, to="docx")
-        console.success(f"exportado: {result}")
+    try:
+        with cli_run(
+            json_mode=False, catches=(FileNotFoundError, ValueError, RuntimeError)
+        ) as console:
+            if len(sys.argv) != 2:
+                raise PrumoError("uso: prumo-zettlr-export <arquivo.md>")
+            page = Path(sys.argv[1]).resolve()
+            result = export.export(page=page, to="docx")
+            console.success(f"exportado: {result}")
+    except typer.Exit as e:
+        # Entrypoint fora do dispatch do Click (é um `[project.scripts]` cru,
+        # não um app Typer/Click): sem isso, o `typer.Exit` levantado por
+        # `cli_run` em erro escaparia como traceback cru no painel do Zettlr,
+        # mesmo após a mensagem pt-BR já ter sido impressa por `console.error`.
+        raise SystemExit(e.exit_code) from None

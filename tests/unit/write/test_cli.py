@@ -178,3 +178,30 @@ def test_zettlr_entry_calls_canonical_docx_export(
 
     zettlr_export_entry()
     assert called == {"page": page.resolve(), "to": "docx"}
+
+
+def test_zettlr_entry_export_error_exits_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page = tmp_path / "draft.md"
+    page.write_text("x")
+
+    def fake_export(*, page: Path, to: str = "docx", **kwargs: object) -> Path:
+        raise FileNotFoundError("bibliografia não encontrada: x")
+
+    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", fake_export)
+    monkeypatch.setattr("sys.argv", ["prumo-zettlr-export", str(page)])
+    from prumo_assist.domains.write.cli import zettlr_export_entry
+
+    with pytest.raises(SystemExit) as exc:
+        zettlr_export_entry()
+    assert exc.value.code == 1
+
+
+def test_zettlr_entry_usage_error_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.argv", ["prumo-zettlr-export"])
+    from prumo_assist.domains.write.cli import zettlr_export_entry
+
+    with pytest.raises(SystemExit) as exc:
+        zettlr_export_entry()
+    assert exc.value.code == 1
