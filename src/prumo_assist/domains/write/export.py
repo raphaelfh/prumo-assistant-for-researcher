@@ -34,6 +34,7 @@ from pathlib import Path
 
 import yaml
 
+from prumo_assist.core.citations import scan_citekeys
 from prumo_assist.core.csl import list_zotero_styles, resolve_csl
 from prumo_assist.core.obsidian import normalize_markdown, split_frontmatter
 
@@ -98,35 +99,6 @@ def _zotero_live_docx_filter() -> Path:
     ref = resources.files("prumo_assist._filters").joinpath("zotero_live_docx.lua")
     with resources.as_file(ref) as p:
         return Path(p)
-
-
-# Pandoc citation keys: alphanumeric/underscore start, then internal
-# `:.#$%&-+?<>~/` punctuation that must be followed by more word chars
-# (so we don't grab trailing sentence punctuation like the `.` in
-# `[@key].`). Negative lookbehind on `@\w` skips emails (foo@bar).
-_CITEKEY_RE = re.compile(r"(?<![@\w])@([A-Za-z0-9_]\w*(?:[:.#$%&+\-?<>~/]\w+)*)")
-
-
-def scan_citekeys(markdown_text: str) -> list[str]:
-    """Extrai citekeys ``[@key]`` / ``@key`` do markdown.
-
-    Não tenta substituir o parser do Pandoc — só precisa achar TODAS as
-    chaves para o pre-fetch no BBT. False positives (ex. nomes de
-    variáveis em code blocks) só geram queries extras sem-resultado,
-    não afetam a correção do export.
-    """
-    keys: set[str] = set()
-    in_code_block = False
-    for line in markdown_text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
-            continue
-        if in_code_block:
-            continue
-        for match in _CITEKEY_RE.finditer(line):
-            keys.add(match.group(1))
-    return sorted(keys)
 
 
 def fetch_bbt_zotero_metadata(
