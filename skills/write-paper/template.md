@@ -2,6 +2,7 @@
 title: ""
 target_venue: "general"
 authors: []
+bibliography: ../../references/_references.bib
 ---
 
 # Title
@@ -52,4 +53,7 @@ authors: []
 
 # References
 
-<!-- NÃO gerar; lista é responsabilidade do export Pandoc + CSL. -->
+<!-- NÃO gerar a lista à mão — o export (Pandoc + CSL) materializa aqui. -->
+
+::: {#refs}
+:::
