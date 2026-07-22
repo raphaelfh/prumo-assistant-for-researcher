@@ -87,3 +87,12 @@ def test_profile_issues_flags_broken_filter_with_fix_command(tmp_path: Path) -> 
     issues = profile_issues(tmp_path)
     assert issues
     assert "prumo write zettlr-profile" in issues[0]
+
+
+def test_profile_issues_flags_non_mapping_yaml(tmp_path: Path) -> None:
+    p = tmp_path / PROFILE_RELPATH
+    p.parent.mkdir(parents=True)
+    p.write_text("just a string\n", encoding="utf-8")
+    issues = profile_issues(tmp_path)
+    assert issues
+    assert "prumo write zettlr-profile" in issues[0]

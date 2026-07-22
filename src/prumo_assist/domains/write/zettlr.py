@@ -73,14 +73,20 @@ def profile_issues(pj_path: Path) -> list[str]:
             f"Perfil Zettlr inválido (YAML): {profile_path}. "
             "Regenere: `prumo write zettlr-profile`."
         ]
+    if not isinstance(data, dict):
+        return [
+            f"Perfil Zettlr inválido (YAML): {profile_path}. "
+            "Regenere: `prumo write zettlr-profile`."
+        ]
     issues: list[str] = []
     filters = data.get("filters") or []
-    for f in filters:
-        if isinstance(f, str) and f != "citeproc" and not Path(f).is_file():
-            issues.append(
-                f"Perfil Zettlr aponta filtro inexistente: {f}. "
-                "Regenere: `prumo write zettlr-profile`."
-            )
+    if isinstance(filters, list):
+        for f in filters:
+            if isinstance(f, str) and f != "citeproc" and not Path(f).is_file():
+                issues.append(
+                    f"Perfil Zettlr aponta filtro inexistente: {f}. "
+                    "Regenere: `prumo write zettlr-profile`."
+                )
     ref = data.get("reference-doc")
     if isinstance(ref, str) and not Path(ref).is_file():
         issues.append(
