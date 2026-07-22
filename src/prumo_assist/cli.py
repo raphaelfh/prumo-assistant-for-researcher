@@ -51,6 +51,7 @@ from prumo_assist.domains.paper.cli import paper_app
 from prumo_assist.domains.protocol.cli import protocol_app
 from prumo_assist.domains.wiki.cli import wiki_app
 from prumo_assist.domains.write.cli import write_app
+from prumo_assist.domains.write.zettlr import profile_issues as zettlr_profile_issues
 from prumo_assist.integrations import REGISTRY as INTEGRATIONS
 
 app = typer.Typer(
@@ -554,6 +555,9 @@ def doctor_command(
     for adapter_cls in INTEGRATIONS.values():
         adapter = adapter_cls()
         issues.extend(adapter.doctor(target))
+
+    # Perfil de export do Zettlr (se existir) aponta pra arquivos vivos?
+    issues.extend(zettlr_profile_issues(target))
 
     # Staleness das checklists clínicas (Princípio II: validade sem LLM).
     skills_dir = _resolve_skills_dir()
