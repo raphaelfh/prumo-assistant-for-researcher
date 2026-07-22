@@ -58,7 +58,7 @@ app = typer.Typer(
     name="prumo",
     help=(
         "Knowledge, bibliography & academic writing assistant for clinical research.\n"
-        "Lives between Zotero, Obsidian, and your agent-host."
+        "Lives between Zotero, Zettlr, and your agent-host."
     ),
     add_completion=False,
     no_args_is_help=True,

@@ -11,7 +11,7 @@ repository-code: "https://github.com/raphaelfh/prumo-assist"
 url: "https://github.com/raphaelfh/prumo-assist"
 abstract: >-
   prumo-assist is a CLI + Claude Code plugin for clinical research workflows.
-  It connects Zotero (Better BibTeX), Obsidian (wiki), and the researcher's
+  It connects Zotero (Better BibTeX), Zettlr (writing front-end), and the researcher's
   agent-host (Claude Code, Cursor, Codex, Gemini) around four pillars:
   bibliography management, knowledge management (wiki ingest/query/lint),
   unified capture, and academic writing (Pandoc/Typst export, peer review).
@@ -23,7 +23,7 @@ keywords:
   - knowledge-management
   - bibliography
   - zotero
-  - obsidian
+  - zettlr
   - claude-code
   - academic-writing
 license: MIT

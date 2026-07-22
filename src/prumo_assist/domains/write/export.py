@@ -144,42 +144,6 @@ def fetch_bbt_zotero_metadata(
     return out
 
 
-_MISSING_CITEKEY_RE = re.compile(
-    r"^@(\S+?)(?:: not found| not in Zotero| duplicates found)$", re.MULTILINE
-)
-_ZOTERO_PANE_ERROR = "could not fetch Zotero items"
-
-
-def _assert_no_missing_citekeys(filter_stdout: str) -> None:
-    """Promove o aviso silencioso do ``zotero.lua`` a erro acionável.
-
-    O filtro escreve em stdout quando: a citekey não existe (``: not found``),
-    quando o BBT respondeu sem o item (``not in Zotero``), ou quando uma
-    chamada falhou (``could not fetch Zotero items``). Em todos os casos o
-    pandoc termina com exit 0 deixando o ``[@key]`` cru no docx. Aqui
-    falhamos rápido com instrução clara.
-    """
-    if _ZOTERO_PANE_ERROR in filter_stdout:
-        raise ZoteroCitekeyNotFoundError(
-            "Better BibTeX não conseguiu acessar a biblioteca do Zotero "
-            "(``getActiveZoteroPane is null``). Abra a JANELA PRINCIPAL do "
-            "Zotero (não basta o app em background) e tente de novo. "
-            "Esse erro é tipicamente disparado quando ``zotero.library`` aponta "
-            "para um grupo e o painel do Zotero não está aberto."
-        )
-    missing = sorted(set(_MISSING_CITEKEY_RE.findall(filter_stdout)))
-    if not missing:
-        return
-    raise ZoteroCitekeyNotFoundError(
-        f"zotero.lua não encontrou {len(missing)} citekey(s) na biblioteca ativa: "
-        + ", ".join(missing)
-        + ". Causas comuns: (1) os itens estão num grupo do Zotero — adicione "
-        '`zotero: {library: "<Nome do Grupo>"}` no frontmatter da página '
-        "e abra a janela principal do Zotero antes de exportar; (2) os "
-        "citekeys do .bib divergem dos do BBT — rode `make sync-paper`."
-    )
-
-
 _CITEPROC_MISSING_RE = re.compile(r"\[WARNING\] Citeproc: citation (\S+) not found")
 
 

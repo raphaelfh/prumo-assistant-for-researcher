@@ -38,7 +38,16 @@ def generate_profile(pj_path: Path, *, style: str = "apa") -> Path:
     sai sem ``csl`` (citeproc usa Chicago) — o docx de trabalho continua
     com campos vivos. ``bibliography`` não entra aqui: viaja no
     frontmatter de cada draft, que tem precedência sobre o defaults file.
+
+    Exige a raiz de um pj_* (``references/_references.bib`` presente) —
+    sem isso o perfil seria criado em diretório arbitrário.
     """
+    bib = pj_path / "references" / "_references.bib"
+    if not bib.is_file():
+        raise FileNotFoundError(
+            f"{pj_path} não parece a raiz de um pj_* (esperado references/_references.bib). "
+            "Rode na raiz do projeto ou aponte-a: `prumo write zettlr-profile --path <raiz>`."
+        )
     profile: dict[str, object] = {
         "reader": _READER,
         "writer": "docx",

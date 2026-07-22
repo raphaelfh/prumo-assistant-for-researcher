@@ -6,12 +6,21 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import pytest
 import yaml
 
 from prumo_assist.domains.write.zettlr import PROFILE_RELPATH, generate_profile, profile_issues
 
 
+def _pj(tmp_path: Path) -> Path:
+    """Marca ``tmp_path`` como raiz de pj_* (o gerador exige o ``.bib``)."""
+    (tmp_path / "references").mkdir(exist_ok=True)
+    (tmp_path / "references" / "_references.bib").write_text("")
+    return tmp_path
+
+
 def _gen(tmp_path: Path) -> Any:
+    _pj(tmp_path)
     with patch(
         "prumo_assist.domains.write.zettlr.resolve_csl",
         return_value=Path("/fake/styles/apa.csl"),
@@ -46,6 +55,7 @@ def test_profile_carries_style_metadata_and_csl(tmp_path: Path) -> None:
 def test_profile_omits_csl_when_style_unavailable(tmp_path: Path) -> None:
     from prumo_assist.core.csl import CslNotFoundError
 
+    _pj(tmp_path)
     with patch(
         "prumo_assist.domains.write.zettlr.resolve_csl",
         side_effect=CslNotFoundError("sem estilo"),
@@ -65,6 +75,14 @@ def test_profile_includes_reference_doc_when_present(tmp_path: Path) -> None:
 
 def test_profile_is_idempotent(tmp_path: Path) -> None:
     assert _gen(tmp_path) == _gen(tmp_path)
+
+
+def test_generate_profile_rejects_non_pj_root(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError) as exc:
+        generate_profile(tmp_path)
+    msg = str(exc.value)
+    assert "references/_references.bib" in msg
+    assert "--path" in msg
 
 
 def test_profile_issues_empty_when_absent(tmp_path: Path) -> None:

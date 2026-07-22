@@ -19,6 +19,13 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - Skills de escrita/consulta instruem citação Pandoc `[@key]`; leitura/lint aceitam as duas gramáticas.
 - `wiki lint` e `paper graph` flavor-agnósticos; links markdown contam como link de entrada no cálculo de órfãs.
 
+### Corrigido
+- `prumo write zettlr-profile` valida a raiz do pj_* (exige `references/_references.bib`) em vez de criar o perfil em diretório arbitrário.
+- Pitch do pacote (`pyproject.toml`, `prumo --help`, `CITATION.cff`) atualizado: Zettlr no lugar de Obsidian.
+
+### Removido
+- Helper morto `_assert_no_missing_citekeys` (parser do pipeline legado `zotero.lua`, sem call-site desde o pipeline live-docx).
+
 ### Documentação
 - ADR-0015 — política de release pré-1.0 (PATCH para tudo releasável; MINOR reservado a breaking/marco).
 - Guia one-time de setup do Zettlr em `docs/project_guide.md` do pj_base; ROADMAP marca `prumo write preview` como superado pelo Zettlr para projetos novos.
