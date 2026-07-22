@@ -125,6 +125,24 @@ def list_styles_command(
         console.emit({"styles": styles})
 
 
+@write_app.command("zettlr-profile")
+def zettlr_profile_command(
+    path: Annotated[Path, typer.Option("--path", help="Raiz do pj_*.")] = Path("."),
+    style: Annotated[str, typer.Option("--style", help="Estilo CSL (default: apa).")] = "apa",
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """(Re)gera o perfil de export docx do Zettlr (defaults file) do projeto."""
+    with cli_run(json_mode=json_mode, catches=(OSError,)) as console:
+        from prumo_assist.domains.write.zettlr import generate_profile
+
+        out = generate_profile(path.resolve(), style=style)
+        console.success(
+            f"Perfil Zettlr gerado: {out}. Importe uma vez no Zettlr "
+            "(Assets Manager → defaults files); re-rode este comando se o prumo for reinstalado."
+        )
+        console.emit({"profile": str(out)})
+
+
 @write_app.command("extract-comments")
 def extract_comments_command(
     docx: Annotated[Path, typer.Argument(help="Caminho do .docx revisado.")],
