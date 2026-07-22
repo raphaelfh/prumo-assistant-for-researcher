@@ -6,6 +6,16 @@
 
 A versão é a **interface pública** do plugin para quem consome (`marketplace update` + `/reload-plugins`). Bumpar significa "tem algo que o usuário precisa saber". Não bumpe quando a mudança é invisível para quem usa o plugin.
 
+## Pré-1.0 — mapeamento vigente (ADR-0015)
+
+Enquanto a versão for `0.x`, este mapeamento SUBSTITUI as seções MINOR/PATCH abaixo:
+
+- **PATCH** (`0.62.0 → 0.62.1`): tudo que é releasável — inclusive skill nova, subcomando novo, template alterado. "Atualize sem medo."
+- **MINOR** (`0.62.x → 0.63.0`): breaking (**⚠ Breaking** no CHANGELOG) ou fechamento de fase/marco do ROADMAP. "Leia o changelog antes de atualizar."
+- **MAJOR**: reservado ao `1.0.0`, quando o SemVer pleno reassume e as seções abaixo voltam a ser o mapeamento literal.
+
+As seções seguintes permanecem como referência do espírito de cada categoria.
+
 ## Quando bumpar `PATCH` (0.1.0 → 0.1.1)
 
 Mudanças que **não alteram o que o usuário pode invocar** e não mudam comportamento esperado.
