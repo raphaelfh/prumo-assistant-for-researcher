@@ -54,6 +54,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-06-11-repo-organization-redesign-design]] · approved
 - [[superpowers/specs/2026-06-13-researcher-pipeline-design]] · approved
 - [[superpowers/specs/2026-07-05-review-docx-criticmarkup-design]] · draft
+- [[superpowers/specs/2026-07-22-zero-friction-onboarding-design]] · draft
 
 **Plans ativos:**
 
