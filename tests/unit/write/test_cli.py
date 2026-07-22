@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from prumo_assist.cli import app
@@ -157,3 +158,23 @@ def test_write_draft_invalid_kind_fails(tmp_path: Path) -> None:
     )
     assert result.exit_code == 1
     assert "--kind" in result.output
+
+
+def test_zettlr_entry_calls_canonical_docx_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page = tmp_path / "draft.md"
+    page.write_text("x")
+    called: dict[str, object] = {}
+
+    def fake_export(*, page: Path, to: str = "docx", **kwargs: object) -> Path:
+        called["page"] = page
+        called["to"] = to
+        return tmp_path / "out.docx"
+
+    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", fake_export)
+    monkeypatch.setattr("sys.argv", ["prumo-zettlr-export", str(page)])
+    from prumo_assist.domains.write.cli import zettlr_export_entry
+
+    zettlr_export_entry()
+    assert called == {"page": page.resolve(), "to": "docx"}

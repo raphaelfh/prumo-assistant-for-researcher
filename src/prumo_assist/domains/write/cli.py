@@ -266,3 +266,20 @@ def draft_command(
             f"Draft gravado em {result.output_path} ({result.words_generated} palavras)."
         )
         console.emit(result.model_dump(mode="json"))
+
+
+def zettlr_export_entry() -> None:
+    """Console-script pro custom command do Zettlr: `prumo-zettlr-export <arquivo.md>`.
+
+    O Zettlr invoca o comando com o caminho absoluto do arquivo
+    selecionado como único argumento e mostra a saída ao usuário.
+    Caminho canônico: mesmas guardas do ``prumo write export --to docx``.
+    """
+    import sys
+
+    with cli_run(json_mode=False, catches=(FileNotFoundError, ValueError, RuntimeError)) as console:
+        if len(sys.argv) != 2:
+            raise PrumoError("uso: prumo-zettlr-export <arquivo.md>")
+        page = Path(sys.argv[1]).resolve()
+        result = export.export(page=page, to="docx")
+        console.success(f"exportado: {result}")
