@@ -7,6 +7,22 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+- `prumo write zettlr-profile` — gera o defaults file de export docx do Zettlr (`docs/templates/prumo-docx.yaml`) com a cadeia `citeproc → zotero_live_docx.lua` (spec 2026-07-22; primeiro release sob ADR-0015).
+- Console-script `prumo-zettlr-export` — entrypoint para o custom command do Zettlr disparar o export docx canônico (guardas intactas).
+- `core/citations.py` — gramática única de citekey (Pandoc + legado), consumida por export, compose, wiki lint e paper graph (invariante I7 do spec 2026-07-05).
+- Export docx canônico falha alto em citekey ausente do `.bib` (warning do citeproc promovido a erro).
+- `prumo doctor` acusa perfil Zettlr quebrado (filtro/reference-doc inexistentes) com o fix embutido.
+
+### Mudado
+- `templates/pj_base` v2 (Zettlr-ready): sai o vault Obsidian (`.obsidian/`, `references/views/`, `docs/canvas/`); templates nascem Pandoc-puros (`[@key]`, sem callouts); entra `docs/templates/reference.docx` e frontmatter `bibliography:` nos drafts. Projetos existentes não são tocados (Princípio: legado intocado — `normalize_markdown` permanece).
+- Skills de escrita/consulta instruem citação Pandoc `[@key]`; leitura/lint aceitam as duas gramáticas.
+- `wiki lint` e `paper graph` flavor-agnósticos; links markdown contam como link de entrada no cálculo de órfãs.
+
+### Documentação
+- ADR-0015 — política de release pré-1.0 (PATCH para tudo releasável; MINOR reservado a breaking/marco).
+- Guia one-time de setup do Zettlr em `docs/project_guide.md` do pj_base; ROADMAP marca `prumo write preview` como superado pelo Zettlr para projetos novos.
+
 ## [0.62.0] - 2026-06-12
 
 ### Removido

@@ -1,7 +1,7 @@
 # prumo-assist
 
 > **Knowledge, bibliography & academic writing assistant for clinical research.**
-> Lives between Zotero, Obsidian, and your agent-host.
+> Lives between Zotero, your wiki (Markdown; Zettlr front — Obsidian legacy), and your agent-host.
 
 Plugin para agentes como [Claude Code](https://code.claude.com) para pesquisa. 
 Cobre cinco domínios: gerir conhecimento (wiki),
