@@ -22,6 +22,7 @@ from prumo_assist.domains.write.export import (
     MissingBibliographyPlaceholderError,
     ZoteroCitekeyNotFoundError,
     _assert_bibliography_present,
+    _assert_no_citeproc_missing,
     _assert_no_missing_citekeys,
     _build_pandoc_cmd,
     _docx_zotero_field_counts,
@@ -179,6 +180,25 @@ def test_assert_pane_error_takes_precedence_with_specific_message() -> None:
     assert "JANELA PRINCIPAL" in str(exc.value)
     # Não deve listar as keys individuais nesse caso — a causa é outra.
     assert "biblioteca ativa" not in str(exc.value)
+
+
+# ---------- _assert_no_citeproc_missing ----------
+
+
+def test_citeproc_missing_clean_stderr_passes() -> None:
+    _assert_no_citeproc_missing("[INFO] Running filter citeproc\n")
+
+
+def test_citeproc_missing_raises_with_keys_and_fix() -> None:
+    stderr = (
+        "[WARNING] Citeproc: citation smith2024 not found\n"
+        "[WARNING] Citeproc: citation ghost2020 not found\n"
+    )
+    with pytest.raises(ZoteroCitekeyNotFoundError) as exc:
+        _assert_no_citeproc_missing(stderr)
+    msg = str(exc.value)
+    assert "smith2024" in msg and "ghost2020" in msg
+    assert "sync-paper" in msg
 
 
 # ---------- _assert_bibliography_present (post-build) ----------

@@ -180,6 +180,24 @@ def _assert_no_missing_citekeys(filter_stdout: str) -> None:
     )
 
 
+_CITEPROC_MISSING_RE = re.compile(r"\[WARNING\] Citeproc: citation (\S+) not found")
+
+
+def _assert_no_citeproc_missing(stderr: str) -> None:
+    """Promove o warning do citeproc (citekey ausente do ``.bib``) a erro.
+
+    O pandoc sai com exit 0 deixando a citação como ``(key?, ...)`` no
+    docx — inaceitável num artefato de entrega (spec 2026-07-22).
+    """
+    missing = sorted(set(_CITEPROC_MISSING_RE.findall(stderr)))
+    if missing:
+        raise ZoteroCitekeyNotFoundError(
+            f"{len(missing)} citekey(s) não existem no .bib: "
+            + ", ".join(missing)
+            + ". Confira a grafia ou rode `make sync-paper` para atualizar o .bib."
+        )
+
+
 def _docx_zotero_field_counts(docx_path: Path) -> tuple[int, int]:
     """Conta ocorrências de ``ZOTERO_ITEM`` e ``ZOTERO_BIBL`` em ``word/document.xml``.
 
@@ -371,8 +389,13 @@ def export(
             zotero_lookup_file=zotero_lookup_file,
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
-        subprocess.run(cmd, check=True, text=True)
+        proc = subprocess.run(cmd, text=True, capture_output=True)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"pandoc falhou (exit {proc.returncode}):\n{proc.stderr.strip()[-2000:]}"
+            )
         if to == "docx":
+            _assert_no_citeproc_missing(proc.stderr)
             _assert_bibliography_present(out)
 
         if to == "pdf":
@@ -474,8 +497,13 @@ def compose(
         )
         if meta.get("toc"):
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]
-        subprocess.run(cmd, check=True, text=True)
+        proc = subprocess.run(cmd, text=True, capture_output=True)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"pandoc falhou (exit {proc.returncode}):\n{proc.stderr.strip()[-2000:]}"
+            )
         if to == "docx":
+            _assert_no_citeproc_missing(proc.stderr)
             _assert_bibliography_present(out)
 
         if to == "pdf":
