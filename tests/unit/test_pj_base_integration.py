@@ -31,15 +31,20 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
         assert (target / rel).exists(), f"faltou núcleo: {rel}"
 
     # Núcleo: ausentes (são módulo / nascem on-demand)
+    # (docs/templates/ existe desde o core — o perfil Zettlr é gerado ali no
+    # próprio init; "docs/templates/README.md" é conteúdo do módulo clinical.)
     for rel in [
         "docs/protocol.md",
-        "docs/templates",
+        "docs/templates/README.md",
         ".claude/rules/ml_stack.md",
         ".claude/rules/coding_style.md",
         "docs/concepts",
         "docs/findings",
     ]:
         assert not (target / rel).exists(), f"núcleo não deveria ter: {rel}"
+
+    # Núcleo: perfil de export do Zettlr é gerado por init, não por módulo.
+    assert (target / "docs" / "templates" / "prumo-docx.yaml").is_file()
 
     # CLAUDE.md genérico (sem ML), com Início rápido
     claude = (target / "CLAUDE.md").read_text()

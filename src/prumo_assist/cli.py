@@ -499,6 +499,19 @@ def init_command(
             _overlay(_info.path, target)
             modules_applied.append(_name)
 
+        # Perfil de export do Zettlr — caminhos absolutos por máquina,
+        # então é gerado aqui (nunca vem do template). Não pode derrubar
+        # o scaffold: falha vira warning com o fix embutido.
+        zettlr_profile: str | None = None
+        try:
+            from prumo_assist.domains.write.zettlr import generate_profile
+
+            zettlr_profile = str(generate_profile(target))
+        except (OSError, PrumoError) as e:
+            console.warn(
+                f"Perfil Zettlr não gerado ({e}). Rode depois: `prumo write zettlr-profile`."
+            )
+
         payload = {
             "project": str(target),
             "template": str(template),
@@ -508,6 +521,7 @@ def init_command(
             "git_initialized": git_initialized,
             "integrations": installed_summary,
             "modules_applied": modules_applied,
+            "zettlr_profile": zettlr_profile,
             "version": __version__,
         }
 

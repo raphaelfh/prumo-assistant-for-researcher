@@ -175,3 +175,13 @@ def test_init_without_modules_is_minimal(tmp_path: Path) -> None:
     assert not (target / "docs" / "protocol.md").exists()
     assert not (target / ".claude" / "rules" / "ml_stack.md").exists()
     assert json.loads(result.stdout)["modules_applied"] == []
+
+
+def test_init_generates_zettlr_profile(tmp_path: Path) -> None:
+    target = tmp_path / "pj_demo"
+    result = runner.invoke(app, ["init", str(target), "--json"])
+    assert result.exit_code == 0, result.output
+    profile = target / "docs" / "templates" / "prumo-docx.yaml"
+    assert profile.is_file()
+    payload = json.loads(result.stdout)
+    assert payload["zettlr_profile"] == str(profile)
