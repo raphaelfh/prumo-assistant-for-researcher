@@ -1,7 +1,9 @@
 <!--
 Sync impact report:
-  Version: 1.1.0 (2026-06-11) — emenda via PR chore/repo-organization-redesign
-  Anterior: 1.0.0 (2026-05-03)
+  Version: 1.1.1 (2026-07-14) — emenda PATCH: correção textual do Princípio VI
+    ("a burra de prova" → "o ônus da prova"). Nenhuma norma alterada.
+  Anterior: 1.1.0 (2026-06-11) — emenda via PR chore/repo-organization-redesign
+  1.0.0 (2026-05-03)
 
   Added principles:
     - VII. Artefatos derivados são gerados
@@ -76,7 +78,7 @@ Todo artefato gerado pelo prumo-assist (callout de paper, export, peer-review, i
 
 Hooks plugáveis, cache de LLM, lockfile, eval gates em CI, multi-host, packs externos: TUDO está desenhado em [`ROADMAP.md`](../ROADMAP.md), mas só vira código quando uma dor real justifica.
 
-- Adições especulativas DEVEM ser recusadas — a burra de prova fica com quem quer adicionar.
+- Adições especulativas DEVEM ser recusadas — o ônus da prova fica com quem quer adicionar.
 - Cada item na seção "Decisões deliberadas postergadas" do ROADMAP tem um *trigger* concreto. Sem o trigger, não entra.
 - Refatorações que viram abstrações novas DEVEM eliminar mais código do que introduzem (saldo líquido negativo) ou reduzir complexidade verificável.
 - Três linhas de código semelhantes são preferíveis a uma abstração prematura.
@@ -116,6 +118,6 @@ Esta constitution é o documento de mais alta autoridade para decisões de desig
 - Emendas DEVEM passar por PR explícito que atualiza este arquivo + a tabela "Sync impact report" no topo.
 - Bump de versão da constitution segue [SemVer](https://semver.org/lang/pt-BR/) aplicado a *princípios*: `MAJOR` quando um princípio é removido ou redefinido, `MINOR` quando um princípio é adicionado, `PATCH` para clarificação textual.
 - Decisões estruturais pontuais são registradas em `docs/adr/` (MADR minimal, `adr-NNNN-slug.md`, imutáveis após aceitas — revisão = ADR novo). Princípios (normas vivas) moram aqui; o que muda por emenda nunca mora num ADR.
-- Versão atual: **1.1.0** (2026-06-11).
+- Versão atual: **1.1.1** (2026-07-14).
 - Princípios novos DEVEM ter trigger concreto (não "pode ser útil no futuro") — coerência com o princípio VI.
 - O agent-host (Claude Code, Cursor, Codex, Gemini) NÃO pode reescrever esta constitution sem revisão humana.
