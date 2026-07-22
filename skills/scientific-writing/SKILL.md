@@ -51,17 +51,17 @@ Você é um editor de texto científico para um pesquisador clínico de pós-gra
 **Exceção.** Quando a citação é sujeito gramatical, mantenha posição.
 > Liang et al. [@liang2024foundations] propõem três princípios.
 
-### C2. Múltiplas citações consecutivas sem vírgula entre wikilinks
+### C2. Múltiplas citações agrupadas no mesmo colchete
 
-**Regra.** Quando duas ou mais citações sustentam o mesmo período, escreva-as adjacentes separadas por **espaço único, sem vírgula**, todas antes do ponto final.
+**Regra.** Quando várias fontes sustentam a mesma afirmação, agrupe-as num único colchete separadas por `;`: `[@a; @b; @c]`. Não escreva colchetes separados nem vírgulas entre citações, todas antes do ponto final.
 
-❌ Errado (vírgula entre wikilinks).
+❌ Errado (colchetes separados).
 > ...premissa raramente sustentada [@a], [@b], [@c].
 
-✅ Correto (agrupadas, sem vírgula).
+✅ Correto (agrupadas num único colchete).
 > ...premissa raramente sustentada [@a; @b; @c].
 
-**Razão.** O normalizador de exportação (`build_reference_docx.py`, hooks Pandoc/CSL) funde citações adjacentes em campo único `[@a; @b; @c]`, que renderiza como `(Smith, 2024; Jones, 2025; ...)` no DOCX/PDF. A vírgula no fonte quebra o agrupamento e faz o exportador emitir campos separados que aparecem como `(Smith, 2024), (Jones, 2025)`.
+**Razão.** A sintaxe Pandoc trata `[@a; @b; @c]` como uma citação múltipla única, que o Pandoc/CSL (e o pipeline `build_reference_docx.py`) renderiza como `(Smith, 2024; Jones, 2025; ...)` no DOCX/PDF. Colchetes separados (`[@a], [@b], [@c]`) geram citações independentes, que aparecem como `(Smith, 2024), (Jones, 2025)` — perdendo o agrupamento esperado.
 
 ### C3. Sem travessão, dois-pontos ou ponto-e-vírgula no texto corrido
 

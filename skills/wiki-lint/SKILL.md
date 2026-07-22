@@ -64,8 +64,8 @@ Reportar lista de órfãs com caminho relativo.
 Toda citação `[@foo]` (ou legado `[[@foo]]`) deve ter entrada `@<tipo>{foo,…}` em `references/_references.bib`.
 
 ```
-# Coletar citekeys referenciadas:
-Grep "\\[\\[@[^\\]]+\\]\\]" docs/ references/notes/ -o
+# Coletar citekeys referenciadas (forma nova [@foo] + legado [[@foo]]):
+Grep "\\[\\[@[^\\]]+\\]\\]|\\[@[^\\]]+\\]" docs/ references/notes/ -o
 
 # Coletar citekeys definidas:
 Grep "^@\\w+\\{([^,]+)," references/_references.bib -o
