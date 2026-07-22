@@ -1,6 +1,6 @@
 ---
 name: scientific-writing
-description: "Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc — pontuação (sem travessão / dois-pontos / ponto-e-vírgula em texto corrido), posição de citação (antes do ponto), agrupamento de múltiplas citações sem vírgula entre wikilinks, atenuação de superlativos, coesão entre períodos. Preserva conteúdo (forma, não substância)."
+description: "Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc — pontuação (sem travessão / dois-pontos / ponto-e-vírgula em texto corrido), posição de citação (antes do ponto), agrupamento de múltiplas citações num único colchete separadas por ponto-e-vírgula ([@a; @b]), atenuação de superlativos, coesão entre períodos. Preserva conteúdo (forma, não substância)."
 when_to_use: |
   Quando o usuário pedir "aplica as convenções", "reescreva no padrão científico",
   "limpa a pontuação", "arruma as citações", "tira os travessões", "padroniza
