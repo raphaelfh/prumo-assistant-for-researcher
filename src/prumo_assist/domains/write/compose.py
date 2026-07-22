@@ -20,6 +20,7 @@ from pathlib import Path
 import yaml
 
 from prumo_assist.core.bib import extract_field, parse_bib
+from prumo_assist.core.citations import scan_citekeys
 from prumo_assist.core.note_paths import extract_path
 from prumo_assist.core.paths import find_resource
 from prumo_assist.domains.write.schemas.v1 import (
@@ -250,7 +251,7 @@ def write_output(
         kind=kind,
         sections_filled=sections_filled or [],
         sections_skipped=sections_skipped or [],
-        citations_used=_extract_citekeys_used(content),
+        citations_used=scan_citekeys(content),
         references_missing=extract_missing_refs(content),
         words_generated=len(content.split()),
     )
@@ -260,9 +261,3 @@ def extract_missing_refs(text: str) -> list[str]:
     """Captura ``[REF FALTANTE: <descrição>]`` em ``text``."""
     pattern = re.compile(r"\[REF FALTANTE:\s*(?P<desc>[^\]]+)\]")
     return [m.group("desc").strip() for m in pattern.finditer(text)]
-
-
-def _extract_citekeys_used(text: str) -> list[str]:
-    """Captura ``[[@<citekey>]]`` em ``text``; retorna lista única ordenada."""
-    pattern = re.compile(r"\[\[@(?P<key>[a-zA-Z0-9._+-]+)(?:\|[^\]]+)?\]\]")
-    return sorted({m.group("key") for m in pattern.finditer(text)})

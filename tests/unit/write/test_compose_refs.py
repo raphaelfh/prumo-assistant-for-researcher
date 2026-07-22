@@ -1,46 +1,41 @@
-"""Tests para extract_missing_refs e validação de citekey."""
+"""Tests para refs faltantes e citekeys usados no compose (gramática única)."""
 
 from __future__ import annotations
 
-from prumo_assist.domains.write.compose import (
-    _extract_citekeys_used,
-    extract_missing_refs,
-)
+from pathlib import Path
+
+from prumo_assist.domains.write.compose import extract_missing_refs, write_output
 
 
-def test_extract_missing_refs_finds_one() -> None:
-    text = "Claim X [REF FALTANTE: difusão latente]."
-    assert extract_missing_refs(text) == ["difusão latente"]
-
-
-def test_extract_missing_refs_finds_multiple() -> None:
-    text = "[REF FALTANTE: a]. Outra. [REF FALTANTE: b multi-word]."
-    assert extract_missing_refs(text) == ["a", "b multi-word"]
-
-
-def test_extract_missing_refs_strips_whitespace() -> None:
-    text = "[REF FALTANTE:  with spaces  ]"
-    assert extract_missing_refs(text) == ["with spaces"]
+def test_extract_missing_refs_captures_descriptions() -> None:
+    text = "Claim [REF FALTANTE: coorte multicêntrica]. Outra [REF FALTANTE: guideline 2025]."
+    assert extract_missing_refs(text) == ["coorte multicêntrica", "guideline 2025"]
 
 
 def test_extract_missing_refs_empty() -> None:
-    assert extract_missing_refs("texto sem placeholders") == []
+    assert extract_missing_refs("texto sem pendências") == []
 
 
-def test_extract_citekeys_simple() -> None:
-    text = "...claim [[@smith2024]]. Outro [[@doe2025]]."
-    assert _extract_citekeys_used(text) == ["doe2025", "smith2024"]
+def test_write_output_reports_citations_in_both_flavors(tmp_path: Path) -> None:
+    content = "Intro [@smith2024cohort] e legado [[@jones2023trial]] e narrativa @lee2025core.\n"
+    result = write_output(
+        content=content,
+        pj_path=tmp_path,
+        kind="paper",
+        mode="drafts",
+        date="2026-07-22",
+        slug="s1",
+    )
+    assert result.citations_used == ["jones2023trial", "lee2025core", "smith2024cohort"]
 
 
-def test_extract_citekeys_with_alias() -> None:
-    text = "[[@smith2024|Smith et al., 2024]] mostra X."
-    assert _extract_citekeys_used(text) == ["smith2024"]
-
-
-def test_extract_citekeys_dedup() -> None:
-    text = "[[@a]] foo [[@a]] bar [[@b]]."
-    assert _extract_citekeys_used(text) == ["a", "b"]
-
-
-def test_extract_citekeys_empty() -> None:
-    assert _extract_citekeys_used("sem citekeys") == []
+def test_write_output_does_not_truncate_composite_keys(tmp_path: Path) -> None:
+    result = write_output(
+        content="[@vanDijk2019:pt2]\n",
+        pj_path=tmp_path,
+        kind="paper",
+        mode="drafts",
+        date="2026-07-22",
+        slug="s2",
+    )
+    assert result.citations_used == ["vanDijk2019:pt2"]

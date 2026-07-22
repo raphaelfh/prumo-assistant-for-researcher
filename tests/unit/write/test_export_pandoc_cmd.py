@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from prumo_assist.core.citations import scan_citekeys
 from prumo_assist.domains.write.export import (
     MissingBibliographyPlaceholderError,
     ZoteroCitekeyNotFoundError,
@@ -27,7 +28,6 @@ from prumo_assist.domains.write.export import (
     _zotero_bibliography_docx_filter,
     _zotero_live_docx_filter,
     _zotero_lua_filter,
-    scan_citekeys,
 )
 
 # ---------- filter resolution ----------
