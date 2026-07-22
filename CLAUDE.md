@@ -1,6 +1,6 @@
 # prumo-assist — guia do repo
 
-Plugin Claude Code + CLI Python (`prumo`) de pesquisa clínica: bibliografia (Zotero/BBT), wiki (Obsidian), protocolo (PICOT) e escrita (Pandoc/Typst). Prosa em pt-BR; identificadores, comandos e nomes de schema em inglês.
+Plugin Claude Code + CLI Python (`prumo`) de pesquisa clínica: bibliografia (Zotero/BBT), wiki (Markdown; front Zettlr — legado Obsidian), protocolo (PICOT) e escrita (Pandoc/Typst). Prosa em pt-BR; identificadores, comandos e nomes de schema em inglês.
 
 ## Regras
 

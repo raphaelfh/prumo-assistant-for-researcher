@@ -3,6 +3,7 @@ title: ""
 authors: []
 ciaap: ""             # CAAE quando aprovado
 plataforma_brasil: "" # link ou ID
+bibliography: ../../references/_references.bib
 ---
 
 # Resumo
@@ -65,3 +66,8 @@ plataforma_brasil: "" # link ou ID
      - HIPAA / GDPR se aplicável
      - DUAs (Data Use Agreements) das coortes
      - Conflitos de interesse -->
+
+# Referências
+
+::: {#refs}
+:::

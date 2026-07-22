@@ -32,7 +32,7 @@ template, usando os inputs estruturados do projeto.
 
 ## Regras invioláveis
 
-1. **Citação strict.** Só `[[@citekey]]` que existe em `references/_references.bib`. Se a claim precisa de paper fora do acervo, escreva `[REF FALTANTE: <descrição curta>]`. Nunca invente citekey ou escreva `[Smith et al., 2024]` sem wikilink.
+1. **Citação strict.** Só `[@citekey]` que existe em `references/_references.bib`. Se a claim precisa de paper fora do acervo, escreva `[REF FALTANTE: <descrição curta>]`. Nunca invente citekey ou escreva `[Smith et al., 2024]` sem citekey.
 2. **Não toca `## References`.** Lista bibliográfica é gerada por export Pandoc.
 3. **Use PicotSpec do projeto** se existir (`.claude/picot.toml`). Population = coorte; Intervention = método; Comparison = baseline; Outcome = métrica primária; Hypothesis.statement = hipótese formal.
 4. **Use callouts `_extract.md`** dos papers como insumo. Extract content tem PICOT/Método/Resultados/Limitações estruturados.
@@ -75,7 +75,7 @@ Tom de cada section:
 
 ### 4. Validar citação antes de gravar
 
-Cada `[[@<key>]]` deve estar em `inputs.citekeys` (conforme JSON do passo 1). Se não está, substituir por `[REF FALTANTE: <descrição>]`.
+Cada `[@<key>]` deve estar em `inputs.citekeys` (conforme JSON do passo 1). Se não está, substituir por `[REF FALTANTE: <descrição>]`.
 
 ### 5. Escrever output
 

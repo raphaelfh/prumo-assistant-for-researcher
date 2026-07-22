@@ -1,9 +1,0 @@
-{
-  "alwaysUpdateLinks": true,
-  "newLinkFormat": "shortest",
-  "useMarkdownLinks": false,
-  "attachmentFolderPath": "references/pdfs",
-  "showLineNumber": true,
-  "promptDelete": true,
-  "strictLineBreaks": false
-}

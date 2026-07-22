@@ -9,11 +9,13 @@ uv sync                        # ambiente Python base
 /plugin install prumo-assist   # no Claude Code: skills + agents + MCP qmd
 ```
 
+Editor recomendado: [Zettlr](https://www.zettlr.com) ≥ 3.0 — preview vivo de citações; setup em `docs/project_guide.md`.
+
 ## Estrutura
 
 ```
 pj_<nome>/
-├── docs/         Wiki + project_guide.md + decisions/ + canvas/
+├── docs/         Wiki + project_guide.md + decisions/ + templates/
 ├── references/   Acervo bibliográfico (notas, .bib, pdfs) — Zotero
 └── .claude/      Rules, config, make/
 ```

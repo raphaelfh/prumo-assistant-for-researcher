@@ -19,7 +19,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
 ```
 ┌──────────────┐ ┌──────────────┐ ┌────────────┐ ┌──────────────┐ ┌──────────────┐
 │ 📚 paper     │ │ 🧠 wiki      │ │ 📥 capture │ │ 🧪 protocol  │ │ ✍️ write      │
-│ (Zotero+BBT) │ │ (Obsidian)   │ │ (router)   │ │ (PICOT+ADR)  │ │ (Pandoc/Typst)│
+│ (Zotero+BBT) │ │ (Markdown)†  │ │ (router)   │ │ (PICOT+ADR)  │ │ (Pandoc/Typst)│
 │              │ │              │ │            │ │              │ │              │
 │ sync · graph │ │ lint · index │ │ capture    │ │ propagate    │ │ export       │
 │ find · lint  │ │ stats        │ │ <input>    │ │ diff         │ │ compose      │
@@ -29,7 +29,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
 │  annotations │ │              │ │            │ │              │ │ disclosure   │
 │ sync-notes   │ │              │ │            │ │              │ │ list-        │
 │ sync-all     │ │              │ │            │ │              │ │   templates  │
-│ migrate-     │ │              │ │            │ │              │ │              │
+│ migrate-     │ │              │ │            │ │              │ │zettlr-profile│
 │  layout      │ │              │ │            │ │              │ │              │
 └──────┬───────┘ └──────┬───────┘ └─────┬──────┘ └──────┬───────┘ └──────┬───────┘
        └────────────────┴───────────────┼────────────────┴────────────────┘
@@ -40,14 +40,16 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
                                  ┌──────▼──────────────────────┐
                                  │ core/ (transversal)         │
                                  │ bib · csl · obsidian ·      │
-                                 │ skills · paths · cli_op ·   │
-                                 │ output · deps · note_paths ·│
-                                 │ scaffold · config ·         │
-                                 │ provenance*                 │
+                                 │ citations · skills · paths ·│
+                                 │ cli_op · output · deps ·    │
+                                 │ note_paths · scaffold ·     │
+                                 │ config · provenance*        │
                                  └─────────────────────────────┘
 ```
 
 \* `core/provenance.py` está desenhado mas ainda não ligado em todos os produtores — ver constitution V e ROADMAP.
+
+† front do wiki: Zettlr (novos) / Obsidian (legado) — domínio `wiki` é flavor-agnóstico (lê Markdown puro), ver ROADMAP.
 
 ## Layout do repositório
 
@@ -117,7 +119,7 @@ _meta.md ganha extracted_at / extracted_template_hash (staleness por hash)
 
 - **Skill** — capability agêntica empacotada como `SKILL.md` universal.
 - **Integration** — adapter do formato canônico pro layout de um agent-host.
-- **`pj_*`** — projeto de pesquisa do usuário; vault Obsidian + `.claude/` scaffoldado por `prumo init`.
+- **`pj_*`** — projeto de pesquisa do usuário; vault Zettlr (novos) / Obsidian (legado) + `.claude/` scaffoldado por `prumo init`.
 - **Determinismo** — `agentic` | `deterministic` | `hybrid` (frontmatter `prumo.determinism`).
 - **Layout α** — `references/notes/<citekey>/` com `_meta/_extract/_annotations/note__*` (ADR-0008).
 - **Bloco delimitado** — região machine-owned `<!-- x:begin -->…<!-- x:end -->` (ADR-0009).

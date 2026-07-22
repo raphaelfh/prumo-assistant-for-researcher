@@ -2,7 +2,7 @@
 
 Detecta problemas estruturais que LLM não precisa ver:
 
-- Citekeys ``[[@key]]`` referenciados mas ausentes do `.bib`.
+- Citekeys marcados (``[@key]`` Pandoc ou ``[[@key]]`` legado) ausentes do .bib.
 - Páginas órfãs (sem links de entrada).
 - Frontmatter ausente em páginas tipadas (``concepts/``, ``entities/``, etc.).
 - ``_index.md`` ou ``_log.md`` ausentes.
@@ -25,11 +25,14 @@ from typing import Any
 import yaml
 
 from prumo_assist.core.bib import parse_bib
+from prumo_assist.core.citations import scan_marked_citekeys
 from prumo_assist.core.obsidian import split_frontmatter
 
 EXPECTED_DIRS = ("concepts", "entities", "findings", "sources", "decisions")
-WIKILINK_RE = re.compile(r"\[\[@([A-Za-z0-9_-]+)\]\]")
 PAGE_LINK_RE = re.compile(r"\[\[([^\]@\|]+)(?:\|[^\]]+)?\]\]")
+# Links markdown padrão [texto](alvo) — projetos Pandoc-puros não usam
+# wikilink de página; sem isto, toda página nova viraria "órfã".
+MD_LINK_RE = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)]+)\)")
 LOG_PREFIX_RE = re.compile(
     r"^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|decision|milestone|note) \| .+$"
 )
@@ -77,14 +80,16 @@ def lint(pj_path: Path) -> dict[str, Any]:
         if parts and parts[0] in EXPECTED_DIRS and not text.startswith("---"):
             issues.append(WikiIssue("warning", "no_frontmatter", "sem frontmatter", page=rel))
 
-        # Citekeys quebrados
-        for ck in WIKILINK_RE.findall(text):
+        # Citekeys quebrados — formas marcadas nas duas gramáticas
+        # ([@key] Pandoc e [[@key]] legado); narrativa solta fica fora
+        # de propósito (handle @fulano em prosa não é citação).
+        for ck in scan_marked_citekeys(text):
             if bib_keys and ck not in bib_keys:
                 issues.append(
                     WikiIssue(
                         "warning",
                         "broken_citekey",
-                        f"[[@{ck}]] não existe no .bib",
+                        f"@{ck} não existe no .bib",
                         page=rel,
                     )
                 )
@@ -92,6 +97,14 @@ def lint(pj_path: Path) -> dict[str, Any]:
         # Links de entrada (para detectar páginas órfãs)
         for target in PAGE_LINK_RE.findall(text):
             stem = _link_stem(target)
+            if stem in incoming:
+                incoming[stem] += 1
+
+        for md_target in MD_LINK_RE.findall(text):
+            target = md_target.split("#")[0].strip()
+            if target.startswith(("http://", "https://", "mailto:")):
+                continue
+            stem = Path(target).stem
             if stem in incoming:
                 incoming[stem] += 1
 

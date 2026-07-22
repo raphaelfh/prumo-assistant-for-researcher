@@ -155,3 +155,37 @@ def test_lint_ignores_low_frequency_concepts(tmp_path: Path) -> None:
     )
     report = lint(pj)
     assert not any(i["code"] == "concept_candidate" for i in report["issues"])
+
+
+def test_lint_flags_broken_citekey_in_pandoc_form(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path, "@article{real,title={X}}\n")
+    (pj / "docs" / "findings" / "f2.md").write_text(
+        "---\ntype: finding\n---\n\nVer [@real] e [@ghost2020] e grupo [@real; @ghost2021].\n"
+    )
+    report = lint(pj)
+    msgs = [i["message"] for i in report["issues"] if i["code"] == "broken_citekey"]
+    assert any("ghost2020" in m for m in msgs)
+    assert any("ghost2021" in m for m in msgs)
+    assert not any("real" in m for m in msgs)
+
+
+def test_lint_ignores_bare_handles_in_prose(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path, "@article{real,title={X}}\n")
+    (pj / "docs" / "findings" / "f3.md").write_text(
+        "---\ntype: finding\n---\n\nO autor @fulano comentou. Cite [@real].\n"
+    )
+    report = lint(pj)
+    assert not any(
+        i["code"] == "broken_citekey" and "fulano" in i["message"] for i in report["issues"]
+    )
+
+
+def test_lint_counts_markdown_links_as_incoming(tmp_path: Path) -> None:
+    pj = _setup_wiki(tmp_path)
+    (pj / "docs" / "concepts" / "alpha.md").write_text("---\ntype: concept\n---\n\nbody\n")
+    (pj / "docs" / "concepts" / "beta.md").write_text(
+        "---\ntype: concept\n---\n\nVer [alpha](alpha.md). E [[beta]] auto-ref.\n"
+    )
+    report = lint(pj)
+    orphans = [i["page"] for i in report["issues"] if i["code"] == "orphan_page"]
+    assert "alpha" not in orphans

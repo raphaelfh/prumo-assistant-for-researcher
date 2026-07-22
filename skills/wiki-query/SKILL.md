@@ -1,6 +1,6 @@
 ---
 name: wiki-query
-description: "Responde pergunta ancorada no wiki do pj_* (docs/ + references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [[@citekeys]]). Oferece arquivar a resposta como finding em docs/wiki/findings/ (ou docs/findings/ em projetos sem docs/wiki/) quando útil. NÃO é para perguntas de código."
+description: "Responde pergunta ancorada no wiki do pj_* (docs/ + references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [@citekeys]). Oferece arquivar a resposta como finding em docs/wiki/findings/ (ou docs/findings/ em projetos sem docs/wiki/) quando útil. NÃO é para perguntas de código."
 when_to_use: |
   Quando o usuário perguntar "o que a literatura diz sobre X", "compare Y e Z",
   "gere tabela comparativa", "resuma os achados sobre W", "quais decisões
@@ -59,7 +59,7 @@ Formato padrão (adaptar quando a pergunta pedir tabela/diagrama explícito):
 **Resposta curta:** <2–3 linhas direto ao ponto>
 
 **Detalhes:**
-- <bullet 1> — ver [[página-a]], [[@citekey]]
+- <bullet 1> — ver [[página-a]], [@citekey]
 - <bullet 2> — ver [[página-b]]
 - <bullet 3> — ver [[finding-anterior]]
 
@@ -72,7 +72,7 @@ Formato padrão (adaptar quando a pergunta pedir tabela/diagrama explícito):
 ```
 
 Regras:
-- **Toda afirmação tem citação** (wikilink `[[…]]` ou `[[@citekey]]`). Sem afirmações sem fonte.
+- **Toda afirmação tem citação** (wikilink `[[…]]` ou citação `[@citekey]`). Sem afirmações sem fonte.
 - **Nunca inventar citekey** — se uma claim não tem fonte no wiki, marcar explicitamente como gap.
 - **Preferir tabelas** quando a pergunta for comparativa (`| modelo | AUROC | coorte | ... |`).
 

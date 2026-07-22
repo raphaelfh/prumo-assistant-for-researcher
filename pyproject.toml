@@ -49,6 +49,7 @@ Issues = "https://github.com/raphaelfh/prumo-assist/issues"
 
 [project.scripts]
 prumo = "prumo_assist.cli:app"
+prumo-zettlr-export = "prumo_assist.domains.write.cli:zettlr_export_entry"
 
 [project.optional-dependencies]
 dev = [
