@@ -33,33 +33,33 @@ Você é um editor de texto científico para um pesquisador clínico de pós-gra
 ## Pressupostos
 
 - O usuário forneceu caminho de arquivo Markdown/Quarto/Pandoc. Se não, peça.
-- Citações no draft seguem o padrão Obsidian wikilink `[[@citekey|display text opcional]]`.
+- Citações no draft seguem a sintaxe Pandoc: `[@citekey]` (bracketed; múltiplas no mesmo colchete separadas por `;` — `[@a; @b]`). Legado `[[@citekey|alias]]` é aceito na leitura/export, mas não escreva novo.
 - O draft já passou por revisão de conteúdo (esta skill não é peer-review).
 
 ## Convenções aplicadas
 
 ### C1. Citações ao final do período
 
-**Regra.** Toda citação `[[@citekey]]` (com ou sem alias `|`) deve aparecer **antes do ponto final** do período em que sustenta uma afirmação. Não em meio de frase.
+**Regra.** Toda citação `[@citekey]` deve aparecer **antes do ponto final** do período em que sustenta uma afirmação. Não em meio de frase.
 
 ❌ Errado.
-> Modelos combinados [[@smith2025review]] atingem alto desempenho quando todas as modalidades estão presentes.
+> Modelos combinados [@smith2025review] atingem alto desempenho quando todas as modalidades estão presentes.
 
 ✅ Correto.
-> Modelos combinados atingem alto desempenho quando todas as modalidades estão presentes [[@smith2025review]].
+> Modelos combinados atingem alto desempenho quando todas as modalidades estão presentes [@smith2025review].
 
 **Exceção.** Quando a citação é sujeito gramatical, mantenha posição.
-> Liang et al [[@liang2024foundations]] propõem três princípios.
+> Liang et al. [@liang2024foundations] propõem três princípios.
 
 ### C2. Múltiplas citações consecutivas sem vírgula entre wikilinks
 
 **Regra.** Quando duas ou mais citações sustentam o mesmo período, escreva-as adjacentes separadas por **espaço único, sem vírgula**, todas antes do ponto final.
 
 ❌ Errado (vírgula entre wikilinks).
-> ...premissa raramente sustentada [[@a]], [[@b]], [[@c]].
+> ...premissa raramente sustentada [@a], [@b], [@c].
 
 ✅ Correto (agrupadas, sem vírgula).
-> ...premissa raramente sustentada [[@a]] [[@b]] [[@c]].
+> ...premissa raramente sustentada [@a; @b; @c].
 
 **Razão.** O normalizador de exportação (`build_reference_docx.py`, hooks Pandoc/CSL) funde citações adjacentes em campo único `[@a; @b; @c]`, que renderiza como `(Smith, 2024; Jones, 2025; ...)` no DOCX/PDF. A vírgula no fonte quebra o agrupamento e faz o exportador emitir campos separados que aparecem como `(Smith, 2024), (Jones, 2025)`.
 

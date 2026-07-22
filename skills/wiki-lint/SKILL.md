@@ -61,7 +61,7 @@ Reportar lista de órfãs com caminho relativo.
 
 ### 2. Citekeys quebradas
 
-Toda `[[@foo]]` deve ter entrada `@<tipo>{foo,…}` em `references/_references.bib`.
+Toda citação `[@foo]` (ou legado `[[@foo]]`) deve ter entrada `@<tipo>{foo,…}` em `references/_references.bib`.
 
 ```
 # Coletar citekeys referenciadas:
@@ -174,7 +174,7 @@ O wiki está consistente em YYYY-MM-DD?
 - ...
 
 ### Citekeys quebradas (<count>)
-- `[[@foo]]` referenciada em [[página-x]] — ausente do .bib
+- `[@foo]` referenciada em [[página-x]] — ausente do .bib
 
 ### Prefixo de log quebrado (<count>)
 - ...
