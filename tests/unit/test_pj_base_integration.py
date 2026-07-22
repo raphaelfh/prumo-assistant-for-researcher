@@ -22,7 +22,7 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
         "Makefile",
         "pyproject.toml",
         "docs/project_guide.md",
-        "docs/canvas/project.canvas",
+        "docs/templates/reference.docx",
         ".claude/rules/documentation.md",
         ".claude/rules/project_context.md",
         ".claude/make",

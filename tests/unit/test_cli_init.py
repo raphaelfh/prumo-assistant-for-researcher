@@ -185,3 +185,24 @@ def test_init_generates_zettlr_profile(tmp_path: Path) -> None:
     assert profile.is_file()
     payload = json.loads(result.stdout)
     assert payload["zettlr_profile"] == str(profile)
+
+
+def test_init_scaffold_is_pandoc_pure(tmp_path: Path) -> None:
+    """pj_base v2: sem vault Obsidian e sem sintaxe Obsidian nos .md."""
+    target = tmp_path / "pj_demo"
+    assert runner.invoke(app, ["init", str(target), "--json"]).exit_code == 0
+    assert not (target / ".obsidian").exists()
+    assert not (target / "references" / "views").exists()
+    assert not (target / "docs" / "canvas").exists()
+    offenders: list[str] = []
+    for md in target.rglob("*.md"):
+        rel = md.relative_to(target)
+        # .claude/skills/ vem do registry de skills do plugin (Task 11), não
+        # do template pj_base; algumas skills mantêm menções deliberadas ao
+        # wikilink legado e não são escopo desta checagem de pureza.
+        if rel.parts[:2] == (".claude", "skills"):
+            continue
+        text = md.read_text(encoding="utf-8")
+        if "[[@" in text or "![[" in text or "> [!" in text:
+            offenders.append(str(rel))
+    assert offenders == []

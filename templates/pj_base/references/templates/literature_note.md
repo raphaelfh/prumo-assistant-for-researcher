@@ -24,8 +24,7 @@ extracted_model: null           # string, ex.: "claude-opus-4-7"
 extracted_template_hash: null   # sha256[:12] do paper_extraction.md usado
 ---
 
-> [!tldr]
-> _(uma frase: o que o paper fez e resultado principal)_
+**TL;DR** — _(uma frase: o que o paper fez e resultado principal)_
 
 ## Problema
 
@@ -39,12 +38,11 @@ _(dataset, n, modalidades, arquitetura, backbone, treino, hiperparâmetros, base
 
 _(métricas principais com IC; referenciar figuras/tabelas como `Fig. 3 (p.7)`, `Table 2 (p.5)`)_
 
-> [!quote] "trecho exato" (p. XX)
+> "trecho exato" (p. XX)
 
 ## Limitações
 
-> [!warning]
-> _(o que o paper assume, o que não testou, reproducibilidade)_
+_(o que o paper assume, o que não testou, reproducibilidade)_
 
 ## Relevância para este projeto
 
@@ -52,9 +50,9 @@ _(por que entrou no acervo; o que reaproveitar — split, métrica, backbone, ba
 
 ## Referências citadas
 
-_(wikilinks para outras notas do acervo)_
+_(citações Pandoc para outras notas do acervo)_
 
-- [[@citekey_outro]]
+- [@citekey_outro]
 
 ## Notas
 
