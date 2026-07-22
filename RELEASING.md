@@ -18,7 +18,7 @@ Mudanças que **não alteram o que o usuário pode invocar** e não mudam compor
 
 Critério prático: se o `CHANGELOG.md` só tem entradas em **Corrigido** e **Documentação**, é PATCH.
 
-## Quando bumpar `MINOR` (0.1.x → 0.2.0)
+## Quando bumpar `MINOR` (0.1.x → 0.11.0)
 
 Adições retrocompatíveis — quem já usava continua funcionando, mas há **algo novo** que vale anunciar.
 

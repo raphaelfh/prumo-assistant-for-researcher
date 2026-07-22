@@ -4,9 +4,9 @@
 
 ## Tagline e escopo
 
-> **prumo-assist** — Knowledge, bibliography & academic writing assistant for clinical research. Lives between Zotero, Obsidian, and your agent-host.
+> **prumo-assist** — Knowledge, bibliography & academic writing assistant for scientific research. Lives between Zotero, Obsidian, and your agent-host.
 
-**É:** um assistente de pesquisa pra pesquisador clínico. Cobre gerir conhecimento (wiki), gerir bibliografia (Zotero ↔ notas), formalizar o protocolo (PICOT), capturar fontes e escrever (export Pandoc/Typst + revisão crítica).
+**É:** um assistente de pesquisa pra pesquisador. Cobre gerir conhecimento (wiki), gerir bibliografia (Zotero ↔ notas), formalizar (escrever e/ou revisar) protocolos e templates, capturar fontes e escrever documentos (export docx + revisão crítica).
 
 **Não é:** uma IDE de código, um framework de modelagem, um runner de pipelines de dados.
 

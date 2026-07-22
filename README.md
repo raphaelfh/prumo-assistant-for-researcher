@@ -3,10 +3,10 @@
 > **Knowledge, bibliography & academic writing assistant for clinical research.**
 > Lives between Zotero, Obsidian, and your agent-host.
 
-Plugin do [Claude Code](https://code.claude.com) **e** CLI Python (`prumo`)
-para pesquisa clínica. Cobre cinco domínios: gerir conhecimento (wiki),
-gerir bibliografia (Zotero ↔ notas), capturar fontes, formalizar o
-protocolo (PICOT) e escrever (export Pandoc/Typst + revisão crítica).
+Plugin para agentes como [Claude Code](https://code.claude.com) para pesquisa. 
+Cobre cinco domínios: gerir conhecimento (wiki),
+gerir bibliografia (Zotero ↔ notas), destrinchar fontes, formalizar 
+protocolos e escrever/revisar documentos.
 
 Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de design em [`docs/constitution.md`](docs/constitution.md); decisões registradas em [`docs/adr/`](docs/adr/); status atual e próximas fases em [`ROADMAP.md`](ROADMAP.md).
 
@@ -69,7 +69,7 @@ O plugin orquestra duas ferramentas que vivem fora do pacote Python. Rode
 
 ## Pressupostos de projeto
 
-Este plugin assume a estrutura de projeto `pj_*` do monorepo `monorepo-anterior`:
+Este plugin assume a estrutura de projeto `pj_*`:
 
 ```
 pj_<nome>/
