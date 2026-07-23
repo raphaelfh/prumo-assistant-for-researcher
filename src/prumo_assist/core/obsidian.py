@@ -12,12 +12,17 @@ de comportamento. Regras (ver spec sec. 4.2 do export pipeline):
 - ``> [!tipo] [titulo]`` / ``> corpo`` → ``> **titulo**`` / ``> corpo``
 - ``^anchor`` (block ID) → removido
 - Code blocks, footnotes, tags: passthrough.
+
+``normalize_markdown_with_map`` roda um motor de edits (coleta única sobre o
+texto-fonte) e devolve, junto do texto normalizado, um span-map lossless
+norm↔source (``SpanFragment``); ``normalize_markdown`` é o wrapper textual.
 """
 
 from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -45,35 +50,44 @@ def split_frontmatter(text: str) -> tuple[dict[str, Any], str]:
     return meta, text[match.end() :]
 
 
-def _protect_code(text: str) -> tuple[str, list[str]]:
-    """Substitui blocos de código por placeholders e retorna mapa pra restaurar."""
-    placeholders: list[str] = []
+@dataclass(frozen=True)
+class SpanFragment:
+    """Fragmento do mapa norm↔source (offsets absolutos, fim exclusivo).
 
-    def stash(m: re.Match[str]) -> str:
-        placeholders.append(m.group(1))
-        return f"\x00CODEBLOCK{len(placeholders) - 1}\x00"
+    ``kind`` é um de ``identity | citation | wikilink | image | callout |
+    block-id | code``. Fragmentos são contíguos e cobrem ``[0, len(source))``
+    e ``[0, len(norm))`` sem buracos nem sobreposição (ver invariantes em
+    ``tests/unit/core/test_obsidian_spanmap.py``).
+    """
 
-    text = _CODE_FENCE_RE.sub(stash, text)
-    text = _INLINE_CODE_RE.sub(stash, text)
-    return text, placeholders
-
-
-def _restore_code(text: str, placeholders: list[str]) -> str:
-    for i, original in enumerate(placeholders):
-        text = text.replace(f"\x00CODEBLOCK{i}\x00", original)
-    return text
+    source_start: int
+    source_end: int
+    norm_start: int
+    norm_end: int
+    kind: str
 
 
-def _normalize_citations(text: str) -> str:
-    return _CITATION_RE.sub(lambda m: f"[@{m.group(1)}]", text)
+@dataclass(frozen=True)
+class _Edit:
+    """Substituição pontual coletada sobre o texto-fonte original (não aplicada ainda)."""
+
+    start: int
+    end: int
+    replacement: str
+    kind: str
 
 
-def _normalize_wikilinks(text: str) -> str:
-    def replace(m: re.Match[str]) -> str:
-        target, alias = m.group(1), m.group(2)
-        return alias if alias else target
+def _code_spans(text: str) -> list[tuple[int, int]]:
+    """Spans intocáveis: fences primeiro; código inline só se não estiver dentro de um fence."""
+    spans = [m.span() for m in _CODE_FENCE_RE.finditer(text)]
+    for m in _INLINE_CODE_RE.finditer(text):
+        if not any(s <= m.start() < e for s, e in spans):
+            spans.append(m.span())
+    return sorted(spans)
 
-    return _WIKILINK_RE.sub(replace, text)
+
+def _in_spans(pos: int, spans: list[tuple[int, int]]) -> bool:
+    return any(s <= pos < e for s, e in spans)
 
 
 def _resolve_image(name: str, page_dir: Path | None) -> Path | None:
@@ -92,36 +106,144 @@ def _resolve_image(name: str, page_dir: Path | None) -> Path | None:
     return None
 
 
-def _normalize_image_embeds(text: str, page_dir: Path | None) -> str:
-    def replace(m: re.Match[str]) -> str:
+def _collect_edits(text: str, page_dir: Path | None, code: list[tuple[int, int]]) -> list[_Edit]:
+    """Roda cada regra via ``finditer`` sobre o texto-fonte original e coleta os edits.
+
+    Edits cujo início cai dentro de um span de código são descartados aqui
+    mesmo (o código é intocável). Sobreposições entre regras são resolvidas
+    depois, em ``_dedupe``.
+    """
+    edits: list[_Edit] = []
+
+    def add(start: int, end: int, replacement: str, kind: str) -> None:
+        if _in_spans(start, code):
+            return
+        edits.append(_Edit(start, end, replacement, kind))
+
+    for m in _IMAGE_EMBED_RE.finditer(text):
         ref = m.group(1)
         if "#page=" in ref:
             logger.warning("Embed PDF com page âncora não suportado em export: %s", ref)
-            return ""
+            add(m.start(), m.end(), "", "image")
+            continue
         path = _resolve_image(ref, page_dir)
         if path is None:
             logger.warning("Imagem não encontrada: %s", ref)
-            return f"![]({ref})"
-        return f"![]({path})"
+            add(m.start(), m.end(), f"![]({ref})", "image")
+        else:
+            add(m.start(), m.end(), f"![]({path})", "image")
 
-    return _IMAGE_EMBED_RE.sub(replace, text)
+    for m in _CITATION_RE.finditer(text):
+        add(m.start(), m.end(), f"[@{m.group(1)}]", "citation")
 
+    for m in _WIKILINK_RE.finditer(text):
+        if m.start() > 0 and text[m.start() - 1] == "!":
+            continue  # embed de imagem — já coberto pela regra de imagem, que tem precedência
+        target, alias = m.group(1), m.group(2)
+        add(m.start(), m.end(), alias if alias else target, "wikilink")
 
-def _normalize_callouts(text: str) -> str:
-    lines = text.split("\n")
-    out: list[str] = []
-    i = 0
-    while i < len(lines):
-        m = _CALLOUT_HEADER_RE.match(lines[i])
-        if m:
-            title = m.group(2)
+    offset = 0
+    for line in text.split("\n"):
+        callout_match = _CALLOUT_HEADER_RE.match(line)
+        if callout_match:
+            title = callout_match.group(2)
             if title:
-                out.append(f"> **{title.strip()}**")
-            i += 1
+                add(offset, offset + len(line), f"> **{title.strip()}**", "callout")
+            else:
+                end = offset + len(line)
+                if end < len(text) and text[end] == "\n":
+                    end += 1  # sem título: remove a linha inteira, incluindo o \n
+                add(offset, end, "", "callout")
+        offset += len(line) + 1
+
+    for m in _BLOCK_ID_RE.finditer(text):
+        add(m.start(), m.end(), "", "block-id")
+
+    return edits
+
+
+def _dedupe(edits: list[_Edit]) -> list[_Edit]:
+    """Ordena por início; em sobreposição, mantém quem começa antes (maior, em empate)."""
+    picked: list[_Edit] = []
+    for edit in sorted(edits, key=lambda e: (e.start, -(e.end - e.start))):
+        if picked and edit.start < picked[-1].end:
+            logger.debug("edit sobreposto descartado: %s", edit)
             continue
-        out.append(lines[i])
-        i += 1
-    return "\n".join(out)
+        picked.append(edit)
+    return picked
+
+
+def normalize_markdown_with_map(
+    text: str, page_dir: Path | None = None
+) -> tuple[str, list[SpanFragment]]:
+    """Normaliza Obsidian→Pandoc e emite o mapa lossless norm↔source.
+
+    O mapa é a base do transplante da ponte docx↔CriticMarkup: nunca se
+    inverte a normalização (many-to-one) — inverte-se o mapa.
+
+    Motor: localiza spans de código (intocáveis), coleta edits de cada regra
+    sobre o texto-fonte original, remove sobreposições (``_dedupe``) e aplica
+    tudo em uma única passada esquerda→direita, emitindo fragments.
+    """
+    code = _code_spans(text)
+    edits = _dedupe(_collect_edits(text, page_dir, code))
+
+    frags: list[SpanFragment] = []
+    out: list[str] = []
+    cursor = 0
+    norm_pos = 0
+    code_idx = 0
+
+    def emit_verbatim(start: int, end: int, kind: str) -> None:
+        """Emite ``text[start:end]`` tal-qual (comprimento norm == comprimento source)."""
+        nonlocal norm_pos
+        if end <= start:
+            return
+        piece = text[start:end]
+        out.append(piece)
+        frags.append(SpanFragment(start, end, norm_pos, norm_pos + len(piece), kind))
+        norm_pos += len(piece)
+
+    def emit_identity(upto: int) -> None:
+        """Emite ``[cursor, upto)``, fatiando qualquer span de código contido em fragment próprio.
+
+        Sem isto, um code fence adjacente a prosa viraria parte do mesmo
+        fragment ``identity`` — o teste ``test_code_block_is_atomic_and_untouched``
+        exige que o código apareça como fragment ``kind="code"`` isolado.
+        """
+        nonlocal cursor, code_idx
+        while code_idx < len(code) and code[code_idx][1] <= cursor:
+            code_idx += 1  # spans já consumidos por uma chamada anterior
+        while cursor < upto:
+            if code_idx < len(code) and code[code_idx][0] < upto:
+                cs, ce = code[code_idx]
+                emit_verbatim(cursor, cs, "identity")
+                cursor = cs
+                ce_eff = min(ce, upto)
+                emit_verbatim(cursor, ce_eff, "code")
+                cursor = ce_eff
+                if ce_eff >= ce:
+                    code_idx += 1
+                else:
+                    break  # defensivo: um edit não deveria invadir um span de código
+            else:
+                emit_verbatim(cursor, upto, "identity")
+                cursor = upto
+
+    for e in edits:
+        emit_identity(e.start)
+        out.append(e.replacement)
+        frags.append(SpanFragment(e.start, e.end, norm_pos, norm_pos + len(e.replacement), e.kind))
+        norm_pos += len(e.replacement)
+        cursor = e.end
+
+    emit_identity(len(text))
+
+    if not frags:
+        # texto-fonte vazio: nenhum emit disparou, mas o mapa nunca é vazio.
+        frags.append(SpanFragment(0, 0, 0, 0, "identity"))
+
+    return "".join(out), frags
 
 
 def normalize_markdown(text: str, page_dir: Path | None = None) -> str:
@@ -131,10 +253,4 @@ def normalize_markdown(text: str, page_dir: Path | None = None) -> str:
         text: markdown Obsidian (sem frontmatter; chame ``split_frontmatter`` antes).
         page_dir: diretório da página-fonte para resolver embeds de imagem.
     """
-    protected, placeholders = _protect_code(text)
-    protected = _normalize_image_embeds(protected, page_dir)
-    protected = _normalize_citations(protected)
-    protected = _normalize_wikilinks(protected)
-    protected = _normalize_callouts(protected)
-    protected = _BLOCK_ID_RE.sub("", protected)
-    return _restore_code(protected, placeholders)
+    return normalize_markdown_with_map(text, page_dir)[0]
