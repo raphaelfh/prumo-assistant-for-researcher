@@ -470,7 +470,10 @@ def _norm_citation_spans(norm_text: str) -> list[tuple[int, int]]:
 
     LIMITAÇÃO conhecida: citação narrativa ``@key`` fora de colchetes não é
     contada (o pipeline docx do prumo usa exclusivamente a forma com
-    colchetes — ver report da Task 7 do plano da ponte).
+    colchetes — ver report da Task 7 do plano da ponte). Também não filtra
+    spans dentro de código (fence/inline) — quem faz isso é o call site
+    (:func:`_emit_review_sidecars`), via os fragments ``kind="code"`` do
+    span-map.
     """
     return [
         match.span()
@@ -517,7 +520,12 @@ def _emit_review_sidecars(
     (criado se preciso).
     """
     occurrences_raw = _read_docx_citations(docx_path)
-    spans = _norm_citation_spans(norm_text)
+    code_ranges = [(f.norm_start, f.norm_end) for f in span_frags if f.kind == "code"]
+    spans = [
+        span
+        for span in _norm_citation_spans(norm_text)
+        if not any(s <= span[0] < e for s, e in code_ranges)
+    ]
     if len(occurrences_raw) != len(spans):
         raise CiteMapMismatchError(
             "Pareamento citação↔ocorrência falhou (I2/I8): o docx tem "

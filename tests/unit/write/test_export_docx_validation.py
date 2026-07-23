@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 import prumo_assist.domains.write.export as export_mod
-from prumo_assist.core.obsidian import SpanFragment, split_frontmatter
+from prumo_assist.core.obsidian import SpanFragment, normalize_markdown_with_map, split_frontmatter
 from prumo_assist.domains.write.export import (
     CorruptDocxError,
     MissingFieldLockError,
@@ -454,6 +454,49 @@ def test_emit_sidecars_happy_path_writes_valid_sidecars(
     assert citemap.occurrences[0].occ_id == "00000001"
     assert len(span_map.fragments) == 1
     assert span_map.source_sha256 == hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+
+
+def test_emit_sidecars_ignores_citation_like_spans_inside_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Achado do review final: `[@notacite]` num fence e `` `[@outro]` `` inline
+    não podem contar como spans de citação — pandoc renderiza código
+    verbatim (sem campo OOXML), então ``_norm_citation_spans`` contaria 3
+    grupos ``[@...]`` no norm_text contra só 1 campo ZOTERO_ITEM no docx,
+    disparando um ``CiteMapMismatchError`` espúrio numa página válida.
+
+    Usa ``normalize_markdown_with_map`` de verdade (em vez de fragments
+    montados à mão) para exercitar o span-map tal como o pipeline real o
+    produz — os fragments ``kind="code"`` do fence/inline vêm daí.
+    """
+    monkeypatch.setattr(export_mod, "_export_git_sha", lambda project_root: "deadbee")
+    source_text = "Cita [[@smith2020]].\n\n```\nexemplo: [@notacite]\n```\n\nE `[@outro]` inline.\n"
+    norm_text, frags = normalize_markdown_with_map(source_text)
+
+    payload = (
+        '{"citationID":"00000001","prumoOcc":"00000001",'
+        '"citationItems":[{"id":"smith2020","prumoFingerprint":"doi:10.1/x"}],'
+        '"properties":{"formattedCitation":"(Smith, 2020)"}}'
+    )
+    docx = _write_minimal_docx_with_payloads(tmp_path / "c.docx", [payload])
+    bib = _bib(tmp_path)
+    page = tmp_path / "docs" / "achado_code.md"
+    page.parent.mkdir(parents=True)
+
+    out_dir = export_mod._emit_review_sidecars(
+        page=page,
+        project_root=tmp_path,
+        source_text=source_text,
+        norm_text=norm_text,
+        span_frags=frags,
+        docx_path=docx,
+        bib=bib,
+    )
+
+    citemap = CiteMapFile.model_validate_json((out_dir / "citemap.json").read_text())
+    assert len(citemap.occurrences) == 1
+    assert citemap.occurrences[0].citekeys == ["smith2020"]
+    assert citemap.occurrences[0].occ_id == "00000001"
 
 
 def _docx_bytes_for_export_wiring(tmp_path: Path, payloads: list[str]) -> bytes:
