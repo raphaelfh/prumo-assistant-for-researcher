@@ -1,4 +1,21 @@
+---
+status: implemented
+verified: 2026-07-23
+release: null
+spec: "[[2026-07-05-review-docx-criticmarkup-design]]"
+phase: "Fase 1 de 0–4 (spec da ponte); Fase 3 do guarda-chuva zero-friction"
+---
+
 # Ponte docx↔CriticMarkup — Fase 1: substrato — Implementation Plan
+
+> **Nota de reconciliação (2026-07-23, pós-merge de main/Zettlr front v0.62.1):** a Task 5
+> (CITEKEY_BODY em export.py) foi SUPERSEDIDA no merge pela solução equivalente e melhor
+> layerizada que main lançou em 0.62.1 (`core/citations.py` — gramática única consumida por
+> export/compose/wiki-lint/paper-graph); o teste de chave composta permanece via `write_output`.
+> O núcleo run/validate ganhou `PandocFailedError` + captura de stderr (citeproc-missing de main
+> roda após a validação estrutural com retry). Review final da fase (branch vs main): 2 Importants
+> corrigidos (catches enumerados; pareamento ignora spans de código) — "Ready to merge". Smoke
+> manual do Word (campo travado + Zotero Refresh) segue pendente do dono, não-bloqueante.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -53,7 +70,7 @@ def parse(text: str) -> list[Mark]: ...
 def emit(kind: str, a: str = "", b: str = "") -> str: ...
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Criar `tests/unit/core/test_criticmarkup.py`:
 
@@ -128,12 +145,12 @@ def test_parse_emit_roundtrip() -> None:
     assert kinds == ["del", "ins"]
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/core/test_criticmarkup.py -v`
 Expected: FAIL na coleta — `ModuleNotFoundError: No module named 'prumo_assist.core.criticmarkup'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Criar `src/prumo_assist/core/criticmarkup.py`:
 
@@ -242,12 +259,12 @@ def emit(kind: str, a: str = "", b: str = "") -> str:
     raise ValueError(f"kind desconhecido: {kind!r} (use ins|del|sub|highlight|comment)")
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/unit/core/test_criticmarkup.py -v`
 Expected: 11 passed
 
-- [ ] **Step 5: Battery + commit**
+- [x] **Step 5: Battery + commit**
 
 Run: `uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run mypy`
 
@@ -268,7 +285,7 @@ git commit -m "feat(core): criticmarkup — parse e emit das 5 marcas (substrato
 - Produces: `accept(text: str) -> str` e `reject(text: str) -> str` (aplicam TODAS as marcas); `apply(text: str, decisions: dict[int, bool]) -> str` (por marca: chave = índice na ordem de `parse`, `True`=aceitar, `False`=rejeitar; marca sem decisão permanece intacta).
 - Semântica: aceitar — ins→`b`, del→`""`, sub→`b`, highlight→`a` (vira texto), comment→`""`; rejeitar — ins→`""`, del→`a`, sub→`a`, highlight→`a`, comment→`""` (comentário some nos dois casos — o conteúdo vive no sidecar, spec "Comentários").
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append em `tests/unit/core/test_criticmarkup.py`:
 
@@ -302,12 +319,12 @@ def test_accept_idempotent_on_clean_text() -> None:
     assert accept("sem marcas") == "sem marcas"
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/core/test_criticmarkup.py -v`
 Expected: FAIL na coleta — `ImportError: cannot import name 'accept'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Append em `criticmarkup.py`:
 
@@ -353,7 +370,7 @@ def reject(text: str) -> str:
     return apply(text, dict.fromkeys(range(len(parse(text))), False))
 ```
 
-- [ ] **Step 4: Run + battery + commit**
+- [x] **Step 4: Run + battery + commit**
 
 Run: `uv run pytest tests/unit/core/test_criticmarkup.py -v` → 16 passed; bateria completa.
 
@@ -402,7 +419,7 @@ def normalize_markdown_with_map(
 4. Aplicar uma única vez L→R construindo o texto normalizado E os fragments: trecho entre edits → `identity` (source e norm com mesmo comprimento); cada edit → fragment com `norm_end - norm_start == len(replacement)` (zero-width quando replacement é `""` — âncora).
 5. Invariantes do mapa (testadas): fragments cobrem `[0, len(source))` sem buracos nem sobreposição, monotônicos nos dois eixos; concatenação dos slices norm == texto normalizado; para todo `identity`, `source[s0:s1] == norm[n0:n1]`.
 
-- [ ] **Step 1: Write the failing span-map tests**
+- [x] **Step 1: Write the failing span-map tests**
 
 Criar `tests/unit/core/test_obsidian_spanmap.py`:
 
@@ -477,12 +494,12 @@ def test_wrapper_behavior_unchanged() -> None:
     assert normalize_markdown(src) == normalize_markdown_with_map(src)[0]
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `uv run pytest tests/unit/core/test_obsidian_spanmap.py -v`
 Expected: FAIL na coleta — `ImportError: cannot import name 'SpanFragment'`
 
-- [ ] **Step 3: Rewrite `obsidian.py` with the edit engine**
+- [x] **Step 3: Rewrite `obsidian.py` with the edit engine**
 
 Reescrever o corpo de `obsidian.py` mantendo: docstring do módulo (atualizar a lista de regras ao final com uma linha sobre o span-map), regexes existentes, `split_frontmatter`, `_resolve_image` e a API `normalize_markdown`. Substituir `_protect_code`/`_restore_code`/`_normalize_*` pelo motor:
 
@@ -639,12 +656,12 @@ def normalize_markdown(text: str, page_dir: Path | None = None) -> str:
 
 Nota de implementação: spans de código raramente coincidem 1:1 com um fragment identity (prosa adjacente entra no mesmo fragment). Para o teste `test_code_block_is_atomic_and_untouched`, o motor deve **quebrar** os fragments identity nas bordas dos spans de código (emitir identity até `cs`, depois fragment `code` de `cs..ce`, depois continuar) — implementar `emit_identity` consciente de `code` (iterar spans de código contidos no trecho e fatiar). O snippet acima marca o ponto; a implementação final deve fatiar de verdade e manter as invariantes.
 
-- [ ] **Step 4: Run new + EXISTING obsidian tests**
+- [x] **Step 4: Run new + EXISTING obsidian tests**
 
 Run: `uv run pytest tests/unit/core/test_obsidian_spanmap.py tests/unit/core/test_obsidian.py -v`
 Expected: todos passam — os testes existentes são o contrato de paridade. Se algum existente falhar, o comportamento divergiu: corrigir o motor, NUNCA o teste (exceção: teste que asserta helper interno removido — relatar como desvio).
 
-- [ ] **Step 5: Battery + commit**
+- [x] **Step 5: Battery + commit**
 
 ```bash
 git add src/prumo_assist/core/obsidian.py tests/unit/core/test_obsidian_spanmap.py
@@ -694,7 +711,7 @@ class CiteMapFile(BaseModel):
     occurrences: list[CiteOccurrence]
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append em `tests/unit/write/test_schemas_v1.py`:
 
@@ -740,7 +757,7 @@ def test_citemap_file_roundtrip() -> None:
     assert CiteMapFile.model_validate_json(f.model_dump_json()) == f
 ```
 
-- [ ] **Step 2–5:** rodar (FAIL ImportError) → implementar os modelos exatamente como acima em `v1.py` (após `WriteOutput`) → rodar (2 novos passed + existentes) → bateria → commit:
+- [x] **Step 2–5:** rodar (FAIL ImportError) → implementar os modelos exatamente como acima em `v1.py` (após `WriteOutput`) → rodar (2 novos passed + existentes) → bateria → commit:
 
 ```bash
 git add src/prumo_assist/domains/write/schemas/v1.py tests/unit/write/test_schemas_v1.py
@@ -776,7 +793,7 @@ def _extract_citekeys_used(text: str) -> list[str]:
     return sorted({m.group("key") for m in _WIKILINK_CITEKEY_RE.finditer(text)})
 ```
 
-- [ ] **Step 1: Failing test** — append em `tests/unit/write/test_compose_refs.py`:
+- [x] **Step 1: Failing test** — append em `tests/unit/write/test_compose_refs.py`:
 
 ```python
 from prumo_assist.domains.write.compose import _extract_citekeys_used
@@ -787,10 +804,10 @@ def test_extract_citekeys_composite_key_not_truncated() -> None:
     assert _extract_citekeys_used(text) == ["plain2021", "smith2020:aha-guideline"]
 ```
 
-- [ ] **Step 2:** rodar → FAIL (hoje trunca `smith2020:aha-guideline` → `smith2020`... verificar: o regex atual `[a-zA-Z0-9._+-]+` para no `:` e o `]]` não casa, então a chave composta é DESCARTADA — registrar o comportamento observado no report).
-- [ ] **Step 3:** implementar como acima (import no topo de `compose.py`; `export.py` ganha `CITEKEY_BODY` e `_CITEKEY_RE` derivado — rodar também `tests/unit/write/test_export_pandoc_cmd.py` e a suíte de write inteira para provar que `_CITEKEY_RE` não mudou de comportamento).
-- [ ] **Step 4:** `uv run pytest tests/unit/write/ -v` → verde; bateria completa.
-- [ ] **Step 5:**
+- [x] **Step 2:** rodar → FAIL (hoje trunca `smith2020:aha-guideline` → `smith2020`... verificar: o regex atual `[a-zA-Z0-9._+-]+` para no `:` e o `]]` não casa, então a chave composta é DESCARTADA — registrar o comportamento observado no report).
+- [x] **Step 3:** implementar como acima (import no topo de `compose.py`; `export.py` ganha `CITEKEY_BODY` e `_CITEKEY_RE` derivado — rodar também `tests/unit/write/test_export_pandoc_cmd.py` e a suíte de write inteira para provar que `_CITEKEY_RE` não mudou de comportamento).
+- [x] **Step 4:** `uv run pytest tests/unit/write/ -v` → verde; bateria completa.
+- [x] **Step 5:**
 
 ```bash
 git add src/prumo_assist/domains/write/export.py src/prumo_assist/domains/write/compose.py tests/unit/write/test_compose_refs.py
@@ -811,7 +828,7 @@ git commit -m "fix(write): I7 — gramática única de citekey (CITEKEY_BODY com
 - Lookup file passa a ser `{citekey: {itemID, uri, fingerprint}}`; o lua carimba `item.prumoFingerprint = lookup.fingerprint` e cada citação ganha `prumoOcc` (contador `%08d` próprio, independente de `citationID`).
 - Lua: adicionar `local occ_counter = 0` e em `build_csl_citation`, após `citationID`: `occ_counter = occ_counter + 1` e campo `prumoOcc = string.format('%08d', occ_counter)` no objeto retornado.
 
-- [ ] **Step 1: Failing tests (Python)** — append em `tests/unit/write/test_export_docx_validation.py`:
+- [x] **Step 1: Failing tests (Python)** — append em `tests/unit/write/test_export_docx_validation.py`:
 
 ```python
 from prumo_assist.domains.write.export import _fingerprint_for
@@ -832,10 +849,10 @@ def test_fingerprint_offline_uses_bib_entry() -> None:
     assert fp.startswith("bib:")
 ```
 
-- [ ] **Step 2:** rodar → FAIL ImportError.
-- [ ] **Step 3:** implementar `_fingerprint_for` em `export.py` (regex `re.search(r"doi\s*=\s*[{\"]([^}\"]+)", entry, re.I)`; `hashlib.sha256`; import `hashlib` no topo) e estender o bloco docx de `export()`/`compose()`: após `lookup = fetch_bbt_zotero_metadata(...)`, enriquecer cada entry com `fingerprint` usando o texto cru do `.bib` (`bib.read_text()` + split simples por `@` para achar o entry da chave; helper `_raw_bib_entry(bib_text, citekey) -> str | None` com teste próprio). No lua: `occ_counter` + `prumoOcc` + `prumoFingerprint` (3 linhas; manter comentário I2b).
-- [ ] **Step 4: verificação spike-grade do lua** (mktemp -d, mesmo protocolo da Fase 0 Task 2 com lookup contendo `fingerprint`): grep no `word/document.xml` por `prumoOcc` e `prumoFingerprint` — outputs no report.
-- [ ] **Step 5:** bateria completa; commit:
+- [x] **Step 2:** rodar → FAIL ImportError.
+- [x] **Step 3:** implementar `_fingerprint_for` em `export.py` (regex `re.search(r"doi\s*=\s*[{\"]([^}\"]+)", entry, re.I)`; `hashlib.sha256`; import `hashlib` no topo) e estender o bloco docx de `export()`/`compose()`: após `lookup = fetch_bbt_zotero_metadata(...)`, enriquecer cada entry com `fingerprint` usando o texto cru do `.bib` (`bib.read_text()` + split simples por `@` para achar o entry da chave; helper `_raw_bib_entry(bib_text, citekey) -> str | None` com teste próprio). No lua: `occ_counter` + `prumoOcc` + `prumoFingerprint` (3 linhas; manter comentário I2b).
+- [x] **Step 4: verificação spike-grade do lua** (mktemp -d, mesmo protocolo da Fase 0 Task 2 com lookup contendo `fingerprint`): grep no `word/document.xml` por `prumoOcc` e `prumoFingerprint` — outputs no report.
+- [x] **Step 5:** bateria completa; commit:
 
 ```bash
 git add src/prumo_assist/_filters/zotero_live_docx.lua src/prumo_assist/domains/write/export.py tests/unit/write/test_export_docx_validation.py
@@ -856,7 +873,7 @@ git commit -m "feat(write): occ_id (prumoOcc) e fingerprint por chave no payload
 - `_emit_review_sidecars(*, page, project_root, norm_text, span_frags, docx_path, bib) -> Path` — constrói `CiteMapFile` (pareando docx-occurrences × norm-spans 1:1 na ordem; **contagem divergente → `CiteMapMismatchError(RuntimeError)` hard-fail** com as duas contagens na mensagem) + `SpanMapFile`, grava em `reviews/<slug>/{citemap.json,span-map.json}`, retorna o diretório.
 - `export()` (só docx): passa a usar `normalize_markdown_with_map`, e após as validações existentes chama `_emit_review_sidecars`. `CiteMapMismatchError` entra em `_EXPORT_CATCHES` no CLI (`domains/write/cli.py`).
 
-- [ ] **Step 1: Failing tests** — append (usar `_write_minimal_docx` estendido com payload real de campo: adicionar parâmetro `payloads: list[str] | None = None` que escreve cada payload como `ADDIN ZOTERO_ITEM CSL_CITATION <json escapado>` no body):
+- [x] **Step 1: Failing tests** — append (usar `_write_minimal_docx` estendido com payload real de campo: adicionar parâmetro `payloads: list[str] | None = None` que escreve cada payload como `ADDIN ZOTERO_ITEM CSL_CITATION <json escapado>` no body):
 
 ```python
 def test_read_docx_citations_orders_and_decodes(tmp_path: Path) -> None:
@@ -887,10 +904,10 @@ def test_emit_sidecars_mismatch_hard_fails(tmp_path: Path) -> None:
 
 (o helper `_write_minimal_docx_with_payloads` e `_bib` são definidos no mesmo arquivo de teste; payloads embutidos como `w:instrText` com escaping `&quot;` — o teste é a fixture de referência do leitor OOXML.)
 
-- [ ] **Step 2:** rodar → FAIL. 
-- [ ] **Step 3:** implementar (regex sobre o XML para capturar conteúdo de cada `<w:instrText ...>...</w:instrText>` contendo `ADDIN ZOTERO_ITEM CSL_CITATION`; unescape com `xml.sax.saxutils` ou `html.unescape`; hard-fail com mensagem pt-BR + comando). Integrar em `export()` e `_EXPORT_CATCHES`. Wiring test: monkeypatch nos seams (padrão de `test_export_docx_fails_loud_after_retry`) com fake_run escrevendo docx com 1 payload e página com 1 citação → sidecars existem, `CiteMapFile` validável, `docx_sha256` bate com o arquivo.
-- [ ] **Step 4:** `uv run pytest tests/unit/write/ -v` verde; bateria completa.
-- [ ] **Step 5:**
+- [x] **Step 2:** rodar → FAIL. 
+- [x] **Step 3:** implementar (regex sobre o XML para capturar conteúdo de cada `<w:instrText ...>...</w:instrText>` contendo `ADDIN ZOTERO_ITEM CSL_CITATION`; unescape com `xml.sax.saxutils` ou `html.unescape`; hard-fail com mensagem pt-BR + comando). Integrar em `export()` e `_EXPORT_CATCHES`. Wiring test: monkeypatch nos seams (padrão de `test_export_docx_fails_loud_after_retry`) com fake_run escrevendo docx com 1 payload e página com 1 citação → sidecars existem, `CiteMapFile` validável, `docx_sha256` bate com o arquivo.
+- [x] **Step 4:** `uv run pytest tests/unit/write/ -v` verde; bateria completa.
+- [x] **Step 5:**
 
 ```bash
 git add src/prumo_assist/domains/write/export.py src/prumo_assist/domains/write/cli.py tests/unit/write/test_export_docx_validation.py
@@ -910,9 +927,9 @@ git commit -m "feat(write): sidecars citemap/span-map em reviews/<slug>/ com par
 - Lua: o retorno de `wrap_cite_in_field` passa a ser `<w:sdt><w:sdtPr><w:alias w:val="prumo-citation"/><w:lock w:val="sdtContentLocked"/></w:sdtPr><w:sdtContent>` + runs do campo + `</w:sdtContent></w:sdt>`.
 - Python: `_assert_fields_locked(docx_path: Path) -> None` — se `ZOTERO_ITEM` count > 0, exige count igual de `sdtContentLocked` no `document.xml`; senão `MissingFieldLockError(RuntimeError)` (mensagem pt-BR + comando; entra em `_EXPORT_CATCHES`). Chamada no bloco docx após `_assert_zotero_prefs_present`.
 
-- [ ] **Step 1: Failing tests** — fixtures com/sem `sdtContentLocked` (estender o helper de payloads com flag `locked: bool = True`); testes: locked ok; unlocked com campos → raises; sem campos → ok.
-- [ ] **Step 2:** FAIL → **Step 3:** implementar lua + assert + wiring (fake_run passa a escrever payload COM sdt para os happy-paths existentes — ajustar o helper, não os asserts). Spike-grade: export real via pandoc no mktemp -d; grep `sdtContentLocked` == nº de citações; abrir**ia** no Word — registrar como smoke manual pendente do dono (não-bloqueante).
-- [ ] **Step 4:** suíte + bateria. — **Step 5:**
+- [x] **Step 1: Failing tests** — fixtures com/sem `sdtContentLocked` (estender o helper de payloads com flag `locked: bool = True`); testes: locked ok; unlocked com campos → raises; sem campos → ok.
+- [x] **Step 2:** FAIL → **Step 3:** implementar lua + assert + wiring (fake_run passa a escrever payload COM sdt para os happy-paths existentes — ajustar o helper, não os asserts). Spike-grade: export real via pandoc no mktemp -d; grep `sdtContentLocked` == nº de citações; abrir**ia** no Word — registrar como smoke manual pendente do dono (não-bloqueante).
+- [x] **Step 4:** suíte + bateria. — **Step 5:**
 
 ```bash
 git add src/prumo_assist/_filters/zotero_live_docx.lua src/prumo_assist/domains/write/export.py tests/unit/write/test_export_docx_validation.py
@@ -927,10 +944,10 @@ git commit -m "feat(write): campos de citação travados (sdtContentLocked) com 
 - Create: `docs/adr/adr-0016-criticmarkup-conservacao-ooxml.md` (MADR minimal; próximo número livre — CONFERIR `docs/adr/_index.md` antes: se 0015 já existir aqui, usar o próximo)
 - Modify: `CHANGELOG.md`; regenerar índices
 
-- [ ] **Step 1: ADR** (MADR minimal, imutável após aceito): título "CriticMarkup como representação de revisão + conservação de citações contada no OOXML"; contexto (spec da ponte, decisão (b) da Fase 0); decisão (substrato desta fase: marcas planas em `.md`, span-map, citemap OOXML-only, campos travados); consequências; referencia ADR-0009 como precedente máquina-possui-região. Registrar no índice via gerador.
-- [ ] **Step 2: CHANGELOG** em "Não publicado" (### Adicionado): criticmarkup core, span-map, sidecars `reviews/<slug>/`, campos travados, occ_id/fingerprint; (### Corrigido): I7 chave composta não truncada.
-- [ ] **Step 3: Bateria completa** — `uv run pytest` (todos), `ruff check`/`format --check`, `mypy`, `uv run python .github/scripts/gen_indexes.py --check` (após rodar o gerador para o ADR novo).
-- [ ] **Step 4: Commit**
+- [x] **Step 1: ADR** (MADR minimal, imutável após aceito): título "CriticMarkup como representação de revisão + conservação de citações contada no OOXML"; contexto (spec da ponte, decisão (b) da Fase 0); decisão (substrato desta fase: marcas planas em `.md`, span-map, citemap OOXML-only, campos travados); consequências; referencia ADR-0009 como precedente máquina-possui-região. Registrar no índice via gerador.
+- [x] **Step 2: CHANGELOG** em "Não publicado" (### Adicionado): criticmarkup core, span-map, sidecars `reviews/<slug>/`, campos travados, occ_id/fingerprint; (### Corrigido): I7 chave composta não truncada.
+- [x] **Step 3: Bateria completa** — `uv run pytest` (todos), `ruff check`/`format --check`, `mypy`, `uv run python .github/scripts/gen_indexes.py --check` (após rodar o gerador para o ADR novo).
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/adr/ docs/_index.md docs/adr/_index.md CHANGELOG.md
@@ -939,6 +956,6 @@ git commit -m "docs(adr): ADR-0016 criticmarkup + conservação OOXML; changelog
 
 ## Verificação final
 
-- [ ] Todos os checkboxes marcados; bateria verde no commit final; testes existentes de obsidian intactos (paridade).
+- [x] Todos os checkboxes marcados; bateria verde no commit final (509 passed, ruff, mypy, gen_indexes); testes existentes de obsidian intactos (paridade).
 - [ ] Smoke manual pendente do dono (não-bloqueante, registrar ao arquivar): abrir um export real no Word — campo travado não-editável, Zotero Refresh funcional.
-- [ ] Arquivar o plano (frontmatter implemented/verified + archive/) apenas após review final da fase.
+- [x] Arquivar o plano (frontmatter implemented/verified + archive/) apenas após review final da fase.
