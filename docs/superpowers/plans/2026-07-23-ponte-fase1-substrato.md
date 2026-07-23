@@ -396,7 +396,7 @@ def normalize_markdown_with_map(
    - imagem: `_IMAGE_EMBED_RE` → replacement via lógica atual de `_resolve_image` (incl. warning e `""` para `#page=`), `kind="image"`;
    - citação: `_CITATION_RE` → `[@key]`, `kind="citation"`;
    - wikilink: `_WIKILINK_RE` → alias ou target, `kind="wikilink"` (pular matches que comecem com `!` já consumidos pela regra de imagem — a regra de imagem roda antes e seus spans têm precedência);
-   - callout header: por linha, `_CALLOUT_HEADER_RE` sobre cada linha (offset da linha calculado) → `> **titulo**` ou remoção da linha inteira (incluindo o `\n`) quando sem título, `kind="callout"`;
+   - callout header: por linha, `_CALLOUT_HEADER_RE` sobre cada linha (offset da linha calculado). COM título: **par de edits** — prefixo `> [!tipo] ` → `> **` e sufixo (espaços finais do título até o fim da linha) → `**` — para que citação/wikilink/block-id DENTRO do título continuem sendo edits independentes (paridade com o pipeline sequencial antigo; corrigido após review da T3). SEM título: remoção da linha inteira (incluindo o `\n`). `kind="callout"` nos dois casos;
    - block-id: `_BLOCK_ID_RE` → `""`, `kind="block-id"`.
 3. Ordenar edits por `start`; edits sobrepostos entre regras: manter o que começa primeiro (e maior, em empate) e DESCARTAR o outro — com `logger.debug`. Sobreposição com span de código: descartar o edit.
 4. Aplicar uma única vez L→R construindo o texto normalizado E os fragments: trecho entre edits → `identity` (source e norm com mesmo comprimento); cada edit → fragment com `norm_end - norm_start == len(replacement)` (zero-width quando replacement é `""` — âncora).
