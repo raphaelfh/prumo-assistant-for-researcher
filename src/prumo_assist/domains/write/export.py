@@ -61,6 +61,10 @@ class MissingBibliographyPlaceholderError(RuntimeError):
     """Docx tem citações vivas mas nenhum placeholder ``::: {#refs} :::``."""
 
 
+class MissingZoteroPrefsError(RuntimeError):
+    """Docx com citações vivas mas sem ZOTERO_PREF em ``docProps/custom.xml``."""
+
+
 def _check_pandoc() -> str:
     pandoc = shutil.which("pandoc")
     if not pandoc:
@@ -300,6 +304,33 @@ def _assert_bibliography_present(docx_path: Path) -> None:
             "    :::\n\n"
             "Sem isso, o Refresh do plugin Word do Zotero atualiza as "
             "citações inline mas não tem onde renderizar a bibliografia."
+        )
+
+
+def _assert_zotero_prefs_present(docx_path: Path) -> None:
+    """Guarda de regressão do ``zotero_live_docx.lua``.
+
+    O filtro embute ``ZOTERO_PREF_1``/``ZOTERO_PREF_2`` para o plugin Word
+    reconhecer o documento sem abrir o diálogo "Document Preferences" no
+    primeiro Refresh. Se as prefs sumirem (regressão no filtro), o coautor
+    Word-cêntrico é exatamente quem paga o pato — falha alto aqui.
+    """
+    items, _bibl = _docx_zotero_field_counts(docx_path)
+    if items == 0:
+        return
+    with zipfile.ZipFile(docx_path) as z:
+        try:
+            custom = z.read("docProps/custom.xml").decode("utf-8", errors="replace")
+        except KeyError:
+            custom = ""
+    if "ZOTERO_PREF_1" not in custom:
+        raise MissingZoteroPrefsError(
+            f"O docx tem {items} citação(ões) vivas mas docProps/custom.xml não "
+            "carrega ZOTERO_PREF_1 — regressão do filtro zotero_live_docx.lua "
+            "(sem as prefs, o plugin Word abre o diálogo 'Document Preferences' "
+            "no primeiro Refresh). Re-exporte com `prumo write export --to docx`; "
+            "se persistir, abra uma issue: "
+            "https://github.com/raphaelfh/prumo-assist/issues"
         )
 
 

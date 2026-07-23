@@ -12,6 +12,8 @@ import pytest
 
 from prumo_assist.domains.write.export import (
     CorruptDocxError,
+    MissingZoteroPrefsError,
+    _assert_zotero_prefs_present,
     _run_and_validate_docx,
     _validate_docx_structure,
 )
@@ -130,3 +132,31 @@ def test_run_and_validate_raises_after_second_failure(
     assert len(calls) == 2
     assert "re-executar" in str(exc.value)
     assert str(out) in str(exc.value)
+
+
+def test_prefs_present_with_citations_ok(tmp_path: Path) -> None:
+    docx = _write_minimal_docx(tmp_path / "com_prefs.docx", items=2, prefs=True)
+    _assert_zotero_prefs_present(docx)  # não levanta
+
+
+def test_prefs_missing_custom_xml_raises(tmp_path: Path) -> None:
+    docx = _write_minimal_docx(tmp_path / "sem_custom.docx", items=2, prefs=False)
+    with pytest.raises(MissingZoteroPrefsError) as exc:
+        _assert_zotero_prefs_present(docx)
+    assert "ZOTERO_PREF_1" in str(exc.value)
+    assert "Document Preferences" in str(exc.value)
+
+
+def test_prefs_custom_xml_without_pref_raises(tmp_path: Path) -> None:
+    docx = tmp_path / "custom_vazio.docx"
+    with zipfile.ZipFile(docx, "w") as z:
+        z.writestr("[Content_Types].xml", _CONTENT_TYPES_OK)
+        z.writestr("word/document.xml", "<w:document>ZOTERO_ITEM CSL_CITATION</w:document>")
+        z.writestr("docProps/custom.xml", "<Properties/>")
+    with pytest.raises(MissingZoteroPrefsError):
+        _assert_zotero_prefs_present(docx)
+
+
+def test_prefs_not_required_without_citations(tmp_path: Path) -> None:
+    docx = _write_minimal_docx(tmp_path / "sem_citacao.docx", items=0, prefs=False)
+    _assert_zotero_prefs_present(docx)  # não levanta
