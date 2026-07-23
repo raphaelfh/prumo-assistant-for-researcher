@@ -22,6 +22,13 @@ write_app = typer.Typer(
 _WRITE_KINDS = ("paper", "projeto-cep", "statistics", "scientific")
 _WRITE_MODES = ("drafts", "into", "out")
 
+FIRST_USE_DOCX_NOTE = (
+    "Primeiro uso no Word: abra o arquivo com o plugin do Zotero instalado e "
+    "use Zotero → Refresh para atualizar citações e bibliografia. As "
+    "preferências do documento já vão embutidas (ZOTERO_PREF) — o diálogo "
+    "'Document Preferences' não deve abrir."
+)
+
 
 @write_app.command("export")
 def export_command(
@@ -44,7 +51,15 @@ def export_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Exporta uma página Markdown via Pandoc + CSL → DOCX/Typst/PDF/HTML."""
-    with cli_run(json_mode=json_mode, catches=(FileNotFoundError, ValueError)) as console:
+    with cli_run(
+        json_mode=json_mode,
+        catches=(
+            FileNotFoundError,
+            ValueError,
+            export.CorruptDocxError,
+            export.MissingZoteroPrefsError,
+        ),
+    ) as console:
         page_resolved = page.resolve()
         project_root = export.detect_project_root(page_resolved)
 
@@ -66,6 +81,8 @@ def export_command(
             project_root=project_root,
         )
         console.success(f"exportado: {result}")
+        if to == "docx":
+            console.info(FIRST_USE_DOCX_NOTE)
         console.emit({"page": str(page_resolved), "output": str(result), "format": to})
 
 
@@ -90,7 +107,15 @@ def compose_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Compõe múltiplas páginas (frontmatter ``pages: [...]``) em um documento único."""
-    with cli_run(json_mode=json_mode, catches=(FileNotFoundError, ValueError)) as console:
+    with cli_run(
+        json_mode=json_mode,
+        catches=(
+            FileNotFoundError,
+            ValueError,
+            export.CorruptDocxError,
+            export.MissingZoteroPrefsError,
+        ),
+    ) as console:
         index_resolved = index.resolve()
         project_root = export.detect_project_root(index_resolved)
 
@@ -110,6 +135,8 @@ def compose_command(
             project_root=project_root,
         )
         console.success(f"composto: {result}")
+        if to == "docx":
+            console.info(FIRST_USE_DOCX_NOTE)
         console.emit({"index": str(index_resolved), "output": str(result), "format": to})
 
 

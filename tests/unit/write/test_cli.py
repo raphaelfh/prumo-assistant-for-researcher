@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from prumo_assist.cli import app
+from prumo_assist.domains.write import export
 
 runner = CliRunner()
 
@@ -157,3 +159,50 @@ def test_write_draft_invalid_kind_fails(tmp_path: Path) -> None:
     )
     assert result.exit_code == 1
     assert "--kind" in result.output
+
+
+def _pj_with_bib(tmp_path: Path) -> tuple[Path, Path]:
+    pj = tmp_path / "pj_demo"
+    (pj / "references").mkdir(parents=True)
+    (pj / "references" / "_references.bib").write_text("@article{k2020, title={T}}\n")
+    page = pj / "docs" / "p.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("Texto.\n")
+    return pj, page
+
+
+def test_write_export_docx_prints_first_use_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, page = _pj_with_bib(tmp_path)
+    fake_out = pj / "build" / "exports" / "p.docx"
+    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", lambda **kw: fake_out)
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
+    assert result.exit_code == 0, result.output
+    assert "Primeiro uso no Word" in result.output
+
+
+def test_write_export_html_omits_first_use_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, page = _pj_with_bib(tmp_path)
+    fake_out = pj / "build" / "exports" / "p.html"
+    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", lambda **kw: fake_out)
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "html"])
+    assert result.exit_code == 0, result.output
+    assert "Primeiro uso no Word" not in result.output
+
+
+def test_write_export_corrupt_docx_shows_clean_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, page = _pj_with_bib(tmp_path)
+
+    def _boom(**kw: object) -> Path:
+        raise export.CorruptDocxError("docx inválido após retry — mensagem teste")
+
+    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", _boom)
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
+    assert result.exit_code == 1
+    assert "mensagem teste" in result.output
+    assert "Traceback" not in result.output
