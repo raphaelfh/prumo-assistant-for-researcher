@@ -8,6 +8,8 @@
 
 **Pré-flight automatizado (2026-07-23, controller):** `validate_manifests.py` ✓ (`plugin.json`, `marketplace.json`, coerência cruzada) e `sync_manifest_version.py --check` ✓ (v0.62.0) — o spike não falhará por manifesto inválido.
 
+**Tentativa de execução agentiva (2026-07-23):** o dono autorizou executar o spike via Claude in Chrome (sessão logada), mas a extensão **bloqueia `claude.ai` e `claude.com` por política de permissões de site** ("This site is blocked by your site permissions") — anti-recursão. Caminhos: (a) execução manual pelo dono (este runbook), ou (b) o dono liberar os domínios nas permissões da extensão e pedir a retomada agentiva. Registrado como evidência: superfícies Claude não são automatizáveis por agente-no-Chrome na configuração default.
+
 **Pré-requisitos:** plano Claude pago (Pro/Max); Claude Desktop instalado (aba Chat) e acesso ao Cowork; um diretório `pj_*` real disponível para o passo 6. Para maximizar o sinal do modo degradado, execute os passos 3–5 numa máquina/contexto SEM `prumo` CLI no PATH — ou anote que a sua máquina tem o stack completo e o degradado ficará sub-testado (aceitável; o piloto da Fase 2 cobre).
 
 ---
