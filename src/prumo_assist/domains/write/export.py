@@ -28,6 +28,7 @@ import subprocess
 import tempfile
 import urllib.error
 import urllib.request
+import xml.etree.ElementTree as ET
 import zipfile
 from importlib import resources
 from pathlib import Path
@@ -220,6 +221,43 @@ def _docx_zotero_field_counts(docx_path: Path) -> tuple[int, int]:
     with zipfile.ZipFile(docx_path) as z:
         xml = z.read("word/document.xml").decode("utf-8", errors="replace")
     return xml.count("ZOTERO_ITEM"), xml.count("ZOTERO_BIBL")
+
+
+class CorruptDocxError(RuntimeError):
+    """Docx falhou na validação estrutural mesmo após um retry do pandoc."""
+
+
+_REQUIRED_DOCX_PARTS = ("[Content_Types].xml", "word/document.xml")
+
+
+def _validate_docx_structure(docx_path: Path) -> list[str]:
+    """Valida o zip do docx gerado. Retorna lista de problemas (vazia = são).
+
+    Cobre a classe de defeito conhecida do pipeline pandoc+filtros Zotero
+    (Word acusa "conteúdo ilegível"; docs do BBT recomendam re-rodar o
+    pandoc; pandoc issues #8010/#11378): zip inválido/truncado, parte
+    obrigatória ausente e ``[Content_Types].xml`` malformado.
+    """
+    if not docx_path.is_file():
+        return [f"arquivo não foi criado: {docx_path}"]
+    problems: list[str] = []
+    try:
+        with zipfile.ZipFile(docx_path) as z:
+            names = set(z.namelist())
+            for required in _REQUIRED_DOCX_PARTS:
+                if required not in names:
+                    problems.append(f"parte obrigatória ausente no zip: {required}")
+            bad_member = z.testzip()
+            if bad_member is not None:
+                problems.append(f"membro corrompido no zip (CRC): {bad_member}")
+            if "[Content_Types].xml" in names:
+                try:
+                    ET.fromstring(z.read("[Content_Types].xml"))
+                except ET.ParseError as exc:
+                    problems.append(f"[Content_Types].xml inválido: {exc}")
+    except zipfile.BadZipFile:
+        return [f"arquivo não é um zip válido: {docx_path}"]
+    return problems
 
 
 def _assert_bibliography_present(docx_path: Path) -> None:
