@@ -8,11 +8,16 @@ from __future__ import annotations
 
 import shutil
 import tomllib
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from prumo_assist.core.paths import resolve_resource
+
+#: Formas do placeholder de nome usadas em ``templates/pj_base/``
+#: (``pj-NOME`` no pyproject.toml, ``pj_<NOME>`` nos títulos markdown).
+_NAME_PLACEHOLDERS: tuple[str, ...] = ("pj_<NOME>", "pj-NOME")
 
 
 def overlay(template: Path, target: Path) -> tuple[list[str], list[str]]:
@@ -36,6 +41,29 @@ def overlay(template: Path, target: Path) -> tuple[list[str], list[str]]:
         shutil.copy2(src, dst)
         copied.append(str(rel))
     return copied, skipped
+
+
+def apply_project_name(target: Path, name: str, rel_paths: Iterable[str]) -> list[str]:
+    """Substitui os placeholders de nome do template pelo nome real do projeto.
+
+    Opera apenas sobre ``rel_paths`` (arquivos recém-copiados do scaffold) —
+    arquivos preservados do usuário em ``--merge`` nunca são reescritos.
+    Arquivos binários são ignorados. Retorna os paths relativos alterados.
+    """
+    changed: list[str] = []
+    for rel in rel_paths:
+        path = target / rel
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        new_text = text
+        for placeholder in _NAME_PLACEHOLDERS:
+            new_text = new_text.replace(placeholder, name)
+        if new_text != text:
+            path.write_text(new_text, encoding="utf-8")
+            changed.append(rel)
+    return changed
 
 
 @dataclass(frozen=True)
