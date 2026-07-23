@@ -44,3 +44,8 @@ def test_extract_citekeys_dedup() -> None:
 
 def test_extract_citekeys_empty() -> None:
     assert _extract_citekeys_used("sem citekeys") == []
+
+
+def test_extract_citekeys_composite_key_not_truncated() -> None:
+    text = "cita [[@smith2020:aha-guideline]] e [[@plain2021|alias]]."
+    assert _extract_citekeys_used(text) == ["plain2021", "smith2020:aha-guideline"]

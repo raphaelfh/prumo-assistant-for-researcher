@@ -22,6 +22,7 @@ import yaml
 from prumo_assist.core.bib import extract_field, parse_bib
 from prumo_assist.core.note_paths import extract_path
 from prumo_assist.core.paths import find_resource
+from prumo_assist.domains.write.export import CITEKEY_BODY
 from prumo_assist.domains.write.schemas.v1 import (
     ComposeInputs,
     FindingSummary,
@@ -264,5 +265,5 @@ def extract_missing_refs(text: str) -> list[str]:
 
 def _extract_citekeys_used(text: str) -> list[str]:
     """Captura ``[[@<citekey>]]`` em ``text``; retorna lista única ordenada."""
-    pattern = re.compile(r"\[\[@(?P<key>[a-zA-Z0-9._+-]+)(?:\|[^\]]+)?\]\]")
-    return sorted({m.group("key") for m in pattern.finditer(text)})
+    _WIKILINK_CITEKEY_RE = re.compile(r"\[\[@(?P<key>" + CITEKEY_BODY + r")(?:\|[^\]]+)?\]\]")
+    return sorted({m.group("key") for m in _WIKILINK_CITEKEY_RE.finditer(text)})

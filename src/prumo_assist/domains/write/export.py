@@ -109,7 +109,8 @@ def _zotero_live_docx_filter() -> Path:
 # `:.#$%&-+?<>~/` punctuation that must be followed by more word chars
 # (so we don't grab trailing sentence punctuation like the `.` in
 # `[@key].`). Negative lookbehind on `@\w` skips emails (foo@bar).
-_CITEKEY_RE = re.compile(r"(?<![@\w])@([A-Za-z0-9_]\w*(?:[:.#$%&+\-?<>~/]\w+)*)")
+CITEKEY_BODY = r"[A-Za-z0-9_]\w*(?:[:.#$%&+\-?<>~/]\w+)*"
+_CITEKEY_RE = re.compile(r"(?<![@\w])@(" + CITEKEY_BODY + r")")
 
 
 def scan_citekeys(markdown_text: str) -> list[str]:
