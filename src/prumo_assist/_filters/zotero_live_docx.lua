@@ -91,7 +91,10 @@ local function build_csl_citation(cite)
   for _, c in ipairs(cite.citations) do
     local key = c.id
     local lookup = zotero_lookup[key] or {}
-    local item = { id = lookup.itemID or key }
+    -- I1/I2b (spec da ponte): id SEMPRE = citekey (átomo opaco chaveado);
+    -- o id numérico do Zotero viaja em zoteroItemID.
+    local item = { id = key }
+    if lookup.itemID then item.zoteroItemID = lookup.itemID end
     if lookup.uri then item.uris = { lookup.uri } end
     if references_by_key[key] then
       item.itemData = references_by_key[key]

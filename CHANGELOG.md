@@ -15,6 +15,10 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   (`CorruptDocxError`) em vez de entregar arquivo suspeito. Guarda de
   regressão das `ZOTERO_PREF` embutidas (`MissingZoteroPrefsError`).
   Fase 1 do spec zero-friction onboarding.
+- Filtro `zotero_live_docx.lua`: `item.id` do campo `CSL_CITATION` agora carrega
+  SEMPRE o citekey (o id numérico do Zotero migra para `zoteroItemID`) —
+  pré-condição do átomo de citação da ponte docx↔CriticMarkup (spec 2026-07-05,
+  invariantes I1/I2b).
 
 ### Mudado
 - `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par
