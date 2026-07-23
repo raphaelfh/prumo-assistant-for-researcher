@@ -1,7 +1,7 @@
 ---
 title: Zero-friction onboarding — superfície Desktop/Cowork, export confiável e colapso da cadeia de instalação
 date: 2026-07-22
-status: draft
+status: approved
 tags: [friction, onboarding, distribution, desktop, cowork, docx, doctor, mcpb, zotero, golden-path]
 ---
 
