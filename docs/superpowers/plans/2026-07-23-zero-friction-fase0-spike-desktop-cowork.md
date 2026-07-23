@@ -1,0 +1,43 @@
+# Fase 0 — Spike de validação empírica no Desktop/Cowork — Runbook manual
+
+> **Execução:** MANUAL, pelo dono (exige conta Claude paga e a UI do Claude Desktop/Cowork — nenhum agente consegue executar isto). Sem código. ~15–25 min. O resultado alimenta diretamente o plano da Fase 2 (golden path + modo degradado) do spec [[2026-07-22-zero-friction-onboarding-design]].
+
+**Goal:** Responder empiricamente: o `marketplace.json` atual do prumo-assist sincroniza in-app nas superfícies Claude (web/Desktop/Cowork)? O que carrega e o que quebra sem o CLI/Zotero/qmd instalados? Como as falhas aparecem para um usuário não-programador?
+
+**Por que primeiro:** é a fase mais barata do programa e falsifica premissas antes de qualquer código da Fase 2 (se a sincronização in-app não funcionar como documentado em mai/2026, o golden path muda de forma). Sensibilidade temporal: as superfícies estão em research preview — se a UI divergir do roteiro, registre a discrepância como achado (não como erro seu).
+
+**Pré-requisitos:** plano Claude pago (Pro/Max); Claude Desktop instalado (aba Chat) e acesso ao Cowork; um diretório `pj_*` real disponível para o passo 6. Para maximizar o sinal do modo degradado, execute os passos 3–5 numa máquina/contexto SEM `prumo` CLI no PATH — ou anote que a sua máquina tem o stack completo e o degradado ficará sub-testado (aceitável; o piloto da Fase 2 cobre).
+
+---
+
+## Roteiro (marque e anote em cada item)
+
+- [ ] **1. Adicionar o marketplace por URL, in-app.** No chat do claude.ai (web) OU no Claude Desktop: fluxo de plugins → "Add from a repository" → `raphaelfh/prumo-assist` (ou URL git completa). Registrar: onde o fluxo fica na UI atual, se a sincronização funciona, mensagens de erro, e o que o catálogo mostra do plugin (nome, versão, nº de skills).
+- [ ] **2. Instalar o plugin e inventariar as skills visíveis.** Registrar: quantas das 14 skills aparecem, como aparecem (prefixo `/prumo-assist:`?), e se hooks/sub-agents aparecem desabilitados fora do Cowork (esperado, segundo a doc de mai/2026).
+- [ ] **3. Testar uma skill de julgamento puro SEM stack.** Colar um trecho de draft qualquer e invocar `/prumo-assist:peer-review`. Registrar: roda? pede algo do CLI indevidamente? qualidade subjetiva ok? (Esta é a hipótese do gancho de time-to-first-value da Fase 2 — D1.)
+- [ ] **4. Testar uma skill dependente do CLI e capturar a falha.** Invocar `/prumo-assist:paper-manager` (listar bibliografia) ou `/prumo-assist:wiki-query` sem `prumo`/Zotero/qmd disponíveis. Registrar A MENSAGEM EXATA que o usuário vê — é a linha de base que o preflight fail-closed da Fase 2 vai substituir.
+- [ ] **5. Observar o MCP `qmd` declarado.** O plugin distribui `.mcp.json` com o servidor `qmd`. Registrar: a superfície tenta subir o servidor? Que erro aparece sem o binário? O erro é compreensível para um clínico?
+- [ ] **6. Cowork com pasta `pj_*` real.** Designar a pasta de um projeto real; repetir os passos 3–4; testar se o agente consegue EXECUTAR um comando simples na pasta com consentimento (ex.: pedir para rodar `ls`/criar um arquivo de teste). Registrar: o modelo de permissão/consentimento como aparece — isso valida (ou não) a premissa da instalação guiada da Fase 2 (D1: "o Cowork executa comandos").
+- [ ] **7. (Opcional) Upload direto de arquivo de plugin** (fluxo "recebido de um colega"): exportar/enviar o plugin como arquivo e instalar via upload. Registrar viabilidade.
+- [ ] **8. Capturar screenshots** dos passos 1, 2, 4 e 6 (material bruto da doc em duas trilhas da Fase 2).
+
+## Registro de evidência (preencher ao executar)
+
+| Passo | Funcionou? | Mensagem/observação | Screenshot |
+|---|---|---|---|
+| 1 marketplace in-app | | | |
+| 2 skills visíveis | | | |
+| 3 julgamento sem stack | | | |
+| 4 falha sem CLI (baseline) | | | |
+| 5 MCP qmd | | | |
+| 6 Cowork + execução | | | |
+| 7 upload de arquivo | | | |
+
+## Critérios de saída
+
+1. Pergunta aberta nº 1 do spec respondida ("o marketplace self-hosted sincroniza in-app hoje, com quais limitações?").
+2. Baseline do modo degradado registrada (mensagens exatas dos passos 4–5).
+3. Premissa da instalação guiada validada ou refutada (passo 6).
+4. Material de docs coletado (passo 8).
+
+Ao concluir: preencher a tabela acima neste arquivo, adicionar frontmatter `status: implemented` + `verified: <data>` e mover para `archive/` (lifecycle da casa). O plano da Fase 2 nasce citando este registro.

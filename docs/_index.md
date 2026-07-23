@@ -58,7 +58,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 
 **Plans ativos:**
 
-- (nenhum)
+- [[superpowers/plans/2026-07-23-zero-friction-fase0-spike-desktop-cowork]] · —
 
 **Plans arquivados:** 17 em `superpowers/plans/archive/`
 
