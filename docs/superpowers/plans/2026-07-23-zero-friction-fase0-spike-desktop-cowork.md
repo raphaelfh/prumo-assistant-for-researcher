@@ -6,6 +6,8 @@
 
 **Por que primeiro:** é a fase mais barata do programa e falsifica premissas antes de qualquer código da Fase 2 (se a sincronização in-app não funcionar como documentado em mai/2026, o golden path muda de forma). Sensibilidade temporal: as superfícies estão em research preview — se a UI divergir do roteiro, registre a discrepância como achado (não como erro seu).
 
+**Pré-flight automatizado (2026-07-23, controller):** `validate_manifests.py` ✓ (`plugin.json`, `marketplace.json`, coerência cruzada) e `sync_manifest_version.py --check` ✓ (v0.62.0) — o spike não falhará por manifesto inválido.
+
 **Pré-requisitos:** plano Claude pago (Pro/Max); Claude Desktop instalado (aba Chat) e acesso ao Cowork; um diretório `pj_*` real disponível para o passo 6. Para maximizar o sinal do modo degradado, execute os passos 3–5 numa máquina/contexto SEM `prumo` CLI no PATH — ou anote que a sua máquina tem o stack completo e o degradado ficará sub-testado (aceitável; o piloto da Fase 2 cobre).
 
 ---
