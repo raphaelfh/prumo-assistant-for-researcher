@@ -98,3 +98,64 @@ def emit(kind: str, a: str = "", b: str = "") -> str:
     if kind == "comment":
         return "{>>" + b + "<<}"
     raise ValueError(f"kind desconhecido: {kind!r} (use ins|del|sub|highlight|comment)")
+
+
+def _resolve(mark: Mark, accepted: bool) -> str:
+    """Resolve uma marca segundo sua semântica e decisão (aceitar/rejeitar).
+
+    Semântica:
+    - aceitar (True): ins→b, del→"", sub→b, highlight→a, comment→""
+    - rejeitar (False): ins→"", del→a, sub→a, highlight→a, comment→""
+    """
+    if mark.kind == "ins":
+        return mark.b if accepted else ""
+    if mark.kind == "del":
+        return "" if accepted else mark.a
+    if mark.kind == "sub":
+        return mark.b if accepted else mark.a
+    if mark.kind == "highlight":
+        return mark.a
+    return ""  # comment: some nos dois casos; conteúdo vive no sidecar
+
+
+def apply(text: str, decisions: dict[int, bool]) -> str:
+    """Aplica decisões por marca (índice na ordem de :func:`parse`).
+
+    Marca sem decisão permanece intacta no texto de saída.
+
+    Args:
+        text: Texto com marcas CriticMarkup.
+        decisions: Dict {índice_marca: True_aceitar_False_rejeitar}.
+                   Marcas ausentes permanecem intactas.
+
+    Returns:
+        Texto com marcas resolvidas/intactas conforme decisões.
+    """
+    marks = parse(text)
+    out: list[str] = []
+    cursor = 0
+    for i, mark in enumerate(marks):
+        out.append(text[cursor : mark.start])
+        if i in decisions:
+            out.append(_resolve(mark, decisions[i]))
+        else:
+            out.append(text[mark.start : mark.end])
+        cursor = mark.end
+    out.append(text[cursor:])
+    return "".join(out)
+
+
+def accept(text: str) -> str:
+    """Aceita todas as marcas no texto.
+
+    Semântica: ins→b, del→"", sub→b, highlight→a, comment→""
+    """
+    return apply(text, dict.fromkeys(range(len(parse(text))), True))
+
+
+def reject(text: str) -> str:
+    """Rejeita todas as marcas no texto.
+
+    Semântica: ins→"", del→a, sub→a, highlight→a, comment→""
+    """
+    return apply(text, dict.fromkeys(range(len(parse(text))), False))

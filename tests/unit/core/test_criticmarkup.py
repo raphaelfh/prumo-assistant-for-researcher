@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from prumo_assist.core.criticmarkup import Mark, emit, parse
+from prumo_assist.core.criticmarkup import Mark, accept, apply, emit, parse, reject
 
 
 def test_parse_insertion() -> None:
@@ -66,3 +66,29 @@ def test_parse_emit_roundtrip() -> None:
     text = "a " + emit("del", a="x") + emit("ins", b="y") + " b"
     kinds = [m.kind for m in parse(text)]
     assert kinds == ["del", "ins"]
+
+
+def test_accept_all_kinds() -> None:
+    text = "a {++X++} b {--Y--} c {~~v~>n~~} d {==H==} e {>>C<<} f"
+    assert accept(text) == "a X b  c n d H e  f"
+
+
+def test_reject_all_kinds() -> None:
+    text = "a {++X++} b {--Y--} c {~~v~>n~~} d {==H==} e {>>C<<} f"
+    assert reject(text) == "a  b Y c v d H e  f"
+
+
+def test_apply_per_mark_decisions() -> None:
+    text = "{--um--} {++dois++} {~~a~>b~~}"
+    out = apply(text, {0: False, 1: True, 2: True})
+    assert out == "um dois b"
+
+
+def test_apply_partial_keeps_undecided_marks() -> None:
+    text = "{--um--} {++dois++}"
+    out = apply(text, {0: True})
+    assert out == " {++dois++}"
+
+
+def test_accept_idempotent_on_clean_text() -> None:
+    assert accept("sem marcas") == "sem marcas"
