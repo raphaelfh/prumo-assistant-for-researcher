@@ -7,6 +7,27 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **`core/criticmarkup.py`** — módulo de representação de revisão com as 5 marcas
+  de CriticMarkup padrão (`{++...++}`, `{--...--}`, `{>>...<<}`, `{~~...~>...~}`,
+  `{%%...%%}`), parsing canônico, e operações determinísticas accept/reject/apply.
+  Substrato da ponte docx ↔ CriticMarkup (spec 2026-07-05, [ADR-0016](docs/adr/adr-0016-criticmarkup-conservacao-ooxml.md)).
+- **`normalize_markdown_with_map`** em `core/obsidian.py` — normalização lossless
+  com `span-map.json` sidecar indexando cada caractere da prosa normalizada de
+  volta à posição no original, permitindo transpor alterações do docx com
+  precisão pixel-perfect (pareamento hard-fail I2/I8).
+- **Sidecars `reviews/<slug>/{citemap,span-map}.json`** no export docx — versionáveis
+  em Git, com `citemap` registrando (posição, citekey, fingerprint Zotero,
+  occ_id) como contrato: hard-fail se docx que volta tiver contagem de citações
+  diferente. Semântica: "quantas citações havia antes" (invariante I2).
+- **Campos de citação travados** (`sdtContentLocked=1`, invariante I4) — cada
+  campo Zotero no docx sai travado, impedindo edição direta no Word; coautores
+  veem `[[@key]]` mas precisam usar prumo para aceitar/rejeitar via CriticMarkup.
+- **`prumoOcc`/`prumoFingerprint`** na payload OOXML — fingerprint do item Zotero
+  (hash da metadados canonicamente ordenados) embutido no field code, garantindo
+  que o pareamento de citações não seja spoofável e audite versão de item.
+
 ### Corrigido
 - `prumo write export/compose --to docx`: o docx gerado passa por validação
   estrutural (zip, partes obrigatórias, `[Content_Types].xml`) com um retry
@@ -19,6 +40,11 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   SEMPRE o citekey (o id numérico do Zotero migra para `zoteroItemID`) —
   pré-condição do átomo de citação da ponte docx↔CriticMarkup (spec 2026-07-05,
   invariantes I1/I2b).
+- **I7 — Gramática única de citekey:** regex `CITEKEY_BODY` em `core/obsidian.py`
+  agora resolve chaves compostas (`[[@smith2020:aha-guideline]]`) corretamente em
+  `compose.py:_extract_citekeys_used`. Bug anterior truncava para `smith2020`; o
+  defeito foi eliminado com unificação de gramática (invariante I7,
+  [ADR-0016](docs/adr/adr-0016-criticmarkup-conservacao-ooxml.md)).
 
 ### Mudado
 - `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par

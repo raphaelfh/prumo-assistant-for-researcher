@@ -22,4 +22,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0012-remocao-agents-ml]] — Remoção dos agents ML pré-pivot · aceito
 - [[adr/adr-0013-pdf-via-read-nativo]] — PDFs lidos com a tool Read nativa; sem MCP pdf-reader · aceito
 - [[adr/adr-0014-findings-canonico]] — Caminho canônico de findings: `docs/wiki/findings/` com fallback · aceito
+- [[adr/adr-0016-criticmarkup-conservacao-ooxml]] — CriticMarkup como representação de revisão + conservação de citações contada no OOXML · aceito
 <!-- prumo:adr-index:end -->
