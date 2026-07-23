@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 import prumo_assist.domains.write.export as export_mod
-from prumo_assist.core.obsidian import SpanFragment
+from prumo_assist.core.obsidian import SpanFragment, split_frontmatter
 from prumo_assist.domains.write.export import (
     CorruptDocxError,
     MissingZoteroPrefsError,
@@ -479,6 +479,12 @@ def test_export_docx_emits_review_sidecars(tmp_path: Path, monkeypatch: pytest.M
     citemap = CiteMapFile.model_validate_json((out_dir / "citemap.json").read_text())
     assert citemap.docx_sha256 == hashlib.sha256(result.read_bytes()).hexdigest()
     assert citemap.occurrences[0].citekeys == ["smith2020"]
+
+    # Verify source_sha256 in span-map matches the page body (without frontmatter)
+    span_map = SpanMapFile.model_validate_json((out_dir / "span-map.json").read_text())
+    page_text = page.read_text()
+    _, body = split_frontmatter(page_text)
+    assert span_map.source_sha256 == hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
 def test_export_docx_wiring_mismatch_hard_fails(
