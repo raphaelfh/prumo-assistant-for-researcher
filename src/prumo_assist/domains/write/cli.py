@@ -29,6 +29,16 @@ FIRST_USE_DOCX_NOTE = (
     "'Document Preferences' não deve abrir."
 )
 
+_EXPORT_CATCHES = (
+    FileNotFoundError,
+    ValueError,
+    export.CorruptDocxError,
+    export.MissingZoteroPrefsError,
+    export.ZoteroNotRunningError,
+    export.ZoteroCitekeyNotFoundError,
+    export.MissingBibliographyPlaceholderError,
+)
+
 
 @write_app.command("export")
 def export_command(
@@ -51,15 +61,7 @@ def export_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Exporta uma página Markdown via Pandoc + CSL → DOCX/Typst/PDF/HTML."""
-    with cli_run(
-        json_mode=json_mode,
-        catches=(
-            FileNotFoundError,
-            ValueError,
-            export.CorruptDocxError,
-            export.MissingZoteroPrefsError,
-        ),
-    ) as console:
+    with cli_run(json_mode=json_mode, catches=_EXPORT_CATCHES) as console:
         page_resolved = page.resolve()
         project_root = export.detect_project_root(page_resolved)
 
@@ -107,15 +109,7 @@ def compose_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Compõe múltiplas páginas (frontmatter ``pages: [...]``) em um documento único."""
-    with cli_run(
-        json_mode=json_mode,
-        catches=(
-            FileNotFoundError,
-            ValueError,
-            export.CorruptDocxError,
-            export.MissingZoteroPrefsError,
-        ),
-    ) as console:
+    with cli_run(json_mode=json_mode, catches=_EXPORT_CATCHES) as console:
         index_resolved = index.resolve()
         project_root = export.detect_project_root(index_resolved)
 

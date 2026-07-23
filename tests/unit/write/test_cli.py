@@ -236,3 +236,35 @@ def test_write_compose_corrupt_docx_shows_clean_error(
     assert result.exit_code == 1
     assert "mensagem teste" in result.output
     assert "Traceback" not in result.output
+
+
+def test_write_export_zotero_down_shows_clean_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, page = _pj_with_bib(tmp_path)
+
+    def _boom(**kw: object) -> Path:
+        raise export.ZoteroNotRunningError("Zotero fora do ar — mensagem teste")
+
+    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", _boom)
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
+    assert result.exit_code == 1
+    assert "mensagem teste" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_write_compose_missing_refs_placeholder_shows_clean_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, _page = _pj_with_bib(tmp_path)
+    index = pj / "docs" / "index.md"
+    index.write_text("---\npages: [docs/p.md]\n---\n")
+
+    def _boom(**kw: object) -> Path:
+        raise export.MissingBibliographyPlaceholderError("sem placeholder — mensagem teste")
+
+    monkeypatch.setattr("prumo_assist.domains.write.cli.export.compose", _boom)
+    result = runner.invoke(app, ["write", "compose", "--index", str(index), "--to", "docx"])
+    assert result.exit_code == 1
+    assert "mensagem teste" in result.output
+    assert "Traceback" not in result.output
