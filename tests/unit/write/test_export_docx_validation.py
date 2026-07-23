@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-import prumo_assist.domains.write.export as export_mod
 from prumo_assist.domains.write.export import (
     CorruptDocxError,
     _run_and_validate_docx,
@@ -103,7 +102,7 @@ def test_run_and_validate_passes_first_try(tmp_path: Path, monkeypatch: pytest.M
     out = tmp_path / "saida.docx"
     calls: list[list[str]] = []
     fake = _fake_run_writing(out, [_good_docx_bytes(tmp_path)], calls)
-    monkeypatch.setattr(export_mod.subprocess, "run", fake)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
     _run_and_validate_docx(["pandoc", f"--output={out}"], out)
     assert len(calls) == 1
 
@@ -114,7 +113,7 @@ def test_run_and_validate_retries_once_on_corrupt_output(
     out = tmp_path / "saida.docx"
     calls: list[list[str]] = []
     fake = _fake_run_writing(out, [b"lixo nao-zip", _good_docx_bytes(tmp_path)], calls)
-    monkeypatch.setattr(export_mod.subprocess, "run", fake)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
     _run_and_validate_docx(["pandoc", f"--output={out}"], out)
     assert len(calls) == 2
 
@@ -125,7 +124,7 @@ def test_run_and_validate_raises_after_second_failure(
     out = tmp_path / "saida.docx"
     calls: list[list[str]] = []
     fake = _fake_run_writing(out, [b"lixo 1", b"lixo 2"], calls)
-    monkeypatch.setattr(export_mod.subprocess, "run", fake)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
     with pytest.raises(CorruptDocxError) as exc:
         _run_and_validate_docx(["pandoc", f"--output={out}"], out)
     assert len(calls) == 2
