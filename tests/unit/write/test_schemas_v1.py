@@ -8,9 +8,13 @@ import pytest
 from pydantic import ValidationError
 
 from prumo_assist.domains.write.schemas.v1 import (
+    CiteMapFile,
+    CiteOccurrence,
     ComposeInputs,
     FindingSummary,
     PaperSummary,
+    SpanFragmentModel,
+    SpanMapFile,
     WriteOutput,
 )
 
@@ -90,3 +94,38 @@ def test_write_output_invalid_kind() -> None:
             references_missing=[],
             words_generated=0,
         )
+
+
+def test_spanmap_file_roundtrip() -> None:
+    f = SpanMapFile(
+        page="docs/page.md",
+        source_sha256="ab" * 32,
+        fragments=[
+            SpanFragmentModel(
+                source_start=0, source_end=5, norm_start=0, norm_end=5, kind="identity"
+            )
+        ],
+    )
+    assert SpanMapFile.model_validate_json(f.model_dump_json()) == f
+    assert f.schema_version == "SpanMapFile/v1"
+
+
+def test_citemap_file_roundtrip() -> None:
+    f = CiteMapFile(
+        page="docs/page.md",
+        export_git_sha="deadbee",
+        bib_sha256="cd" * 32,
+        docx_sha256="ef" * 32,
+        occurrences=[
+            CiteOccurrence(
+                occ_id="00000001",
+                citation_id="00000001",
+                citekeys=["smith2020"],
+                fingerprints={"smith2020": "doi:10.1000/x"},
+                formatted="(Smith, 2020)",
+                norm_start=6,
+                norm_end=18,
+            )
+        ],
+    )
+    assert CiteMapFile.model_validate_json(f.model_dump_json()) == f

@@ -61,6 +61,48 @@ class WriteOutput(BaseModel):
     words_generated: int
 
 
+class SpanFragmentModel(BaseModel):
+    """Um fragmento de mapeamento de intervalo (source → normalized)."""
+
+    source_start: int
+    source_end: int
+    norm_start: int
+    norm_end: int
+    kind: str
+
+
+class SpanMapFile(BaseModel):
+    """Arquivo sidecar que mapeia spans de texto-fonte para texto normalizado."""
+
+    schema_version: Literal["SpanMapFile/v1"] = "SpanMapFile/v1"
+    page: str
+    source_sha256: str
+    fragments: list[SpanFragmentModel]
+
+
+class CiteOccurrence(BaseModel):
+    """Uma ocorrência de citação com identidade, citekeys e metadados de formatação."""
+
+    occ_id: str
+    citation_id: str
+    citekeys: list[str]
+    fingerprints: dict[str, str]
+    formatted: str
+    norm_start: int
+    norm_end: int
+
+
+class CiteMapFile(BaseModel):
+    """Arquivo sidecar que mapeia ocorrências de citações com suas posições normalizadas."""
+
+    schema_version: Literal["CiteMapFile/v1"] = "CiteMapFile/v1"
+    page: str
+    export_git_sha: str
+    bib_sha256: str
+    docx_sha256: str
+    occurrences: list[CiteOccurrence]
+
+
 class AIToolUse(BaseModel):
     """Um uso agregado de ferramenta de IA (uma skill + um modelo)."""
 
