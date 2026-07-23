@@ -8,7 +8,14 @@ from __future__ import annotations
 import zipfile
 from pathlib import Path
 
-from prumo_assist.domains.write.export import _validate_docx_structure
+import pytest
+
+import prumo_assist.domains.write.export as export_mod
+from prumo_assist.domains.write.export import (
+    CorruptDocxError,
+    _run_and_validate_docx,
+    _validate_docx_structure,
+)
 
 _CONTENT_TYPES_OK = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -73,3 +80,54 @@ def test_malformed_content_types_is_reported(tmp_path: Path) -> None:
     docx = _write_minimal_docx(tmp_path / "mal.docx", types_xml="<Types><Default</Types>")
     problems = _validate_docx_structure(docx)
     assert any("[Content_Types].xml" in p and "inválido" in p for p in problems)
+
+
+def _fake_run_writing(out: Path, payloads: list[bytes], calls: list[list[str]]) -> object:
+    """Fabrica um substituto de subprocess.run que escreve payloads[i] em out."""
+
+    def fake_run(cmd: list[str], check: bool, text: bool) -> None:
+        calls.append(list(cmd))
+        out.parent.mkdir(parents=True, exist_ok=True)
+        idx = min(len(calls) - 1, len(payloads) - 1)
+        out.write_bytes(payloads[idx])
+
+    return fake_run
+
+
+def _good_docx_bytes(tmp_path: Path) -> bytes:
+    good = _write_minimal_docx(tmp_path / "_good_fixture.docx")
+    return good.read_bytes()
+
+
+def test_run_and_validate_passes_first_try(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    out = tmp_path / "saida.docx"
+    calls: list[list[str]] = []
+    fake = _fake_run_writing(out, [_good_docx_bytes(tmp_path)], calls)
+    monkeypatch.setattr(export_mod.subprocess, "run", fake)
+    _run_and_validate_docx(["pandoc", f"--output={out}"], out)
+    assert len(calls) == 1
+
+
+def test_run_and_validate_retries_once_on_corrupt_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out = tmp_path / "saida.docx"
+    calls: list[list[str]] = []
+    fake = _fake_run_writing(out, [b"lixo nao-zip", _good_docx_bytes(tmp_path)], calls)
+    monkeypatch.setattr(export_mod.subprocess, "run", fake)
+    _run_and_validate_docx(["pandoc", f"--output={out}"], out)
+    assert len(calls) == 2
+
+
+def test_run_and_validate_raises_after_second_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out = tmp_path / "saida.docx"
+    calls: list[list[str]] = []
+    fake = _fake_run_writing(out, [b"lixo 1", b"lixo 2"], calls)
+    monkeypatch.setattr(export_mod.subprocess, "run", fake)
+    with pytest.raises(CorruptDocxError) as exc:
+        _run_and_validate_docx(["pandoc", f"--output={out}"], out)
+    assert len(calls) == 2
+    assert "re-executar" in str(exc.value)
+    assert str(out) in str(exc.value)

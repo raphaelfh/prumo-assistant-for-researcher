@@ -260,6 +260,34 @@ def _validate_docx_structure(docx_path: Path) -> list[str]:
     return problems
 
 
+def _run_and_validate_docx(cmd: list[str], out: Path) -> None:
+    """Roda o pandoc para docx garantindo saída estruturalmente válida.
+
+    Defeito documentado do pipeline (docs do BBT): o Word ocasionalmente
+    acusa o docx como corrompido e re-executar o mesmo comando conserta.
+    Automatiza exatamente isso — valida, re-executa UMA vez, e falha alto
+    se persistir. Nunca entrega arquivo suspeito silenciosamente.
+    """
+    subprocess.run(cmd, check=True, text=True)
+    problems = _validate_docx_structure(out)
+    if not problems:
+        return
+    logger.warning(
+        "docx falhou na validação estrutural (%s); re-executando o pandoc",
+        "; ".join(problems),
+    )
+    subprocess.run(cmd, check=True, text=True)
+    problems = _validate_docx_structure(out)
+    if problems:
+        raise CorruptDocxError(
+            "O docx gerado continua estruturalmente inválido mesmo após "
+            f"re-executar o pandoc: {'; '.join(problems)}. Arquivo: {out}. "
+            "Rode novamente `prumo write export --to docx`; se persistir, abra "
+            "uma issue com o markdown de entrada: "
+            "https://github.com/raphaelfh/prumo-assist/issues"
+        )
+
+
 def _assert_bibliography_present(docx_path: Path) -> None:
     items, bibl = _docx_zotero_field_counts(docx_path)
     if items > 0 and bibl == 0:
