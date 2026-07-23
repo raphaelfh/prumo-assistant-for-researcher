@@ -8,6 +8,9 @@ do domínio + saída via `core/output.Console` (regra de fachadas finas,
 Task 1 entrega o bloco de exceções (contrato usado por todas as tasks
 seguintes — ver "Interfaces centrais" do plano) e o leitor OOXML
 STATEFUL de citações: :func:`read_docx_citations_with_state` (I2b).
+Task 2 entrega :func:`check_conservation` (I2/I2b/I3-lite): compara o
+OBSERVADO (saída do leitor) contra o citemap (EXPECTED, gravado no
+export) e hard-fail em qualquer divergência.
 
 É o sibling STATEFUL de
 :func:`prumo_assist.domains.write.export._read_docx_citations` (MÉTODO
@@ -27,6 +30,7 @@ from typing import Any, Literal, cast
 from xml.etree import ElementTree as ET
 
 from prumo_assist.domains.write.export import _parse_csl_payload
+from prumo_assist.domains.write.schemas.v1 import CiteMapFile
 
 # Mesmo padrão de comments.py (W_NS + iteração ET sobre word/document.xml).
 W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -291,3 +295,136 @@ def read_docx_citations_with_state(docx_path: Path) -> list[DocxCitation]:
         )
 
     return citations
+
+
+def check_conservation(observed: list[DocxCitation], citemap: CiteMapFile) -> list[DocxCitation]:
+    """Confere a conservação de citações do docx revisado (I2/I2b/I3-lite).
+
+    ``observed`` é a saída do leitor stateful (:func:`read_docx_citations_with_state`)
+    sobre o docx que voltou do coautor; ``citemap`` é o EXPECTED gravado no
+    export (:class:`CiteMapFile`). Hard-fail (:class:`CitationConservationError`,
+    pt-BR, nomeando occ_ids/citekeys) na primeira divergência encontrada, nesta
+    ordem:
+
+    1. **occ_id duplicado** no observado (paste-clone, I2b). Caso especial
+       diagnosticado: se a duplicata é EXATAMENTE um par `deleted` + `touched`
+       — a cópia sobrevivente está inteira dentro de `w:ins` (Word marca assim
+       o texto colado sob Track Changes) — a mensagem vira um diagnóstico de
+       possível MOVE (mover citação não é suportado no MVP; I2c fica para a
+       Fase 3). Qualquer outra combinação de duplicatas usa a mensagem
+       genérica. Continua hard-fail nos dois casos; só o diagnóstico melhora.
+    2. **Multiconjunto** `{occ_id: citekeys}` de TODOS os estados (live +
+       touched + deleted) precisa bater com o citemap: occ ausente do
+       observado (campo achatado/hard-deleted sem rastro — deleção RASTREADA
+       preserva o campo no XML, validado no spike do plano) ou occ extra (sem
+       par no citemap) ou citekeys divergentes para o mesmo occ_id — qualquer
+       um dos três dispara o gate.
+    3. **Fingerprints** — para cada occ comum aos dois lados, o fingerprint
+       por citekey observado precisa bater com o do citemap (re-key/shadow do
+       Zotero/BBT desde o export, I3-lite; revalidação BBT plena fica para a
+       Fase 4).
+    4. **`touched`** — qualquer citação com campo tocado por `w:ins`/`w:del`
+       (mas não inteiramente deletada) é fail-informativo: o MVP não
+       transplanta CITATION-TOUCHED, decisão humana é necessária (I2c vira
+       evento reconciliável só na Fase 3).
+
+    Retorna a lista das citações `deleted` (candidatas a evento de drop
+    pendente de confirmação explícita no `apply`, Task 9) quando NENHUMA
+    divergência dispara os gates acima.
+    """
+    by_occ: dict[str, list[DocxCitation]] = {}
+    for citation in observed:
+        by_occ.setdefault(citation.occ_id, []).append(citation)
+
+    for occ_id, group in by_occ.items():
+        if len(group) < 2:
+            continue
+        states = {citation.state for citation in group}
+        if len(group) == 2 and states == {"deleted", "touched"}:
+            raise CitationConservationError(
+                f"possível MOVE de citação (occ {occ_id}) — mover citação "
+                "não é suportado no MVP; rejeite a mudança no Word e mova "
+                "via edição da fonte, ou aguarde a Fase 3 (I2c)."
+            )
+        duplicated_citekeys = sorted({key for c in group for key in c.citekeys})
+        raise CitationConservationError(
+            f"occ_id duplicado no docx revisado: occ {occ_id} (citekeys "
+            f"{', '.join(duplicated_citekeys)}) aparece {len(group)}x em "
+            "word/document.xml (paste-clone, I2b). Rejeite a mudança no "
+            "Word e mantenha uma única ocorrência do campo por citação; "
+            "re-exporte com `prumo write export --to docx` se precisar "
+            "recomeçar a revisão."
+        )
+
+    observed_citekeys: dict[str, list[str]] = {
+        citation.occ_id: list(citation.citekeys) for citation in observed
+    }
+    citemap_citekeys: dict[str, list[str]] = {
+        occ.occ_id: occ.citekeys for occ in citemap.occurrences
+    }
+
+    missing = sorted(set(citemap_citekeys) - set(observed_citekeys))
+    if missing:
+        missing_desc = "; ".join(
+            f"occ {occ_id} (citekeys {', '.join(citemap_citekeys[occ_id])})" for occ_id in missing
+        )
+        raise CitationConservationError(
+            f"Citação(ões) ausente(s) no docx revisado: {missing_desc} não "
+            "aparece(m) mais em word/document.xml (achatada(s)/hard "
+            "delete, I2) — deleção RASTREADA preserva o campo no XML, "
+            "então o(s) campo(s) sumiu(ram) sem rastro. Rejeite a mudança "
+            "no Word (delete a citação com Track Changes ativo) ou "
+            "restaure o campo, e re-ingira."
+        )
+
+    extra = sorted(set(observed_citekeys) - set(citemap_citekeys))
+    if extra:
+        extra_desc = "; ".join(
+            f"occ {occ_id} (citekeys {', '.join(observed_citekeys[occ_id])})" for occ_id in extra
+        )
+        raise CitationConservationError(
+            f"Citação(ões) extra(s) no docx revisado: {extra_desc} não "
+            "consta(m) no citemap (I2). Citação nova não é suportada "
+            "neste MVP; re-exporte com `prumo write export --to docx` e "
+            "reaplique a revisão sobre o docx novo."
+        )
+
+    for occ_id, expected_keys in citemap_citekeys.items():
+        if observed_citekeys[occ_id] != expected_keys:
+            raise CitationConservationError(
+                f"Citekeys divergentes para occ {occ_id}: docx revisado tem "
+                f"{observed_citekeys[occ_id]!r}, citemap tem "
+                f"{expected_keys!r} (campo re-chaveado, I2). Re-exporte com "
+                "`prumo write export --to docx` e reaplique a revisão sobre "
+                "o docx novo."
+            )
+
+    citemap_fingerprints: dict[str, dict[str, str]] = {
+        occ.occ_id: occ.fingerprints for occ in citemap.occurrences
+    }
+    for citation in observed:
+        expected_fingerprints = citemap_fingerprints[citation.occ_id]
+        if citation.fingerprints != expected_fingerprints:
+            mismatched = sorted(
+                key
+                for key in set(citation.fingerprints) | set(expected_fingerprints)
+                if citation.fingerprints.get(key) != expected_fingerprints.get(key)
+            )
+            raise CitationConservationError(
+                f"Fingerprint divergente na citação occ {citation.occ_id} "
+                f"(citekey(s) {', '.join(mismatched)}) — possível "
+                "re-chaveamento no Zotero/BBT desde o export (I3-lite). "
+                "Re-exporte com `prumo write export --to docx` e reaplique "
+                "a revisão sobre o docx novo."
+            )
+
+    touched = [citation for citation in observed if citation.state == "touched"]
+    if touched:
+        occ_ids = ", ".join(citation.occ_id for citation in touched)
+        raise CitationConservationError(
+            f"citação editada dentro do campo (occ {occ_ids}) — decisão "
+            "humana necessária; MVP não transplanta CITATION-TOUCHED; "
+            "rejeite a mudança no Word ou trate manualmente."
+        )
+
+    return [citation for citation in observed if citation.state == "deleted"]

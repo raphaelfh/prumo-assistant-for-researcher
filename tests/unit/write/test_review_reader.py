@@ -19,8 +19,10 @@ import prumo_assist.domains.write.export as export_mod
 from prumo_assist.domains.write.review import (
     CitationConservationError,
     DocxCitation,
+    check_conservation,
     read_docx_citations_with_state,
 )
+from prumo_assist.domains.write.schemas.v1 import CiteMapFile, CiteOccurrence
 
 _W_XMLNS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 
@@ -97,6 +99,35 @@ def _write_docx_with_fields(path: Path, field_bodies: list[str]) -> Path:
     with zipfile.ZipFile(path, "w") as z:
         z.writestr("word/document.xml", document)
     return path
+
+
+def _occ(*, occ_id: str, citekeys: list[str], formatted: str = "") -> CiteOccurrence:
+    """Ocorrência do citemap com o MESMO formato de fingerprint que `_payload`
+    grava no campo (``doi:10.1/{key}``) — por padrão citemap e docx concordam;
+    os testes de divergência (fingerprint/citekeys) constroem a `CiteOccurrence`
+    divergente manualmente em vez de usar este helper."""
+    return CiteOccurrence(
+        occ_id=occ_id,
+        citation_id=occ_id,
+        citekeys=citekeys,
+        fingerprints={key: f"doi:10.1/{key}" for key in citekeys},
+        formatted=formatted,
+        norm_start=0,
+        norm_end=1,
+    )
+
+
+def _citemap(occurrences: list[CiteOccurrence]) -> CiteMapFile:
+    """Citemap mínimo: só ``occurrences`` importa para `check_conservation` —
+    ``page``/``export_git_sha``/``bib_sha256``/``docx_sha256`` são metadados do
+    sidecar real (usados por outras guardas/tasks), irrelevantes aqui."""
+    return CiteMapFile(
+        page="docs/page.md",
+        export_git_sha="deadbee",
+        bib_sha256="ab" * 32,
+        docx_sha256="cd" * 32,
+        occurrences=occurrences,
+    )
 
 
 # --- estado: live / deleted / touched --------------------------------------
@@ -280,3 +311,153 @@ def test_state_reader_and_export_reader_decode_identical_fingerprint_and_formatt
     assert "&para=" in stateful[0].formatted
     assert "¶" not in stateful[0].formatted
     assert "¶" not in stateful[0].fingerprints["smith2020"]
+
+
+# --- conservação (`check_conservation`, I2/I2b/I3-lite) ---------------------
+#
+# `observed` vem SEMPRE do leitor real (`read_docx_citations_with_state`) sobre
+# fixtures docx reais (mesmos helpers `_field_xml`/`_write_docx_with_fields`
+# acima) — nunca dict/DocxCitation hand-built, para exercitar o par
+# leitor→conservação como o pipeline real (`ingest`, Task 8) vai fazer. O
+# citemap É hand-built via `CiteOccurrence`/`_citemap` — ele é sempre um
+# sidecar estático, nunca produto do leitor.
+
+
+def test_check_conservation_ok_with_two_live(tmp_path: Path) -> None:
+    payload_a = _payload(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")
+    payload_b = _payload(occ_id="00000002", citekeys=["bbb2021"], formatted="(Bbb, 2021)")
+    docx = _write_docx_with_fields(
+        tmp_path / "ok_2_live.docx", [_field_xml(payload_a), _field_xml(payload_b)]
+    )
+    observed = read_docx_citations_with_state(docx)
+    citemap = _citemap(
+        [
+            _occ(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)"),
+            _occ(occ_id="00000002", citekeys=["bbb2021"], formatted="(Bbb, 2021)"),
+        ]
+    )
+
+    deleted = check_conservation(observed, citemap)
+
+    assert deleted == []
+
+
+def test_check_conservation_returns_deleted_citations(tmp_path: Path) -> None:
+    payload_live = _payload(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")
+    payload_del = _payload(occ_id="00000002", citekeys=["bbb2021"], formatted="(Bbb, 2021)")
+    docx = _write_docx_with_fields(
+        tmp_path / "com_deleted.docx",
+        [_field_xml(payload_live), _field_xml(payload_del, wrap_del=True)],
+    )
+    observed = read_docx_citations_with_state(docx)
+    citemap = _citemap(
+        [
+            _occ(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)"),
+            _occ(occ_id="00000002", citekeys=["bbb2021"], formatted="(Bbb, 2021)"),
+        ]
+    )
+
+    deleted = check_conservation(observed, citemap)
+
+    assert [c.occ_id for c in deleted] == ["00000002"]
+    assert deleted[0].state == "deleted"
+
+
+def test_check_conservation_missing_occ_raises(tmp_path: Path) -> None:
+    """occ presente no citemap mas ausente do docx revisado — campo
+    achatado/hard-deleted sem rastro (deleção RASTREADA preserva o campo no
+    XML; só a ausência total é hard-fail)."""
+    payload = _payload(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")
+    docx = _write_docx_with_fields(tmp_path / "faltante.docx", [_field_xml(payload)])
+    observed = read_docx_citations_with_state(docx)
+    citemap = _citemap(
+        [
+            _occ(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)"),
+            _occ(occ_id="00000002", citekeys=["bbb2021"], formatted="(Bbb, 2021)"),
+        ]
+    )
+
+    with pytest.raises(CitationConservationError) as exc:
+        check_conservation(observed, citemap)
+    assert "00000002" in str(exc.value)
+
+
+def test_check_conservation_duplicate_occ_id_raises(tmp_path: Path) -> None:
+    """Paste-clone (I2b): mesmo occ_id em 2 campos, ambos `live` — duplicata
+    genérica (NÃO o caso especial deleted+touched — ver teste de MOVE
+    abaixo), mensagem não deve sugerir MOVE."""
+    payload = _payload(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")
+    docx = _write_docx_with_fields(
+        tmp_path / "duplicado.docx", [_field_xml(payload), _field_xml(payload)]
+    )
+    observed = read_docx_citations_with_state(docx)
+    citemap = _citemap([_occ(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")])
+
+    with pytest.raises(CitationConservationError) as exc:
+        check_conservation(observed, citemap)
+    assert "00000001" in str(exc.value)
+    assert "MOVE" not in str(exc.value)
+
+
+def test_check_conservation_duplicate_deleted_and_touched_diagnoses_possible_move(
+    tmp_path: Path,
+) -> None:
+    """Caso especial do rule 1 (teste próprio, per brief): das duplicatas do
+    MESMO occ_id, uma está `deleted` (campo inteiro sob `w:del` num lugar) e
+    a outra `touched` por estar inteiramente dentro de `w:ins` (Word marca
+    assim o texto colado sob Track Changes) num outro lugar — diagnóstico
+    melhora para "possível MOVE"; continua hard-fail (mover citação não é
+    suportado no MVP, I2c fica para a Fase 3)."""
+    payload = _payload(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")
+    docx = _write_docx_with_fields(
+        tmp_path / "possivel_move.docx",
+        [_field_xml(payload, wrap_del=True), _field_xml(payload, touch_ins=True)],
+    )
+    observed = read_docx_citations_with_state(docx)
+    assert {c.state for c in observed} == {"deleted", "touched"}
+    citemap = _citemap([_occ(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")])
+
+    with pytest.raises(CitationConservationError) as exc:
+        check_conservation(observed, citemap)
+    assert "MOVE" in str(exc.value)
+    assert "00000001" in str(exc.value)
+
+
+def test_check_conservation_fingerprint_mismatch_raises(tmp_path: Path) -> None:
+    """I3-lite: fingerprint do docx revisado diverge do citemap (re-key/shadow
+    no Zotero/BBT desde o export) — hard-fail mesmo com citekeys idênticas."""
+    payload = _payload(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")
+    docx = _write_docx_with_fields(tmp_path / "fingerprint.docx", [_field_xml(payload)])
+    observed = read_docx_citations_with_state(docx)
+    citemap = _citemap(
+        [
+            CiteOccurrence(
+                occ_id="00000001",
+                citation_id="00000001",
+                citekeys=["aaa2020"],
+                fingerprints={"aaa2020": "doi:10.1/OUTRO"},
+                formatted="(Aaa, 2020)",
+                norm_start=0,
+                norm_end=1,
+            )
+        ]
+    )
+
+    with pytest.raises(CitationConservationError) as exc:
+        check_conservation(observed, citemap)
+    assert "aaa2020" in str(exc.value)
+
+
+def test_check_conservation_touched_raises_with_human_decision_message(tmp_path: Path) -> None:
+    """MVP não transplanta CITATION-TOUCHED — fail-informativo citando
+    "decisão humana", mesmo quando occ_id/citekeys/fingerprints batem
+    perfeitamente com o citemap (campo travado, I4 — só a ancestralidade
+    ins/del mudou, nunca o payload)."""
+    payload = _payload(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")
+    docx = _write_docx_with_fields(tmp_path / "touched.docx", [_field_xml(payload, touch_ins=True)])
+    observed = read_docx_citations_with_state(docx)
+    citemap = _citemap([_occ(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")])
+
+    with pytest.raises(CitationConservationError) as exc:
+        check_conservation(observed, citemap)
+    assert "decisão humana" in str(exc.value)
