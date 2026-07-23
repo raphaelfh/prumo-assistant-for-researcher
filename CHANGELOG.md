@@ -7,6 +7,22 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Corrigido
+- `prumo write export/compose --to docx`: o docx gerado passa por validação
+  estrutural (zip, partes obrigatórias, `[Content_Types].xml`) com um retry
+  automático do pandoc — absorve o defeito intermitente de "arquivo
+  corrompido" documentado no pipeline BBT/pandoc; se persistir, falha alto
+  (`CorruptDocxError`) em vez de entregar arquivo suspeito. Guarda de
+  regressão das `ZOTERO_PREF` embutidas (`MissingZoteroPrefsError`).
+  Fase 1 do spec zero-friction onboarding.
+
+### Mudado
+- `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par
+  fora do suportado (Zotero 9+) com o comando de correção na mensagem;
+  o payload JSON de `external_deps` ganha o campo `version`.
+- Export docx imprime nota de primeiro uso no Word (Zotero → Refresh;
+  prefs já embutidas).
+
 ## [0.62.0] - 2026-06-12
 
 ### Removido
