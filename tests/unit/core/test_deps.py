@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 from unittest.mock import patch
 
 import pytest
@@ -130,6 +131,21 @@ def test_zotero_version_probe_skipped_when_port_closed() -> None:
         zot = _by_name(check_external_deps(), "zotero")
     assert zot.present is False
     assert zot.version is None
+
+
+def test_zotero_version_probe_never_raises_on_non_http_service() -> None:
+    def _bad_status(*args: object, **kwargs: object) -> object:
+        raise http.client.BadStatusLine("lixo nao-http")
+
+    with (
+        patch("prumo_assist.core.deps._binary_on_path", return_value=None),
+        patch("prumo_assist.core.deps._port_open", return_value=True),
+        patch("prumo_assist.core.deps.urllib.request.urlopen", _bad_status),
+    ):
+        zot = _by_name(check_external_deps(), "zotero")
+    assert zot.present is True
+    assert zot.version is None
+    assert "versão não detectada" in zot.detail
 
 
 def _by_name(statuses: list[DepStatus], name: str) -> DepStatus:

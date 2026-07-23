@@ -14,6 +14,7 @@ evita espalhar ``shutil.which`` e checagem de porta pelo CLI.
 
 from __future__ import annotations
 
+import http.client
 import os
 import re
 import shutil
@@ -82,7 +83,7 @@ def _zotero_version_header(host: str, port: int, timeout: float = 2.0) -> str | 
         with urllib.request.urlopen(url, timeout=timeout) as resp:
             value = resp.headers.get("X-Zotero-Version")
             return str(value) if value else None
-    except (urllib.error.URLError, ConnectionError, TimeoutError, OSError):
+    except (OSError, http.client.HTTPException):
         return None
 
 
