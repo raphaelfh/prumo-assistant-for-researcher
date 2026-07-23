@@ -1,3 +1,11 @@
+---
+status: implemented
+verified: 2026-07-23
+release: null
+spec: "[[2026-07-05-review-docx-criticmarkup-design]]"
+phase: "Fase 0 de 0–4 (spec da ponte); Fase 3 do guarda-chuva zero-friction"
+---
+
 # Ponte docx↔CriticMarkup — Fase 0: spike do adeu + fix do lua — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -32,7 +40,7 @@
 - Consumes: pandoc real, `uvx adeu==1.29.0`.
 - Produces: a resposta A/B/C da matriz de decisão (consumida pela Task 3) + os outputs verbatim dos probes.
 
-- [ ] **Step 1: Construir as fixtures**
+- [x] **Step 1: Construir as fixtures**
 
 ```bash
 SPIKE=$(mktemp -d) && cd "$SPIKE"
@@ -113,7 +121,7 @@ print("fixtures ok")
 Run: `cd "$SPIKE" && python3 inject.py`
 Expected: `fixtures ok`. Sanity: `unzip -p com_campo.docx word/document.xml | grep -c 'ADDIN ZOTERO_ITEM'` → `1`. Se o Word/pandoc mudou a forma do run do placeholder e o `put_field` não casar, inspecionar `unzip -p original.docx word/document.xml | grep -o '.\{40\}CITEPLACEHOLDER.\{40\}'` e ajustar o regex — registrar o ajuste no report.
 
-- [ ] **Step 2: Probe A — extração**
+- [x] **Step 2: Probe A — extração**
 
 ```bash
 cd "$SPIKE"
@@ -122,7 +130,7 @@ uvx adeu==1.29.0 extract --json reviewed_prosa.docx -o - | head -60
 ```
 Registrar verbatim: o campo aparece? Como (texto display `(Smith, 2020)`? marcador de campo? instrText?) As tracked changes aparecem (ins/del)?
 
-- [ ] **Step 3: Probe B — diff→markup (caminho CriticMarkup)**
+- [x] **Step 3: Probe B — diff→markup (caminho CriticMarkup)**
 
 ```bash
 cd "$SPIKE"
@@ -132,7 +140,7 @@ uvx adeu==1.29.0 markup com_campo.docx edits.json -o - 2>&1 | head -60 || true
 ```
 (Se `diff` emitir outro formato/uso, seguir o help e registrar o fluxo real.) Registrar: o CriticMarkup de saída contém `{++...++}`/`{--...--}` da prosa? A citação sobrevive intacta (display e/ou campo), foi achatada para texto puro, ou sumiu?
 
-- [ ] **Step 4: Probe C — deleção do campo inteiro**
+- [x] **Step 4: Probe C — deleção do campo inteiro**
 
 ```bash
 cd "$SPIKE"
@@ -143,7 +151,7 @@ unzip -p reviewed_campo.docx word/document.xml | grep -c 'ADDIN ZOTERO_ITEM'
 ```
 Registrar: a deleção do campo é visível como evento? O instrText segue presente no docx revisado (nossa contagem I2 = 1) mesmo que o adeu não o mostre?
 
-- [ ] **Step 5: Preencher a matriz de decisão no report**
+- [x] **Step 5: Preencher a matriz de decisão no report**
 
 | Resultado observado | Backend decidido |
 |---|---|
@@ -165,7 +173,7 @@ Report completo em `.superpowers/sdd/ponte-f0-task-1-report.md` com os outputs v
 - Consumes: comportamento atual (linha 93–95: `local lookup = zotero_lookup[key] or {}` / `local item = { id = lookup.itemID or key }` / `if lookup.uri ...`).
 - Produces: payload de campo com `id` = citekey SEMPRE e `zoteroItemID` = id numérico quando o lookup popula. Pré-condição da I1/I2b (citação como átomo chaveado por citekey) das fases seguintes.
 
-- [ ] **Step 1: Aplicar o fix**
+- [x] **Step 1: Aplicar o fix**
 
 Em `zotero_live_docx.lua`, substituir:
 
@@ -186,7 +194,7 @@ por:
     if lookup.uri then item.uris = { lookup.uri } end
 ```
 
-- [ ] **Step 2: Verificação spike-grade com pandoc real (com e sem lookup)**
+- [x] **Step 2: Verificação spike-grade com pandoc real (com e sem lookup)**
 
 ```bash
 SPIKE2=$(mktemp -d) && cd "$SPIKE2"
@@ -211,11 +219,11 @@ unzip -p sem_lookup.docx word/document.xml | grep -o '"id":"smith2020"'
 ```
 Expected: `"id":"smith2020"` nos DOIS docx; `"zoteroItemID":123` só no `com_lookup.docx`. Colar os outputs no report. (Nota: o JSON dentro de `instrText` sai XML-escaped; se o grep literal não casar, usar `grep -o 'id[^,]*smith2020'` e registrar a forma exata observada.)
 
-- [ ] **Step 3: Suíte completa + lint**
+- [x] **Step 3: Suíte completa + lint**
 
 Run: `uv run pytest` → 441 passed (o filtro não tem teste unitário próprio hoje; nada deve quebrar). `uv run ruff check . && uv run ruff format --check .` e `uv run mypy` → verdes (lua não é analisado; a checagem protege qualquer toque acidental).
 
-- [ ] **Step 4: CHANGELOG**
+- [x] **Step 4: CHANGELOG**
 
 Em `CHANGELOG.md`, adicionar ao bloco `### Corrigido` existente de "Não publicado":
 
@@ -226,7 +234,7 @@ Em `CHANGELOG.md`, adicionar ao bloco `### Corrigido` existente de "Não publica
   invariantes I1/I2b).
 ```
 
-- [ ] **Step 5: Registrar dívida de regressão + commit**
+- [x] **Step 5: Registrar dívida de regressão + commit**
 
 Anotar no report: teste de regressão CI-safe do payload chega na Fase 1 do substrato (citemap golden fixtures) — o spike acima é a evidência desta fase.
 
@@ -241,9 +249,13 @@ Report: `.superpowers/sdd/ponte-f0-task-2-report.md`.
 
 ### Task 3 (controller): registrar decisão e arquivar
 
-- [ ] **Step 1:** Colar neste plano (seção abaixo) a linha da matriz de decisão escolhida na Task 1 com a justificativa.
-- [ ] **Step 2:** Frontmatter `status: implemented` + `verified: <data>` + `release: null` + `spec`/`phase`; mover para `docs/superpowers/plans/archive/`; `gen_indexes`; commit + push.
+- [x] **Step 1:** Colar neste plano (seção abaixo) a linha da matriz de decisão escolhida na Task 1 com a justificativa.
+- [x] **Step 2:** Frontmatter `status: implemented` + `verified: <data>` + `release: null` + `spec`/`phase`; mover para `docs/superpowers/plans/archive/`; `gen_indexes`; commit + push.
 
-## Decisão de backend (preenchida na Task 3)
+## Decisão de backend (preenchida na Task 3, 2026-07-23)
 
-*(pendente da Task 1)*
+**(b) — adeu só para prosa/tracked-changes; extração de CITAÇÃO 100% OOXML própria (`zipfile`, método I2).**
+
+Evidência (Task 1; review com reprodução independente byte a byte): o adeu 1.29.0 **nunca expõe** `instrText`/`citationID` em nenhuma saída (`extract`, `extract --json`, `diff`→`markup`, `accept-all`) — a citação sempre achata para o display `(Smith, 2020)`. Em contrapartida, prosa e tracked changes saem corretos como CriticMarkup (`{++...++}`/`{--...--}`, 2/2 edits aplicados), a deleção do campo inteiro aparece como `{--(Smith, 2020)--}` com evento, e o caminho de escrita (`accept-all`/`apply`) **preserva campos não-tocados byte a byte** — a contagem I2 própria continua vendo o campo no XML revisado.
+
+Consequências para as próximas fases: (1) o leitor/conservação de citações é o prumo parseando OOXML (I2), como o spec já previa no risco "adeu achatar campo"; (2) adeu pinado (`uvx adeu==1.29.0`) vira backend de PROSA; (3) enforcement novo para a Fase 2 da ponte: **nenhum edit do adeu pode ter alvo dentro do display de um campo de citação** (edge residual registrado no review da Task 1). Os checkboxes das Tasks 1–2 estão marcados; evidência verbatim nos reports `.superpowers/sdd/ponte-f0-task-{1,2}-report.md` (scratch, fora do Git) e resumida aqui.
