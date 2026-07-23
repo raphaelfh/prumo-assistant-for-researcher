@@ -21,6 +21,7 @@ Pipeline por formato:
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import logging
 import re
@@ -33,11 +34,23 @@ import xml.etree.ElementTree as ET
 import zipfile
 from importlib import resources
 from pathlib import Path
+from typing import cast
 
 import yaml
 
 from prumo_assist.core.csl import list_zotero_styles, resolve_csl
-from prumo_assist.core.obsidian import normalize_markdown, split_frontmatter
+from prumo_assist.core.obsidian import (
+    SpanFragment,
+    normalize_markdown,
+    normalize_markdown_with_map,
+    split_frontmatter,
+)
+from prumo_assist.domains.write.schemas.v1 import (
+    CiteMapFile,
+    CiteOccurrence,
+    SpanFragmentModel,
+    SpanMapFile,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +77,15 @@ class MissingBibliographyPlaceholderError(RuntimeError):
 
 class MissingZoteroPrefsError(RuntimeError):
     """Docx com citações vivas mas sem ZOTERO_PREF em ``docProps/custom.xml``."""
+
+
+class CiteMapMismatchError(RuntimeError):
+    """Pareamento citação↔ocorrência (I2/I8) falhou.
+
+    Dois motivos possíveis: (1) a contagem de campos ``ZOTERO_ITEM`` no docx
+    diverge da contagem de grupos de citação ``[@...]`` no texto normalizado;
+    (2) um campo Zotero carrega JSON inválido em ``word/document.xml``.
+    """
 
 
 def _check_pandoc() -> str:
@@ -377,6 +399,174 @@ def _assert_zotero_prefs_present(docx_path: Path) -> None:
         )
 
 
+_INSTR_TEXT_RE = re.compile(r"<w:instrText[^>]*>(.*?)</w:instrText>", re.DOTALL)
+_ZOTERO_ITEM_CSL_MARKER = "ADDIN ZOTERO_ITEM CSL_CITATION"
+
+
+def _read_docx_citations(docx_path: Path) -> list[dict[str, object]]:
+    """Lê as citações vivas do docx a partir do OOXML cru — MÉTODO I2.
+
+    Única fonte de verdade para conservação de citações (NUNCA lê da saída
+    do pandoc ou do lookup file). Varre ``word/document.xml`` por campos
+    ``<w:instrText>`` que carregam ``ADDIN ZOTERO_ITEM CSL_CITATION``
+    (emitidos por ``zotero_live_docx.lua``), desfaz o escaping XML
+    (``html.unescape`` — cobre ``&quot;``/``&amp;``/``&lt;``/``&gt;``) e
+    decodifica o JSON CSL_CITATION de cada um. Retorna, NA ORDEM DO
+    DOCUMENTO, um dict por ocorrência com ``occ_id``, ``citation_id``,
+    ``citekeys``, ``fingerprints`` (citekey → fingerprint) e ``formatted``.
+
+    JSON inválido num campo é hard-fail (:class:`CiteMapMismatchError`) — um
+    docx com um campo Zotero corrompido não tem citemap parcial.
+    """
+    with zipfile.ZipFile(docx_path) as z:
+        xml = z.read("word/document.xml").decode("utf-8", errors="replace")
+
+    occurrences: list[dict[str, object]] = []
+    field_index = 0
+    for match in _INSTR_TEXT_RE.finditer(xml):
+        raw = match.group(1)
+        if _ZOTERO_ITEM_CSL_MARKER not in raw:
+            continue
+        field_index += 1
+        json_text = html.unescape(raw.split(_ZOTERO_ITEM_CSL_MARKER, 1)[1]).strip()
+        try:
+            payload = json.loads(json_text)
+        except json.JSONDecodeError as exc:
+            raise CiteMapMismatchError(
+                f"Campo Zotero #{field_index} do docx tem JSON inválido em "
+                f"word/document.xml ({docx_path}): {exc}. Re-exporte com "
+                "`prumo write export --to docx`; se persistir, abra uma issue: "
+                "https://github.com/raphaelfh/prumo-assist/issues"
+            ) from exc
+        citation_items = payload.get("citationItems") or []
+        occurrences.append(
+            {
+                "occ_id": payload.get("prumoOcc", ""),
+                "citation_id": payload.get("citationID", ""),
+                "citekeys": [item["id"] for item in citation_items],
+                "fingerprints": {
+                    item["id"]: item.get("prumoFingerprint", "") for item in citation_items
+                },
+                "formatted": (payload.get("properties") or {}).get("formattedCitation", ""),
+            }
+        )
+    return occurrences
+
+
+_CITATION_GROUP_RE = re.compile(r"\[[^\[\]]*\]")
+
+
+def _norm_citation_spans(norm_text: str) -> list[tuple[int, int]]:
+    """Spans dos GRUPOS de citação ``[@a]``/``[@a; @b]`` em ``norm_text``, em ordem.
+
+    Um span por bloco ``[...]`` sem colchetes internos que contenha ao menos
+    um citekey (``@`` + :data:`CITEKEY_BODY`) — ``[@a]`` e ``[@a; @b]`` cada
+    um conta como UM span, casando 1:1 com um campo Zotero do docx.
+
+    LIMITAÇÃO conhecida: citação narrativa ``@key`` fora de colchetes não é
+    contada (o pipeline docx do prumo usa exclusivamente a forma com
+    colchetes — ver report da Task 7 do plano da ponte).
+    """
+    return [
+        match.span()
+        for match in _CITATION_GROUP_RE.finditer(norm_text)
+        if _CITEKEY_RE.search(match.group(0))
+    ]
+
+
+def _export_git_sha(project_root: Path) -> str:
+    """``git rev-parse --short HEAD`` rodado em ``project_root``; ``"unknown"`` se falhar."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=project_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    return result.stdout.strip() or "unknown"
+
+
+def _emit_review_sidecars(
+    *,
+    page: Path,
+    project_root: Path,
+    norm_text: str,
+    span_frags: list[SpanFragment],
+    docx_path: Path,
+    bib: Path,
+    source_text: str = "",
+) -> Path:
+    """Constrói e grava ``reviews/<slug>/{citemap.json,span-map.json}``.
+
+    Pareia as ocorrências do docx (:func:`_read_docx_citations`, MÉTODO I2)
+    com os spans de citação do texto normalizado (:func:`_norm_citation_spans`)
+    1:1 na ordem do documento — nunca pareamento heurístico. Contagem
+    divergente é hard-fail (:class:`CiteMapMismatchError`).
+
+    ``source_sha256`` do ``SpanMapFile`` é o hash do texto-fonte SEM
+    frontmatter (``source_text``); ``docx_sha256`` do ``CiteMapFile`` amarra
+    o citemap ao docx gerado (I8). Retorna o diretório ``reviews/<slug>/``
+    (criado se preciso).
+    """
+    occurrences_raw = _read_docx_citations(docx_path)
+    spans = _norm_citation_spans(norm_text)
+    if len(occurrences_raw) != len(spans):
+        raise CiteMapMismatchError(
+            "Pareamento citação↔ocorrência falhou (I2/I8): o docx tem "
+            f"{len(occurrences_raw)} campo(s) ZOTERO_ITEM em word/document.xml, "
+            f"mas o texto normalizado tem {len(spans)} grupo(s) de citação "
+            "`[@...]`. Causas comuns: citação narrativa `@key` fora de "
+            "colchetes (não suportada nesta fase — use sempre `[@key]`), ou o "
+            "docx ficou dessincronizado da página. Re-exporte com "
+            "`prumo write export --to docx`."
+        )
+
+    rel_page = page.relative_to(project_root) if page.is_absolute() else page
+
+    occurrences = [
+        CiteOccurrence(
+            occ_id=str(occ_raw["occ_id"]),
+            citation_id=str(occ_raw["citation_id"]),
+            citekeys=cast(list[str], occ_raw["citekeys"]),
+            fingerprints=cast(dict[str, str], occ_raw["fingerprints"]),
+            formatted=str(occ_raw["formatted"]),
+            norm_start=span[0],
+            norm_end=span[1],
+        )
+        for occ_raw, span in zip(occurrences_raw, spans, strict=True)
+    ]
+    citemap = CiteMapFile(
+        page=str(rel_page),
+        export_git_sha=_export_git_sha(project_root),
+        bib_sha256=hashlib.sha256(bib.read_bytes()).hexdigest(),
+        docx_sha256=hashlib.sha256(docx_path.read_bytes()).hexdigest(),
+        occurrences=occurrences,
+    )
+    span_map = SpanMapFile(
+        page=str(rel_page),
+        source_sha256=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+        fragments=[
+            SpanFragmentModel(
+                source_start=f.source_start,
+                source_end=f.source_end,
+                norm_start=f.norm_start,
+                norm_end=f.norm_end,
+                kind=f.kind,
+            )
+            for f in span_frags
+        ],
+    )
+
+    out_dir = project_root / "reviews" / _slugify(page, project_root)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "citemap.json").write_text(citemap.model_dump_json(indent=2))
+    (out_dir / "span-map.json").write_text(span_map.model_dump_json(indent=2))
+    return out_dir
+
+
 def _check_bbt_running(timeout: float = 2.0) -> None:
     """Confirma que Zotero + BBT estão acessíveis em ``127.0.0.1:23119``.
 
@@ -498,7 +688,7 @@ def export(
 
     page_text = page.read_text()
     meta, body = split_frontmatter(page_text)
-    body_norm = normalize_markdown(body, page_dir=page.parent)
+    body_norm, span_frags = normalize_markdown_with_map(body, page_dir=page.parent)
 
     out = out or (
         project_root / "build" / "exports" / f"{_slugify(page, project_root)}.{EXT_BY_FORMAT[to]}"
@@ -548,6 +738,15 @@ def export(
             _run_and_validate_docx(cmd, out)
             _assert_bibliography_present(out)
             _assert_zotero_prefs_present(out)
+            _emit_review_sidecars(
+                page=page,
+                project_root=project_root,
+                source_text=body,
+                norm_text=body_norm,
+                span_frags=span_frags,
+                docx_path=out,
+                bib=bib,
+            )
         else:
             subprocess.run(cmd, check=True, text=True)
 

@@ -5,12 +5,16 @@ Fixtures construídas com zipfile em tmp_path — nenhum pandoc/Zotero real.
 
 from __future__ import annotations
 
+import hashlib
+import html
+import subprocess
 import zipfile
 from pathlib import Path
 
 import pytest
 
 import prumo_assist.domains.write.export as export_mod
+from prumo_assist.core.obsidian import SpanFragment
 from prumo_assist.domains.write.export import (
     CorruptDocxError,
     MissingZoteroPrefsError,
@@ -20,6 +24,7 @@ from prumo_assist.domains.write.export import (
     _run_and_validate_docx,
     _validate_docx_structure,
 )
+from prumo_assist.domains.write.schemas.v1 import CiteMapFile, SpanMapFile
 
 _CONTENT_TYPES_OK = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -185,14 +190,24 @@ def _patch_export_seams(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None
 
 
 def _fake_run_writing_output_flag(payloads: list[bytes], calls: list[list[str]]) -> object:
-    """Substituto de subprocess.run que resolve o alvo pelo --output= do cmd."""
+    """Substituto de subprocess.run que resolve o alvo pelo --output= do cmd.
 
-    def fake_run(cmd: list[str], check: bool, text: bool) -> None:
+    Comandos sem ``--output=`` (ex. ``git rev-parse --short HEAD`` chamado
+    por ``_export_git_sha`` dentro de ``_emit_review_sidecars``) são
+    simulados como sucesso sem tocar em ``calls``/``payloads`` — só a
+    invocação do pandoc participa do protocolo retry/hard-fail.
+    """
+
+    def fake_run(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        output_flags = [a for a in cmd if a.startswith("--output=")]
+        if not output_flags:
+            return subprocess.CompletedProcess(cmd, 0, stdout="deadbee\n", stderr="")
         calls.append(list(cmd))
-        target = Path(next(a.split("=", 1)[1] for a in cmd if a.startswith("--output=")))
+        target = Path(output_flags[0].split("=", 1)[1])
         target.parent.mkdir(parents=True, exist_ok=True)
         idx = min(len(calls) - 1, len(payloads) - 1)
         target.write_bytes(payloads[idx])
+        return subprocess.CompletedProcess(cmd, 0)
 
     return fake_run
 
@@ -271,3 +286,213 @@ def test_raw_bib_entry_present_and_absent() -> None:
     assert entry is not None
     assert "doi={10.1000/xyz}" in entry
     assert _raw_bib_entry(bib_text, "nao_existe") is None
+
+
+# --- Task 7: sidecars citemap/span-map (reviews/<slug>/, I2/I8) -----------------
+
+
+def _write_minimal_docx_with_payloads(path: Path, payloads: list[str]) -> Path:
+    """Zip OOXML mínimo com um campo ``ADDIN ZOTERO_ITEM CSL_CITATION`` por payload.
+
+    Espelha o formato real produzido por ``zotero_live_docx.lua``
+    (``wrap_cite_in_field``): JSON escapado com ``html.escape`` dentro de um
+    ``<w:instrText>`` — é a fixture de referência do leitor OOXML (MÉTODO I2).
+    """
+    fields = "".join(
+        '<w:r><w:instrText xml:space="preserve"> ADDIN ZOTERO_ITEM CSL_CITATION '
+        + html.escape(payload)
+        + "   </w:instrText></w:r>"
+        for payload in payloads
+    )
+    body = "<w:document><w:body>" + fields + "</w:body></w:document>"
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("[Content_Types].xml", _CONTENT_TYPES_OK)
+        z.writestr("word/document.xml", body)
+    return path
+
+
+def _bib(tmp_path: Path) -> Path:
+    bib = tmp_path / "refs.bib"
+    bib.write_text("@article{smith2020, title={T}, doi={10.1/x}}\n")
+    return bib
+
+
+def test_read_docx_citations_orders_and_decodes(tmp_path: Path) -> None:
+    payload = (
+        '{"citationID":"00000001","prumoOcc":"00000001",'
+        '"citationItems":[{"id":"smith2020","prumoFingerprint":"doi:10.1/x"}],'
+        '"properties":{"formattedCitation":"(Smith, 2020)"}}'
+    )
+    docx = _write_minimal_docx_with_payloads(tmp_path / "c.docx", [payload])
+    occs = export_mod._read_docx_citations(docx)
+    assert len(occs) == 1
+    assert occs[0]["citekeys"] == ["smith2020"]
+    assert occs[0]["occ_id"] == "00000001"
+
+
+def test_read_docx_citations_preserves_document_order_and_fingerprints(
+    tmp_path: Path,
+) -> None:
+    payload_a = (
+        '{"citationID":"00000001","prumoOcc":"00000001",'
+        '"citationItems":[{"id":"aaa2020","prumoFingerprint":"doi:10.1/a"}],'
+        '"properties":{"formattedCitation":"(Aaa, 2020)"}}'
+    )
+    payload_b = (
+        '{"citationID":"00000002","prumoOcc":"00000002",'
+        '"citationItems":['
+        '{"id":"bbb2021","prumoFingerprint":"doi:10.1/b"},'
+        '{"id":"ccc2022","prumoFingerprint":"doi:10.1/c"}'
+        '],"properties":{"formattedCitation":"(Bbb, 2021; Ccc, 2022)"}}'
+    )
+    docx = _write_minimal_docx_with_payloads(tmp_path / "ord.docx", [payload_a, payload_b])
+    occs = export_mod._read_docx_citations(docx)
+    assert [o["occ_id"] for o in occs] == ["00000001", "00000002"]
+    assert occs[1]["citekeys"] == ["bbb2021", "ccc2022"]
+    assert occs[1]["fingerprints"] == {"bbb2021": "doi:10.1/b", "ccc2022": "doi:10.1/c"}
+    assert occs[0]["formatted"] == "(Aaa, 2020)"
+
+
+def test_read_docx_citations_invalid_json_raises_with_field_index(tmp_path: Path) -> None:
+    docx = _write_minimal_docx_with_payloads(tmp_path / "bad.docx", ["{isto nao e json"])
+    with pytest.raises(export_mod.CiteMapMismatchError) as exc:
+        export_mod._read_docx_citations(docx)
+    assert "#1" in str(exc.value)
+
+
+def test_norm_citation_spans_one_per_bracket_group() -> None:
+    assert len(export_mod._norm_citation_spans("x [@a] y [@b; @c] z")) == 2
+
+
+def test_norm_citation_spans_ignores_brackets_without_citekey() -> None:
+    assert export_mod._norm_citation_spans("sem citação [nota]") == []
+
+
+def test_emit_sidecars_mismatch_hard_fails(tmp_path: Path) -> None:
+    docx = _write_minimal_docx_with_payloads(tmp_path / "c.docx", [])  # 0 campos
+    with pytest.raises(export_mod.CiteMapMismatchError) as exc:
+        export_mod._emit_review_sidecars(
+            page=tmp_path / "p.md",
+            project_root=tmp_path,
+            norm_text="texto [@smith2020] aqui",  # 1 citação no norm
+            span_frags=[],
+            docx_path=docx,
+            bib=_bib(tmp_path),
+        )
+    assert "1" in str(exc.value) and "0" in str(exc.value)
+    assert "prumo write export --to docx" in str(exc.value)
+
+
+def test_emit_sidecars_happy_path_writes_valid_sidecars(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Seam própria (não subprocess.run): _export_git_sha roda `git` de verdade
+    # se não for mockada — mantém o teste hermético e independente do ambiente.
+    monkeypatch.setattr(export_mod, "_export_git_sha", lambda project_root: "deadbee")
+    payload = (
+        '{"citationID":"00000001","prumoOcc":"00000001",'
+        '"citationItems":[{"id":"smith2020","prumoFingerprint":"doi:10.1/x"}],'
+        '"properties":{"formattedCitation":"(Smith, 2020)"}}'
+    )
+    docx = _write_minimal_docx_with_payloads(tmp_path / "c.docx", [payload])
+    bib = _bib(tmp_path)
+    page = tmp_path / "docs" / "achado.md"
+    page.parent.mkdir(parents=True)
+    source_text = "Cita [[@smith2020]] aqui.\n"
+    norm_text = "Cita [@smith2020] aqui.\n"
+    frag = SpanFragment(0, len(source_text), 0, len(norm_text), "identity")
+
+    out_dir = export_mod._emit_review_sidecars(
+        page=page,
+        project_root=tmp_path,
+        source_text=source_text,
+        norm_text=norm_text,
+        span_frags=[frag],
+        docx_path=docx,
+        bib=bib,
+    )
+
+    assert out_dir == tmp_path / "reviews" / "achado"
+    citemap = CiteMapFile.model_validate_json((out_dir / "citemap.json").read_text())
+    span_map = SpanMapFile.model_validate_json((out_dir / "span-map.json").read_text())
+
+    assert citemap.export_git_sha == "deadbee"
+    assert citemap.docx_sha256 == hashlib.sha256(docx.read_bytes()).hexdigest()
+    assert citemap.bib_sha256 == hashlib.sha256(bib.read_bytes()).hexdigest()
+    assert len(citemap.occurrences) == 1
+    assert citemap.occurrences[0].citekeys == ["smith2020"]
+    assert citemap.occurrences[0].occ_id == "00000001"
+    assert len(span_map.fragments) == 1
+    assert span_map.source_sha256 == hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+
+
+def _docx_bytes_for_export_wiring(tmp_path: Path, payloads: list[str]) -> bytes:
+    """Fixture completa (payloads + placeholder de bibliografia + prefs).
+
+    Passa pelas 3 validações pós-build de ``export()`` docx (estrutura,
+    bibliografia, prefs) antes de chegar em ``_emit_review_sidecars`` —
+    ``payloads=[]`` simula um docx sem campos vivos (caso de mismatch).
+    """
+    path = tmp_path / "_wiring_fixture.docx"
+    fields = "".join(
+        '<w:r><w:instrText xml:space="preserve"> ADDIN ZOTERO_ITEM CSL_CITATION '
+        + html.escape(payload)
+        + "   </w:instrText></w:r>"
+        for payload in payloads
+    )
+    body = (
+        "<w:document><w:body>"
+        + fields
+        + "<w:p>ZOTERO_BIBL CSL_BIBLIOGRAPHY</w:p>"
+        + "</w:body></w:document>"
+    )
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("[Content_Types].xml", _CONTENT_TYPES_OK)
+        z.writestr("word/document.xml", body)
+        z.writestr(
+            "docProps/custom.xml",
+            '<Properties><property name="ZOTERO_PREF_1"/></Properties>',
+        )
+    return path.read_bytes()
+
+
+def test_export_docx_emits_review_sidecars(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root, page = _fake_project(tmp_path)
+    page.write_text("Cita [[@smith2020]] aqui.\n")
+    _patch_export_seams(monkeypatch, tmp_path)
+    payload = (
+        '{"citationID":"00000001","prumoOcc":"00000001",'
+        '"citationItems":[{"id":"smith2020","prumoFingerprint":"doi:10.1/x"}],'
+        '"properties":{"formattedCitation":"(Smith, 2020)"}}'
+    )
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag(
+        [_docx_bytes_for_export_wiring(tmp_path, [payload])], calls
+    )
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+
+    result = export_mod.export(page=page, to="docx", project_root=root)
+
+    out_dir = root / "reviews" / export_mod._slugify(page, root)
+    assert (out_dir / "citemap.json").is_file()
+    assert (out_dir / "span-map.json").is_file()
+    citemap = CiteMapFile.model_validate_json((out_dir / "citemap.json").read_text())
+    assert citemap.docx_sha256 == hashlib.sha256(result.read_bytes()).hexdigest()
+    assert citemap.occurrences[0].citekeys == ["smith2020"]
+
+
+def test_export_docx_wiring_mismatch_hard_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, page = _fake_project(tmp_path)
+    page.write_text("Cita [[@smith2020]] aqui.\n")
+    _patch_export_seams(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag(
+        [_docx_bytes_for_export_wiring(tmp_path, [])],
+        calls,  # 0 campos no docx
+    )
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+
+    with pytest.raises(export_mod.CiteMapMismatchError):
+        export_mod.export(page=page, to="docx", project_root=root)

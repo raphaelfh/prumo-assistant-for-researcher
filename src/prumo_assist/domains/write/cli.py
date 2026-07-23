@@ -37,6 +37,7 @@ _EXPORT_CATCHES = (
     export.ZoteroNotRunningError,
     export.ZoteroCitekeyNotFoundError,
     export.MissingBibliographyPlaceholderError,
+    export.CiteMapMismatchError,
 )
 
 
