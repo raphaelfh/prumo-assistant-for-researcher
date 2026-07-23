@@ -20,6 +20,7 @@ Pipeline por formato:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
@@ -176,6 +177,47 @@ def fetch_bbt_zotero_metadata(
             continue
         out[key] = {"itemID": item_id, "uri": uri}
     return out
+
+
+_DOI_FIELD_RE = re.compile(r"doi\s*=\s*[{\"]([^}\"]+)", re.I)
+
+
+def _raw_bib_entry(bib_text: str, citekey: str) -> str | None:
+    """Bloco cru do ``.bib`` correspondente a ``citekey`` (ou ``None`` se ausente).
+
+    Split simples por ``@`` — não é um parser BibTeX completo. Serve só de
+    material para o fingerprint: extrair o campo ``doi`` quando presente e,
+    no fallback offline, hashear o entry inteiro.
+    """
+    marker = "{" + citekey + ","
+    for chunk in bib_text.split("@")[1:]:
+        header = chunk.split("\n", 1)[0]
+        if marker in header:
+            return "@" + chunk
+    return None
+
+
+def _fingerprint_for(
+    citekey: str, bib_entry_raw: str | None, lookup: dict[str, object] | None
+) -> str:
+    """Impressão digital estável da referência ``citekey`` para o campo do Word.
+
+    Prioridade: ``doi:<valor>`` quando o entry cru do ``.bib`` tem campo
+    ``doi``; senão ``sha256:<hex>`` de ``itemID|uri`` quando há lookup do
+    BBT; senão ``bib:<sha256>`` do entry cru (fallback offline); senão
+    ``"none"`` (citekey sem entry no ``.bib`` — o export já falha antes por
+    outros caminhos).
+    """
+    if bib_entry_raw is not None:
+        m = _DOI_FIELD_RE.search(bib_entry_raw)
+        if m:
+            return f"doi:{m.group(1)}"
+    if lookup is not None:
+        raw = f"{lookup.get('itemID')}|{lookup.get('uri')}"
+        return f"sha256:{hashlib.sha256(raw.encode('utf-8')).hexdigest()}"
+    if bib_entry_raw is not None:
+        return f"bib:{hashlib.sha256(bib_entry_raw.encode('utf-8')).hexdigest()}"
+    return "none"
 
 
 _MISSING_CITEKEY_RE = re.compile(
@@ -479,6 +521,11 @@ def export(
             citekeys = scan_citekeys(body_norm)
             lookup = fetch_bbt_zotero_metadata(citekeys, library)
             if lookup:
+                bib_text = bib.read_text()
+                for key, entry in lookup.items():
+                    entry["fingerprint"] = _fingerprint_for(
+                        key, _raw_bib_entry(bib_text, key), entry
+                    )
                 zotero_lookup_file = td_path / "zotero_lookup.json"
                 zotero_lookup_file.write_text(json.dumps(lookup))
 
@@ -584,6 +631,11 @@ def compose(
             citekeys = scan_citekeys(combined)
             lookup = fetch_bbt_zotero_metadata(citekeys, library)
             if lookup:
+                bib_text = bib.read_text()
+                for key, entry in lookup.items():
+                    entry["fingerprint"] = _fingerprint_for(
+                        key, _raw_bib_entry(bib_text, key), entry
+                    )
                 zotero_lookup_file = td_path / "zotero_lookup.json"
                 zotero_lookup_file.write_text(json.dumps(lookup))
 

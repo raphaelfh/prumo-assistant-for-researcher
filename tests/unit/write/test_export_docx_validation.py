@@ -15,6 +15,8 @@ from prumo_assist.domains.write.export import (
     CorruptDocxError,
     MissingZoteroPrefsError,
     _assert_zotero_prefs_present,
+    _fingerprint_for,
+    _raw_bib_entry,
     _run_and_validate_docx,
     _validate_docx_structure,
 )
@@ -246,3 +248,26 @@ def test_compose_docx_goes_through_validation(
     with pytest.raises(CorruptDocxError):
         export_mod.compose(index=index, to="docx", project_root=root)
     assert len(calls) == 2
+
+
+def test_fingerprint_prefers_doi() -> None:
+    entry = "@article{k, title={T}, doi={10.1000/xyz}}"
+    assert _fingerprint_for("k", entry, {"itemID": 1, "uri": "u"}) == "doi:10.1000/xyz"
+
+
+def test_fingerprint_falls_back_to_lookup_hash() -> None:
+    fp = _fingerprint_for("k", "@article{k, title={T}}", {"itemID": 7, "uri": "http://z/7"})
+    assert fp.startswith("sha256:") and len(fp) == len("sha256:") + 64
+
+
+def test_fingerprint_offline_uses_bib_entry() -> None:
+    fp = _fingerprint_for("k", "@article{k, title={T}}", None)
+    assert fp.startswith("bib:")
+
+
+def test_raw_bib_entry_present_and_absent() -> None:
+    bib_text = "@article{k, title={T}, doi={10.1000/xyz}}\n\n@book{other, title={O}}\n"
+    entry = _raw_bib_entry(bib_text, "k")
+    assert entry is not None
+    assert "doi={10.1000/xyz}" in entry
+    assert _raw_bib_entry(bib_text, "nao_existe") is None
