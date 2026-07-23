@@ -79,6 +79,10 @@ class MissingZoteroPrefsError(RuntimeError):
     """Docx com citações vivas mas sem ZOTERO_PREF em ``docProps/custom.xml``."""
 
 
+class MissingFieldLockError(RuntimeError):
+    """Docx com citações vivas mas sem content control travado (``sdtContentLocked``)."""
+
+
 class CiteMapMismatchError(RuntimeError):
     """Pareamento citação↔ocorrência (I2/I8) falhou.
 
@@ -395,6 +399,32 @@ def _assert_zotero_prefs_present(docx_path: Path) -> None:
             "(sem as prefs, o plugin Word abre o diálogo 'Document Preferences' "
             "no primeiro Refresh). Re-exporte com `prumo write export --to docx`; "
             "se persistir, abra uma issue: "
+            "https://github.com/raphaelfh/prumo-assist/issues"
+        )
+
+
+def _assert_fields_locked(docx_path: Path) -> None:
+    """Guarda de regressão do content control travado (I4).
+
+    O filtro ``zotero_live_docx.lua`` embrulha cada campo ``ZOTERO_ITEM`` num
+    content control (``w:sdt``) com ``w:lock w:val="sdtContentLocked"`` para
+    que o coautor não redigite a citação — só pode deletar o campo inteiro
+    (evento drop limpo) ou comentar. Se a contagem de locks em
+    ``word/document.xml`` ficar abaixo da contagem de campos, é regressão do
+    filtro — falha alto aqui.
+    """
+    items, _bibl = _docx_zotero_field_counts(docx_path)
+    if items == 0:
+        return
+    with zipfile.ZipFile(docx_path) as z:
+        xml = z.read("word/document.xml").decode("utf-8", errors="replace")
+    locks = xml.count("sdtContentLocked")
+    if locks < items:
+        raise MissingFieldLockError(
+            f"O docx tem {items} citação(ões) vivas mas só {locks} campo(s) "
+            "travado(s) (sdtContentLocked) em word/document.xml — regressão "
+            "do filtro zotero_live_docx.lua (I4). Re-exporte com "
+            "`prumo write export --to docx`; se persistir, abra uma issue: "
             "https://github.com/raphaelfh/prumo-assist/issues"
         )
 
@@ -738,6 +768,7 @@ def export(
             _run_and_validate_docx(cmd, out)
             _assert_bibliography_present(out)
             _assert_zotero_prefs_present(out)
+            _assert_fields_locked(out)
             _emit_review_sidecars(
                 page=page,
                 project_root=project_root,
@@ -858,6 +889,7 @@ def compose(
             _run_and_validate_docx(cmd, out)
             _assert_bibliography_present(out)
             _assert_zotero_prefs_present(out)
+            _assert_fields_locked(out)
         else:
             subprocess.run(cmd, check=True, text=True)
 

@@ -34,6 +34,7 @@ _EXPORT_CATCHES = (
     ValueError,
     export.CorruptDocxError,
     export.MissingZoteroPrefsError,
+    export.MissingFieldLockError,
     export.ZoteroNotRunningError,
     export.ZoteroCitekeyNotFoundError,
     export.MissingBibliographyPlaceholderError,

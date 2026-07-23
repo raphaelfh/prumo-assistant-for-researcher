@@ -145,7 +145,18 @@ local function wrap_cite_in_field(cite)
     '</w:t></w:r>',
     '<w:r><w:fldChar w:fldCharType="end"/></w:r>',
   })
-  return pandoc.RawInline('openxml', field)
+  -- I4 (spec da ponte): campo travado por content control — o coautor não
+  -- redigita a citação; só pode deletar o campo inteiro (evento drop limpo)
+  -- ou comentar. sdtContentLocked bloqueia edição do CONTEÚDO do sdt no
+  -- Word (bookmark não travaria nada). Bibliografia (wrap_bibliography)
+  -- NÃO é travada nesta fase.
+  local locked_field = table.concat({
+    '<w:sdt><w:sdtPr><w:alias w:val="prumo-citation"/>',
+    '<w:lock w:val="sdtContentLocked"/></w:sdtPr><w:sdtContent>',
+    field,
+    '</w:sdtContent></w:sdt>',
+  })
+  return pandoc.RawInline('openxml', locked_field)
 end
 
 local function wrap_bibliography(div)

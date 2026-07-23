@@ -17,7 +17,9 @@ import prumo_assist.domains.write.export as export_mod
 from prumo_assist.core.obsidian import SpanFragment, split_frontmatter
 from prumo_assist.domains.write.export import (
     CorruptDocxError,
+    MissingFieldLockError,
     MissingZoteroPrefsError,
+    _assert_fields_locked,
     _assert_zotero_prefs_present,
     _fingerprint_for,
     _raw_bib_entry,
@@ -291,19 +293,46 @@ def test_raw_bib_entry_present_and_absent() -> None:
 # --- Task 7: sidecars citemap/span-map (reviews/<slug>/, I2/I8) -----------------
 
 
-def _write_minimal_docx_with_payloads(path: Path, payloads: list[str]) -> Path:
+def _instr_text_run(payload: str) -> str:
+    """``<w:r>`` cru do campo Zotero para um payload CSL_CITATION (sem lock)."""
+    return (
+        '<w:r><w:instrText xml:space="preserve"> ADDIN ZOTERO_ITEM CSL_CITATION '
+        + html.escape(payload)
+        + "   </w:instrText></w:r>"
+    )
+
+
+def _locked_zotero_field_xml(payload: str) -> str:
+    """Campo Zotero embrulhado em content control travado (I4, Task 8).
+
+    Espelha exatamente o que ``wrap_cite_in_field`` produz desde a Task 8:
+    ``<w:sdt>`` com ``sdtContentLocked`` envolvendo os runs do campo,
+    inalterados.
+    """
+    return (
+        '<w:sdt><w:sdtPr><w:alias w:val="prumo-citation"/>'
+        '<w:lock w:val="sdtContentLocked"/></w:sdtPr><w:sdtContent>'
+        + _instr_text_run(payload)
+        + "</w:sdtContent></w:sdt>"
+    )
+
+
+def _write_minimal_docx_with_payloads(
+    path: Path, payloads: list[str], *, locked: bool = True
+) -> Path:
     """Zip OOXML mínimo com um campo ``ADDIN ZOTERO_ITEM CSL_CITATION`` por payload.
 
     Espelha o formato real produzido por ``zotero_live_docx.lua``
     (``wrap_cite_in_field``): JSON escapado com ``html.escape`` dentro de um
     ``<w:instrText>`` — é a fixture de referência do leitor OOXML (MÉTODO I2).
+
+    ``locked=True`` (default, espelha o comportamento pós-Task-8) embrulha
+    cada campo num content control ``w:sdt``/``sdtContentLocked`` (I4);
+    ``locked=False`` simula uma regressão do filtro (campo sem lock), usado
+    pelos testes de ``_assert_fields_locked``.
     """
-    fields = "".join(
-        '<w:r><w:instrText xml:space="preserve"> ADDIN ZOTERO_ITEM CSL_CITATION '
-        + html.escape(payload)
-        + "   </w:instrText></w:r>"
-        for payload in payloads
-    )
+    field_fn = _locked_zotero_field_xml if locked else _instr_text_run
+    fields = "".join(field_fn(payload) for payload in payloads)
     body = "<w:document><w:body>" + fields + "</w:body></w:document>"
     with zipfile.ZipFile(path, "w") as z:
         z.writestr("[Content_Types].xml", _CONTENT_TYPES_OK)
@@ -429,17 +458,15 @@ def test_emit_sidecars_happy_path_writes_valid_sidecars(
 def _docx_bytes_for_export_wiring(tmp_path: Path, payloads: list[str]) -> bytes:
     """Fixture completa (payloads + placeholder de bibliografia + prefs).
 
-    Passa pelas 3 validações pós-build de ``export()`` docx (estrutura,
-    bibliografia, prefs) antes de chegar em ``_emit_review_sidecars`` —
-    ``payloads=[]`` simula um docx sem campos vivos (caso de mismatch).
+    Passa pelas 4 validações pós-build de ``export()`` docx (estrutura,
+    bibliografia, prefs, locks — Task 8/I4) antes de chegar em
+    ``_emit_review_sidecars`` — ``payloads=[]`` simula um docx sem campos
+    vivos (caso de mismatch). Cada payload vem embrulhado em content control
+    travado (``_locked_zotero_field_xml``), espelhando ``wrap_cite_in_field``
+    pós-Task-8.
     """
     path = tmp_path / "_wiring_fixture.docx"
-    fields = "".join(
-        '<w:r><w:instrText xml:space="preserve"> ADDIN ZOTERO_ITEM CSL_CITATION '
-        + html.escape(payload)
-        + "   </w:instrText></w:r>"
-        for payload in payloads
-    )
+    fields = "".join(_locked_zotero_field_xml(payload) for payload in payloads)
     body = (
         "<w:document><w:body>"
         + fields
@@ -502,3 +529,33 @@ def test_export_docx_wiring_mismatch_hard_fails(
 
     with pytest.raises(export_mod.CiteMapMismatchError):
         export_mod.export(page=page, to="docx", project_root=root)
+
+
+# --- Task 8: campos travados (w:sdt/sdtContentLocked, I4) ------------------
+
+
+def test_fields_locked_with_two_payloads_ok(tmp_path: Path) -> None:
+    payload = '{"citationID":"00000001","citationItems":[]}'
+    docx = _write_minimal_docx_with_payloads(
+        tmp_path / "locked.docx",
+        [payload, payload],  # locked=True (default)
+    )
+    _assert_fields_locked(docx)  # não levanta
+
+
+def test_fields_locked_missing_lock_raises(tmp_path: Path) -> None:
+    payload = '{"citationID":"00000001","citationItems":[]}'
+    docx = _write_minimal_docx_with_payloads(
+        tmp_path / "unlocked.docx", [payload, payload], locked=False
+    )
+    with pytest.raises(MissingFieldLockError) as exc:
+        _assert_fields_locked(docx)
+    assert "2" in str(exc.value)  # 2 campos vivos
+    assert "0" in str(exc.value)  # 0 locks encontrados
+    assert "zotero_live_docx.lua" in str(exc.value)
+    assert "prumo write export --to docx" in str(exc.value)
+
+
+def test_fields_locked_not_required_without_citations(tmp_path: Path) -> None:
+    docx = _write_minimal_docx_with_payloads(tmp_path / "sem_campo.docx", [], locked=False)
+    _assert_fields_locked(docx)  # não levanta (0 citações, lock irrelevante)
