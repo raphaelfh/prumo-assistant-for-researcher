@@ -58,9 +58,9 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 
 **Plans ativos:**
 
-- [[superpowers/plans/2026-07-22-zero-friction-fase1-export-confiavel-doctor]] · —
+- (nenhum)
 
-**Plans arquivados:** 16 em `superpowers/plans/archive/`
+**Plans arquivados:** 17 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->

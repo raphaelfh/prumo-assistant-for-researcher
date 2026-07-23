@@ -1,3 +1,11 @@
+---
+status: implemented
+verified: 2026-07-23
+release: null
+spec: "[[2026-07-22-zero-friction-onboarding-design]]"
+phase: "Fase 1 de 0–5 (spec zero-friction onboarding)"
+---
+
 # Fase 1 — Export docx confiável + doctor de versões — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -39,7 +47,7 @@
 - Consumes: `zipfile`, `xml.etree.ElementTree` (stdlib); `Path`.
 - Produces: `CorruptDocxError(RuntimeError)`; `_validate_docx_structure(docx_path: Path) -> list[str]` (lista de problemas; vazia = docx são); helper de teste `_write_minimal_docx(path, *, items=0, prefs=True, include_types=True, include_document=True, types_xml=None) -> Path` — **reutilizado pelas Tasks 2–4**.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Criar `tests/unit/write/test_export_docx_validation.py`:
 
@@ -121,12 +129,12 @@ def test_malformed_content_types_is_reported(tmp_path: Path) -> None:
     assert any("[Content_Types].xml" in p and "inválido" in p for p in problems)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/unit/write/test_export_docx_validation.py -v`
 Expected: FAIL na coleta — `ImportError: cannot import name '_validate_docx_structure'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `src/prumo_assist/domains/write/export.py`, adicionar ao bloco de imports (após `import urllib.request`, linha ~30):
 
@@ -174,12 +182,12 @@ def _validate_docx_structure(docx_path: Path) -> list[str]:
     return problems
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `uv run pytest tests/unit/write/test_export_docx_validation.py -v`
 Expected: 6 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/unit/write/test_export_docx_validation.py src/prumo_assist/domains/write/export.py
@@ -198,7 +206,7 @@ git commit -m "feat(write): validação estrutural do docx gerado (_validate_doc
 - Consumes: `_validate_docx_structure` e `CorruptDocxError` (Task 1); `subprocess.run` (módulo `subprocess` já importado em `export.py`); `logger` do módulo.
 - Produces: `_run_and_validate_docx(cmd: list[str], out: Path) -> None` — roda pandoc, valida, re-roda no máximo 1 vez, levanta `CorruptDocxError` se persistir. **Consumida pela Task 4.**
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append em `tests/unit/write/test_export_docx_validation.py`:
 
@@ -264,12 +272,12 @@ def test_run_and_validate_raises_after_second_failure(
     assert str(out) in str(exc.value)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/write/test_export_docx_validation.py -v`
 Expected: FAIL na coleta — `ImportError: cannot import name '_run_and_validate_docx'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `export.py`, após `_validate_docx_structure`:
 
@@ -302,12 +310,12 @@ def _run_and_validate_docx(cmd: list[str], out: Path) -> None:
         )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/unit/write/test_export_docx_validation.py -v`
 Expected: 9 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/unit/write/test_export_docx_validation.py src/prumo_assist/domains/write/export.py
@@ -326,7 +334,7 @@ git commit -m "feat(write): retry automático do pandoc quando o docx sai corrom
 - Consumes: `_docx_zotero_field_counts` (existente, linha 211); `zipfile`.
 - Produces: `MissingZoteroPrefsError(RuntimeError)`; `_assert_zotero_prefs_present(docx_path: Path) -> None`. **Consumida pela Task 4.**
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append no mesmo arquivo de teste:
 
@@ -365,12 +373,12 @@ def test_prefs_not_required_without_citations(tmp_path: Path) -> None:
     _assert_zotero_prefs_present(docx)  # não levanta
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/write/test_export_docx_validation.py -v`
 Expected: FAIL na coleta — `ImportError: cannot import name 'MissingZoteroPrefsError'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `export.py`, após `_assert_bibliography_present`:
 
@@ -408,12 +416,12 @@ def _assert_zotero_prefs_present(docx_path: Path) -> None:
 
 Nota (classe no meio do arquivo): manter a definição de `MissingZoteroPrefsError` junto das demais exceções do topo do módulo (após `MissingBibliographyPlaceholderError`, linha ~61) se o ruff reclamar de ordem; a função fica após `_assert_bibliography_present`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/unit/write/test_export_docx_validation.py -v`
 Expected: 13 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/unit/write/test_export_docx_validation.py src/prumo_assist/domains/write/export.py
@@ -432,7 +440,7 @@ git commit -m "feat(write): guarda de regressão das ZOTERO_PREF no docx exporta
 - Consumes: `_run_and_validate_docx` (Task 2), `_assert_zotero_prefs_present` (Task 3), `_assert_bibliography_present` (existente).
 - Produces: `export()`/`compose()` com `to="docx"` passam pela validação; comportamento dos demais formatos inalterado.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append no mesmo arquivo de teste:
 
@@ -530,12 +538,12 @@ def test_compose_docx_goes_through_validation(
     assert len(calls) == 2
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/write/test_export_docx_validation.py -v`
 Expected: `test_export_docx_fails_loud_after_retry` e `test_compose_docx_goes_through_validation` FALHAM (hoje `export()`/`compose()` chamam `subprocess.run` direto — lixo não-zip estoura como `zipfile.BadZipFile` dentro de `_assert_bibliography_present`, não como `CorruptDocxError`, e `calls == 1`). `test_export_docx_happy_path_single_run` e `test_export_html_does_not_validate_docx` já passam antes da implementação — são guardas de regressão.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Em `export()` (linhas 401–404), substituir:
 
@@ -577,12 +585,12 @@ por:
             subprocess.run(cmd, check=True, text=True)
 ```
 
-- [ ] **Step 4: Run the full write suite**
+- [x] **Step 4: Run the full write suite**
 
 Run: `uv run pytest tests/unit/write/ -v`
 Expected: todos passam (17 no arquivo novo + suíte existente inalterada)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/unit/write/test_export_docx_validation.py src/prumo_assist/domains/write/export.py
@@ -601,7 +609,7 @@ git commit -m "fix(write): export/compose docx passam por validação estrutural
 - Consumes: `Console.info` (mesmo padrão do `doctor` em `cli.py:584-590`); `export.export`/`export.compose` (patchados no teste).
 - Produces: constante `FIRST_USE_DOCX_NOTE: str` no módulo `domains/write/cli.py`, impressa só quando `to == "docx"`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append em `tests/unit/write/test_cli.py`:
 
@@ -644,12 +652,12 @@ def test_write_export_html_omits_first_use_note(
 
 E adicionar `import pytest` no topo do arquivo de teste (junto aos imports existentes) se ainda não houver.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/write/test_cli.py -v -k first_use`
 Expected: `test_write_export_docx_prints_first_use_note` FAIL (`"Primeiro uso no Word" not in output`); o teste de html PASSA.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Em `src/prumo_assist/domains/write/cli.py`, adicionar constante de módulo (após os imports):
 
@@ -694,12 +702,12 @@ por:
         console.emit({"index": str(index_resolved), "output": str(result), "format": to})
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/unit/write/test_cli.py -v`
 Expected: todos passam (2 novos + existentes)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/unit/write/test_cli.py src/prumo_assist/domains/write/cli.py
@@ -718,7 +726,7 @@ git commit -m "feat(write): nota de primeiro uso no Word na saída do export doc
 - Consumes: `_zotero_host_port`, `_port_open` (existentes).
 - Produces: `DepStatus` ganha campo `version: str | None = None` (incluído em `as_dict()`); seam `_zotero_version_header(host: str, port: int, timeout: float = 2.0) -> str | None`; `_zotero_major(version: str | None) -> int | None`; constante `_SUPPORTED_ZOTERO_MAJOR = 9`. Nenhuma mudança em `cli.py` — a renderização existente (`✓/○ + detail`, hint quando `present` é False) já cobre o caso.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Em `tests/unit/core/test_deps.py`, **substituir** o teste `test_dep_status_is_serializable` por:
 
@@ -789,12 +797,12 @@ def test_zotero_version_probe_skipped_when_port_closed() -> None:
     assert zot.version is None
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/core/test_deps.py -v`
 Expected: FAIL — `test_dep_status_is_serializable` (sem chave `version`) e os 4 novos com `AttributeError`/`patch` de `_zotero_version_header` inexistente.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Em `src/prumo_assist/core/deps.py`:
 
@@ -903,19 +911,21 @@ def _zotero_major(version: str | None) -> int | None:
     )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/unit/core/test_deps.py -v`
-Expected: todos passam (7 existentes ajustados + 4 novos)
+Expected: todos passam (6 existentes ajustados + 4 novos = 10; o "11" de rascunhos anteriores era erro aritmético)
 
-- [ ] **Step 5: Verificação empírica do endpoint (Zotero real da máquina)**
+- [x] **Step 5: Verificação empírica do endpoint (Zotero real da máquina)**
 
 Run (com o Zotero aberto): `curl -sI http://127.0.0.1:23119/connector/ping | grep -i x-zotero-version`
 Expected: `X-Zotero-Version: 9.x.y`
 
 Se o header NÃO vier: rodar `curl -sI http://127.0.0.1:23119/connector/ping` completo e inspecionar os headers reais; ajustar o nome do header na função `_zotero_version_header` (o seam isola a mudança — testes não mudam). Registrar o header observado no checkbox deste passo ao marcar. Aproveitar e testar se existe versão do BBT exposta: `curl -s http://127.0.0.1:23119/better-bibtex/version` — se retornar algo útil, anotar no plano (candidato a preencher `version` do BBT em fase futura; NÃO implementar agora).
 
-- [ ] **Step 6: Commit**
+**Registro (2026-07-23, verificação executada ao vivo contra o Zotero da máquina):** `curl -sI http://127.0.0.1:23119/connector/ping` → `HTTP/1.0 200 OK` com `X-Zotero-Version: 9.0.6` e `X-Zotero-Connector-API-Version: 3` — o header do design foi CONFIRMADO, nenhum ajuste necessário. `curl -s http://127.0.0.1:23119/better-bibtex/version` → `No endpoint found`. **Pergunta aberta registrada ao arquivar:** não existe endpoint de versão do BBT; se algum surgir em release futura, preencher o lado BBT de `DepStatus.version` pelo mesmo seam (`_zotero_version_header`-like), sem mudar os testes.
+
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/unit/core/test_deps.py src/prumo_assist/core/deps.py
@@ -933,7 +943,7 @@ git commit -m "feat(core): doctor detecta versão do Zotero e sinaliza par fora 
 - Consumes: tudo das Tasks 1–6.
 - Produces: entrada de changelog; repo verde em pytest + ruff + mypy + índices.
 
-- [ ] **Step 1: Escrever a entrada do CHANGELOG**
+- [x] **Step 1: Escrever a entrada do CHANGELOG**
 
 Substituir em `CHANGELOG.md`:
 
@@ -963,7 +973,7 @@ por:
   prefs já embutidas).
 ```
 
-- [ ] **Step 2: Rodar a bateria completa do repo**
+- [x] **Step 2: Rodar a bateria completa do repo**
 
 Run: `uv run pytest`
 Expected: suíte inteira verde.
@@ -977,7 +987,7 @@ Expected: `Success: no issues found`.
 Run: `uv run python .github/scripts/gen_indexes.py --check`
 Expected: índices em dia (nenhuma skill/índice foi tocado neste plano).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add CHANGELOG.md
@@ -988,7 +998,7 @@ git commit -m "docs(changelog): registra Fase 1 do zero-friction onboarding em N
 
 ## Verificação final (antes de marcar o plano como implemented)
 
-- [ ] Todos os checkboxes acima marcados; suíte, ruff, mypy e `gen_indexes --check` verdes no mesmo commit final.
-- [ ] Smoke manual (opcional, exige pandoc+Zotero reais): `uv run prumo write export <página real> --to docx` num `pj_*` de verdade — conferir a nota de primeiro uso e abrir o docx no Word.
-- [ ] Critérios do spec Fase 1 cobertos: validação estrutural ✓ (T1), retry+hard-fail ✓ (T2/T4), primeira abertura ✓ (T3 guarda + T5 nota), doctor churn ✓ (T6, com desvio BBT documentado no cabeçalho).
-- [ ] Release PATCH: **não** faz parte deste plano — quando o dono decidir, seguir RELEASING.md (o CHANGELOG já está pronto em "Não publicado").
+- [x] Todos os checkboxes acima marcados; suíte, ruff, mypy e `gen_indexes --check` verdes no mesmo commit final.
+- [ ] Smoke manual (opcional, exige pandoc+Zotero reais): `uv run prumo write export <página real> --to docx` num `pj_*` de verdade — conferir a nota de primeiro uso e abrir o docx no Word. *(Não executado nesta rodada — requer um `pj_*` real com página e acervo; fica para o primeiro export de verdade do dono.)*
+- [x] Critérios do spec Fase 1 cobertos: validação estrutural ✓ (T1), retry+hard-fail ✓ (T2/T4), primeira abertura ✓ (T3 guarda + T5 nota), doctor churn ✓ (T6, com desvio BBT documentado no cabeçalho).
+- [x] Release PATCH: **não** faz parte deste plano — quando o dono decidir, seguir RELEASING.md (o CHANGELOG já está pronto em "Não publicado").
