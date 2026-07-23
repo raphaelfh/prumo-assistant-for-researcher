@@ -68,3 +68,18 @@ def test_callout_header_with_and_without_title() -> None:
 def test_wrapper_behavior_unchanged() -> None:
     src = "x [[@k]] [[A|b]] ^id\n"
     assert normalize_markdown(src) == normalize_markdown_with_map(src)[0]
+
+
+def test_callout_title_normalizes_nested_citation() -> None:
+    src = "> [!note] Veja [[@smith2020]]\n> corpo\n"
+    norm, frags = normalize_markdown_with_map(src)
+    assert norm == "> **Veja [@smith2020]**\n> corpo\n"
+    _check_invariants(src, norm, frags)
+    assert any(f.kind == "citation" for f in frags)
+
+
+def test_callout_title_normalizes_nested_wikilink_and_trailing_spaces() -> None:
+    src = "> [!tip] Ver [[Conceito|o conceito]]   \n> resto\n"
+    norm, frags = normalize_markdown_with_map(src)
+    assert norm == "> **Ver o conceito**\n> resto\n"
+    _check_invariants(src, norm, frags)

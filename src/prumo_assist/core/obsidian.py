@@ -148,7 +148,12 @@ def _collect_edits(text: str, page_dir: Path | None, code: list[tuple[int, int]]
         if callout_match:
             title = callout_match.group(2)
             if title:
-                add(offset, offset + len(line), f"> **{title.strip()}**", "callout")
+                # Título vira um PAR de edits (prefixo/sufixo), não uma edit única:
+                # o interior do título fica de fora, para que padrões aninhados
+                # (citação, wikilink, block-id) sobrevivam ao _dedupe e componham.
+                add(offset, offset + callout_match.start(2), "> **", "callout")
+                title_end = offset + callout_match.start(2) + len(title.rstrip())
+                add(title_end, offset + len(line), "**", "callout")
             else:
                 end = offset + len(line)
                 if end < len(text) and text[end] == "\n":
