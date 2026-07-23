@@ -61,11 +61,11 @@ Reportar lista de órfãs com caminho relativo.
 
 ### 2. Citekeys quebradas
 
-Toda `[[@foo]]` deve ter entrada `@<tipo>{foo,…}` em `references/_references.bib`.
+Toda citação `[@foo]` (ou legado `[[@foo]]`) deve ter entrada `@<tipo>{foo,…}` em `references/_references.bib`.
 
 ```
-# Coletar citekeys referenciadas:
-Grep "\\[\\[@[^\\]]+\\]\\]" docs/ references/notes/ -o
+# Coletar citekeys referenciadas (forma nova [@foo] + legado [[@foo]]):
+Grep "\\[\\[@[^\\]]+\\]\\]|\\[@[^\\]]+\\]" docs/ references/notes/ -o
 
 # Coletar citekeys definidas:
 Grep "^@\\w+\\{([^,]+)," references/_references.bib -o
@@ -174,7 +174,7 @@ O wiki está consistente em YYYY-MM-DD?
 - ...
 
 ### Citekeys quebradas (<count>)
-- `[[@foo]]` referenciada em [[página-x]] — ausente do .bib
+- `[@foo]` referenciada em [[página-x]] — ausente do .bib
 
 ### Prefixo de log quebrado (<count>)
 - ...

@@ -13,21 +13,20 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   de CriticMarkup padrão (`{++...++}`, `{--...--}`, `{~~...~>...~~}`, `{==...==}`,
   `{>>...<<}`), parsing canônico, e operações determinísticas accept/reject/apply.
   Substrato da ponte docx ↔ CriticMarkup (spec 2026-07-05, [ADR-0016](docs/adr/adr-0016-criticmarkup-conservacao-ooxml.md)).
-- **`normalize_markdown_with_map`** em `core/obsidian.py` — normalização lossless
-  com `span-map.json` sidecar indexando cada caractere da prosa normalizada de
-  volta à posição no original, permitindo transpor alterações do docx com
-  precisão pixel-perfect (pareamento hard-fail I2/I8).
+- **`normalize_markdown_with_map`** em `core/obsidian.py` — o normalizador virou
+  motor de edits de passada única e emite um mapa lossless de fragmentos
+  source↔norm (base do transplante da ponte: inverte-se o mapa, nunca a função).
 - **Sidecars `reviews/<slug>/{citemap,span-map}.json`** no export docx — versionáveis
-  em Git, com `citemap` registrando (posição, citekey, fingerprint Zotero,
-  occ_id) como contrato: hard-fail se docx que volta tiver contagem de citações
-  diferente. Semântica: "quantas citações havia antes" (invariante I2).
-- **Campos de citação travados** (`<w:lock w:val="sdtContentLocked"/>`, invariante I4) — cada
-  campo Zotero no docx sai travado, impedindo edição direta no Word; coautores
-  veem `[[@key]]` mas precisam usar prumo para aceitar/rejeitar via CriticMarkup.
-- **`prumoOcc`/`prumoFingerprint`** na payload OOXML — fingerprint do item Zotero
-  embutido no field code (cadeia de prioridade: `doi:<valor>` quando o `.bib` tem
-  DOI; senão `sha256:` de `itemID|uri` do BBT; senão `bib:` sha256 do entry cru),
-  garantindo que o pareamento de citações não seja spoofável e audite versão de item.
+  em Git; o citemap registra (occ_id, citekeys, fingerprint, formattedCitation,
+  span no texto normalizado) com pareamento hard-fail contra os campos OOXML do
+  docx gerado (`CiteMapMismatchError`; invariantes I2/I8).
+- **Campos de citação travados** (`<w:lock w:val="sdtContentLocked"/>`, invariante I4) —
+  cada campo Zotero sai como content control travado: o coautor não redigita a
+  citação no Word; deleta o campo inteiro ou comenta. Guarda pós-build
+  (`MissingFieldLockError`).
+- **`prumoOcc`/`prumoFingerprint`** no payload OOXML — ocorrência estável por campo
+  e impressão digital por chave (cadeia de prioridade: `doi:<valor>` quando o `.bib`
+  tem DOI; senão `sha256:` de `itemID|uri` do BBT; senão `bib:` sha256 do entry cru).
 
 ### Corrigido
 - `prumo write export/compose --to docx`: o docx gerado passa por validação
@@ -41,12 +40,6 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   SEMPRE o citekey (o id numérico do Zotero migra para `zoteroItemID`) —
   pré-condição do átomo de citação da ponte docx↔CriticMarkup (spec 2026-07-05,
   invariantes I1/I2b).
-- **I7 — Gramática única de citekey:** regex `CITEKEY_BODY` em
-  `domains/write/export.py`, compartilhada com `compose.py`, agora resolve
-  chaves compostas (`[[@smith2020:aha-guideline]]`) corretamente em
-  `compose.py:_extract_citekeys_used`. Bug anterior truncava para `smith2020`; o
-  defeito foi eliminado com unificação de gramática (invariante I7,
-  [ADR-0016](docs/adr/adr-0016-criticmarkup-conservacao-ooxml.md)).
 
 ### Mudado
 - `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par
@@ -54,6 +47,36 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   o payload JSON de `external_deps` ganha o campo `version`.
 - Export docx imprime nota de primeiro uso no Word (Zotero → Refresh;
   prefs já embutidas).
+- Fachadas de `write export`/`write compose` (e o `prumo-zettlr-export`) capturam
+  a família enumerada `_EXPORT_CATCHES` — incluindo a nova `PandocFailedError`
+  (pandoc exit ≠ 0 com stderr embutido) — em vez do `RuntimeError` amplo
+  introduzido em 0.62.1: erro acionável continua saindo limpo no CLI, e erro
+  inesperado volta a vazar traceback (filosofia do `cli_run`: bug é bug).
+
+## [0.62.1] - 2026-07-22
+
+### Adicionado
+- `prumo write zettlr-profile` — gera o defaults file de export docx do Zettlr (`docs/templates/prumo-docx.yaml`) com a cadeia `citeproc → zotero_live_docx.lua` (spec 2026-07-22; primeiro release sob ADR-0015).
+- Console-script `prumo-zettlr-export` — entrypoint para o custom command do Zettlr disparar o export docx canônico (guardas intactas).
+- `core/citations.py` — gramática única de citekey (Pandoc + legado), consumida por export, compose, wiki lint e paper graph (invariante I7 do spec 2026-07-05).
+- Export docx canônico falha alto em citekey ausente do `.bib` (warning do citeproc promovido a erro).
+- `prumo doctor` acusa perfil Zettlr quebrado (filtro/reference-doc inexistentes) com o fix embutido.
+
+### Mudado
+- `templates/pj_base` v2 (Zettlr-ready): sai o vault Obsidian (`.obsidian/`, `references/views/`, `docs/canvas/`); templates nascem Pandoc-puros (`[@key]`, sem callouts); entra `docs/templates/reference.docx` e frontmatter `bibliography:` nos drafts. Projetos existentes não são tocados (Princípio: legado intocado — `normalize_markdown` permanece).
+- Skills de escrita/consulta instruem citação Pandoc `[@key]`; leitura/lint aceitam as duas gramáticas.
+- `wiki lint` e `paper graph` flavor-agnósticos; links markdown contam como link de entrada no cálculo de órfãs.
+
+### Corrigido
+- `prumo write zettlr-profile` valida a raiz do pj_* (exige `references/_references.bib`) em vez de criar o perfil em diretório arbitrário.
+- Pitch do pacote (`pyproject.toml`, `prumo --help`, `CITATION.cff`) atualizado: Zettlr no lugar de Obsidian.
+
+### Removido
+- Helper morto `_assert_no_missing_citekeys` (parser do pipeline legado `zotero.lua`, sem call-site desde o pipeline live-docx).
+
+### Documentação
+- [ADR-0015](docs/adr/adr-0015-pre-1-0-patch-para-releasavel.md) — política de release pré-1.0 (PATCH para tudo releasável; MINOR reservado a breaking/marco). Este é o primeiro release sob a política.
+- Guia one-time de setup do Zettlr em `docs/project_guide.md` do pj_base; ROADMAP marca `prumo write preview` como superado pelo Zettlr para projetos novos.
 
 ## [0.62.0] - 2026-06-12
 
@@ -292,7 +315,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.1...HEAD
+[0.62.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.0...v0.62.1
 [0.62.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.61.0...v0.62.0
 [0.61.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.6.0...v0.61.0
 [0.6.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.5.0...v0.6.0

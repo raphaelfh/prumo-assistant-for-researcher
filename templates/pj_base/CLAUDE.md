@@ -23,8 +23,8 @@ os agents e o MCP `qmd` (busca no wiki).
 
 ```text
 pj_<nome>/
-├── docs/{_index.md, _log.md, project_guide.md, decisions/, canvas/}
-├── references/{_index.md, _references.bib, notes/, pdfs/, templates/, views/}
+├── docs/{_index.md, _log.md, project_guide.md, decisions/, templates/}
+├── references/{_index.md, _references.bib, notes/, pdfs/, templates/}
 └── .claude/{rules/, make/, pj_config.toml, paper_extraction.md}
 ```
 
@@ -40,5 +40,6 @@ ingere a primeira fonte. Para mais estrutura: `prumo add <módulo>` (ex.: `clini
 ## Como operar
 
 - **Bibliografia:** Zotero é a fonte única; Better BibTeX auto-export regrava `references/_references.bib`. Paper principal marcado `role: primary` (máx. 1).
+- **Editor:** o front humano é o Zettlr (workspace na raiz do projeto). Setup one-time e limitações: `docs/project_guide.md`, seção "Editor (Zettlr)".
 - **Caminhos:** relativos ao projeto.
 - **Evoluir o projeto:** `prumo add` (sem argumento) lista e ativa módulos.

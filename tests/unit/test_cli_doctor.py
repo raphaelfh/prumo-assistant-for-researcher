@@ -71,3 +71,26 @@ def test_doctor_human_output_shows_missing_dep_hint(tmp_path: Path) -> None:
         result = runner.invoke(app, ["doctor", str(pj)])
     assert "qmd" in result.output
     assert "bun install -g @tobilu/qmd" in result.output
+
+
+def test_doctor_flags_broken_zettlr_profile(tmp_path: Path) -> None:
+    import yaml
+
+    pj = _project(tmp_path)
+    profile = pj / "docs" / "templates" / "prumo-docx.yaml"
+    profile.parent.mkdir(parents=True, exist_ok=True)
+    profile.write_text(
+        yaml.safe_dump({"reader": "markdown", "writer": "docx", "filters": ["/nao/existe.lua"]}),
+        encoding="utf-8",
+    )
+    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+        result = runner.invoke(app, ["doctor", str(pj)])
+    assert result.exit_code == 1
+    assert "prumo write zettlr-profile" in result.output
+
+
+def test_doctor_silent_when_no_zettlr_profile(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+        result = runner.invoke(app, ["doctor", str(pj)])
+    assert result.exit_code == 0, result.output

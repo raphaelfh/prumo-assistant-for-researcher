@@ -1,7 +1,7 @@
 # prumo-assist
 
 > **Knowledge, bibliography & academic writing assistant for clinical research.**
-> Lives between Zotero, Obsidian, and your agent-host.
+> Lives between Zotero, your wiki (Markdown; Zettlr front — Obsidian legacy), and your agent-host.
 
 Plugin para agentes como [Claude Code](https://code.claude.com) para pesquisa. 
 Cobre cinco domínios: gerir conhecimento (wiki),
@@ -22,11 +22,11 @@ Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de
 | `/prumo-assist:paper-extract` | Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em references/notes/<citekey>/_extract.md. Pressupõe /prumo-assist:paper-manager sync executado + symlinks via make sync-pdfs. |
 | `/prumo-assist:paper-manager` | Gerencia o acervo bibliográfico do pj_* (references/): sincroniza .bib do Zotero/BBT, atualiza grafo de citação passivo, marca paper principal, lista bibliografia, busca por palavra-chave, vê quem cita quem, audita consistência .bib↔notas. |
 | `/prumo-assist:peer-review` | Simula revisão crítica de draft acadêmico (paper, capítulo, grant, proposta) produzindo feedback estruturado por seção com forças, fraquezas, claims sem evidência e sugestões acionáveis. Aplica mental model adequado (TRIPOD+AI / TRIPOD-LLM / DECIDE-AI / CLAIM / CONSORT 2025 / PRISMA / STROBE). |
-| `/prumo-assist:scientific-writing` | Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc — pontuação (sem travessão / dois-pontos / ponto-e-vírgula em texto corrido), posição de citação (antes do ponto), agrupamento de múltiplas citações sem vírgula entre wikilinks, atenuação de superlativos, coesão entre períodos. Preserva conteúdo (forma, não substância). |
+| `/prumo-assist:scientific-writing` | Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc — pontuação (sem travessão / dois-pontos / ponto-e-vírgula em texto corrido), posição de citação (antes do ponto), agrupamento de múltiplas citações num único colchete separadas por ponto-e-vírgula ([@a; @b]), atenuação de superlativos, coesão entre períodos. Preserva conteúdo (forma, não substância). |
 | `/prumo-assist:start` | Porta de entrada do prumo-assist. Use quando o pesquisador não sabe por onde começar; lista as capacidades e roteia para a skill certa (paper-manager, paper-extract, wiki-ingest, wiki-query, write-*). |
 | `/prumo-assist:wiki-ingest` | Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria docs/sources/<slug>.md, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /prumo-assist:paper-manager. |
 | `/prumo-assist:wiki-lint` | Health-check do wiki de um pj_*: detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos sem página, links mortos, prefixo de log inválido, múltiplos role:primary. Gera relatório timestamped em docs/wiki/findings/_lint_<data>.md (fallback: docs/findings/). |
-| `/prumo-assist:wiki-query` | Responde pergunta ancorada no wiki do pj_* (docs/ + references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [[@citekeys]]). Oferece arquivar a resposta como finding em docs/wiki/findings/ (ou docs/findings/ em projetos sem docs/wiki/) quando útil. NÃO é para perguntas de código. |
+| `/prumo-assist:wiki-query` | Responde pergunta ancorada no wiki do pj_* (docs/ + references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [@citekeys]). Oferece arquivar a resposta como finding em docs/wiki/findings/ (ou docs/findings/ em projetos sem docs/wiki/) quando útil. NÃO é para perguntas de código. |
 | `/prumo-assist:write-paper` | Gera draft de paper IMRaD venue-aware a partir do PICOT, callouts _extract.md, protocol.md e project_guide.md, com citação strict do acervo ([REF FALTANTE] quando ausente). |
 | `/prumo-assist:write-projeto-cep` | Gera projeto pra CEP/CONEP via Plataforma Brasil a partir do PICOT, protocol.md e acervo — estrutura formal (Resumo, Pergunta, Justificativa, Hipótese, Coorte, Métodos, Riscos, TCLE, Cronograma, Orçamento, Conformidade). Citação strict. Linguagem acessível pra revisor não-técnico no Resumo. |
 | `/prumo-assist:write-scientific` | Gera prose acadêmica genérica quando o usuário tem texto-base ou só uma seção isolada e não cabe em paper/CEP/statistics. Aceita --seed, --section, --template. Citação strict do acervo. |

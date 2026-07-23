@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prumo-assist"
-description = "Knowledge, bibliography & academic writing assistant for clinical research. Lives between Zotero, Obsidian, and your agent-host."
+description = "Knowledge, bibliography & academic writing assistant for clinical research. Lives between Zotero, Zettlr, and your agent-host."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
@@ -16,7 +16,7 @@ keywords = [
   "knowledge-management",
   "bibliography",
   "zotero",
-  "obsidian",
+  "zettlr",
   "academic-writing",
   "clinical-research",
   "claude-code-plugin",
@@ -49,6 +49,7 @@ Issues = "https://github.com/raphaelfh/prumo-assist/issues"
 
 [project.scripts]
 prumo = "prumo_assist.cli:app"
+prumo-zettlr-export = "prumo_assist.domains.write.cli:zettlr_export_entry"
 
 [project.optional-dependencies]
 dev = [

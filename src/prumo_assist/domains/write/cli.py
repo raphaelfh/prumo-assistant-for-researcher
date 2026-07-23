@@ -32,6 +32,7 @@ FIRST_USE_DOCX_NOTE = (
 _EXPORT_CATCHES = (
     FileNotFoundError,
     ValueError,
+    export.PandocFailedError,
     export.CorruptDocxError,
     export.MissingZoteroPrefsError,
     export.MissingFieldLockError,
@@ -146,6 +147,24 @@ def list_styles_command(
         if not styles:
             console.warn("Nenhum estilo CSL em ~/Zotero/styles/.")
         console.emit({"styles": styles})
+
+
+@write_app.command("zettlr-profile")
+def zettlr_profile_command(
+    path: Annotated[Path, typer.Option("--path", help="Raiz do pj_*.")] = Path("."),
+    style: Annotated[str, typer.Option("--style", help="Estilo CSL (default: apa).")] = "apa",
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """(Re)gera o perfil de export docx do Zettlr (defaults file) do projeto."""
+    with cli_run(json_mode=json_mode, catches=(OSError,)) as console:
+        from prumo_assist.domains.write.zettlr import generate_profile
+
+        out = generate_profile(path.resolve(), style=style)
+        console.success(
+            f"Perfil Zettlr gerado: {out}. Importe uma vez no Zettlr "
+            "(Assets Manager → defaults files); re-rode este comando se o prumo for reinstalado."
+        )
+        console.emit({"profile": str(out)})
 
 
 @write_app.command("extract-comments")
@@ -271,3 +290,27 @@ def draft_command(
             f"Draft gravado em {result.output_path} ({result.words_generated} palavras)."
         )
         console.emit(result.model_dump(mode="json"))
+
+
+def zettlr_export_entry() -> None:
+    """Console-script pro custom command do Zettlr: `prumo-zettlr-export <arquivo.md>`.
+
+    O Zettlr invoca o comando com o caminho absoluto do arquivo
+    selecionado como único argumento e mostra a saída ao usuário.
+    Caminho canônico: mesmas guardas do ``prumo write export --to docx``.
+    """
+    import sys
+
+    try:
+        with cli_run(json_mode=False, catches=_EXPORT_CATCHES) as console:
+            if len(sys.argv) != 2:
+                raise PrumoError("uso: prumo-zettlr-export <arquivo.md>")
+            page = Path(sys.argv[1]).resolve()
+            result = export.export(page=page, to="docx")
+            console.success(f"exportado: {result}")
+    except typer.Exit as e:
+        # Entrypoint fora do dispatch do Click (é um `[project.scripts]` cru,
+        # não um app Typer/Click): sem isso, o `typer.Exit` levantado por
+        # `cli_run` em erro escaparia como traceback cru no painel do Zettlr,
+        # mesmo após a mensagem pt-BR já ter sido impressa por `console.error`.
+        raise SystemExit(e.exit_code) from None

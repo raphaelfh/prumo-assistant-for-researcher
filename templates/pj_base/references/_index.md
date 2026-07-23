@@ -8,7 +8,7 @@ _(nenhum ainda — marque um `.md` em `notes/` com `role: primary`)_
 
 ## Por tema
 
-_(agrupar quando começar a haver papers; use wikilinks `[[@citekey]]`)_
+_(agrupar quando começar a haver papers; use citações Pandoc `[@citekey]`)_
 
 ## Por status
 

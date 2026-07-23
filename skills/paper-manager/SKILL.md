@@ -132,7 +132,7 @@ Passos:
 1. `rg "^role: primary" references/notes/` para achar o `primary` atual.
 2. Se existir, editar esse `.md` trocando `role: primary` → `role: supporting`.
 3. Editar `notes/<citekey>/_meta.md` trocando `role: supporting` (ou `background`/`replaced`) → `role: primary`.
-4. Atualizar a seção "Paper principal" do `_index.md` com o novo wikilink `[[@<citekey>]]` + título + venue + ano.
+4. Atualizar a seção "Paper principal" do `_index.md` com a citação `[@<citekey>]` + título + venue + ano.
 5. Confirmar ao usuário com diff das mudanças.
 
 ### 4. `list`
@@ -180,7 +180,7 @@ Passos:
 
 2. Mostrar o output integral (já vem formatado: citekey, role, status, author, title, year, tldr).
 
-3. Se o usuário estiver claramente querendo inserir uma citação em um arquivo aberto, oferecer proativamente "quer que eu edite o arquivo `<nome>` e insira `[[@<citekey>]]` na linha <N>?".
+3. Se o usuário estiver claramente querendo inserir uma citação em um arquivo aberto, oferecer proativamente "quer que eu edite o arquivo `<nome>` e insira `[@<citekey>]` na linha <N>?".
 
 ## Erros comuns
 

@@ -51,13 +51,14 @@ from prumo_assist.domains.paper.cli import paper_app
 from prumo_assist.domains.protocol.cli import protocol_app
 from prumo_assist.domains.wiki.cli import wiki_app
 from prumo_assist.domains.write.cli import write_app
+from prumo_assist.domains.write.zettlr import profile_issues as zettlr_profile_issues
 from prumo_assist.integrations import REGISTRY as INTEGRATIONS
 
 app = typer.Typer(
     name="prumo",
     help=(
         "Knowledge, bibliography & academic writing assistant for clinical research.\n"
-        "Lives between Zotero, Obsidian, and your agent-host."
+        "Lives between Zotero, Zettlr, and your agent-host."
     ),
     add_completion=False,
     no_args_is_help=True,
@@ -498,6 +499,19 @@ def init_command(
             _overlay(_info.path, target)
             modules_applied.append(_name)
 
+        # Perfil de export do Zettlr — caminhos absolutos por máquina,
+        # então é gerado aqui (nunca vem do template). Não pode derrubar
+        # o scaffold: falha vira warning com o fix embutido.
+        zettlr_profile: str | None = None
+        try:
+            from prumo_assist.domains.write.zettlr import generate_profile
+
+            zettlr_profile = str(generate_profile(target))
+        except (OSError, PrumoError) as e:
+            console.warn(
+                f"Perfil Zettlr não gerado ({e}). Rode depois: `prumo write zettlr-profile`."
+            )
+
         payload = {
             "project": str(target),
             "template": str(template),
@@ -507,6 +521,7 @@ def init_command(
             "git_initialized": git_initialized,
             "integrations": installed_summary,
             "modules_applied": modules_applied,
+            "zettlr_profile": zettlr_profile,
             "version": __version__,
         }
 
@@ -554,6 +569,9 @@ def doctor_command(
     for adapter_cls in INTEGRATIONS.values():
         adapter = adapter_cls()
         issues.extend(adapter.doctor(target))
+
+    # Perfil de export do Zettlr (se existir) aponta pra arquivos vivos?
+    issues.extend(zettlr_profile_issues(target))
 
     # Staleness das checklists clínicas (Princípio II: validade sem LLM).
     skills_dir = _resolve_skills_dir()

@@ -55,9 +55,11 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-06-13-researcher-pipeline-design]] · approved
 - [[superpowers/specs/2026-07-05-review-docx-criticmarkup-design]] · approved
 - [[superpowers/specs/2026-07-22-zero-friction-onboarding-design]] · approved
+- [[superpowers/specs/2026-07-22-zettlr-front-design]] · draft
 
 **Plans ativos:**
 
+- [[superpowers/plans/2026-07-22-zettlr-front]] · draft
 - [[superpowers/plans/2026-07-23-ponte-fase1-substrato]] · —
 - [[superpowers/plans/2026-07-23-zero-friction-fase0-spike-desktop-cowork]] · —
 

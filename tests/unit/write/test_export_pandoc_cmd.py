@@ -5,8 +5,8 @@ Cobre:
 - Roteamento por formato em ``_build_pandoc_cmd`` (docx → filtros Lua do
   Zotero; html/typst → ``--citeproc`` com CSL local).
 - Resolução dos filtros vendored.
-- Detecção das três condições de falha que ``_assert_no_missing_citekeys``
-  promove de aviso silencioso a erro acionável.
+- Guarda de citekey ausente (``_assert_no_citeproc_missing``) e checagens
+  pós-build do docx.
 """
 
 from __future__ import annotations
@@ -17,17 +17,17 @@ from pathlib import Path
 
 import pytest
 
+from prumo_assist.core.citations import scan_citekeys
 from prumo_assist.domains.write.export import (
     MissingBibliographyPlaceholderError,
     ZoteroCitekeyNotFoundError,
     _assert_bibliography_present,
-    _assert_no_missing_citekeys,
+    _assert_no_citeproc_missing,
     _build_pandoc_cmd,
     _docx_zotero_field_counts,
     _zotero_bibliography_docx_filter,
     _zotero_live_docx_filter,
     _zotero_lua_filter,
-    scan_citekeys,
 )
 
 # ---------- filter resolution ----------
@@ -139,46 +139,23 @@ def test_typst_path_uses_typst_writer(fmt: str) -> None:
     assert "--to=typst" in cmd
 
 
-# ---------- _assert_no_missing_citekeys ----------
+# ---------- _assert_no_citeproc_missing ----------
 
 
-def test_assert_passes_on_clean_stdout() -> None:
-    _assert_no_missing_citekeys("zotero-live-citations 199d652\nhttp://...\n")
+def test_citeproc_missing_clean_stderr_passes() -> None:
+    _assert_no_citeproc_missing("[INFO] Running filter citeproc\n")
 
 
-def test_assert_raises_on_not_found_marker() -> None:
-    with pytest.raises(ZoteroCitekeyNotFoundError) as exc:
-        _assert_no_missing_citekeys("@foo: not found\n@bar: not found")
-    msg = str(exc.value)
-    assert "foo" in msg and "bar" in msg
-    assert "grupo do Zotero" in msg  # sugestão acionável
-
-
-def test_assert_raises_on_not_in_zotero_marker() -> None:
-    """zotero.lua usa duas frases distintas — a regex deve casar ambas."""
-    with pytest.raises(ZoteroCitekeyNotFoundError) as exc:
-        _assert_no_missing_citekeys("@foo not in Zotero")
-    assert "foo" in str(exc.value)
-
-
-def test_assert_raises_on_duplicates_marker() -> None:
-    with pytest.raises(ZoteroCitekeyNotFoundError) as exc:
-        _assert_no_missing_citekeys("@foo: duplicates found")
-    assert "foo" in str(exc.value)
-
-
-def test_assert_pane_error_takes_precedence_with_specific_message() -> None:
-    """Quando o pane está null, todas as keys retornam not-found em cascata —
-    mas a causa raiz é o pane, e a mensagem deve apontar pra isso."""
-    stdout = (
-        "could not fetch Zotero items: TypeError: ...getActiveZoteroPane() is null\n"
-        "@a not in Zotero\n@b not in Zotero"
+def test_citeproc_missing_raises_with_keys_and_fix() -> None:
+    stderr = (
+        "[WARNING] Citeproc: citation smith2024 not found\n"
+        "[WARNING] Citeproc: citation ghost2020 not found\n"
     )
     with pytest.raises(ZoteroCitekeyNotFoundError) as exc:
-        _assert_no_missing_citekeys(stdout)
-    assert "JANELA PRINCIPAL" in str(exc.value)
-    # Não deve listar as keys individuais nesse caso — a causa é outra.
-    assert "biblioteca ativa" not in str(exc.value)
+        _assert_no_citeproc_missing(stderr)
+    msg = str(exc.value)
+    assert "smith2024" in msg and "ghost2020" in msg
+    assert "sync-paper" in msg
 
 
 # ---------- _assert_bibliography_present (post-build) ----------

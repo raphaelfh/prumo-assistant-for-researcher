@@ -96,11 +96,12 @@ def test_malformed_content_types_is_reported(tmp_path: Path) -> None:
 def _fake_run_writing(out: Path, payloads: list[bytes], calls: list[list[str]]) -> object:
     """Fabrica um substituto de subprocess.run que escreve payloads[i] em out."""
 
-    def fake_run(cmd: list[str], check: bool, text: bool) -> None:
+    def fake_run(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
         calls.append(list(cmd))
         out.parent.mkdir(parents=True, exist_ok=True)
         idx = min(len(calls) - 1, len(payloads) - 1)
         out.write_bytes(payloads[idx])
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     return fake_run
 
@@ -209,7 +210,7 @@ def _fake_run_writing_output_flag(payloads: list[bytes], calls: list[list[str]])
         target.parent.mkdir(parents=True, exist_ok=True)
         idx = min(len(calls) - 1, len(payloads) - 1)
         target.write_bytes(payloads[idx])
-        return subprocess.CompletedProcess(cmd, 0)
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     return fake_run
 

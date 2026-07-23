@@ -38,6 +38,7 @@ from typing import cast
 
 import yaml
 
+from prumo_assist.core.citations import CITEKEY_RE, scan_citekeys
 from prumo_assist.core.csl import list_zotero_styles, resolve_csl
 from prumo_assist.core.obsidian import (
     SpanFragment,
@@ -65,6 +66,10 @@ class ToolNotFoundError(FileNotFoundError):
 
 class ZoteroNotRunningError(RuntimeError):
     """Zotero + Better BibTeX não acessíveis localmente."""
+
+
+class PandocFailedError(RuntimeError):
+    """Pandoc terminou com exit ≠ 0 — stderr embutido na mensagem."""
 
 
 class ZoteroCitekeyNotFoundError(RuntimeError):
@@ -130,36 +135,6 @@ def _zotero_live_docx_filter() -> Path:
     ref = resources.files("prumo_assist._filters").joinpath("zotero_live_docx.lua")
     with resources.as_file(ref) as p:
         return Path(p)
-
-
-# Pandoc citation keys: alphanumeric/underscore start, then internal
-# `:.#$%&-+?<>~/` punctuation that must be followed by more word chars
-# (so we don't grab trailing sentence punctuation like the `.` in
-# `[@key].`). Negative lookbehind on `@\w` skips emails (foo@bar).
-CITEKEY_BODY = r"[A-Za-z0-9_]\w*(?:[:.#$%&+\-?<>~/]\w+)*"
-_CITEKEY_RE = re.compile(r"(?<![@\w])@(" + CITEKEY_BODY + r")")
-
-
-def scan_citekeys(markdown_text: str) -> list[str]:
-    """Extrai citekeys ``[@key]`` / ``@key`` do markdown.
-
-    Não tenta substituir o parser do Pandoc — só precisa achar TODAS as
-    chaves para o pre-fetch no BBT. False positives (ex. nomes de
-    variáveis em code blocks) só geram queries extras sem-resultado,
-    não afetam a correção do export.
-    """
-    keys: set[str] = set()
-    in_code_block = False
-    for line in markdown_text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
-            continue
-        if in_code_block:
-            continue
-        for match in _CITEKEY_RE.finditer(line):
-            keys.add(match.group(1))
-    return sorted(keys)
 
 
 def fetch_bbt_zotero_metadata(
@@ -246,40 +221,22 @@ def _fingerprint_for(
     return "none"
 
 
-_MISSING_CITEKEY_RE = re.compile(
-    r"^@(\S+?)(?:: not found| not in Zotero| duplicates found)$", re.MULTILINE
-)
-_ZOTERO_PANE_ERROR = "could not fetch Zotero items"
+_CITEPROC_MISSING_RE = re.compile(r"\[WARNING\] Citeproc: citation (\S+) not found")
 
 
-def _assert_no_missing_citekeys(filter_stdout: str) -> None:
-    """Promove o aviso silencioso do ``zotero.lua`` a erro acionável.
+def _assert_no_citeproc_missing(stderr: str) -> None:
+    """Promove o warning do citeproc (citekey ausente do ``.bib``) a erro.
 
-    O filtro escreve em stdout quando: a citekey não existe (``: not found``),
-    quando o BBT respondeu sem o item (``not in Zotero``), ou quando uma
-    chamada falhou (``could not fetch Zotero items``). Em todos os casos o
-    pandoc termina com exit 0 deixando o ``[@key]`` cru no docx. Aqui
-    falhamos rápido com instrução clara.
+    O pandoc sai com exit 0 deixando a citação como ``(key?, ...)`` no
+    docx — inaceitável num artefato de entrega (spec 2026-07-22).
     """
-    if _ZOTERO_PANE_ERROR in filter_stdout:
+    missing = sorted(set(_CITEPROC_MISSING_RE.findall(stderr)))
+    if missing:
         raise ZoteroCitekeyNotFoundError(
-            "Better BibTeX não conseguiu acessar a biblioteca do Zotero "
-            "(``getActiveZoteroPane is null``). Abra a JANELA PRINCIPAL do "
-            "Zotero (não basta o app em background) e tente de novo. "
-            "Esse erro é tipicamente disparado quando ``zotero.library`` aponta "
-            "para um grupo e o painel do Zotero não está aberto."
+            f"{len(missing)} citekey(s) não existem no .bib: "
+            + ", ".join(missing)
+            + ". Confira a grafia ou rode `make sync-paper` para atualizar o .bib."
         )
-    missing = sorted(set(_MISSING_CITEKEY_RE.findall(filter_stdout)))
-    if not missing:
-        return
-    raise ZoteroCitekeyNotFoundError(
-        f"zotero.lua não encontrou {len(missing)} citekey(s) na biblioteca ativa: "
-        + ", ".join(missing)
-        + ". Causas comuns: (1) os itens estão num grupo do Zotero — adicione "
-        '`zotero: {library: "<Nome do Grupo>"}` no frontmatter da página '
-        "e abra a janela principal do Zotero antes de exportar; (2) os "
-        "citekeys do .bib divergem dos do BBT — rode `make sync-paper`."
-    )
 
 
 def _docx_zotero_field_counts(docx_path: Path) -> tuple[int, int]:
@@ -333,23 +290,39 @@ def _validate_docx_structure(docx_path: Path) -> list[str]:
     return problems
 
 
-def _run_and_validate_docx(cmd: list[str], out: Path) -> None:
+def _run_pandoc_checked(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    """Roda o pandoc capturando stderr; exit ≠ 0 vira erro acionável.
+
+    O stderr capturado alimenta ``_assert_no_citeproc_missing`` no caminho
+    docx (o pandoc sai com exit 0 em citekey ausente — só avisa no stderr).
+    """
+    proc = subprocess.run(cmd, text=True, capture_output=True)
+    if proc.returncode != 0:
+        raise PandocFailedError(
+            f"pandoc falhou (exit {proc.returncode}):\n{proc.stderr.strip()[-2000:]}"
+        )
+    return proc
+
+
+def _run_and_validate_docx(cmd: list[str], out: Path) -> subprocess.CompletedProcess[str]:
     """Roda o pandoc para docx garantindo saída estruturalmente válida.
 
     Defeito documentado do pipeline (docs do BBT): o Word ocasionalmente
     acusa o docx como corrompido e re-executar o mesmo comando conserta.
     Automatiza exatamente isso — valida, re-executa UMA vez, e falha alto
-    se persistir. Nunca entrega arquivo suspeito silenciosamente.
+    se persistir. Nunca entrega arquivo suspeito silenciosamente. Retorna
+    o ``CompletedProcess`` da execução final (stderr alimenta a checagem
+    de citekeys ausentes do citeproc).
     """
-    subprocess.run(cmd, check=True, text=True)
+    proc = _run_pandoc_checked(cmd)
     problems = _validate_docx_structure(out)
     if not problems:
-        return
+        return proc
     logger.warning(
         "docx falhou na validação estrutural (%s); re-executando o pandoc",
         "; ".join(problems),
     )
-    subprocess.run(cmd, check=True, text=True)
+    proc = _run_pandoc_checked(cmd)
     problems = _validate_docx_structure(out)
     if problems:
         raise CorruptDocxError(
@@ -359,6 +332,7 @@ def _run_and_validate_docx(cmd: list[str], out: Path) -> None:
             "uma issue com o markdown de entrada: "
             "https://github.com/raphaelfh/prumo-assist/issues"
         )
+    return proc
 
 
 def _assert_bibliography_present(docx_path: Path) -> None:
@@ -490,8 +464,9 @@ def _norm_citation_spans(norm_text: str) -> list[tuple[int, int]]:
     """Spans dos GRUPOS de citação ``[@a]``/``[@a; @b]`` em ``norm_text``, em ordem.
 
     Um span por bloco ``[...]`` sem colchetes internos que contenha ao menos
-    um citekey (``@`` + :data:`CITEKEY_BODY`) — ``[@a]`` e ``[@a; @b]`` cada
-    um conta como UM span, casando 1:1 com um campo Zotero do docx.
+    um citekey (gramática única de ``core/citations``) — ``[@a]`` e
+    ``[@a; @b]`` cada um conta como UM span, casando 1:1 com um campo
+    Zotero do docx.
 
     LIMITAÇÃO conhecida: citação narrativa ``@key`` fora de colchetes não é
     contada (o pipeline docx do prumo usa exclusivamente a forma com
@@ -500,7 +475,7 @@ def _norm_citation_spans(norm_text: str) -> list[tuple[int, int]]:
     return [
         match.span()
         for match in _CITATION_GROUP_RE.finditer(norm_text)
-        if _CITEKEY_RE.search(match.group(0))
+        if CITEKEY_RE.search(match.group(0))
     ]
 
 
@@ -765,7 +740,8 @@ def export(
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
         if to == "docx":
-            _run_and_validate_docx(cmd, out)
+            proc = _run_and_validate_docx(cmd, out)
+            _assert_no_citeproc_missing(proc.stderr)
             _assert_bibliography_present(out)
             _assert_zotero_prefs_present(out)
             _assert_fields_locked(out)
@@ -779,7 +755,7 @@ def export(
                 bib=bib,
             )
         else:
-            subprocess.run(cmd, check=True, text=True)
+            _run_pandoc_checked(cmd)
 
         if to == "pdf":
             typst_bin = _check_typst()
@@ -886,12 +862,13 @@ def compose(
         if meta.get("toc"):
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]
         if to == "docx":
-            _run_and_validate_docx(cmd, out)
+            proc = _run_and_validate_docx(cmd, out)
+            _assert_no_citeproc_missing(proc.stderr)
             _assert_bibliography_present(out)
             _assert_zotero_prefs_present(out)
             _assert_fields_locked(out)
         else:
-            subprocess.run(cmd, check=True, text=True)
+            _run_pandoc_checked(cmd)
 
         if to == "pdf":
             typst_bin = _check_typst()

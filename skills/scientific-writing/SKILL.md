@@ -1,6 +1,6 @@
 ---
 name: scientific-writing
-description: "Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc — pontuação (sem travessão / dois-pontos / ponto-e-vírgula em texto corrido), posição de citação (antes do ponto), agrupamento de múltiplas citações sem vírgula entre wikilinks, atenuação de superlativos, coesão entre períodos. Preserva conteúdo (forma, não substância)."
+description: "Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc — pontuação (sem travessão / dois-pontos / ponto-e-vírgula em texto corrido), posição de citação (antes do ponto), agrupamento de múltiplas citações num único colchete separadas por ponto-e-vírgula ([@a; @b]), atenuação de superlativos, coesão entre períodos. Preserva conteúdo (forma, não substância)."
 when_to_use: |
   Quando o usuário pedir "aplica as convenções", "reescreva no padrão científico",
   "limpa a pontuação", "arruma as citações", "tira os travessões", "padroniza
@@ -33,35 +33,35 @@ Você é um editor de texto científico para um pesquisador clínico de pós-gra
 ## Pressupostos
 
 - O usuário forneceu caminho de arquivo Markdown/Quarto/Pandoc. Se não, peça.
-- Citações no draft seguem o padrão Obsidian wikilink `[[@citekey|display text opcional]]`.
+- Citações no draft seguem a sintaxe Pandoc: `[@citekey]` (bracketed; múltiplas no mesmo colchete separadas por `;` — `[@a; @b]`). Legado `[[@citekey|alias]]` é aceito na leitura/export, mas não escreva novo.
 - O draft já passou por revisão de conteúdo (esta skill não é peer-review).
 
 ## Convenções aplicadas
 
 ### C1. Citações ao final do período
 
-**Regra.** Toda citação `[[@citekey]]` (com ou sem alias `|`) deve aparecer **antes do ponto final** do período em que sustenta uma afirmação. Não em meio de frase.
+**Regra.** Toda citação `[@citekey]` deve aparecer **antes do ponto final** do período em que sustenta uma afirmação. Não em meio de frase.
 
 ❌ Errado.
-> Modelos combinados [[@smith2025review]] atingem alto desempenho quando todas as modalidades estão presentes.
+> Modelos combinados [@smith2025review] atingem alto desempenho quando todas as modalidades estão presentes.
 
 ✅ Correto.
-> Modelos combinados atingem alto desempenho quando todas as modalidades estão presentes [[@smith2025review]].
+> Modelos combinados atingem alto desempenho quando todas as modalidades estão presentes [@smith2025review].
 
 **Exceção.** Quando a citação é sujeito gramatical, mantenha posição.
-> Liang et al [[@liang2024foundations]] propõem três princípios.
+> Liang et al. [@liang2024foundations] propõem três princípios.
 
-### C2. Múltiplas citações consecutivas sem vírgula entre wikilinks
+### C2. Múltiplas citações agrupadas no mesmo colchete
 
-**Regra.** Quando duas ou mais citações sustentam o mesmo período, escreva-as adjacentes separadas por **espaço único, sem vírgula**, todas antes do ponto final.
+**Regra.** Quando várias fontes sustentam a mesma afirmação, agrupe-as num único colchete separadas por `;`: `[@a; @b; @c]`. Não escreva colchetes separados nem vírgulas entre citações, todas antes do ponto final.
 
-❌ Errado (vírgula entre wikilinks).
-> ...premissa raramente sustentada [[@a]], [[@b]], [[@c]].
+❌ Errado (colchetes separados).
+> ...premissa raramente sustentada [@a], [@b], [@c].
 
-✅ Correto (agrupadas, sem vírgula).
-> ...premissa raramente sustentada [[@a]] [[@b]] [[@c]].
+✅ Correto (agrupadas num único colchete).
+> ...premissa raramente sustentada [@a; @b; @c].
 
-**Razão.** O normalizador de exportação (`build_reference_docx.py`, hooks Pandoc/CSL) funde citações adjacentes em campo único `[@a; @b; @c]`, que renderiza como `(Smith, 2024; Jones, 2025; ...)` no DOCX/PDF. A vírgula no fonte quebra o agrupamento e faz o exportador emitir campos separados que aparecem como `(Smith, 2024), (Jones, 2025)`.
+**Razão.** A sintaxe Pandoc trata `[@a; @b; @c]` como uma citação múltipla única, que o Pandoc/CSL (e o pipeline `build_reference_docx.py`) renderiza como `(Smith, 2024; Jones, 2025; ...)` no DOCX/PDF. Colchetes separados (`[@a], [@b], [@c]`) geram citações independentes, que aparecem como `(Smith, 2024), (Jones, 2025)` — perdendo o agrupamento esperado.
 
 ### C3. Sem travessão, dois-pontos ou ponto-e-vírgula no texto corrido
 
@@ -116,11 +116,11 @@ Você é um editor de texto científico para um pesquisador clínico de pós-gra
 Rodar audit antes de aplicar mudança. Reportar contagem de cada violação.
 
 ```bash
-# C1: citações no meio do período (heurística — wikilink seguido de palavra e depois ponto)
-Grep "\[\[@[^\]]+\]\][^.]*[a-záéíóúâêôãõç]\." <draft>
+# C1: citações no meio do período (heurística — citação seguida de palavra e depois ponto)
+Grep "\[@[^\]]+\][^.]*[a-záéíóúâêôãõç]\." <draft>
 
-# C2: vírgula entre wikilinks adjacentes
-Grep "\]\], \[\[" <draft>
+# C2: colchetes de citação adjacentes ([@a] [@b]) ou vírgula entre citações ([@a], [@b]) — deveriam estar agrupados num único colchete ([@a; @b])
+Grep "\]\s*,?\s*\[@" <draft>
 
 # C3a: travessões em texto corrido (excluir tabelas e refs)
 Grep " — " <draft>

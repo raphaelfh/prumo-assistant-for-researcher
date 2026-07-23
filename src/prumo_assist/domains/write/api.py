@@ -20,6 +20,8 @@ from prumo_assist.domains.write.schemas.v1 import (
     PaperSummary,
     WriteOutput,
 )
+from prumo_assist.domains.write.zettlr import generate_profile as generate_zettlr_profile
+from prumo_assist.domains.write.zettlr import profile_issues as zettlr_profile_issues
 
 __all__ = [
     "ComposeInputs",
@@ -33,9 +35,11 @@ __all__ = [
     "extract_comments",
     "extract_missing_refs",
     "generate_disclosure",
+    "generate_zettlr_profile",
     "list_styles",
     "prep",
     "read_inputs",
     "resolve_template",
     "write_output",
+    "zettlr_profile_issues",
 ]

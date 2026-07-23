@@ -53,7 +53,7 @@ O slug é derivado automaticamente do tópico ao criar o log (passo 2).
 
    > Encontrei N páginas e M papers sobre `<topic>`. Vou usar:
    > - [[concepts/curvas-roc]]
-   > - [[@hanley1982roc]]
+   > - [@hanley1982roc]
    > - ...
    >
    > Prosseguir? (Y/n)
@@ -76,7 +76,7 @@ Para cada step, formule a pergunta usando o context, aguarde resposta do
 usuário, avalie com citação strict, e anexe via:
 
 ```bash
-echo '{"question":"...","answer":"...","feedback":"...","citations":["[[@k]]"],"references_missing":[]}' \
+echo '{"question":"...","answer":"...","feedback":"...","citations":["[@k]"],"references_missing":[]}' \
   | prumo wiki study-step --log-path "<log_path>" --step <recall|anchor|connect|apply|reflect> --json
 ```
 
@@ -85,7 +85,7 @@ echo '{"question":"...","answer":"...","feedback":"...","citations":["[[@k]]"],"
 > De memória, defina `<topic>` em 2-3 frases.
 
 Avalie:
-- O que estava correto? Cite `[[@key]]` que confirma.
+- O que estava correto? Cite `[@key]` que confirma.
 - O que faltou? Aponte com citação.
 - O que estava impreciso? Corrija com citação.
 
@@ -97,7 +97,7 @@ Anexar com `step_name="recall"`.
 
 Avalie:
 - Se o usuário citou fonte certa, valide.
-- Se errou, mostre a fonte correta `[[@key]]` ou `[[page]]`.
+- Se errou, mostre a fonte correta `[@key]` ou `[[page]]`.
 - Se omitiu fonte de algo essencial, aponte.
 
 Anexar com `step_name="anchor"`.

@@ -19,6 +19,7 @@
 
 - `prumo-code-assist` ainda **não existe**. As skills `tabular-eda`, `data-cleaning`, `clinical-metrics` (removidas na v0.3.0) seguem acessíveis via histórico git. Mover quando o repo for criado.
 - Agents `ml-theory-expert` e `stack-docs-researcher`: decisão tomada em [ADR-0012](docs/adr/adr-0012-remocao-agents-ml.md) — remoção no v0.62.0.
+- Zettlr como front humano (spec 2026-07-22): implementado na v0.62.1. `prumo write preview` fica **superado pelo Zettlr** para projetos novos — não construir sem novo trigger.
 
 ## Fases pós-MVP (cada uma justificada por dor real, **nunca antes**)
 

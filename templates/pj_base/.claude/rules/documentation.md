@@ -2,7 +2,6 @@
 paths:
   - "**/pj_*/docs/**"
   - "**/pj_*/references/**"
-  - "**/pj_*/.obsidian/**"
 ---
 
 <!-- Esta rule é cópia inicial do template global em .claude/rules/documentation.md.
@@ -12,15 +11,14 @@ paths:
 
 # Documentação de projeto e acervo bibliográfico
 
-Contrato do que vive em cada `pj_*` para documentação de estudo e gestão de artigos. Cada `pj_*` **é um vault Obsidian** (o `.obsidian/` mora na raiz do submodule).
+Contrato do que vive em cada `pj_*` para documentação de estudo e gestão de artigos. A fonte é Markdown Pandoc puro versionado em git; o front humano é o **Zettlr** (workspace na raiz do projeto — setup one-time em `docs/project_guide.md`, seção Editor).
 
 ## Estrutura
 
 | Pasta | Conteúdo |
 |-------|----------|
-| `docs/` | Documentação do estudo — `README.md`, `protocol.md`, `decisions/` |
-| `references/` | Acervo bibliográfico — MOC, BibTeX, PDFs, notas, templates, views |
-| `.obsidian/` | Config compartilhada do vault (versionada parcialmente; estado pessoal fica no `.gitignore`) |
+| `docs/` | Documentação do estudo — `README.md`, `protocol.md`, `decisions/`, `templates/` (reference.docx + perfil Zettlr gerado) |
+| `references/` | Acervo bibliográfico — MOC, BibTeX, PDFs, notas, templates |
 
 ```
 pj_*/references/
@@ -28,7 +26,6 @@ pj_*/references/
 ├── _references.bib       # Zotero + Better BibTeX (auto-export)
 ├── pdfs/                 # PDFs gitignorados (copyright)
 ├── templates/literature_note.md
-├── views/papers.base     # Obsidian Bases (core)
 └── notes/<citekey>/_meta.md    # 1 pasta por paper (layout α)
 ```
 
@@ -39,14 +36,15 @@ Padrão **Better BibTeX**: `<sobrenomeMinúsculo><ano><primeiraPalavraTítuloMin
 Ex.: `smith2024cohort`, `jones2023trial`, `jones2023triala` (desempate).
 
 A mesma string é usada em **todos** os artefatos:
+
 - nome do PDF: `pdfs/<citekey>.pdf`
 - nome da nota: `notes/<citekey>/_meta.md`
 - entrada BibTeX: `@article{<citekey>, ...}`
-- wikilink no corpo: `[[@<citekey>]]`
+- citação no corpo: `[@<citekey>]` — sintaxe Pandoc; o Zettlr renderiza no editor e autocompleta ao digitar `@`
 
 ## YAML é a única fonte de verdade
 
-Toda metadata de paper vive no **YAML frontmatter** da nota. Proibido usar inline fields do Dataview (`key:: value`) nas notas versionadas — não são indexados por Obsidian Properties nem por Bases, e poluem o RAG file-based.
+Toda metadata de paper vive no **YAML frontmatter** da nota. Proibido metadata inline no corpo das notas versionadas — polui o RAG file-based.
 
 Campos obrigatórios (subset CSL-JSON + curadoria):
 
@@ -83,17 +81,17 @@ Ordem canônica, cabeçalhos `##` exatos:
 ## Notas
 ```
 
-Callouts Obsidian são padrão para highlights: `> [!tldr]`, `> [!quote]`, `> [!warning]`. Markdown puro, renderizam no GitHub, transparentes para o agente.
+Destaques usam Markdown puro: parágrafo com **TL;DR** em negrito, blockquote `> "trecho exato" (p. XX)` para citações literais. Callouts do Obsidian são legado — não usar em material novo.
 
 ## Como o agente busca no acervo
 
 | Intenção | Comando |
 |----------|---------|
 | Paper principal do projeto | `rg "^role: primary" references/notes/` |
-| Fuzzy por autor/título | `/prumo-assist:paper-manager find "<query>"` ou `make cite PJ=pj_x Q="<query>"` |
+| Fuzzy por autor/título | `/prumo-assist:paper-manager find "<query>"` ou `make cite Q="<query>"` |
 | Papers sobre um tema | `rg -l "combinado" references/notes/` |
 | O que um paper cita (grafo passivo) | `Read references/notes/<citekey>/_meta.md` (campo `cites:`, populado por `update-cites` ao fim de `sync`) |
-| Quem cita um paper | `rg "\[\[@<citekey>\]\]" references/notes/` ou `/prumo-assist:paper-manager graph <citekey>` |
+| Quem cita um paper | `rg "@<citekey>" references/notes/` ou `/prumo-assist:paper-manager graph <citekey>` |
 | Não lidos | `rg "^status: unread" references/notes/` |
 | Bibliografia formatada | `Read references/_references.bib` |
 
@@ -101,7 +99,7 @@ Callouts Obsidian são padrão para highlights: `> [!tldr]`, `> [!quote]`, `> [!
 
 Operações de alto nível (adicionar paper via DOI, promover para `primary`, listar, sincronizar `.bib`) estão em `/prumo-assist:paper-manager`. Preferir a skill a editar YAML à mão quando for ingestão.
 
-Para extrair conteúdo estruturado do PDF (TL;DR, PICOT, Método, Resultados, Limitações) e alimentar um callout delimitado acima das seções humanas, use `/prumo-assist:paper-extract <citekey>` (single) ou `/prumo-assist:paper-extract-all` (batch). Pressuposto: `/prumo-assist:paper-manager sync` + `make sync-pdfs` já executados.
+Para extrair conteúdo estruturado do PDF (TL;DR, PICOT, Método, Resultados, Limitações), use `/prumo-assist:paper-extract <citekey>` (single) ou `/prumo-assist:paper-extract-all` (batch). Pressuposto: `/prumo-assist:paper-manager sync` + `make sync-pdfs` já executados.
 
 ## PDFs e copyright
 
