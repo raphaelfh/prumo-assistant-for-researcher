@@ -206,3 +206,33 @@ def test_write_export_corrupt_docx_shows_clean_error(
     assert result.exit_code == 1
     assert "mensagem teste" in result.output
     assert "Traceback" not in result.output
+
+
+def test_write_compose_docx_prints_first_use_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, _page = _pj_with_bib(tmp_path)
+    index = pj / "docs" / "index.md"
+    index.write_text("---\npages: [docs/p.md]\n---\n")
+    fake_out = pj / "build" / "exports" / "index.docx"
+    monkeypatch.setattr("prumo_assist.domains.write.cli.export.compose", lambda **kw: fake_out)
+    result = runner.invoke(app, ["write", "compose", "--index", str(index), "--to", "docx"])
+    assert result.exit_code == 0, result.output
+    assert "Primeiro uso no Word" in result.output
+
+
+def test_write_compose_corrupt_docx_shows_clean_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, _page = _pj_with_bib(tmp_path)
+    index = pj / "docs" / "index.md"
+    index.write_text("---\npages: [docs/p.md]\n---\n")
+
+    def _boom(**kw: object) -> Path:
+        raise export.CorruptDocxError("compose docx inválido — mensagem teste")
+
+    monkeypatch.setattr("prumo_assist.domains.write.cli.export.compose", _boom)
+    result = runner.invoke(app, ["write", "compose", "--index", str(index), "--to", "docx"])
+    assert result.exit_code == 1
+    assert "mensagem teste" in result.output
+    assert "Traceback" not in result.output
