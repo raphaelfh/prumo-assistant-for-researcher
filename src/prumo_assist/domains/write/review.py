@@ -20,23 +20,29 @@ o leitor stateless nunca precisou saber.
 
 from __future__ import annotations
 
-import html
-import json
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from xml.etree import ElementTree as ET
+
+from prumo_assist.domains.write.export import _parse_csl_payload
 
 # Mesmo padrão de comments.py (W_NS + iteração ET sobre word/document.xml).
 W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 # Mesma marca de campo que `export._read_docx_citations` (MÉTODO I2)
-# reconhece via regex. Reimplementada aqui (não importada) porque lá o
-# decode do payload é lógica INLINE dentro de `_read_docx_citations` — não
-# um helper extraível — então extrair criaria acoplamento fantasma entre os
-# dois leitores. `export.py` continua dono exclusivo do seu decode
-# stateless; ver nota das "Interfaces centrais" do plano da Fase 2.
+# reconhece via regex — usada aqui só para decidir se um campo fechado é
+# uma citação Zotero (antes de chamar `_parse_csl_payload`). O decode do
+# payload em si (slice + json.loads + erro com índice) NÃO é mais
+# duplicado: foi extraído para `export._parse_csl_payload` e importado
+# (achado do review da Fase 2/Task 1 — Finding 2), porque os dois leitores
+# tinham decodes que divergiam sutilmente (`review.py` aplicava
+# `html.unescape` sobre texto do ElementTree já resolvido, corrompendo
+# entidades como `&para=`). Cada leitor mantém só o SEU estágio de
+# unescape (aqui, nenhum); a marca continua duplicada como constante local
+# porque é trivial e cada laço de detecção de campo precisa dela
+# independentemente.
 _ZOTERO_ITEM_CSL_MARKER = "ADDIN ZOTERO_ITEM CSL_CITATION"
 
 
@@ -132,8 +138,12 @@ def _collect_runs(root: ET.Element) -> list[_FieldRun]:
 
 
 def _run_instr_text(run: _FieldRun) -> str | None:
-    """Texto de `<w:instrText>` dentro do run, se houver (senão ``None``)."""
+    """Texto de `<w:instrText>` (ou `<w:delInstrText>`, quando o Word
+    renomeia o campo dentro de uma deleção rastreada — ECMA-376 §17.16.14,
+    I2b) dentro do run, se houver (senão ``None``)."""
     node = run.element.find(f"{W_NS}instrText")
+    if node is None:
+        node = run.element.find(f"{W_NS}delInstrText")
     if node is None:
         return None
     return node.text or ""
@@ -175,30 +185,23 @@ def _frame_state(frame: list[_FieldRun]) -> Literal["live", "deleted", "touched"
     return "live"
 
 
-def _decode_zotero_payload(raw_instr: str, occ_index: int, docx_path: Path) -> Any:
-    """Decodifica o JSON do campo Zotero — MESMO unescape/split de
-    ``export._read_docx_citations`` (MÉTODO I2), reimplementado aqui (ver
-    nota de `_ZOTERO_ITEM_CSL_MARKER` acima). ``occ_index`` é 1-based,
-    contando só os campos Zotero encontrados (não todo `fldChar`), na
-    ordem do documento — usado na mensagem de erro.
+def _citation_from_frame(frame: list[_FieldRun], instr: str, occ_index: int) -> DocxCitation:
+    """Monta o :class:`DocxCitation` de um campo Zotero já fechado (begin..end).
+
+    O parse do JSON (slice a partir do marcador + ``json.loads``) é
+    compartilhado com o leitor stateless via :func:`export._parse_csl_payload`
+    — chamado aqui SEM ``html.unescape`` porque ``instr`` já veio do
+    ElementTree, que resolve as entidades XML uma única vez ao montar a
+    árvore. Aplicar ``html.unescape`` de novo por cima (como o código fazia
+    antes do achado do review da Fase 2/Task 1 — Finding 2) corrompia
+    fingerprints/formatted com padrões tipo ``&amp;para=``: o ET já resolve
+    para ``&para=`` correto, e um segundo unescape reinterpreta ``&para``
+    como a entidade HTML5 sem `;` (¶).
     """
-    json_text = html.unescape(raw_instr.split(_ZOTERO_ITEM_CSL_MARKER, 1)[1]).strip()
-    try:
-        return json.loads(json_text)
-    except json.JSONDecodeError as exc:
-        raise CitationConservationError(
-            f"Campo Zotero #{occ_index} do docx tem JSON inválido em "
-            f"word/document.xml ({docx_path}): {exc}. Re-exporte com "
-            "`prumo write export --to docx`; se persistir, abra uma issue: "
-            "https://github.com/raphaelfh/prumo-assist/issues (I2)"
-        ) from exc
-
-
-def _citation_from_frame(
-    frame: list[_FieldRun], instr: str, occ_index: int, docx_path: Path
-) -> DocxCitation:
-    """Monta o :class:`DocxCitation` de um campo Zotero já fechado (begin..end)."""
-    payload = _decode_zotero_payload(instr, occ_index, docx_path)
+    payload = cast(
+        dict[str, Any],
+        _parse_csl_payload(instr, occ_index, error_cls=CitationConservationError),
+    )
     citation_items = payload.get("citationItems") or []
     citekeys = tuple(item["id"] for item in citation_items)
     fingerprints = {item["id"]: item.get("prumoFingerprint", "") for item in citation_items}
@@ -222,7 +225,9 @@ def read_docx_citations_with_state(docx_path: Path) -> list[DocxCitation]:
     `fldChar begin` … `instrText` … `fldChar end`) via pilha, e classifica
     o estado a partir dos ancestrais `w:ins`/`w:del` de TODOS os runs do
     campo (begin..end inclusive) — nunca do conteúdo textual, que o
-    coautor não pode editar (campo travado, I4).
+    coautor não pode editar (campo travado, I4). Reconhece tanto
+    `w:instrText` quanto `w:delInstrText` (Word renomeia o campo ao
+    deletá-lo sob Track Changes — ECMA-376 §17.16.14, I2b).
 
     Não faz conservação (isso é ``check_conservation``, Task 2) nem decide
     se um campo sobreviveu contra o citemap — só lê e classifica o que
@@ -270,7 +275,7 @@ def read_docx_citations_with_state(docx_path: Path) -> list[DocxCitation]:
             instr = _frame_instr_text(frame)
             if instr is not None and _ZOTERO_ITEM_CSL_MARKER in instr:
                 occ_index += 1
-                citations.append(_citation_from_frame(frame, instr, occ_index, docx_path))
+                citations.append(_citation_from_frame(frame, instr, occ_index))
             continue
 
         if stack:

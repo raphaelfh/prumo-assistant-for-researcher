@@ -34,7 +34,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from importlib import resources
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import yaml
 
@@ -407,6 +407,41 @@ _INSTR_TEXT_RE = re.compile(r"<w:instrText[^>]*>(.*?)</w:instrText>", re.DOTALL)
 _ZOTERO_ITEM_CSL_MARKER = "ADDIN ZOTERO_ITEM CSL_CITATION"
 
 
+def _parse_csl_payload(
+    decoded_instr: str, field_index: int, *, error_cls: type[RuntimeError]
+) -> dict[str, object]:
+    """Isola e decodifica o JSON ``CSL_CITATION`` de um instrText já decodificado.
+
+    Ponto único da lógica compartilhada entre os dois leitores de citação do
+    docx (achado do review da ponte Fase 2/Task 1 — Finding 2): ``decoded_instr``
+    chega aqui no estágio final de decode do CHAMADOR — ``_read_docx_citations``
+    aplica ``html.unescape`` sobre o XML cru ANTES de chamar; o leitor stateful
+    (``review._citation_from_frame``) não aplica nada, porque seu texto já veio
+    do ElementTree, que resolve as entidades XML uma única vez ao montar a
+    árvore (aplicar ``html.unescape`` de novo sobre texto já resolvido
+    reinterpreta entidades HTML5 sem `;` — ex.: ``&amp;para=`` vira ``&para=``
+    corretamente uma vez, mas ``&para=`` de novo vira ``¶=``). Este helper só
+    faz o slice (a partir do marcador ``ADDIN ZOTERO_ITEM CSL_CITATION``) +
+    ``json.loads`` — nunca unescape; cada leitor mantém o SEU estágio correto.
+
+    ``field_index`` é 1-based, contando só os campos Zotero encontrados (não
+    todo ``fldChar``), na ordem do documento — usado na mensagem de erro.
+    ``error_cls`` deixa cada leitor levantar sua própria exceção
+    (:class:`CiteMapMismatchError` aqui, ``CitationConservationError`` no
+    leitor stateful) com o mesmo texto.
+    """
+    json_text = decoded_instr.split(_ZOTERO_ITEM_CSL_MARKER, 1)[1].strip()
+    try:
+        return cast(dict[str, object], json.loads(json_text))
+    except json.JSONDecodeError as exc:
+        raise error_cls(
+            f"Campo Zotero #{field_index} do docx tem JSON inválido em "
+            f"word/document.xml: {exc}. Re-exporte com "
+            "`prumo write export --to docx`; se persistir, abra uma issue: "
+            "https://github.com/raphaelfh/prumo-assist/issues"
+        ) from exc
+
+
 def _read_docx_citations(docx_path: Path) -> list[dict[str, object]]:
     """Lê as citações vivas do docx a partir do OOXML cru — MÉTODO I2.
 
@@ -415,9 +450,12 @@ def _read_docx_citations(docx_path: Path) -> list[dict[str, object]]:
     ``<w:instrText>`` que carregam ``ADDIN ZOTERO_ITEM CSL_CITATION``
     (emitidos por ``zotero_live_docx.lua``), desfaz o escaping XML
     (``html.unescape`` — cobre ``&quot;``/``&amp;``/``&lt;``/``&gt;``) e
-    decodifica o JSON CSL_CITATION de cada um. Retorna, NA ORDEM DO
-    DOCUMENTO, um dict por ocorrência com ``occ_id``, ``citation_id``,
-    ``citekeys``, ``fingerprints`` (citekey → fingerprint) e ``formatted``.
+    decodifica o JSON CSL_CITATION de cada um via :func:`_parse_csl_payload`
+    (compartilhado com o leitor stateful de ``review.py``, que reaproveita o
+    slice+``json.loads`` mas pula este ``html.unescape`` — seu texto já vem
+    resolvido pelo ElementTree). Retorna, NA ORDEM DO DOCUMENTO, um dict por
+    ocorrência com ``occ_id``, ``citation_id``, ``citekeys``, ``fingerprints``
+    (citekey → fingerprint) e ``formatted``.
 
     JSON inválido num campo é hard-fail (:class:`CiteMapMismatchError`) — um
     docx com um campo Zotero corrompido não tem citemap parcial.
@@ -432,16 +470,11 @@ def _read_docx_citations(docx_path: Path) -> list[dict[str, object]]:
         if _ZOTERO_ITEM_CSL_MARKER not in raw:
             continue
         field_index += 1
-        json_text = html.unescape(raw.split(_ZOTERO_ITEM_CSL_MARKER, 1)[1]).strip()
-        try:
-            payload = json.loads(json_text)
-        except json.JSONDecodeError as exc:
-            raise CiteMapMismatchError(
-                f"Campo Zotero #{field_index} do docx tem JSON inválido em "
-                f"word/document.xml ({docx_path}): {exc}. Re-exporte com "
-                "`prumo write export --to docx`; se persistir, abra uma issue: "
-                "https://github.com/raphaelfh/prumo-assist/issues"
-            ) from exc
+        decoded_instr = html.unescape(raw)
+        payload = cast(
+            dict[str, Any],
+            _parse_csl_payload(decoded_instr, field_index, error_cls=CiteMapMismatchError),
+        )
         citation_items = payload.get("citationItems") or []
         occurrences.append(
             {
