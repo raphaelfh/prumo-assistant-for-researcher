@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.62.1] - 2026-07-22
+
 ### Adicionado
 - `prumo write zettlr-profile` — gera o defaults file de export docx do Zettlr (`docs/templates/prumo-docx.yaml`) com a cadeia `citeproc → zotero_live_docx.lua` (spec 2026-07-22; primeiro release sob ADR-0015).
 - Console-script `prumo-zettlr-export` — entrypoint para o custom command do Zettlr disparar o export docx canônico (guardas intactas).
@@ -27,7 +29,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - Helper morto `_assert_no_missing_citekeys` (parser do pipeline legado `zotero.lua`, sem call-site desde o pipeline live-docx).
 
 ### Documentação
-- ADR-0015 — política de release pré-1.0 (PATCH para tudo releasável; MINOR reservado a breaking/marco).
+- [ADR-0015](docs/adr/adr-0015-pre-1-0-patch-para-releasavel.md) — política de release pré-1.0 (PATCH para tudo releasável; MINOR reservado a breaking/marco). Este é o primeiro release sob a política.
 - Guia one-time de setup do Zettlr em `docs/project_guide.md` do pj_base; ROADMAP marca `prumo write preview` como superado pelo Zettlr para projetos novos.
 
 ## [0.62.0] - 2026-06-12
@@ -267,7 +269,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.1...HEAD
+[0.62.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.0...v0.62.1
 [0.62.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.61.0...v0.62.0
 [0.61.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.6.0...v0.61.0
 [0.6.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.5.0...v0.6.0
