@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+import prumo_assist.domains.write.export as export_mod
 from prumo_assist.domains.write.export import (
     CorruptDocxError,
     MissingZoteroPrefsError,
@@ -160,3 +161,88 @@ def test_prefs_custom_xml_without_pref_raises(tmp_path: Path) -> None:
 def test_prefs_not_required_without_citations(tmp_path: Path) -> None:
     docx = _write_minimal_docx(tmp_path / "sem_citacao.docx", items=0, prefs=False)
     _assert_zotero_prefs_present(docx)  # não levanta
+
+
+def _fake_project(tmp_path: Path) -> tuple[Path, Path]:
+    root = tmp_path / "pj_demo"
+    (root / "references").mkdir(parents=True)
+    (root / "references" / "_references.bib").write_text("@article{smith2020, title={X}}\n")
+    page = root / "docs" / "page.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("Texto sem citação.\n")
+    return root, page
+
+
+def _patch_export_seams(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    csl = tmp_path / "apa.csl"
+    csl.write_text("<style/>")
+    monkeypatch.setattr(export_mod, "_check_pandoc", lambda: "pandoc")
+    monkeypatch.setattr(export_mod, "_check_bbt_running", lambda timeout=2.0: None)
+    monkeypatch.setattr(export_mod, "resolve_csl", lambda style: csl)
+    monkeypatch.setattr(export_mod, "fetch_bbt_zotero_metadata", lambda keys, lib: {})
+
+
+def _fake_run_writing_output_flag(payloads: list[bytes], calls: list[list[str]]) -> object:
+    """Substituto de subprocess.run que resolve o alvo pelo --output= do cmd."""
+
+    def fake_run(cmd: list[str], check: bool, text: bool) -> None:
+        calls.append(list(cmd))
+        target = Path(next(a.split("=", 1)[1] for a in cmd if a.startswith("--output=")))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        idx = min(len(calls) - 1, len(payloads) - 1)
+        target.write_bytes(payloads[idx])
+
+    return fake_run
+
+
+def test_export_docx_fails_loud_after_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, page = _fake_project(tmp_path)
+    _patch_export_seams(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([b"lixo 1", b"lixo 2"], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    with pytest.raises(CorruptDocxError):
+        export_mod.export(page=page, to="docx", project_root=root)
+    assert len(calls) == 2
+
+
+def test_export_docx_happy_path_single_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root, page = _fake_project(tmp_path)
+    _patch_export_seams(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([_good_docx_bytes(tmp_path)], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    result = export_mod.export(page=page, to="docx", project_root=root)
+    assert result.suffix == ".docx"
+    assert result.is_file()
+    assert len(calls) == 1
+
+
+def test_export_html_does_not_validate_docx(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, page = _fake_project(tmp_path)
+    _patch_export_seams(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([b"<html>ok</html>"], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    result = export_mod.export(page=page, to="html", project_root=root)
+    assert result.suffix == ".html"
+    assert len(calls) == 1  # sem retry, sem validação de zip
+
+
+def test_compose_docx_goes_through_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, _page = _fake_project(tmp_path)
+    index = root / "docs" / "index.md"
+    index.write_text("---\npages: [docs/page.md]\n---\n")
+    _patch_export_seams(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([b"lixo 1", b"lixo 2"], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    with pytest.raises(CorruptDocxError):
+        export_mod.compose(index=index, to="docx", project_root=root)
+    assert len(calls) == 2

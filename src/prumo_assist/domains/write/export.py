@@ -496,9 +496,12 @@ def export(
             zotero_lookup_file=zotero_lookup_file,
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
-        subprocess.run(cmd, check=True, text=True)
         if to == "docx":
+            _run_and_validate_docx(cmd, out)
             _assert_bibliography_present(out)
+            _assert_zotero_prefs_present(out)
+        else:
+            subprocess.run(cmd, check=True, text=True)
 
         if to == "pdf":
             typst_bin = _check_typst()
@@ -599,9 +602,12 @@ def compose(
         )
         if meta.get("toc"):
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]
-        subprocess.run(cmd, check=True, text=True)
         if to == "docx":
+            _run_and_validate_docx(cmd, out)
             _assert_bibliography_present(out)
+            _assert_zotero_prefs_present(out)
+        else:
+            subprocess.run(cmd, check=True, text=True)
 
         if to == "pdf":
             typst_bin = _check_typst()
