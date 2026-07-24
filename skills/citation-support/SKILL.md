@@ -40,7 +40,7 @@ caminho é humano (ou o fluxo review-reconcile → `prumo write review apply`).
    `[[@key]]`/`[@key]`). Frase = sentença completa que contém a(s) marca(s).
 3. **Evidência do acervo**: para cada citekey, leia
    `references/notes/<citekey>/_extract.md` (e `_meta.md` para
-   título/abstract). Sem extract → classifique como **Sem-extract** (não
+   título/autores/DOI). Sem extract → classifique como **Sem-extract** (não
    invente conteúdo do paper; sugira `/prumo-assist:paper-extract <citekey>`).
 4. **Classifique cada par** (3 vias do spec):
    - **Fully supported** — o extract afirma o que a frase atribui.
