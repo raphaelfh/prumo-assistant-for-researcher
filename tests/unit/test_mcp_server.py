@@ -1,4 +1,4 @@
-"""Servidor MCP `prumo-review` (stdio) — tools read-only do ciclo de revisão.
+"""Servidor MCP `prumo-review` (stdio) — tools do ciclo de revisão.
 
 Task 1 da Fase 3 da ponte
 (`docs/superpowers/plans/2026-07-24-ponte-fase3-mcp-reconciliador.md`):
@@ -10,6 +10,12 @@ tools read-only só LEEM esses artefatos, nunca o docx original. Builders
 LOCAIS deste arquivo (convenção do repo — ver docstring de
 `test_review_ingest.py`: cada arquivo de teste tem seu próprio builder, não
 importa de outro).
+
+Task 2 acrescenta `propose_prose_edit` — a ÚNICA tool de ESCRITA do
+servidor (fachada fina sobre `domains.write.review.propose_prose_edit`; a
+lógica/guardas I1/I3b são testadas em unidade em
+`tests/unit/write/test_review_apply.py` — aqui só a delegação/tradução de
+Path/tipos e erros da fachada).
 
 As tools são chamadas como FUNÇÕES Python diretas (`mcp_server.review_status(...)`):
 o decorator `@server.tool()` do FastMCP registra a tool como efeito colateral
@@ -156,12 +162,49 @@ def test_review_tools_without_ingest_raise_value_error_pt_br(tmp_path: Path) -> 
         assert "prumo write review ingest" in message
 
 
-# --- 5. server registra exatamente as 3 tools read-only ---------------------
+# --- 4b. events.yaml fora do schema → ValueError pt-BR "sidecar corrompido" -
+#         (MUST-DO da review da Task 1: `pydantic.ValidationError` cru não --
+#         tinha o polimento pt-BR+comando das demais mensagens) -------------
 
 
-def test_server_registers_exactly_the_three_read_only_tools() -> None:
+def test_review_events_with_malformed_events_yaml_raises_corrupt_sidecar_error(
+    tmp_path: Path,
+) -> None:
+    project_root, page = _init_project(tmp_path)
+    review_dir = _write_review_artifacts(
+        project_root, page, review_md="conteudo qualquer", events=[], comments=[]
+    )
+    # `detail` é obrigatório em `ReviewEvent` (schemas/v1.py) — evento sem
+    # ele viola o schema (`pydantic.ValidationError`), simulando um
+    # events.yaml corrompido/editado à mão incorretamente.
+    (review_dir / "events.yaml").write_text(
+        "schema_version: ReviewEventsFile/v1\n"
+        "page: pagina.md\n"
+        "events:\n"
+        "  - kind: unanchored-mark\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError) as exc:
+        mcp_server.review_events(str(page))
+
+    message = str(exc.value)
+    assert "sidecar corrompido" in message
+    assert "events.yaml" in message
+    assert "prumo write review ingest" in message
+
+
+# --- 5. server registra exatamente as tools read-only + a de proposta ------
+
+
+def test_server_registers_exactly_the_read_only_and_proposal_tools() -> None:
     tools = asyncio.run(mcp_server.server.list_tools())
-    assert {tool.name for tool in tools} == {"review_status", "review_events", "review_worklist"}
+    assert {tool.name for tool in tools} == {
+        "review_status",
+        "review_events",
+        "review_worklist",
+        "propose_prose_edit",
+    }
 
 
 # --- 6. CLI `prumo mcp serve` chama run_stdio (fachada) ---------------------
@@ -180,3 +223,77 @@ def test_mcp_serve_command_calls_run_stdio(monkeypatch: pytest.MonkeyPatch) -> N
 
     assert result.exit_code == 0, result.output
     assert called
+
+
+# --- 7. propose_prose_edit: fachada delega ao domínio e traduz Path/tipos --
+
+
+def test_propose_prose_edit_delegates_to_domain_and_writes_pending_mark(tmp_path: Path) -> None:
+    project_root, page = _init_project(tmp_path, body="Frase-alvo para a proposta aqui.")
+    review_dir = _write_review_artifacts(
+        project_root,
+        page,
+        review_md="Frase-alvo para a proposta aqui.",
+        events=[],
+        comments=[],
+    )
+
+    result = mcp_server.propose_prose_edit(
+        str(page),
+        anchor_excerpt="Frase-alvo",
+        position="after",
+        kind="ins",
+        b=" extra",
+    )
+
+    assert result == {
+        "review_md": str(review_dir / "review.md"),
+        "inserted_mark_index": 0,
+    }
+    review_md_text = (review_dir / "review.md").read_text()
+    assert review_md_text == "Frase-alvo{++ extra++}{>>prumo-autor: agente<<} para a proposta aqui."
+
+
+# --- 8. propose_prose_edit propaga as guardas I1/I3b do domínio (fachada não
+#         reimplementa nada, só repassa o ValueError) ----------------------
+
+
+def test_propose_prose_edit_propagates_domain_citation_guard_error(tmp_path: Path) -> None:
+    project_root, page = _init_project(tmp_path, body="Frase-alvo para a proposta aqui.")
+    _write_review_artifacts(
+        project_root,
+        page,
+        review_md="Frase-alvo para a proposta aqui.",
+        events=[],
+        comments=[],
+    )
+
+    with pytest.raises(ValueError) as exc:
+        mcp_server.propose_prose_edit(
+            str(page),
+            anchor_excerpt="Frase-alvo",
+            position="after",
+            kind="ins",
+            b=" conforme [@smith2020]",
+        )
+
+    assert "I3b" in str(exc.value)
+
+
+# --- 9. propose_prose_edit sem ingest → ValueError pt-BR (mesma disciplina -
+#        das 3 tools read-only) ---------------------------------------------
+
+
+def test_propose_prose_edit_without_ingest_raises_value_error_pt_br(tmp_path: Path) -> None:
+    _project_root, page = _init_project(tmp_path)
+
+    with pytest.raises(ValueError) as exc:
+        mcp_server.propose_prose_edit(
+            str(page),
+            anchor_excerpt="qualquer coisa",
+            position="after",
+            kind="ins",
+            b=" x",
+        )
+
+    assert "prumo write review ingest" in str(exc.value)

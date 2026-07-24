@@ -23,25 +23,32 @@ projeto não localizada) vira sempre `ValueError` pt-BR com o comando de
 correção embutido: FastMCP serializa qualquer exceção do corpo da tool como
 erro de protocolo (nunca um traceback cru chega ao agent-host), mas só
 `ValueError` com mensagem pt-BR + comando dá ao agente algo acionável —
-mesma disciplina de mensagem de `export._read_sidecars`, adaptada aqui para
+mesma disciplina de mensagem de `review._read_sidecars`, adaptada aqui para
 sempre re-levantar como `ValueError` (nunca `FileNotFoundError` cru), pra
 unificar o contrato de erro das 3 tools de leitura.
 
 Task 1 entrega as 3 tools READ-ONLY (`review_status`, `review_events`,
 `review_worklist`) + `run_stdio()` (chamado por `prumo mcp serve`,
-`cli.py`). Task 2 acrescenta a única tool de ESCRITA (`propose_prose_edit`).
+`cli.py`). Task 2 acrescenta a única tool de ESCRITA (`propose_prose_edit`)
+— fachada fina sobre `domains.write.review.propose_prose_edit` (lógica e
+guardas I1/I3b moram no domínio; ver docstring de lá) — e traduz
+`pydantic.ValidationError` (sidecar corrompido/fora do schema — achado da
+review da Task 1) para o MESMO `ValueError` pt-BR+comando das demais
+falhas, em vez de deixar vazar a mensagem crua do pydantic.
 """
 
 from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from mcp.server.fastmcp import FastMCP
+from pydantic import ValidationError
 
 from prumo_assist.core import criticmarkup
+from prumo_assist.domains.write import review
 from prumo_assist.domains.write.export import _slugify, detect_project_root
 from prumo_assist.domains.write.schemas.v1 import ReviewCommentsFile, ReviewEventsFile
 
@@ -84,14 +91,29 @@ def _read_review_md(review_dir: Path) -> str:
     return _require_review_artifact(review_dir, "review.md").read_text(encoding="utf-8")
 
 
+def _corrupt_sidecar_message(path: Path) -> str:
+    """Mensagem pt-BR única para sidecar (events.yaml/review-comments.yaml)
+    corrompido ou fora do schema — traduz `pydantic.ValidationError` (achado
+    da review da Task 1: o traceback cru do pydantic vazava pelas tools de
+    leitura, sem o comando de correção embutido que toda outra falha deste
+    módulo garante)."""
+    return f"sidecar corrompido ({path}): re-rode `{_INGEST_HINT}` para regenerá-lo."
+
+
 def _read_events(review_dir: Path) -> ReviewEventsFile:
     path = _require_review_artifact(review_dir, "events.yaml")
-    return ReviewEventsFile.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    try:
+        return ReviewEventsFile.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    except ValidationError as exc:
+        raise ValueError(_corrupt_sidecar_message(path)) from exc
 
 
 def _read_comments(review_dir: Path) -> ReviewCommentsFile:
     path = _require_review_artifact(review_dir, "review-comments.yaml")
-    return ReviewCommentsFile.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    try:
+        return ReviewCommentsFile.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    except ValidationError as exc:
+        raise ValueError(_corrupt_sidecar_message(path)) from exc
 
 
 @server.tool()
@@ -143,6 +165,50 @@ def review_worklist(page: str) -> str:
         return _read_review_md(review_dir)
     except FileNotFoundError as exc:
         raise ValueError(str(exc)) from exc
+
+
+@server.tool()
+def propose_prose_edit(
+    page: str,
+    *,
+    anchor_excerpt: str,
+    position: Literal["before", "after", "replace"],
+    kind: Literal["ins", "del", "sub", "comment"],
+    a: str = "",
+    b: str = "",
+    author: str = "agente",
+) -> dict[str, Any]:
+    """Insere uma marca CriticMarkup PENDENTE no worklist (`review.md`) de
+    `page`, proposta por um agente — a ÚNICA tool de ESCRITA deste servidor.
+
+    Fachada fina sobre `domains.write.review.propose_prose_edit`: zero
+    lógica de revisão aqui, só tradução `str` (protocolo MCP) -> `Path`
+    (domínio) e de volta a dado plano. A proposta NUNCA aplica nada
+    sozinha — vira marca pendente que um humano decide via `prumo write
+    review apply --by-author agente` (ou `apply_review(by_author="agente",
+    ...)`); as guardas I1/I3b (payload de citação, âncora que toca
+    `[[@key]]`) e a validação de `anchor_excerpt`/`position` moram no
+    domínio e chegam aqui como `ValueError` pt-BR já pronto — esta tool só
+    traduz `FileNotFoundError` (raiz do projeto ou worklist ausente, mesmo
+    padrão das 3 tools read-only acima) para o mesmo tipo.
+
+    Devolve `{"review_md": <caminho>, "inserted_mark_index": <índice>}` —
+    dado plano (nunca o `ProposalResult` de domínio), mesma disciplina das
+    outras tools deste módulo."""
+    try:
+        result = review.propose_prose_edit(
+            Path(page),
+            anchor_excerpt=anchor_excerpt,
+            position=position,
+            kind=kind,
+            a=a,
+            b=b,
+            author=author,
+        )
+    except FileNotFoundError as exc:
+        raise ValueError(str(exc)) from exc
+
+    return {"review_md": str(result.review_md), "inserted_mark_index": result.inserted_mark_index}
 
 
 def run_stdio() -> None:

@@ -27,7 +27,9 @@ from prumo_assist.domains.write.review import (
     ApplyResult,
     CitationConservationError,
     MarkLostError,
+    ProposalResult,
     apply_review,
+    propose_prose_edit,
 )
 from prumo_assist.domains.write.schemas.v1 import (
     CiteMapFile,
@@ -509,3 +511,290 @@ def test_apply_second_call_after_confirmed_drop_needs_no_reconfirmation(
     assert result2.applied == 0  # nada mais para decidir
     assert result2.drops_confirmed == []
     assert "jones2021" not in page.read_text()
+
+
+# =============================================================================
+# propose_prose_edit() — Fase 3/Task 2: proposta do agente vira marca
+# pendente no worklist (I1/I3b)
+# =============================================================================
+#
+# `_write_review_dir` (acima) é reusado tal qual — `propose_prose_edit` só
+# toca `review.md`; `citemap.json`/`span-map.json` continuam existindo só
+# para satisfazer o formato de `reviews/<slug>/`, nunca lidos por esta
+# função (ela nunca decide nada sobre citação, só recusa qualquer proposta
+# que a toque — ver testes I1/I3b abaixo).
+
+
+# --- 10. ins after com âncora única -> worklist ganha marca+âncora, e ------
+#         `apply(by_author="agente")` aplica (E2E curto reusando fluxo T9) --
+
+
+def test_propose_prose_edit_ins_after_unique_anchor_then_apply_by_author_agente(
+    tmp_path: Path,
+) -> None:
+    prefix = "Frase base do paragrafo"
+    suffix = " que continua depois da ancora."
+    page_body = prefix + suffix
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+
+    result = propose_prose_edit(
+        page=page,
+        anchor_excerpt="paragrafo",
+        position="after",
+        kind="ins",
+        b=" extra",
+        project_root=project_root,
+    )
+
+    assert isinstance(result, ProposalResult)
+    assert result.review_md == review_dir / "review.md"
+
+    review_md_text = result.review_md.read_text()
+    assert review_md_text == prefix + "{++ extra++}{>>prumo-autor: agente<<}" + suffix
+    marks = criticmarkup.parse(review_md_text)
+    inserted = marks[result.inserted_mark_index]
+    assert inserted.kind == "ins"
+    assert inserted.b == " extra"
+
+    # a proposta é uma marca PENDENTE — a página original não muda até um
+    # humano decidir via apply_review (aqui, `by_author="agente"`, o mesmo
+    # autor default da proposta).
+    assert page.read_text() == page_body
+
+    apply_result = apply_review(
+        page=page,
+        by_author="agente",
+        author_decision=True,
+        today="2026-07-24",
+        project_root=project_root,
+    )
+
+    assert apply_result.applied == 1
+    assert page.read_text() == prefix + " extra" + suffix
+    assert (review_dir / "review.md").read_text() == page.read_text()
+
+
+# --- 11. âncora ausente (0 ocorrências) -> ValueError pt-BR -----------------
+
+
+def test_propose_prose_edit_anchor_not_found_raises(tmp_path: Path) -> None:
+    page_body = "Texto qualquer sem a ancora pedida."
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    _write_review_dir(project_root, page, review_body=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="não existe em lugar nenhum deste texto",
+            position="after",
+            kind="ins",
+            b=" x",
+            project_root=project_root,
+        )
+
+    assert "não encontrada" in str(exc.value)
+    # hard-fail antes de qualquer escrita.
+    assert page.read_text() == page_body
+
+
+# --- 12. âncora ambígua (>1 ocorrência) -> ValueError pt-BR -----------------
+
+
+def test_propose_prose_edit_ambiguous_anchor_raises(tmp_path: Path) -> None:
+    page_body = "repete repete no mesmo texto."
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="repete",
+            position="after",
+            kind="ins",
+            b=" x",
+            project_root=project_root,
+        )
+
+    assert "ambígua" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 13. payload com citekey/sintaxe de citação -> recusa I3b ---------------
+
+
+def test_propose_prose_edit_rejects_citation_payload_i3b(tmp_path: Path) -> None:
+    page_body = "Frase-alvo para a proposta aqui."
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Frase-alvo",
+            position="after",
+            kind="ins",
+            b=" conforme [@smith2020]",
+            project_root=project_root,
+        )
+
+    assert "I3b" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 14. âncora colada em `[[@key]]` -> recusa I1 ---------------------------
+
+
+def test_propose_prose_edit_rejects_anchor_tangent_to_citation_i1(tmp_path: Path) -> None:
+    page_body = "Estudo anterior [[@jones2021]] confirmou o achado."
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="anterior ",  # termina exatamente onde a citação começa
+            position="after",
+            kind="ins",
+            b=" recente",
+            project_root=project_root,
+        )
+
+    assert "I1" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 15. replace com kind != del/sub OU a != excerto -> erro ----------------
+
+
+def test_propose_prose_edit_replace_requires_del_or_sub_kind_and_matching_a(
+    tmp_path: Path,
+) -> None:
+    page_body = "Frase-alvo para a proposta aqui."
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Frase-alvo",
+            position="replace",
+            kind="ins",  # kind errado para replace
+            b=" outro texto",
+            project_root=project_root,
+        )
+    assert "replace" in str(exc.value)
+
+    with pytest.raises(ValueError):
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Frase-alvo",
+            position="replace",
+            kind="sub",
+            a="outra coisa",  # `a` diverge do anchor_excerpt
+            b="Frase-alvo",
+            project_root=project_root,
+        )
+
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 16. self-review: marca nova identificada por POSIÇÃO, não conteúdo ----
+#         (corpo já tem uma marca de conteúdo IDÊNTICO à proposta nova) -----
+
+
+def test_propose_prose_edit_identifies_inserted_mark_by_position_not_content(
+    tmp_path: Path,
+) -> None:
+    """Achado do brief (Context): `inserted_mark_index` precisa ser calculado
+    por POSIÇÃO de inserção, nunca por igualdade de conteúdo — uma busca por
+    conteúdo (`kind=="ins" and b==" extra"`) acharia a marca PRÉ-EXISTENTE
+    (índice 0), não a nova (índice 2), porque as duas têm texto idêntico."""
+    pre_existing_mark = "{++ extra++}{>>prumo-autor: agente<<}"
+    page_body = "Primeiro trecho. Segundo trecho-alvo aqui."
+    review_body = "Primeiro trecho." + pre_existing_mark + " Segundo trecho-alvo aqui."
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=review_body)
+
+    result = propose_prose_edit(
+        page=page,
+        anchor_excerpt="trecho-alvo",
+        position="after",
+        kind="ins",
+        b=" extra",  # MESMO payload da marca pré-existente, de propósito
+        project_root=project_root,
+    )
+
+    review_md_text = (review_dir / "review.md").read_text()
+    marks = criticmarkup.parse(review_md_text)
+    # 4 marcas ao todo: [pré-existente ins, pré-existente comment, NOVA ins, NOVA comment].
+    assert len(marks) == 4
+    assert result.inserted_mark_index == 2
+    new_mark = marks[result.inserted_mark_index]
+    assert new_mark.kind == "ins"
+    assert new_mark.b == " extra"
+    # a marca nova fica DEPOIS da pré-existente no texto — nunca a confunde
+    # com ela mesma só porque o conteúdo bate.
+    assert new_mark.start > marks[1].end
+
+
+# --- 17. self-review: tangência do OUTRO lado (âncora logo APÓS a citação) -
+
+
+def test_propose_prose_edit_rejects_anchor_immediately_after_citation_i1(
+    tmp_path: Path,
+) -> None:
+    """Completa a cobertura da fronteira estrita da Guarda I1: o teste 14
+    cobre `end == cs` (âncora termina onde a citação começa); este cobre
+    `ce == start` (âncora começa onde a citação termina) — sem espaço algum
+    entre a citação e a vírgula que seria a âncora."""
+    page_body = "Ver [[@jones2021]], confirmando o achado."
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt=",",
+            position="before",
+            kind="ins",
+            b=" (grifo nosso)",
+            project_root=project_root,
+        )
+
+    assert "I1" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 18. self-review: corpo pré-existente malformado -> hard-fail ANTES ----
+#         de qualquer escrita (achado do self-review, não do brief) --------
+
+
+def test_propose_prose_edit_malformed_preexisting_body_raises_before_any_write(
+    tmp_path: Path,
+) -> None:
+    """Achado do self-review: `inserted_mark_index` era recalculado via
+    `criticmarkup.parse(new_body)` DEPOIS de `review_md_path.write_text(...)`
+    — se o corpo PRÉ-EXISTENTE de `review.md` já tivesse uma marca
+    malformada (ex.: humano no meio de uma edição manual, `{++` sem
+    fechamento), o arquivo já teria sido escrito quando o `ValueError` do
+    parse aparecesse, violando "hard-fail antes de qualquer escrita". Fix:
+    o re-parse agora acontece ANTES do `write_text`. Este teste around a
+    marca JÁ malformada, sem relação nenhuma com a âncora proposta."""
+    malformed_review_body = "Texto com marca-alvo {++ nao fechada corretamente."
+    page_body = "Texto com marca-alvo  nao fechada corretamente."
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=malformed_review_body)
+
+    with pytest.raises(ValueError):
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="marca-alvo",
+            position="after",
+            kind="ins",
+            b=" x",
+            project_root=project_root,
+        )
+
+    # a escrita NUNCA aconteceu — review.md permanece byte a byte o mesmo.
+    assert (review_dir / "review.md").read_text() == malformed_review_body

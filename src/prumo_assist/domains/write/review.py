@@ -2822,3 +2822,207 @@ def apply_review(
         rejected=rejected_count,
         drops_confirmed=drops_confirmed,
     )
+
+
+# --- Fase 3/Task 2: propose_prose_edit() — proposta do agente vira marca ----
+#     pendente no worklist (I1/I3b) -------------------------------------------
+#
+# `propose_prose_edit` é a ÚNICA função de ESCRITA que um AGENTE (via
+# prumo-MCP, `mcp_server.py`, Fase 3 do spec) pode chamar sobre `review.md` —
+# mecânica literal de "código garante, agente propõe, humano decide": a
+# proposta NÃO é um caminho novo de aplicação, é uma marca CriticMarkup
+# NORMAL inserida no MESMO worklist que `apply_review` (Task 9, acima) já
+# sabe ler, com a MESMA âncora de autor `{>>prumo-autor: X<<}` que
+# `_pair_author_anchors` já pareia — aqui `X` é `author` (default
+# `"agente"`), o que permite `apply_review(by_author="agente", ...)` decidir
+# todas as propostas de uma vez, sem tocar marca humana nenhuma.
+#
+# Guardas I1/I3b são o PONTO desta função (Global Constraints da Fase 3): um
+# agente nunca pode cunhar citação (I3b — vínculo semântico atestado só
+# entra por seleção humana, metadados completos, registrado em Git) nem
+# decidir por uma edição que encoste numa citação existente (I1 — citação é
+# átomo opaco; toda edição que a toque vai inteira ao reconciliador HUMANO).
+# As duas guardas hard-fail ANTES de qualquer escrita em disco — nesta
+# ordem: (1) âncora precisa ocorrer EXATAMENTE 1x no corpo do worklist (senão
+# nem sabemos qual span checar contra citação); (2) payload (I3b); (3)
+# tangência/interseção da âncora com citação (I1); (4) validação estrutural
+# de `position="replace"` (kind del/sub, `a == anchor_excerpt`).
+
+_PROPOSAL_CITATION_SPAN_RE = re.compile(r"\[\[@[^\]]+\]\]")
+
+
+@dataclass(frozen=True)
+class ProposalResult:
+    """Resultado de `propose_prose_edit()` — quando retorna sem erro, a marca
+    JÁ foi inserida em `review.md` (o worklist — NUNCA a página original: a
+    proposta só vira mudança de fato quando um HUMANO a decide via
+    `apply_review`, tipicamente `by_author="agente"`).
+
+    ``inserted_mark_index`` é o índice da marca recém-inserida na ordem de
+    `criticmarkup.parse` sobre o corpo NOVO do worklist (após a inserção) —
+    identificado por POSIÇÃO de inserção (o offset onde o texto da marca foi
+    colado), NUNCA por igualdade de conteúdo: duas marcas com texto idêntico
+    (ex.: duas propostas ``{++ extra++}`` em pontos diferentes do mesmo
+    `review.md`) colidiriam numa busca por conteúdo, mas cada uma tem um
+    offset de início único no texto pós-inserção.
+    """
+
+    review_md: Path
+    inserted_mark_index: int
+
+
+def _reject_citation_payload_in_proposal(a: str, b: str) -> None:
+    """Guarda I3b: nenhuma proposta de agente pode cunhar citekey/sintaxe de
+    citação no payload (``a``/``b``) — citekey só entra por seleção humana
+    explícita, com metadados completos, atestada em Git (I3b, spec). Checa
+    `CITEKEY_RE` (mesma gramática de `core/citations`, único reconhecedor de
+    citekey do pacote) e também as duas sintaxes de colchete cru (``[@``,
+    ``[[@``) — a checagem literal de substring cobre até uma citação
+    malformada que `CITEKEY_RE` sozinho poderia não casar (ex.: colchete
+    aberto sem fechar)."""
+    if (
+        CITEKEY_RE.search(a or "")
+        or CITEKEY_RE.search(b or "")
+        or "[@" in (a + b)
+        or "[[@" in (a + b)
+    ):
+        raise ValueError(
+            "propose_prose_edit recusado (I3b — vínculo semântico atestado): "
+            f"payload contém citekey/sintaxe de citação (a={a!r}, b={b!r}). "
+            "Citekey só entra por seleção humana explícita, com metadados "
+            "completos, registrada em Git — nunca via proposta de agente. Se "
+            "a intenção é citar algo, deixe o evento para decisão humana em "
+            "vez de chamar propose_prose_edit com esse payload."
+        )
+
+
+def _reject_anchor_tangent_to_citation(body: str, start: int, end: int) -> None:
+    """Guarda I1: âncora ``[start, end)`` que INTERSECTA ou TANGENCIA
+    (adjacência imediata, distância zero) um span ``[[@citekey]]`` no corpo
+    do worklist é recusada — citação é átomo opaco (I1, spec): qualquer
+    edição que a encoste é decisão HUMANA, nunca aproximada por agente.
+    ``not (end < cs or ce < start)`` é a negação de "os dois intervalos têm
+    ao menos 1 caractere de distância" — cobre interseção E adjacência
+    (``end == cs`` ou ``ce == start``) com o MESMO teste, `<` estrito nos
+    dois lados de propósito (o brief manda tangência recusar, não só
+    sobreposição)."""
+    for match in _PROPOSAL_CITATION_SPAN_RE.finditer(body):
+        cs, ce = match.start(), match.end()
+        if not (end < cs or ce < start):
+            raise ValueError(
+                "propose_prose_edit recusado (I1 — citação é átomo): a âncora "
+                f"encosta em ou intersecta a citação {body[cs:ce]!r} — citação "
+                "nunca é editável/aproximada por agente; qualquer edição que a "
+                "toque é decisão humana. Escolha uma âncora que não encoste na "
+                "citação, ou deixe o evento para o humano decidir."
+            )
+
+
+def propose_prose_edit(
+    page: Path,
+    *,
+    anchor_excerpt: str,
+    position: Literal["before", "after", "replace"],
+    kind: Literal["ins", "del", "sub", "comment"],
+    a: str = "",
+    b: str = "",
+    author: str = "agente",
+    project_root: Path | None = None,
+) -> ProposalResult:
+    """Insere uma marca CriticMarkup PENDENTE no worklist (`review.md`) de
+    `page`, proposta por um AGENTE — a ÚNICA escrita que um agente pode fazer
+    no ciclo de revisão (Fase 3 do spec; fachada MCP em `mcp_server.py`).
+
+    A marca é ``criticmarkup.emit(kind, a, b) + "{>>prumo-autor: " + author +
+    "<<}"`` — IDÊNTICA em formato à âncora de autor que `ingest()`/Task 4-7
+    já produzem para coautores humanos; `apply_review` (Task 9) não precisa
+    de nenhuma lógica nova para decidir uma proposta de agente, incluindo o
+    modo `by_author=author` (default `"agente"`).
+
+    Localiza `anchor_excerpt` SÓ no CORPO do worklist (após
+    `split_frontmatter_raw` — nunca no frontmatter, para offsets seguros) e
+    exige ocorrência EXATAMENTE única: 0 ocorrências → "âncora não
+    encontrada"; 2+ (inclusive sobrepostas — `_find_all` é conservador de
+    propósito) → "âncora ambígua". `position` decide onde o texto da marca
+    entra em relação ao excerto localizado: ``"before"``/`"after"` colam
+    a marca imediatamente antes/depois dele (o excerto em si nunca muda);
+    ``"replace"`` substitui o excerto pela marca — e por isso EXIGE `kind`
+    `"del"` ou `"sub"` E `a == anchor_excerpt` (o alvo da substituição É o
+    próprio excerto localizado; qualquer outro `a` seria inconsistente com
+    o que a marca resolvida deveria produzir na rejeição).
+
+    Guardas I1/I3b (hard-fail ValueError pt-BR, ANTES de qualquer escrita):
+    ver `_reject_citation_payload_in_proposal` (I3b — payload nunca cunha
+    citação) e `_reject_anchor_tangent_to_citation` (I1 — âncora nunca
+    intersecta/tangencia citação `[[@key]]`) — um agente nunca decide nada
+    que toque um átomo de citação; esses eventos ficam para o reconciliador
+    HUMANO (`prumo write review events --checklist`, modo degradado).
+
+    Reescreve `review.md` = `raw_fm` (frontmatter VERBATIM, extraído por
+    `split_frontmatter_raw` — nunca a página original, que só muda quando um
+    humano aplica a proposta) + corpo com a marca inserida. Nunca toca a
+    PÁGINA nem `events.yaml`/sidecars de citação — a proposta é só uma marca
+    a mais no worklist, decidida pelo MESMO fluxo humano de qualquer outra.
+    """
+    project_root = project_root or detect_project_root(page)
+    slug = _slugify(page, project_root)
+    review_dir = project_root / "reviews" / slug
+
+    raw_fm, body, _events_file = _read_review_md_and_events(review_dir)
+
+    occurrences = _find_all(body, anchor_excerpt)
+    if not occurrences:
+        raise ValueError(
+            f"âncora não encontrada: {anchor_excerpt!r} não ocorre no corpo de "
+            f"{review_dir / 'review.md'}. Amplie ou corrija o excerto para um "
+            "trecho que exista literalmente no worklist."
+        )
+    if len(occurrences) > 1:
+        raise ValueError(
+            f"âncora ambígua — amplie o excerto: {anchor_excerpt!r} ocorre "
+            f"{len(occurrences)}x no corpo de {review_dir / 'review.md'}. "
+            "Inclua mais contexto ao redor até que o excerto identifique um "
+            "único ponto no worklist."
+        )
+
+    start = occurrences[0]
+    end = start + len(anchor_excerpt)
+
+    _reject_citation_payload_in_proposal(a, b)
+    _reject_anchor_tangent_to_citation(body, start, end)
+
+    if position == "replace" and (kind not in ("del", "sub") or a != anchor_excerpt):
+        raise ValueError(
+            "`position='replace'` exige `kind` 'del' ou 'sub' e `a` idêntico "
+            "a `anchor_excerpt` (o alvo da substituição é o próprio excerto "
+            f"localizado) — recebido kind={kind!r}, a={a!r}, "
+            f"anchor_excerpt={anchor_excerpt!r}."
+        )
+
+    mark_text = criticmarkup.emit(kind, a, b) + "{>>prumo-autor: " + author + "<<}"
+
+    if position == "before":
+        insertion_offset = start
+        new_body = body[:start] + mark_text + body[start:]
+    elif position == "after":
+        insertion_offset = end
+        new_body = body[:end] + mark_text + body[end:]
+    else:  # replace
+        insertion_offset = start
+        new_body = body[:start] + mark_text + body[end:]
+
+    # Recalcula ANTES de escrever (Guarda B-like, auto-imposta): se o corpo
+    # PRÉ-EXISTENTE já tivesse uma marca malformada (ex.: humano editando
+    # `review.md` a mão, marca não fechada), `criticmarkup.parse` levantaria
+    # `ValueError` aqui — precisa acontecer ANTES do `write_text` abaixo,
+    # senão o arquivo já teria sido escrito quando o erro aparecesse,
+    # violando "hard-fail antes de qualquer escrita" (mesma disciplina das
+    # guardas acima).
+    inserted_mark_index = next(
+        i for i, mark in enumerate(criticmarkup.parse(new_body)) if mark.start == insertion_offset
+    )
+
+    review_md_path = review_dir / "review.md"
+    review_md_path.write_text(_compose_page(raw_fm, new_body), encoding="utf-8")
+
+    return ProposalResult(review_md=review_md_path, inserted_mark_index=inserted_mark_index)
