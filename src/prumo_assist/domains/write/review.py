@@ -47,8 +47,10 @@ from prumo_assist.domains.write.comments import extract_from_docx
 from prumo_assist.domains.write.export import _parse_csl_payload
 from prumo_assist.domains.write.schemas.v1 import (
     CiteMapFile,
+    CiteOccurrence,
     ReviewComment,
     ReviewCommentsFile,
+    ReviewEvent,
 )
 
 # Mesmo padrão de comments.py (W_NS + iteração ET sobre word/document.xml).
@@ -866,3 +868,513 @@ def collect_review_comments(docx_path: Path, page: str) -> ReviewCommentsFile:
         )
 
     return ReviewCommentsFile(page=page, comments=review_comments)
+
+
+# --- Task 6: localizador de âncora única (`locate_marks_in_norm`) -----------
+#
+# DESIGN GERAL (documentado per brief da Task 6 — decisão desta task):
+#
+# `clean_text` (saída da Task 4) ainda contém a sintaxe CriticMarkup de TODAS
+# as marcas de conteúdo (`{++...++}` etc.) — o contexto before/after de uma
+# marca não pode conter a sintaxe de OUTRAS marcas vizinhas, só texto plano.
+# A representação "texto plano" escolhida aqui é a de PRÉ-IMAGEM: cada marca
+# vira o texto que existia ANTES da edição do coautor — exatamente a
+# semântica de `criticmarkup.reject` (ins/comment -> ""; del/sub/highlight ->
+# `a`) — porque essa pré-imagem é o que deveria bater com `norm_text` (o
+# texto ANTES da rodada de revisão). `_plain_reject_rendering` produz esse
+# texto (`plain_text`) e, de brinde, o span de CADA marca dentro dele — que
+# já É o "alvo" pedido pelo brief (`a` para del/sub/highlight, ponto vazio
+# para ins/comment), sem precisar reparsear `clean_text` (os offsets de
+# `ReviewMark` já são relativos a ele, per Task 4).
+#
+# SENTINELA (citação): displays de citação (`(Smith, 2020)`) no lado adeu não
+# existem no lado norm (`[@smith2020]`) — sem normalizar os dois para o MESMO
+# token, nenhum contexto que contenha uma citação bateria textualmente. Cada
+# `occurrence.formatted` é achado por BUSCA SEQUENCIAL em `plain_text` (nunca
+# por valor — displays repetidos pareiam pela ORDEM do citemap, documento
+# afora) e cada `(occ.norm_start, occ.norm_end)` é substituído DIRETO (já
+# sabemos onde está) no lado norm — ambos os lados usam o MESMO índice `i`
+# (posição da occurrence em `citemap.occurrences`) como id do token
+# `\x00CIT<i>\x00`, garantindo que o MESMO token nos dois lados sempre se
+# refere à MESMA citação.
+#
+# BOOKKEEPING (token-space -> offset original): substituir um span por um
+# token de tamanho diferente desloca todo offset posterior — `_OffsetSegment`
+# + `_map_offset` mantêm essa correspondência dos DOIS lados (original<->
+# sentinela) via uma lista de segmentos cobrindo o texto inteiro (passthrough
+# + token, em ordem); os spans localizados são sempre convertidos de volta
+# para os OFFSETS ORIGINAIS do `norm_text` antes de retornar — nunca
+# vazam offset em espaço-token.
+#
+# ORDEM contexto vs. sentinela vs. colapso: sentinela PRIMEIRO (texto inteiro
+# antes/depois do alvo, sem cortar), colapso de espaços DEPOIS, truncagem
+# para 48 chars por ÚLTIMO — nessa ordem porque (a) colapsar antes de
+# substituir citação arriscaria corromper o match de `occ.formatted` caso o
+# display tenha espaços internos que o colapso mexesse; (b) truncar antes de
+# colapsar sub-contaria o orçamento de 48 chars (colapso só encolhe texto,
+# nunca cresce). A truncagem é CIENTE de token: nunca corta um
+# `\x00CIT<i>\x00` ao meio — empurra o corte para incluir/excluir o token
+# INTEIRO (o resultado pode passar de 48 chars nesse caso raro; preferível a
+# um token mutilado que nunca bateria com o lado norm).
+#
+# CLASSIFICAÇÃO do alvo vs. citação (antes de qualquer busca de âncora):
+# - ZERO interseção com qualquer span de citação -> segue para a busca normal
+#   de âncora (é aqui que o sentinela do CONTEXTO importa).
+# - Interseção com EXATAMENTE 1 span, esse span TOTALMENTE contido no alvo, e
+#   o que sobra do alvo fora do span é só espaço em branco (ou nada) -> "del
+#   de citação": se `kind == "del"` E a occurrence está em `deleted` (Task
+#   2/conservação) -> consumida SILENCIOSAMENTE (nem `LocatedMark` nem
+#   evento — o evento de drop é da conservação, não duplicamos aqui); se não
+#   está em `deleted` -> `citation-touched-prose` (adeu "viu" uma deleção que
+#   o OOXML não confirma — I1, nunca confiar no adeu para citação). Mesma
+#   classificação geométrica mas `kind != "del"` (ex.: `sub`/`highlight`
+#   cobrindo a citação inteira) também vira `citation-touched-prose` — só
+#   `del` tem o caminho de "casar com deleted" suportado no MVP.
+# - Qualquer OUTRA interseção (parcial, ou múltiplos spans) -> sempre
+#   `citation-touched-prose` (decisão humana — I1, nunca auto-aplica).
+
+_CONTEXT_CHARS = 48
+
+_SENTINEL_TOKEN_RE = re.compile(r"\x00CIT\d+\x00")
+
+
+def _sentinel_token(occ_index: int) -> str:
+    """Token opaco `\x00CIT<i>\x00` — o mesmo índice `i` (posição da
+    occurrence em `citemap.occurrences`, ordem do documento) é usado nos dois
+    lados (adeu/plain e norm) para a MESMA citação."""
+    return f"\x00CIT{occ_index}\x00"
+
+
+@dataclass(frozen=True)
+class LocatedMark:
+    """Uma `ReviewMark` localizada no texto normalizado.
+
+    ``norm_start``/``norm_end`` são o span do ALVO no ``norm_text``
+    (offsets ORIGINAIS — nunca em espaço-token): para ``del``/``sub`` (e
+    ``highlight``), o span do texto que a marca substitui/marca; para
+    ``ins``/``comment``, um PONTO (``norm_start == norm_end``) — o lugar
+    onde a marca ancora, sem substituir nada existente.
+    """
+
+    mark: ReviewMark
+    norm_start: int
+    norm_end: int
+
+
+@dataclass(frozen=True)
+class _SentinelSpan:
+    """Um span (coordenadas do texto ORIGINAL, antes da substituição) que
+    vira o token sentinela da occurrence ``occ_index`` (índice em
+    ``citemap.occurrences``)."""
+
+    start: int
+    end: int
+    occ_index: int
+
+
+@dataclass(frozen=True)
+class _OffsetSegment:
+    """Um segmento (passthrough OU token) cobrindo `[orig_start, orig_end)`
+    no texto ORIGINAL e `[sent_start, sent_end)` no texto SENTINELA — usado
+    por :func:`_map_offset` para converter offset nos dois sentidos. Uma
+    lista de segmentos cobre o texto INTEIRO, em ordem, sem lacunas."""
+
+    orig_start: int
+    orig_end: int
+    sent_start: int
+    sent_end: int
+
+
+def _plain_reject_rendering(
+    clean_text: str, marks: list[ReviewMark]
+) -> tuple[str, list[tuple[int, int]]]:
+    """Renderiza `clean_text` trocando cada marca pela sua PRÉ-IMAGEM (texto
+    que existia antes da edição — semântica de `criticmarkup.reject`):
+    `del`/`sub`/`highlight` -> `mark.a`; `ins`/`comment` -> `""` (não
+    existiam antes; ancoram por PONTO). `marks` já traz offsets relativos a
+    `clean_text` (Task 4) — não precisa reparsear.
+
+    Retorna `(plain_text, spans)` onde `spans[i]` é `(start, end)` do alvo de
+    `marks[i]` dentro de `plain_text` — para del/sub/highlight,
+    `plain_text[start:end] == marks[i].a`; para ins/comment, `start == end`.
+    """
+    parts: list[str] = []
+    spans: list[tuple[int, int]] = []
+    cursor = 0
+    plain_len = 0
+    for mark in marks:
+        gap = clean_text[cursor : mark.start]
+        parts.append(gap)
+        plain_len += len(gap)
+
+        pre_image = mark.a if mark.kind in ("del", "sub", "highlight") else ""
+        start = plain_len
+        parts.append(pre_image)
+        plain_len += len(pre_image)
+        spans.append((start, plain_len))
+
+        cursor = mark.end
+    parts.append(clean_text[cursor:])
+    return "".join(parts), spans
+
+
+def _find_citation_spans_by_search(
+    text: str, occurrences: list[CiteOccurrence]
+) -> list[_SentinelSpan]:
+    """Acha o span de CADA `occurrence.formatted` em `text`, occurrence a
+    occurrence NA ORDEM do citemap (documento) — busca SEQUENCIAL com cursor
+    avançando: displays repetidos (mesmo `formatted` em 2+ occurrences)
+    pareiam pela ORDEM em que aparecem, nunca por valor. Occurrence cujo
+    `formatted` está vazio, ou não é encontrado a partir do cursor atual
+    (ex.: adeu reformatou o display), é PULADA — sem span sentinela para
+    ela; o cursor não avança nesse caso."""
+    spans: list[_SentinelSpan] = []
+    cursor = 0
+    for i, occ in enumerate(occurrences):
+        if not occ.formatted:
+            continue
+        idx = text.find(occ.formatted, cursor)
+        if idx == -1:
+            continue
+        end = idx + len(occ.formatted)
+        spans.append(_SentinelSpan(start=idx, end=end, occ_index=i))
+        cursor = end
+    return spans
+
+
+def _substitute_spans(text: str, spans: list[_SentinelSpan]) -> tuple[str, list[_OffsetSegment]]:
+    """Substitui cada `span` (ordenado, não sobreposto, coordenadas de
+    `text`) pelo token sentinela, retornando o texto resultante e os
+    segmentos (passthrough + token, cobrindo `text` inteiro em ordem) que
+    `_map_offset` usa para converter offsets nos dois sentidos."""
+    parts: list[str] = []
+    segments: list[_OffsetSegment] = []
+    cursor = 0
+    sent_len = 0
+    for span in spans:
+        if span.start > cursor:
+            gap = text[cursor : span.start]
+            parts.append(gap)
+            segments.append(_OffsetSegment(cursor, span.start, sent_len, sent_len + len(gap)))
+            sent_len += len(gap)
+        token = _sentinel_token(span.occ_index)
+        parts.append(token)
+        segments.append(_OffsetSegment(span.start, span.end, sent_len, sent_len + len(token)))
+        sent_len += len(token)
+        cursor = span.end
+    tail = text[cursor:]
+    parts.append(tail)
+    segments.append(_OffsetSegment(cursor, len(text), sent_len, sent_len + len(tail)))
+    return "".join(parts), segments
+
+
+def _map_offset(offset: int, segments: list[_OffsetSegment], *, to_sentinel: bool) -> int:
+    """Converte `offset` entre coordenadas ORIGINAL e SENTINELA usando os
+    `segments` de `_substitute_spans`. `to_sentinel=True`: original->sentinela
+    (lado adeu, antes da busca); `False`: sentinela->original (lado norm,
+    depois da busca — nunca reportar offset em espaço-token). Só é seguro
+    chamar com `offset` numa FRONTEIRA de segmento ou dentro de um segmento
+    PASSTHROUGH — nunca estritamente dentro de um token (o chamador garante
+    isso: do lado adeu, `_classify_target_citation` já desviou qualquer alvo
+    que caia dentro de um token; do lado norm, a posição do match cai sempre
+    em fronteira de token por construção — before/target/after nunca contêm
+    um token PARCIAL, ver `_truncate_tail`/`_truncate_head`)."""
+    for seg in segments:
+        lo, hi = (seg.orig_start, seg.orig_end) if to_sentinel else (seg.sent_start, seg.sent_end)
+        if lo <= offset <= hi:
+            to_lo, to_hi = (
+                (seg.sent_start, seg.sent_end) if to_sentinel else (seg.orig_start, seg.orig_end)
+            )
+            if offset == lo:
+                return to_lo
+            if offset == hi:
+                return to_hi
+            return to_lo + (offset - lo)
+    if not segments:
+        return offset
+    last = segments[-1]
+    return last.sent_end if to_sentinel else last.orig_end
+
+
+def _collapse_whitespace(text: str) -> str:
+    """Colapsa QUALQUER sequência de espaço em branco (espaço/tab/quebra de
+    linha) em um único espaço — "texto plano" per brief; interpretação
+    deliberadamente mais ampla que só "espaços múltiplos" (o requisito duro
+    citado no brief) para absorver possível reformatação/quebra de linha do
+    adeu ao extrair do OOXML sem mudar o comportamento no caso comum (já sem
+    quebras). Não toca os bytes `\x00` do token sentinela (`\\s` não casa
+    NUL)."""
+    return re.sub(r"\s+", " ", text)
+
+
+def _truncate_tail(text: str, limit: int) -> str:
+    """Últimos `limit` chars de `text`, nunca cortando um token sentinela ao
+    meio — se o corte cair dentro de um token, empurra o corte para TRÁS
+    (início do token), incluindo o token inteiro (o resultado pode passar de
+    `limit` chars nesse caso — preferível a um token mutilado, que nunca
+    bateria com o lado norm)."""
+    if len(text) <= limit:
+        return text
+    cut = len(text) - limit
+    for m in _SENTINEL_TOKEN_RE.finditer(text):
+        if m.start() < cut < m.end():
+            cut = m.start()
+            break
+    return text[cut:]
+
+
+def _truncate_head(text: str, limit: int) -> str:
+    """Primeiros `limit` chars de `text` — mesma proteção de token que
+    `_truncate_tail`, empurrando o corte para a FRENTE (fim do token)."""
+    if len(text) <= limit:
+        return text
+    cut = limit
+    for m in _SENTINEL_TOKEN_RE.finditer(text):
+        if m.start() < cut < m.end():
+            cut = m.end()
+            break
+    return text[:cut]
+
+
+def _find_all(haystack: str, needle: str) -> list[int]:
+    """Todas as posições de início de `needle` em `haystack`, INCLUSIVE
+    sobrepostas (avança 1 char por vez, não `len(needle)`) — conservador de
+    propósito: melhor superestimar ambiguidade (`ambiguous-anchor`) do que
+    arriscar uma âncora espúria."""
+    positions: list[int] = []
+    start = 0
+    while True:
+        idx = haystack.find(needle, start)
+        if idx == -1:
+            break
+        positions.append(idx)
+        start = idx + 1
+    return positions
+
+
+def _ranges_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
+    """Interseção ESTRITA de intervalos meio-abertos `[start, end)` — encostar
+    na fronteira (`a_end == b_start`) NÃO conta como interseção. Um alvo
+    zero-largura (`ins`/`comment`) só intersecta se cair ESTRITAMENTE dentro
+    do outro intervalo (nunca só tocando a borda)."""
+    return a_start < b_end and a_end > b_start
+
+
+def _classify_target_citation(
+    target_start: int,
+    target_end: int,
+    citation_spans: list[_SentinelSpan],
+    plain_text: str,
+) -> tuple[str, int | None]:
+    """Classifica o alvo de uma marca (`[target_start, target_end)` em
+    `plain_text`) contra os spans de citação achados (`_SentinelSpan`).
+
+    Retorna `(classificação, occ_index)`:
+    - `("none", None)`: zero interseção — segue para busca normal de âncora.
+    - `("exact_del_candidate", i)`: intersecta EXATAMENTE 1 span (occurrence
+      `i`), esse span TOTALMENTE contido no alvo, e o que sobra do alvo fora
+      do span é só espaço em branco (ou nada) — candidato a "del de citação"
+      (o chamador decide o desfecho conforme `kind` e `deleted`).
+    - `("touched", None)`: qualquer OUTRA interseção (parcial, múltiplos
+      spans, ou span exato mas com sobra não-espaço) — sempre
+      `citation-touched-prose`.
+    """
+    overlapping = [
+        cs for cs in citation_spans if _ranges_overlap(target_start, target_end, cs.start, cs.end)
+    ]
+    if not overlapping:
+        return "none", None
+    if len(overlapping) == 1:
+        cs = overlapping[0]
+        if cs.start >= target_start and cs.end <= target_end:
+            prefix = plain_text[target_start : cs.start]
+            suffix = plain_text[cs.end : target_end]
+            if prefix.strip() == "" and suffix.strip() == "":
+                return "exact_del_candidate", cs.occ_index
+    return "touched", None
+
+
+def _mark_excerpt(mark: ReviewMark, limit: int = 80) -> str:
+    """Trecho representativo da marca para mensagens de evento (pt-BR, regra
+    deste repo: contexto útil no `detail`) — `a` para del/sub/highlight (o
+    texto afetado), `b` para ins/comment (o texto inserido/comentário)."""
+    text = (mark.a if mark.kind in ("del", "sub", "highlight") else mark.b).strip()
+    if len(text) > limit:
+        text = text[: limit - 1] + "…"
+    return text
+
+
+def _unanchored_event(mark: ReviewMark) -> ReviewEvent:
+    excerpt = _mark_excerpt(mark)
+    return ReviewEvent(
+        kind="unanchored-mark",
+        detail=(
+            f"Marca {mark.kind} de {mark.author} não foi localizada no texto "
+            f'normalizado (0 ocorrências do contexto de âncora): trecho "{excerpt}". '
+            "Resolva manualmente em review.md, ou peça revisão sobre um docx "
+            "re-exportado se a fonte mudou muito desde o export."
+        ),
+        author=mark.author,
+        mark_excerpt=excerpt,
+    )
+
+
+def _ambiguous_event(mark: ReviewMark, count: int | None = None) -> ReviewEvent:
+    excerpt = _mark_excerpt(mark)
+    if count is None:
+        contagem = "contexto vazio (nada antes/depois da marca no texto do adeu)"
+    else:
+        contagem = f"{count} ocorrências do mesmo contexto"
+    return ReviewEvent(
+        kind="ambiguous-anchor",
+        detail=(
+            f"Marca {mark.kind} de {mark.author} tem âncora ambígua no texto "
+            f'normalizado ({contagem}): trecho "{excerpt}". Amplie o contexto '
+            "manualmente ou aplique a mudança direto em review.md."
+        ),
+        author=mark.author,
+        mark_excerpt=excerpt,
+    )
+
+
+def _citation_touched_event(
+    mark: ReviewMark,
+    occurrences: list[CiteOccurrence],
+    *,
+    confirmed_by_ooxml: bool,
+) -> ReviewEvent:
+    """Evento `citation-touched-prose` — decisão humana (I1), nunca
+    auto-aplica. `confirmed_by_ooxml=False` é o caso especial em que o alvo
+    é EXATAMENTE um display de citação (`kind == "del"`) mas a occurrence não
+    está na lista `deleted` da conservação (Task 2) — inconsistência entre o
+    que o adeu mostra e o que o OOXML confirma; `True` é o caso geral de
+    interseção parcial/múltipla (mensagem sem menção a essa inconsistência
+    específica)."""
+    excerpt = _mark_excerpt(mark)
+    occ_ids = ", ".join(occ.occ_id for occ in occurrences)
+    citekeys = [key for occ in occurrences for key in occ.citekeys]
+    if not confirmed_by_ooxml:
+        detail = (
+            f"Marca {mark.kind} de {mark.author} parece deletar a citação "
+            f"(occ {occ_ids}), mas a conservação não confirma essa deleção no "
+            f'OOXML: trecho "{excerpt}". Nunca confie no adeu para decisão de '
+            "citação (I1) — confira o docx revisado e trate manualmente, ou "
+            "re-exporte e re-ingira."
+        )
+    else:
+        detail = (
+            f"Marca {mark.kind} de {mark.author} toca uma citação (occ {occ_ids}) "
+            f"na prosa — decisão humana necessária (I1), nunca auto-aplicada: "
+            f'trecho "{excerpt}".'
+        )
+    return ReviewEvent(
+        kind="citation-touched-prose",
+        detail=detail,
+        occ_id=occurrences[0].occ_id if occurrences else None,
+        citekeys=citekeys,
+        author=mark.author,
+        mark_excerpt=excerpt,
+    )
+
+
+def locate_marks_in_norm(
+    clean_text: str,
+    marks: list[ReviewMark],
+    norm_text: str,
+    citemap: CiteMapFile,
+    deleted: list[DocxCitation],
+) -> tuple[list[LocatedMark], list[ReviewEvent]]:
+    """Localiza cada `ReviewMark` no `norm_text` por âncora única de contexto
+    (ver docstring da seção acima para o design completo: pré-imagem,
+    sentinela de citação, bookkeeping de offset, classificação de
+    interseção).
+
+    Para cada marca, NESTA ordem:
+    1. Classifica o alvo contra os spans de citação achados em `plain_text`
+       (`_classify_target_citation`). Interseção -> vira SEMPRE
+       `citation-touched-prose` (decisão humana, I1), EXCETO o caso "del de
+       citação" confirmado por `deleted` (Task 2), que é consumido
+       silenciosamente (sem `LocatedMark` nem evento próprio — o evento de
+       drop já é da conservação).
+    2. Sem interseção: monta `before`/`after` (texto plano, sentinela
+       aplicada, colapsado, truncado a 48 chars sem partir token) e
+       `alvo` (`a` para del/sub/highlight, vazio/ponto para ins/comment);
+       busca `before + alvo + after` em `norm_text` (com sentinela também
+       aplicada). Exatamente 1 match -> `LocatedMark`; 0 -> `unanchored-mark`;
+       >1 -> `ambiguous-anchor`.
+
+    Retorna `(located, events)` — a ORDEM de `located`/`events` segue a
+    ordem de `marks` (documento).
+    """
+    plain_text, plain_spans = _plain_reject_rendering(clean_text, marks)
+
+    citation_spans_plain = _find_citation_spans_by_search(plain_text, citemap.occurrences)
+    plain_text_sentinel, plain_segments = _substitute_spans(plain_text, citation_spans_plain)
+
+    norm_spans = sorted(
+        (
+            _SentinelSpan(occ.norm_start, occ.norm_end, i)
+            for i, occ in enumerate(citemap.occurrences)
+        ),
+        key=lambda s: s.start,
+    )
+    norm_text_sentinel, norm_segments = _substitute_spans(norm_text, norm_spans)
+
+    deleted_occ_ids = {c.occ_id for c in deleted}
+
+    located: list[LocatedMark] = []
+    events: list[ReviewEvent] = []
+
+    for mark, (target_start, target_end) in zip(marks, plain_spans, strict=True):
+        classification, occ_index = _classify_target_citation(
+            target_start, target_end, citation_spans_plain, plain_text
+        )
+
+        if classification == "exact_del_candidate" and mark.kind == "del":
+            assert occ_index is not None  # invariante de _classify_target_citation
+            occ = citemap.occurrences[occ_index]
+            if occ.occ_id not in deleted_occ_ids:
+                events.append(_citation_touched_event(mark, [occ], confirmed_by_ooxml=False))
+            continue  # confirmado: consumida silenciosamente (evento é da conservação)
+
+        if classification in ("exact_del_candidate", "touched"):
+            overlapping_occs = [
+                citemap.occurrences[cs.occ_index]
+                for cs in citation_spans_plain
+                if _ranges_overlap(target_start, target_end, cs.start, cs.end)
+            ]
+            events.append(_citation_touched_event(mark, overlapping_occs, confirmed_by_ooxml=True))
+            continue
+
+        sent_target_start = _map_offset(target_start, plain_segments, to_sentinel=True)
+        sent_target_end = _map_offset(target_end, plain_segments, to_sentinel=True)
+        target_str = mark.a if mark.kind in ("del", "sub", "highlight") else ""
+
+        before_ctx = _truncate_tail(
+            _collapse_whitespace(plain_text_sentinel[:sent_target_start]), _CONTEXT_CHARS
+        )
+        after_ctx = _truncate_head(
+            _collapse_whitespace(plain_text_sentinel[sent_target_end:]), _CONTEXT_CHARS
+        )
+        search_str = before_ctx + target_str + after_ctx
+
+        if search_str == "":
+            if norm_text == "":
+                located.append(LocatedMark(mark=mark, norm_start=0, norm_end=0))
+            else:
+                events.append(_ambiguous_event(mark, count=None))
+            continue
+
+        positions = _find_all(norm_text_sentinel, search_str)
+        if not positions:
+            events.append(_unanchored_event(mark))
+        elif len(positions) > 1:
+            events.append(_ambiguous_event(mark, count=len(positions)))
+        else:
+            sent_norm_start = positions[0] + len(before_ctx)
+            sent_norm_end = sent_norm_start + len(target_str)
+            norm_start = _map_offset(sent_norm_start, norm_segments, to_sentinel=False)
+            norm_end = _map_offset(sent_norm_end, norm_segments, to_sentinel=False)
+            located.append(LocatedMark(mark=mark, norm_start=norm_start, norm_end=norm_end))
+
+    return located, events
