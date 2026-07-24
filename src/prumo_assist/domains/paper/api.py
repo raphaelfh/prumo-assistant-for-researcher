@@ -19,6 +19,7 @@ from prumo_assist.domains.paper.pdfs import sync_pdfs
 from prumo_assist.domains.paper.prep import ExtractPrep, extract_prep
 from prumo_assist.domains.paper.sync import sync
 from prumo_assist.domains.paper.sync_all import sync_all
+from prumo_assist.domains.paper.verify import verify_refs
 from prumo_assist.domains.paper.zotero import sync_annotations, sync_notes
 
 __all__ = [
@@ -35,4 +36,5 @@ __all__ = [
     "sync_notes",
     "sync_pdfs",
     "update_graph",
+    "verify_refs",
 ]

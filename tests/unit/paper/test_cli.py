@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
+import pytest
 from typer.testing import CliRunner
 
 from prumo_assist.cli import app
@@ -193,3 +195,91 @@ def test_paper_sync_all_cli_runs_offline_sync(tmp_path: Path) -> None:
     assert payload["annotations"] is None
     assert payload["notes"] is None
     assert isinstance(payload["warnings"], list) and payload["warnings"]
+
+
+def _fake_report(pj: Path, **overrides: Any) -> dict[str, Any]:
+    report: dict[str, Any] = {
+        "pj": str(pj),
+        "page": None,
+        "scope": ["a1"],
+        "checked": 1,
+        "findings": [],
+        "summary": {"errors": 0, "warnings": 0, "infos": 0},
+        "deep": False,
+    }
+    report.update(overrides)
+    return report
+
+
+def test_verify_refs_ok_exit_zero(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    report = _fake_report(tmp_path)
+
+    def fake(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return report
+
+    monkeypatch.setattr("prumo_assist.domains.paper.verify.verify_refs", fake)
+    result = runner.invoke(app, ["paper", "verify-refs", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "verificada" in result.output
+
+
+def test_verify_refs_erro_exit_um(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    report = _fake_report(
+        tmp_path,
+        findings=[
+            {
+                "citekey": "a1",
+                "level": "error",
+                "kind": "retracted",
+                "message": "RETRATADO: reavalie a citação.",
+                "source": "crossref",
+            },
+        ],
+        summary={"errors": 1, "warnings": 0, "infos": 0},
+    )
+
+    def fake(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return report
+
+    monkeypatch.setattr("prumo_assist.domains.paper.verify.verify_refs", fake)
+    result = runner.invoke(app, ["paper", "verify-refs", str(tmp_path)])
+    assert result.exit_code == 1
+    assert "a1" in result.output and "retracted" in result.output
+
+
+def test_verify_refs_repassa_flags(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake(
+        pj_path: Path,
+        *,
+        page: Path | None = None,
+        deep: bool = False,
+        refresh: bool = False,
+        cache_path: Path | None = None,
+    ) -> dict[str, Any]:
+        captured.update(pj=pj_path, page=page, deep=deep, refresh=refresh)
+        return _fake_report(pj_path, scope=[], checked=0, deep=deep)
+
+    monkeypatch.setattr("prumo_assist.domains.paper.verify.verify_refs", fake)
+    pagina = tmp_path / "p.md"
+    pagina.write_text("x", encoding="utf-8")
+    result = runner.invoke(
+        app,
+        ["paper", "verify-refs", str(tmp_path), "--page", str(pagina), "--deep", "--refresh"],
+    )
+    assert result.exit_code == 0, result.output
+    assert captured["deep"] is True and captured["refresh"] is True
+    assert captured["page"] == pagina.resolve()
+
+
+def test_verify_refs_bib_ausente_mensagem_limpa(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        raise FileNotFoundError("_references.bib não existe — Better BibTeX export?")
+
+    monkeypatch.setattr("prumo_assist.domains.paper.verify.verify_refs", fake)
+    result = runner.invoke(app, ["paper", "verify-refs", str(tmp_path)])
+    assert result.exit_code == 1
+    assert "Better BibTeX" in result.output

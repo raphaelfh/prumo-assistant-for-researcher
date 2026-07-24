@@ -13,7 +13,7 @@ import typer
 
 from prumo_assist.core.cli_io import read_stdin_json
 from prumo_assist.core.cli_op import cli_run
-from prumo_assist.domains.paper import find, graph, lint, migrate, pdfs, sync, zotero
+from prumo_assist.domains.paper import find, graph, lint, migrate, pdfs, sync, verify, zotero
 from prumo_assist.domains.paper import prep as paper_prep
 from prumo_assist.domains.paper.callout import apply_extraction
 from prumo_assist.domains.paper.sync_all import sync_all as _sync_all
@@ -23,6 +23,8 @@ paper_app = typer.Typer(
     help="Bibliografia: sync com Zotero/BBT, grafo, find, lint.",
     no_args_is_help=True,
 )
+
+_VERIFY_CATCHES = (FileNotFoundError, verify.RefcheckerUnavailableError)
 
 
 @paper_app.command("sync")
@@ -83,6 +85,57 @@ def lint_command(
             console.error(f"{report['summary']['errors']} erro(s) crítico(s).")
         console.emit(report)
         if not report["ok"]:
+            raise typer.Exit(code=1)
+
+
+@paper_app.command("verify-refs")
+def verify_refs_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    page: Annotated[
+        Path | None,
+        typer.Option("--page", help="Escopo: só citekeys marcadas nesta página .md (recomendado)."),
+    ] = None,
+    deep: Annotated[
+        bool,
+        typer.Option(
+            "--deep",
+            help=f"Verificação profunda via `uvx {verify.REFCHECKER_PIN}` (lento sem chave).",
+        ),
+    ] = False,
+    refresh: Annotated[
+        bool, typer.Option("--refresh", help="Ignora o cache local (TTL 7 dias).")
+    ] = False,
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Verifica referências do bib: existência (Crossref), retração (Crossref/PubMed), título."""
+    with cli_run(json_mode=json_mode, catches=_VERIFY_CATCHES) as console:
+        report = verify.verify_refs(
+            path.resolve(),
+            page=page.resolve() if page is not None else None,
+            deep=deep,
+            refresh=refresh,
+        )
+        for finding in report["findings"]:
+            line = f"[{finding['level']}] {finding['citekey']}: {finding['kind']} — {finding['message']}"
+            if finding["level"] == "error":
+                console.error(line)
+            elif finding["level"] == "warning":
+                console.warn(line)
+            else:
+                console.info(line)
+        summary = report["summary"]
+        if summary["errors"]:
+            console.error(
+                f"{report['checked']} referência(s) verificada(s): {summary['errors']} erro(s), "
+                f"{summary['warnings']} warning(s)."
+            )
+        else:
+            console.success(
+                f"{report['checked']} referência(s) verificada(s) — "
+                f"{summary['warnings']} warning(s), {summary['infos']} info(s)."
+            )
+        console.emit(report)
+        if summary["errors"]:
             raise typer.Exit(code=1)
 
 
