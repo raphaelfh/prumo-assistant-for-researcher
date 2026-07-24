@@ -88,6 +88,23 @@ class TestIdentifiers:
         ids = verify._identifiers_for(_entry("note = {PMID: 9500320},"))
         assert ids.pmid == "9500320"
 
+    def test_pmid_prioriza_note_sobre_abstract(self) -> None:
+        # emenda pós-review T1: abstract citando PMID de OUTRO trabalho não
+        # pode vencer o note verdadeiro (gate validaria o registro errado)
+        ids = verify._identifiers_for(
+            _entry("abstract = {Como no trial X (PMID: 111111).},\n  note = {PMID: 222222},")
+        )
+        assert ids.pmid == "222222"
+
+    def test_pmid_em_abstract_nao_conta(self) -> None:
+        ids = verify._identifiers_for(_entry("abstract = {(PMID: 111111)},"))
+        assert ids.pmid is None
+
+    def test_doi_multilinha_colapsa_whitespace(self) -> None:
+        # emenda pós-review T1: campo brace-delimited pode quebrar linha
+        ids = verify._identifiers_for(_entry("doi = {10.1056/\n    NEJMoa2002032},"))
+        assert ids.doi == "10.1056/NEJMoa2002032"
+
     def test_arxiv_por_eprinttype(self) -> None:
         ids = verify._identifiers_for(
             _entry("eprint = {2301.00001},\n  eprinttype = {arXiv},")
@@ -200,7 +217,7 @@ _DOI_PREFIXES = (
     "http://dx.doi.org/",
     "doi:",
 )
-_PMID_IN_BODY_RE = re.compile(r"\bPMID:?\s*(\d{1,9})\b", re.IGNORECASE)
+_PMID_RE = re.compile(r"\bPMID:?\s*(\d{1,9})\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -219,6 +236,9 @@ def _normalize_doi(raw: str) -> str | None:
         if lowered.startswith(prefix):
             doi = doi[len(prefix) :].strip()
             break
+    # DOI nunca contém whitespace; campo bib brace-delimited pode quebrar
+    # linha (emenda pós-review T1: newline embutido virava URL malformada).
+    doi = "".join(doi.split())
     return doi or None
 
 
@@ -237,9 +257,16 @@ def _identifiers_for(entry: BibEntry) -> RefIdentifiers:
     if raw_pmid and raw_pmid.strip().isdigit():
         pmid = raw_pmid.strip()
     else:
-        m = _PMID_IN_BODY_RE.search(entry.body)
-        if m:
-            pmid = m.group(1)
+        # BBT despeja "PMID: NNNN" em note/extra/annotation — NUNCA varrer o
+        # body inteiro: um abstract que menciona o PMID de OUTRO trabalho
+        # venceria e o gate validaria o registro errado (emenda pós-review T1).
+        for field_name in ("note", "extra", "annotation"):
+            field_value = extract_field(entry.body, field_name)
+            if field_value:
+                m = _PMID_RE.search(field_value)
+                if m:
+                    pmid = m.group(1)
+                    break
 
     arxiv_id: str | None = None
     eprint_type = extract_field(entry.body, "eprinttype") or extract_field(
