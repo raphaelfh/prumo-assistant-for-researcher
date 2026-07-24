@@ -123,3 +123,41 @@ class AIDisclosure(BaseModel):
     tools: list[AIToolUse] = Field(default_factory=list)
     statement_pt: str
     statement_en: str
+
+
+class ReviewComment(BaseModel):
+    """Comentário extraído de um docx revisado."""
+
+    id: str
+    author: str
+    date: str | None = None
+    text: str
+    anchor_text: str | None = None
+    reply_of: str | None = None
+
+
+class ReviewCommentsFile(BaseModel):
+    """Arquivo sidecar que mapeia comentários extraídos de um docx revisado."""
+
+    schema_version: Literal["ReviewCommentsFile/v1"] = "ReviewCommentsFile/v1"
+    page: str
+    comments: list[ReviewComment] = []
+
+
+class ReviewEvent(BaseModel):
+    """Um evento de revisão capturado durante ingest/apply."""
+
+    kind: str
+    detail: str
+    occ_id: str | None = None
+    citekeys: list[str] = []
+    author: str | None = None
+    mark_excerpt: str | None = None
+
+
+class ReviewEventsFile(BaseModel):
+    """Arquivo sidecar que mapeia eventos de revisão durante processamento."""
+
+    schema_version: Literal["ReviewEventsFile/v1"] = "ReviewEventsFile/v1"
+    page: str
+    events: list[ReviewEvent] = []

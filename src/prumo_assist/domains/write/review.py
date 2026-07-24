@@ -43,8 +43,13 @@ from typing import Any, Literal, cast
 from xml.etree import ElementTree as ET
 
 from prumo_assist.core import criticmarkup
+from prumo_assist.domains.write.comments import extract_from_docx
 from prumo_assist.domains.write.export import _parse_csl_payload
-from prumo_assist.domains.write.schemas.v1 import CiteMapFile
+from prumo_assist.domains.write.schemas.v1 import (
+    CiteMapFile,
+    ReviewComment,
+    ReviewCommentsFile,
+)
 
 # Mesmo padrão de comments.py (W_NS + iteração ET sobre word/document.xml).
 W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -824,3 +829,40 @@ def parse_adeu_markdown(markdown: str) -> tuple[str, list[ReviewMark]]:
 
     clean_parts.append(raw[cursor:])
     return "".join(clean_parts), review_marks
+
+
+# --- Task 5: coleta de comentários (ReviewCommentsFile) ----------------------
+
+
+def collect_review_comments(docx_path: Path, page: str) -> ReviewCommentsFile:
+    """Extrai comentários de um docx revisado e retorna ReviewCommentsFile.
+
+    Reusar `extract_from_docx` (de `domains/write/comments.py`) para coletar
+    comentários do docx; mapear cada `Comment` para `ReviewComment` com:
+    - id: do comment
+    - author: do comment
+    - date: do comment (pode ser None)
+    - text: do comment
+    - anchor_text: do comment (pode ser None)
+    - reply_of: None no MVP
+
+    Returns:
+        `ReviewCommentsFile` com schema_version e page preenchidos, lista de
+        comentários mapeados.
+    """
+    result = extract_from_docx(docx_path)
+
+    review_comments: list[ReviewComment] = []
+    for comment in result.comments:
+        review_comments.append(
+            ReviewComment(
+                id=comment.id,
+                author=comment.author,
+                date=comment.date,
+                text=comment.text,
+                anchor_text=comment.anchor_text,
+                reply_of=None,
+            )
+        )
+
+    return ReviewCommentsFile(page=page, comments=review_comments)

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -27,8 +28,10 @@ from prumo_assist.domains.write.review import (
     AdeuUnavailableError,
     ReviewMark,
     _run_adeu_extract,
+    collect_review_comments,
     parse_adeu_markdown,
 )
+from prumo_assist.domains.write.schemas.v1 import ReviewCommentsFile
 
 ADEU_GOLDEN = (
     "Primeiro paragrafo de prosa.\n\n"
@@ -223,3 +226,117 @@ def test_run_adeu_extract_uvx_not_found_raises_adeu_unavailable(tmp_path: Path) 
     message = str(exc.value)
     assert "uv --version" in message
     assert "uvx adeu==1.29.0 --version" in message
+
+
+# --- Task 5: coleta de comentários (ReviewCommentsFile) ----------------------
+
+
+def _docx_with_one_comment(path: Path) -> Path:
+    """Cria um docx mínimo com 1 comentário.
+
+    Estrutura:
+    - word/document.xml: texto com commentRangeStart/End marcando âncora
+    - word/comments.xml: comentário com id, author, date, text
+    """
+    w_ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+
+    document_xml = f'''<?xml version="1.0"?>
+<w:document {w_ns}>
+    <w:body>
+        <w:p>
+            <w:r>
+                <w:t>Antes</w:t>
+            </w:r>
+            <w:commentRangeStart w:id="0"/>
+            <w:r>
+                <w:t> texto âncora</w:t>
+            </w:r>
+            <w:commentRangeEnd w:id="0"/>
+            <w:r>
+                <w:annotationRef w:id="0"/>
+            </w:r>
+            <w:r>
+                <w:t> depois</w:t>
+            </w:r>
+        </w:p>
+    </w:body>
+</w:document>'''
+
+    comments_xml = '''<?xml version="1.0"?>
+<w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:comment w:id="0" w:author="Revisor Alice" w:date="2026-07-23T10:30:00Z">
+        <w:p>
+            <w:r>
+                <w:t>Sugestão de revisão aqui.</w:t>
+            </w:r>
+        </w:p>
+    </w:comment>
+</w:comments>'''
+
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("word/document.xml", document_xml)
+        z.writestr("word/comments.xml", comments_xml)
+
+    return path
+
+
+def test_collect_review_comments_with_one_comment(tmp_path: Path) -> None:
+    """collect_review_comments extrai comentário do docx para ReviewCommentsFile."""
+    docx = tmp_path / "reviewed.docx"
+    _docx_with_one_comment(docx)
+
+    result = collect_review_comments(docx, "docs/page.md")
+
+    assert isinstance(result, ReviewCommentsFile)
+    assert result.schema_version == "ReviewCommentsFile/v1"
+    assert result.page == "docs/page.md"
+    assert len(result.comments) == 1
+
+    comment = result.comments[0]
+    assert comment.id == "0"
+    assert comment.author == "Revisor Alice"
+    assert comment.text == "Sugestão de revisão aqui."
+    assert comment.anchor_text == " texto âncora"
+    assert comment.date == "2026-07-23T10:30:00Z"
+    assert comment.reply_of is None
+
+
+def test_collect_review_comments_empty_docx(tmp_path: Path) -> None:
+    """collect_review_comments retorna ReviewCommentsFile vazio para docx sem comentários."""
+    docx = tmp_path / "no_comments.docx"
+    w_ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+
+    document_xml = f'''<?xml version="1.0"?>
+<w:document {w_ns}>
+    <w:body>
+        <w:p>
+            <w:r>
+                <w:t>Texto sem comentários</w:t>
+            </w:r>
+        </w:p>
+    </w:body>
+</w:document>'''
+
+    with zipfile.ZipFile(docx, "w") as z:
+        z.writestr("word/document.xml", document_xml)
+
+    result = collect_review_comments(docx, "docs/page.md")
+
+    assert result.schema_version == "ReviewCommentsFile/v1"
+    assert result.page == "docs/page.md"
+    assert result.comments == []
+
+
+def test_review_comments_file_roundtrip_from_collector(tmp_path: Path) -> None:
+    """ReviewCommentsFile coletado pode fazer roundtrip via JSON."""
+    docx = tmp_path / "reviewed.docx"
+    _docx_with_one_comment(docx)
+
+    collected = collect_review_comments(docx, "docs/page.md")
+
+    # Roundtrip
+    json_str = collected.model_dump_json()
+    restored = ReviewCommentsFile.model_validate_json(json_str)
+
+    assert restored == collected
+    assert restored.comments[0].author == "Revisor Alice"

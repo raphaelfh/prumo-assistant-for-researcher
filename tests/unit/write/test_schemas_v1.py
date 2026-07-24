@@ -13,6 +13,10 @@ from prumo_assist.domains.write.schemas.v1 import (
     ComposeInputs,
     FindingSummary,
     PaperSummary,
+    ReviewComment,
+    ReviewCommentsFile,
+    ReviewEvent,
+    ReviewEventsFile,
     SpanFragmentModel,
     SpanMapFile,
     WriteOutput,
@@ -129,3 +133,121 @@ def test_citemap_file_roundtrip() -> None:
         ],
     )
     assert CiteMapFile.model_validate_json(f.model_dump_json()) == f
+
+
+def test_review_comment_minimal() -> None:
+    """ReviewComment com apenas id, author, text."""
+    c = ReviewComment(id="1", author="Alice", text="Sugestão.")
+    assert c.date is None
+    assert c.anchor_text is None
+    assert c.reply_of is None
+
+
+def test_review_comment_with_date_and_anchor() -> None:
+    """ReviewComment com data e texto âncora."""
+    c = ReviewComment(
+        id="2",
+        author="Bob",
+        text="Verificar referência.",
+        anchor_text="parágrafo introdutório",
+        date="2026-07-23T10:30:00Z",
+    )
+    assert c.reply_of is None
+
+
+def test_review_comments_file_minimal() -> None:
+    """ReviewCommentsFile vazio."""
+    f = ReviewCommentsFile(page="docs/page.md")
+    assert f.schema_version == "ReviewCommentsFile/v1"
+    assert f.page == "docs/page.md"
+    assert f.comments == []
+
+
+def test_review_comments_file_with_comments() -> None:
+    """ReviewCommentsFile com comentários."""
+    comments = [
+        ReviewComment(id="1", author="Alice", text="Revisar."),
+        ReviewComment(id="2", author="Bob", text="Adicionar.", anchor_text="seção 2"),
+    ]
+    f = ReviewCommentsFile(page="docs/page.md", comments=comments)
+    assert len(f.comments) == 2
+    assert f.comments[0].author == "Alice"
+    assert f.comments[1].anchor_text == "seção 2"
+
+
+def test_review_comments_file_roundtrip() -> None:
+    """ReviewCommentsFile roundtrip via JSON."""
+    f = ReviewCommentsFile(
+        page="docs/page.md",
+        comments=[
+            ReviewComment(
+                id="1",
+                author="Revisor",
+                text="Ajustar referências.",
+                anchor_text="metodologia",
+                date="2026-07-23T09:15:00Z",
+            )
+        ],
+    )
+    assert ReviewCommentsFile.model_validate_json(f.model_dump_json()) == f
+
+
+def test_review_event_minimal() -> None:
+    """ReviewEvent com apenas kind e detail."""
+    e = ReviewEvent(kind="citation-drop", detail="Citação removida.")
+    assert e.occ_id is None
+    assert e.citekeys == []
+    assert e.author is None
+    assert e.mark_excerpt is None
+
+
+def test_review_event_with_context() -> None:
+    """ReviewEvent com contexto de citação."""
+    e = ReviewEvent(
+        kind="citation-drop",
+        detail="Citação smith2020 foi deletada.",
+        occ_id="00000001",
+        citekeys=["smith2020"],
+        author="Coautor",
+        mark_excerpt="(Smith, 2020)",
+    )
+    assert e.occ_id == "00000001"
+    assert e.citekeys == ["smith2020"]
+
+
+def test_review_events_file_minimal() -> None:
+    """ReviewEventsFile vazio."""
+    f = ReviewEventsFile(page="docs/page.md")
+    assert f.schema_version == "ReviewEventsFile/v1"
+    assert f.page == "docs/page.md"
+    assert f.events == []
+
+
+def test_review_events_file_with_events() -> None:
+    """ReviewEventsFile com eventos."""
+    events = [
+        ReviewEvent(kind="citation-drop", detail="Dropou smith2020."),
+        ReviewEvent(
+            kind="ambiguous-anchor",
+            detail="Âncora não localizada.",
+            mark_excerpt="frase comum",
+        ),
+    ]
+    f = ReviewEventsFile(page="docs/page.md", events=events)
+    assert len(f.events) == 2
+    assert f.events[0].kind == "citation-drop"
+
+
+def test_review_events_file_roundtrip() -> None:
+    """ReviewEventsFile roundtrip via JSON."""
+    f = ReviewEventsFile(
+        page="docs/page.md",
+        events=[
+            ReviewEvent(
+                kind="unanchored-mark",
+                detail="Marca sem posição no texto.",
+                author="Coautor",
+            )
+        ],
+    )
+    assert ReviewEventsFile.model_validate_json(f.model_dump_json()) == f
