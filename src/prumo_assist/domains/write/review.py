@@ -15,6 +15,12 @@ Task 3 entrega a Guarda A: :func:`assert_no_structural_changes` hard-fail
 quando há mudança rastreada/comentário numa região que o transplante por
 âncora de texto (Task 6/7, sobre a prosa linear do adeu) não sabe
 localizar — tabela, nota de rodapé/fim, ou equação (oMath).
+Task 4 entrega o seam do backend de PROSA (:func:`_run_adeu_extract`, adeu
+PINADO via ``uvx adeu==1.29.0`` — nunca versão flutuante) e o parser das
+marcas com autoria (:func:`parse_adeu_markdown`): pareia cada marca de
+conteúdo CriticMarkup com a anotação `[Chg:<id> insert|delete] <Autor>` que
+o adeu cola imediatamente depois, produzindo :class:`ReviewMark` com offsets
+já no texto LIMPO (pós-remoção de anotações/rodapé) que a Task 6 vai usar.
 
 É o sibling STATEFUL de
 :func:`prumo_assist.domains.write.export._read_docx_citations` (MÉTODO
@@ -27,12 +33,16 @@ o leitor stateless nunca precisou saber.
 
 from __future__ import annotations
 
+import json
+import re
+import subprocess
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
 from xml.etree import ElementTree as ET
 
+from prumo_assist.core import criticmarkup
 from prumo_assist.domains.write.export import _parse_csl_payload
 from prumo_assist.domains.write.schemas.v1 import CiteMapFile
 
@@ -593,3 +603,224 @@ def assert_no_structural_changes(docx_path: Path) -> None:
     if omath_hit is not None:
         kind, excerpt = omath_hit
         raise StructuralChangeError(_structural_change_message("equação", kind, excerpt))
+
+
+# --- Task 4: seam do adeu pinado + parser de marcas com autoria -------------
+#
+# Prosa (NUNCA citação — Fase 0, decisão (b); citação é sempre
+# `read_docx_citations_with_state` acima) vem do backend PINADO
+# `uvx adeu==1.29.0`: o formato de saída — marcas CriticMarkup com a
+# anotação `[Chg:<id> insert|delete] <Autor>` colada IMEDIATAMENTE depois de
+# cada marca de conteúdo, validado no spike — é contrato implícito com o
+# parser abaixo. Pinado de propósito (nunca `adeu` sem versão, nunca `>=`):
+# uma versão nova do backend poderia mudar esse formato sem aviso e quebrar
+# o pareamento em silêncio; a golden fixture do teste trava esse contrato.
+
+_ADEU_FOOTER_MARKER = "\n---\n## Footnotes"
+
+_UNKNOWN_AUTHOR = "(desconhecido)"
+
+# Guia de remediação compartilhado pelas duas falhas do seam (uvx ausente e
+# exit != 0) — o brief pede a MESMA orientação pt-BR nos dois casos: instalar
+# o uv e confirmar a versão pinada do adeu.
+_ADEU_INSTALL_HINT = (
+    "Instale o uv (https://docs.astral.sh/uv/), confirme com `uv --version` "
+    "e rode `uvx adeu==1.29.0 --version` para confirmar/baixar a versão "
+    "pinada do backend de PROSA."
+)
+
+# Corpo de anotação: `[Chg:<id> insert|delete] <Autor>`. `search` (não
+# `match`/`fullmatch`) de propósito: o formato alternativo markup-path do
+# adeu (`{>>Diff: ...<<}`) pode trazer o padrão em QUALQUER posição do
+# corpo, não só no início — brief: "a menos que contenha [Chg:...]".
+_CHG_ANNOTATION_RE = re.compile(r"\[Chg:(?P<chg_id>\d+) (?:insert|delete)\]\s+(?P<author>.+)$")
+
+
+def _run_adeu_extract(docx_path: Path) -> str:
+    """Roda ``uvx adeu==1.29.0 extract --json <docx> -o -`` e devolve o
+    campo ``markdown`` do JSON de stdout — cru, sem parse de marcas (isso é
+    :func:`parse_adeu_markdown`).
+
+    Seam isolado de propósito para mock nos testes (regra deste repo:
+    dependência externa SEMPRE mockada no seam — `.claude/rules/code.md`).
+    Versão PINADA (``adeu==1.29.0``, nunca flutuante) pelo motivo descrito no
+    comentário da seção acima.
+
+    ``uvx`` ausente no PATH (``FileNotFoundError`` do próprio
+    ``subprocess.run``) e exit != 0 (adeu resolvido mas falhou — docx
+    incompatível, versão incorreta, etc.) viram a MESMA
+    :class:`AdeuUnavailableError`: o chamador (Task 8, ``ingest``) só
+    precisa tratar um único tipo de falha do backend de prosa.
+    """
+    try:
+        proc = subprocess.run(
+            ["uvx", "adeu==1.29.0", "extract", "--json", str(docx_path), "-o", "-"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise AdeuUnavailableError(
+            "uv/uvx não encontrado no PATH — adeu (backend de PROSA pinado, "
+            f"`uvx adeu==1.29.0`) não pode ser invocado. {_ADEU_INSTALL_HINT}"
+        ) from exc
+
+    if proc.returncode != 0:
+        raise AdeuUnavailableError(
+            "adeu (backend de PROSA pinado, `uvx adeu==1.29.0`) terminou com "
+            f"exit {proc.returncode}. stderr:\n{proc.stderr.strip()[-2000:]}\n"
+            f"{_ADEU_INSTALL_HINT}"
+        )
+
+    payload = cast(dict[str, Any], json.loads(proc.stdout))
+    return str(payload["markdown"])
+
+
+@dataclass(frozen=True)
+class ReviewMark:
+    """Marca CriticMarkup do adeu pareada com a anotação de autoria `[Chg:...]`.
+
+    ``kind``/``a``/``b`` têm a MESMA semântica de
+    :class:`prumo_assist.core.criticmarkup.Mark` (kind ∈
+    ins/del/sub/highlight/comment; ``a``/``b`` conforme o kind — ver
+    docstring daquele módulo). ``author``/``chg_id`` vêm do corpo
+    `[Chg:<id> insert|delete] <Autor>` da anotação que o adeu cola
+    IMEDIATAMENTE depois da marca de conteúdo (uma marca ``comment`` cujo
+    ``start`` == ``end`` da marca anterior — ver :func:`parse_adeu_markdown`
+    para a regra exata de pareamento). Ficam ``chg_id=None`` e
+    ``author="(desconhecido)"`` quando: (1) a marca de conteúdo não tem
+    anotação colada em seguida; ou (2) a anotação existe (pareada OU órfã)
+    mas o corpo não casa o padrão — cobre o formato alternativo
+    markup-path do adeu, `{>>Diff: ...<<}`, que também pareia mas raramente
+    carrega um `[Chg:...]` reconhecível.
+
+    ``start``/``end`` — DECISÃO DE DESIGN (Task 4): offsets no TEXTO LIMPO
+    (primeiro elemento da tupla que :func:`parse_adeu_markdown` retorna),
+    ou seja, APÓS remover as anotações PAREADAS e o rodapé
+    `\\n---\\n## Footnotes` — NUNCA offsets do markdown cru que o adeu
+    emite. Motivo: é o ``clean_text`` que a Task 6 (``locate_marks_in_norm``)
+    usa para localizar cada marca por âncora de contexto no texto
+    normalizado; expor offsets do markdown cru obrigaria a Task 6 a
+    recalcular o mesmo shift de anotações removidas para nenhum ganho — o
+    ``clean_text`` é a única representação textual que sai deste módulo.
+    """
+
+    kind: criticmarkup.MarkKind
+    a: str
+    b: str
+    author: str
+    chg_id: str | None
+    start: int
+    end: int
+
+
+def _extract_annotation(body: str) -> tuple[str | None, str]:
+    """``(chg_id, author)`` do corpo de uma anotação, ou
+    ``(None, "(desconhecido)")`` se o corpo não casar o padrão
+    `[Chg:<id> insert|delete] <Autor>` em lugar nenhum (``search``, não
+    ``match``: cobre também `{>>Diff: ...<<}` quando o padrão aparece
+    embutido em vez de ocupar o corpo inteiro).
+
+    Mesma extração usada tanto para anotação PAREADA (corpo da marca
+    ``comment`` seguinte à marca de conteúdo) quanto para comment-annotation
+    ÓRFÃ (corpo da própria marca ``comment``, sem marca de conteúdo
+    imediatamente antes) — per design da Task 4: a autoria de uma anotação
+    nunca depende de estar pareada.
+    """
+    match = _CHG_ANNOTATION_RE.search(body)
+    if match is None:
+        return None, _UNKNOWN_AUTHOR
+    return match.group("chg_id"), match.group("author").strip()
+
+
+def parse_adeu_markdown(markdown: str) -> tuple[str, list[ReviewMark]]:
+    """Extrai as marcas de prosa do markdown do adeu, pareadas com autoria.
+
+    Descarta primeiro o rodapé `\\n---\\n## Footnotes` (e tudo depois) —
+    ANTES de rodar :func:`core.criticmarkup.parse` — para que o rodapé nunca
+    apareça no ``clean_text`` nem influencie nenhum offset. Sobre o
+    restante, ``criticmarkup.parse`` extrai as marcas planas (ins/del/sub/
+    highlight/comment) na ordem em que aparecem no texto.
+
+    Pareamento (marca de conteúdo → anotação): uma marca ``comment`` é a
+    anotação de PAREAMENTO da marca imediatamente anterior quando (a) a
+    marca anterior NÃO é ela mesma um ``comment`` (evita encadear
+    anotação→anotação, ex.: duas comments encostadas) e (b)
+    ``comment.start == anterior.end`` (adjacência zero-gap no texto cru —
+    nenhum caractere entre as duas marcas). Marca de conteúdo sem anotação
+    colada, ou ``comment`` sem marca de conteúdo IMEDIATAMENTE anterior
+    (órfã), ficam com ``author="(desconhecido)"`` — a órfã AINDA vira seu
+    próprio :class:`ReviewMark` de ``kind="comment"`` (nunca é descartada,
+    só não pareia). O formato markup-path `{>>Diff: ...<<}` pareia pela
+    MESMA regra de adjacência; só a extração de autor/chg_id (via
+    :func:`_extract_annotation`) costuma falhar para esse formato.
+
+    Anotações PAREADAS são removidas do ``clean_text`` retornado (elas não
+    transplantam — Task 6/7 trabalham só com a marca de conteúdo);
+    comentários órfãos permanecem no texto (não há o que remover: nada os
+    "contém"). Offsets de cada :class:`ReviewMark` são recalculados para o
+    ``clean_text`` — ver docstring de :class:`ReviewMark` para a
+    justificativa completa dessa decisão.
+
+    Returns:
+        Tupla ``(clean_text, review_marks)``, NESTA ordem.
+    """
+    footer_idx = markdown.find(_ADEU_FOOTER_MARKER)
+    raw = markdown if footer_idx == -1 else markdown[:footer_idx]
+    marks = criticmarkup.parse(raw)
+
+    # índice da marca de CONTEÚDO -> índice da marca comment que a anota.
+    paired_annotation_at: dict[int, int] = {}
+    for i in range(1, len(marks)):
+        previous = marks[i - 1]
+        current = marks[i]
+        if (
+            current.kind == "comment"
+            and previous.kind != "comment"
+            and current.start == previous.end
+        ):
+            paired_annotation_at[i - 1] = i
+
+    removed_indices = set(paired_annotation_at.values())
+
+    clean_parts: list[str] = []
+    clean_len = 0
+    cursor = 0
+    review_marks: list[ReviewMark] = []
+
+    for i, mark in enumerate(marks):
+        if i in removed_indices:
+            # Anotação PAREADA: some do clean_text (não transplanta) — só o
+            # texto entre o cursor e o início dela é preservado.
+            clean_parts.append(raw[cursor : mark.start])
+            clean_len += mark.start - cursor
+            cursor = mark.end
+            continue
+
+        segment = raw[cursor : mark.end]
+        clean_parts.append(segment)
+        new_end = clean_len + len(segment)
+        new_start = new_end - (mark.end - mark.start)
+        clean_len = new_end
+        cursor = mark.end
+
+        if i in paired_annotation_at:
+            chg_id, author = _extract_annotation(marks[paired_annotation_at[i]].b)
+        elif mark.kind == "comment":
+            chg_id, author = _extract_annotation(mark.b)
+        else:
+            chg_id, author = None, _UNKNOWN_AUTHOR
+
+        review_marks.append(
+            ReviewMark(
+                kind=mark.kind,
+                a=mark.a,
+                b=mark.b,
+                author=author,
+                chg_id=chg_id,
+                start=new_start,
+                end=new_end,
+            )
+        )
+
+    clean_parts.append(raw[cursor:])
+    return "".join(clean_parts), review_marks
