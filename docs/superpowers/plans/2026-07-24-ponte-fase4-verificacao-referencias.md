@@ -338,7 +338,13 @@ def _http_get_json(url: str, *, timeout: float = 10.0) -> dict[str, Any]:
         url, headers={"User-Agent": _USER_AGENT, "Accept": "application/json"}
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        return cast(dict[str, Any], json.loads(response.read().decode("utf-8")))
+        payload = json.loads(response.read().decode("utf-8"))
+    # Contrato do seam: SEMPRE objeto no topo (emenda pós-review T2 — corpo
+    # JSON válido mas não-objeto viraria AttributeError vazando do
+    # check_entry, violando o "nunca levanta").
+    if not isinstance(payload, dict):
+        raise json.JSONDecodeError("resposta JSON não é objeto no topo", "", 0)
+    return cast(dict[str, Any], payload)
 ```
 
 - [ ] **Step 4: Rodar para ver passar + bateria**
@@ -378,6 +384,7 @@ Kinds e níveis (exatos — os testes cobram):
 | `no-identifier` | info | local | entrada sem DOI e sem PMID |
 | `network-error` | error | crossref/pubmed | URLError/timeout/JSON inválido/HTTP != 404 |
 | `missing-citekey` | info | local | citekey na página sem entrada no bib (só com `--page`) |
+| `duplicate-citekey` | error | local | citekey repetida no bib — checks nativos PULADOS para ela (verificar "a última que aparece" seria falsa confiança; emenda pós-review T2) |
 
 - [ ] **Step 1: Escrever os testes que falham**
 
@@ -853,7 +860,17 @@ def verify_refs(
             "para o diagnóstico completo do pj."
         )
     entries = parse_bib(bib_path.read_text(encoding="utf-8"))
-    by_key = {e.citekey: e for e in entries}
+    # Colisão de citekey NUNCA é silenciosa (emenda pós-review T2): o dict
+    # ficaria só com a última entrada e uma duplicata retratada sumiria da
+    # verificação sem rastro — a classe exata de erro que este comando existe
+    # para impedir.
+    by_key: dict[str, BibEntry] = {}
+    duplicate_counts: dict[str, int] = {}
+    for e in entries:
+        if e.citekey in by_key:
+            duplicate_counts[e.citekey] = duplicate_counts.get(e.citekey, 1) + 1
+        else:
+            by_key[e.citekey] = e
 
     findings: list[Finding] = []
     if page is not None:
@@ -874,10 +891,27 @@ def verify_refs(
             if key not in by_key
         )
     else:
-        scope = [e.citekey for e in entries]
+        # dict.fromkeys: escopo único por citekey (com duplicata, o finding
+        # duplicate-citekey sai UMA vez e `checked` não infla — emenda T2).
+        scope = list(dict.fromkeys(e.citekey for e in entries))
 
     cache = RefCache(path=cache_path or default_cache_path())
     for key in scope:
+        if key in duplicate_counts:
+            findings.append(
+                Finding(
+                    citekey=key,
+                    level="error",
+                    kind="duplicate-citekey",
+                    message=(
+                        f"citekey aparece {duplicate_counts[key]}x no bib — a verificação "
+                        "seria ambígua (qual entrada é a verdadeira?); corrija a duplicata "
+                        "no Zotero e re-exporte o BBT (`prumo paper lint` ajuda a localizar)."
+                    ),
+                    source="local",
+                )
+            )
+            continue
         findings.extend(check_entry(by_key[key], cache=cache, refresh=refresh))
 
     summary = {
@@ -1169,12 +1203,16 @@ def _findings_from_report(report: dict[str, Any], scope: set[str]) -> list[Findi
     return findings
 ```
 
-E em `verify_refs`: adicionar o kwarg `deep: bool = False` (entre `page` e `refresh`), e antes do bloco `summary = {...}`:
+E em `verify_refs`: adicionar o kwarg `deep: bool = False` (entre `page` e `refresh`), e antes do bloco `summary = {...}` (emenda pós-review T3: o guard usa o subconjunto SEM duplicatas — escopo 100%-duplicado disparava subprocess real de até 600s contra um .bib derivado vazio):
 
 ```python
-    if deep and scope:
-        deep_report = _run_refchecker(_bib_subset_text([by_key[k] for k in scope]))
-        findings.extend(_findings_from_report(deep_report, set(scope)))
+    # Citekeys duplicadas ficam fora do deep (mesma razão do skip nativo) e o
+    # guard usa o subconjunto filtrado: escopo só-de-duplicatas não dispara
+    # subprocess nenhum (emenda pós-review T3).
+    deep_keys = [k for k in scope if k not in duplicate_counts]
+    if deep and deep_keys:
+        deep_report = _run_refchecker(_bib_subset_text([by_key[k] for k in deep_keys]))
+        findings.extend(_findings_from_report(deep_report, set(deep_keys)))
 ```
 
 E no dict de retorno, adicionar a chave `"deep": deep`.
