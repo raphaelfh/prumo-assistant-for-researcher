@@ -245,6 +245,37 @@ def test_read_with_state_orphan_end_raises(tmp_path: Path) -> None:
     assert "colapsado" in str(exc.value)
 
 
+# --- word/document.xml malformado → ValueError pt-BR (achado Important #1) --
+#
+# Achado do review final da Fase 2: `reviewed_docx` é o input mais hostil do
+# sistema (chega por e-mail) — `word/document.xml` truncado/corrompido é XML
+# malformado que `zipfile`/`_validate_docx_structure` não pegam (a parte
+# EXISTE, só o conteúdo é inválido). Sem tradução, `xml.etree.ElementTree.
+# ParseError` (subclasse de `SyntaxError`, não de `ValueError`) vazava cru
+# pelo CLI, fora de `_REVIEW_CATCHES`.
+
+
+def test_read_with_state_malformed_document_xml_raises_value_error_not_parse_error(
+    tmp_path: Path,
+) -> None:
+    docx = tmp_path / "malformado.docx"
+    with zipfile.ZipFile(docx, "w") as z:
+        # Tag `<w:p>` aberta e nunca fechada — XML malformado (ParseError
+        # cru do stdlib sem o fix deste módulo).
+        z.writestr(
+            "word/document.xml",
+            f'<?xml version="1.0"?><w:document {_W_XMLNS}><w:body><w:p>',
+        )
+
+    with pytest.raises(ValueError) as exc:
+        read_docx_citations_with_state(docx)
+
+    message = str(exc.value)
+    assert "document.xml" in message
+    assert "malformado" in message
+    assert "prumo write review ingest" in message
+
+
 # --- JSON inválido → CitationConservationError com índice -------------------
 
 

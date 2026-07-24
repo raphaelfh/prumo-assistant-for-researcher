@@ -9,6 +9,13 @@ importa de outro). `_run_adeu_extract` (seam do adeu) é SEMPRE mockado via
 `monkeypatch.setattr` no módulo `review` — nunca roda `uvx` de verdade
 (regra deste repo, `.claude/rules/code.md`: dependência externa sempre
 mockada no seam).
+
+`_write_docx` inclui `[Content_Types].xml` (via `_CONTENT_TYPES_OK`, mesmo
+formato de `test_export_docx_validation.py`) desde o achado do review final
+da Fase 2 (Important #1): `ingest()` agora valida a ESTRUTURA do docx
+revisado (`export._validate_docx_structure`) ANTES de tudo mais — sem essa
+parte, todo teste que chama `ingest()` end-to-end falharia no preflight
+novo, não só os dois que testam esse preflight de propósito.
 """
 
 from __future__ import annotations
@@ -40,6 +47,17 @@ from prumo_assist.domains.write.schemas.v1 import (
 )
 
 _W_XMLNS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+
+# `[Content_Types].xml` mínimo válido — mesmo formato de
+# `test_export_docx_validation.py::_CONTENT_TYPES_OK` — exigido desde que
+# `ingest()` passou a validar a ESTRUTURA do docx revisado antes de tudo mais
+# (achado do review final da Fase 2, Important #1).
+_CONTENT_TYPES_OK = (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    '<Default Extension="xml" ContentType="application/xml"/>'
+    "</Types>"
+)
 
 # sha256 estável usado como "docx exportado original" nos testes em que o I8
 # (docx revisado idêntico ao exportado) NÃO deve disparar — qualquer valor
@@ -107,6 +125,7 @@ def _write_docx(path: Path, *, paragraphs: list[str], with_comment: bool = False
         + "</w:body></w:document>"
     )
     with zipfile.ZipFile(path, "w") as z:
+        z.writestr("[Content_Types].xml", _CONTENT_TYPES_OK)
         z.writestr("word/document.xml", document)
         if with_comment:
             z.writestr("word/comments.xml", _COMMENTS_XML)
@@ -236,6 +255,31 @@ def test_ingest_fails_fast_without_uvx(tmp_path: Path, monkeypatch: pytest.Monke
     assert "uvx adeu==1.29.0 --version" in message
 
 
+# --- 1b. preflight de estrutura: docx não-zip → ValueError pt-BR ------------
+#
+# Achado do review final da Fase 2 (Important #1): `reviewed_docx` é o input
+# mais hostil do sistema (chega por e-mail) — um arquivo texto renomeado para
+# `.docx` (ou um `.doc` binário antigo) não é um zip, e sem esta validação
+# `zipfile.BadZipFile` vazava cru pelo CLI (fora de `_REVIEW_CATCHES`).
+
+
+def test_ingest_non_zip_docx_raises_value_error_with_actionable_hint(tmp_path: Path) -> None:
+    body = "Pagina de teste para docx nao-zip."
+    project_root, page = _init_project(tmp_path, body=body)
+    docx = tmp_path / "revisado.docx"
+    docx.write_text("isto claramente nao e um arquivo zip/docx")
+
+    # Preflight de estrutura roda ANTES de `_read_sidecars` (mesmo estilo
+    # fail-fast do preflight de uvx acima) — nenhum sidecar precisa existir
+    # para este teste.
+    with pytest.raises(ValueError) as exc:
+        ingest(reviewed_docx=docx, page=page, project_root=project_root)
+
+    message = str(exc.value)
+    assert "não é um .docx válido" in message
+    assert "prumo write review ingest" in message
+
+
 def test_ingest_happy_path_preserves_frontmatter_in_review_md(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -297,6 +341,34 @@ def test_ingest_missing_sidecars_raises_file_not_found_with_export_hint(tmp_path
         ingest(reviewed_docx=docx, page=page, project_root=project_root)
 
     assert "prumo write export --to docx" in str(exc.value)
+
+
+# --- 2a. citemap.json corrompido → ValueError pt-BR -------------------------
+#
+# Achado do review final da Fase 2 (Important #1): `reviews/<slug>/citemap.json`
+# pode ser corrompido por edição manual, merge malsucedido, ou truncamento em
+# disco — sem esta tradução, `pydantic.ValidationError` vazava cru pelo CLI
+# (fora de `_REVIEW_CATCHES`).
+
+
+def test_ingest_corrupted_citemap_json_raises_value_error_with_sidecar_hint(
+    tmp_path: Path,
+) -> None:
+    body = "Pagina com citemap.json corrompido."
+    project_root, page = _init_project(tmp_path, body=body)
+    docx = _write_docx(tmp_path / "revisado.docx", paragraphs=[])
+    review_dir = _write_sidecars(
+        project_root, page, source_text=body, docx_sha256=_UNRELATED_DOCX_SHA256
+    )
+    (review_dir / "citemap.json").write_text("{invalid")
+
+    with pytest.raises(ValueError) as exc:
+        ingest(reviewed_docx=docx, page=page, project_root=project_root)
+
+    message = str(exc.value)
+    assert "sidecar corrompido" in message
+    assert "citemap.json" in message
+    assert "prumo write export --to docx" in message
 
 
 # --- 3. fonte alterada desde o export → SourceChangedError ------------------

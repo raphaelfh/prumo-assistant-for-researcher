@@ -47,6 +47,7 @@ from typing import Any, Literal, cast
 from xml.etree import ElementTree as ET
 
 import yaml
+from pydantic import ValidationError
 
 from prumo_assist.core import criticmarkup
 from prumo_assist.core.citations import CITEKEY_RE
@@ -61,6 +62,7 @@ from prumo_assist.domains.write.export import (
     _norm_citation_spans,
     _parse_csl_payload,
     _slugify,
+    _validate_docx_structure,
     detect_project_root,
 )
 from prumo_assist.domains.write.schemas.v1 import (
@@ -161,6 +163,34 @@ def _local_tag(tag: str) -> str:
     """``{namespace}nome`` (Clark notation) → só ``nome``."""
     _, _, local = tag.rpartition("}")
     return local or tag
+
+
+def _parse_document_xml(xml_bytes: bytes, docx_path: Path) -> ET.Element:
+    """``ET.fromstring`` de ``word/document.xml`` traduzindo XML malformado
+    em ``ValueError`` pt-BR acionável (achado do review final da Fase 2,
+    Important #1 — ``reviewed_docx`` é o input mais hostil do sistema,
+    chega por e-mail; um ``xml.etree.ElementTree.ParseError`` cru vazava
+    traceback pelo CLI, fora de `_REVIEW_CATCHES`, que só reconhece
+    `ValueError`/exceções próprias deste módulo). Ausência da parte em si
+    (zip sem ``word/document.xml``) já é coberta antes, por
+    `export._validate_docx_structure` (preflight de `ingest()`) — este
+    helper só cobre a parte PRESENTE mas com XML inválido.
+
+    Compartilhado pelos DOIS pontos deste módulo que fazem o parse bruto de
+    `word/document.xml` do docx que VOLTA do coautor: a Guarda A
+    (:func:`assert_no_structural_changes`) e o leitor stateful
+    (:func:`read_docx_citations_with_state`) — sem os dois cobertos, a
+    Guarda A (que roda primeiro dentro de `ingest()`) continuaria vazando o
+    `ParseError` cru mesmo com o leitor corrigido."""
+    try:
+        return ET.fromstring(xml_bytes)
+    except ET.ParseError as exc:
+        raise ValueError(
+            f"word/document.xml malformado em {docx_path}: {exc}. O docx "
+            "revisado parece corrompido — confirme que o coautor enviou o "
+            "arquivo .docx correto (não .doc renomeado/truncado) e rode "
+            "novamente `prumo write review ingest ...`."
+        ) from exc
 
 
 def _collect_runs(root: ET.Element) -> list[_FieldRun]:
@@ -291,11 +321,13 @@ def read_docx_citations_with_state(docx_path: Path) -> list[DocxCitation]:
     de campo) que invalida a leitura sequencial de campos daí em diante.
     Também levanta a mesma exceção (I2) se o JSON de um campo Zotero for
     inválido, nomeando o índice do campo (1-based, só entre campos
-    Zotero).
+    Zotero). Levanta ``ValueError`` pt-BR (via :func:`_parse_document_xml`,
+    achado do review final, Important #1) se `word/document.xml` em si for
+    XML malformado — nunca o `ET.ParseError` cru do stdlib.
     """
     with zipfile.ZipFile(docx_path) as z:
         xml_bytes = z.read("word/document.xml")
-    root = ET.fromstring(xml_bytes)
+    root = _parse_document_xml(xml_bytes, docx_path)
     runs = _collect_runs(root)
 
     citations: list[DocxCitation] = []
@@ -603,10 +635,14 @@ def assert_no_structural_changes(docx_path: Path) -> None:
     região (tabela/nota/equação inteira — não só do `w:ins`/`w:del`, porque
     `w:commentRangeStart` não tem texto próprio), instruindo a mover a
     mudança para o corpo do texto ou aplicar manualmente, re-exportar e
-    re-ingerir.
+    re-ingerir. Levanta ``ValueError`` pt-BR (via :func:`_parse_document_xml`,
+    achado do review final, Important #1) se `word/document.xml` em si for
+    XML malformado — Guarda A roda ANTES do leitor stateful dentro de
+    `ingest()`, então precisa da MESMA tradução para não vazar o
+    `ET.ParseError` cru primeiro.
     """
     with zipfile.ZipFile(docx_path) as z:
-        document_xml = ET.fromstring(z.read("word/document.xml"))
+        document_xml = _parse_document_xml(z.read("word/document.xml"), docx_path)
         note_parts: list[tuple[str, ET.Element]] = []
         for part_name, note_tag in (
             ("word/footnotes.xml", "footnote"),
@@ -1979,13 +2015,21 @@ def transplant_to_source(
 # (cada um hard-fail antes do próximo quando aplicável — nenhum caminho
 # prossegue parcial, per Global Constraints do plano):
 #
+#   ANTES de 3a (achado do review final da Fase 2, Important #1):
+#       `reviewed_docx` — o input mais hostil do sistema, chega por e-mail —
+#       é validado estruturalmente via `export._validate_docx_structure`
+#       (zip inválido/truncado, parte obrigatória ausente, membro
+#       corrompido). Sem isso, `BadZipFile`/`KeyError` cru vazava pelo CLI,
+#       fora de `_REVIEW_CATCHES` (que só reconhece `ValueError`).
 #   3a. resolve `project_root` (`export.detect_project_root`, se não
 #       fornecido) e o `slug` (`export._slugify`) — juntos apontam
 #       `reviews/<slug>/`, onde tanto os sidecars do export (entrada) quanto
 #       os desta fase (saída) moram.
 #   3b. carrega `citemap.json`/`span-map.json` — ausência de QUALQUER um dos
 #       dois é `FileNotFoundError` pt-BR (não `SourceChangedError`: sidecar
-#       ausente significa "nunca foi exportado", não "mudou depois").
+#       ausente significa "nunca foi exportado", não "mudou depois"). JSON
+#       presente mas corrompido/fora do schema vira `ValueError` pt-BR
+#       (`pydantic.ValidationError` traduzido — mesmo achado Important #1).
 #   3c. preflight de fonte: sha256 do corpo ATUAL da página (sem
 #       frontmatter) precisa bater com `span_map.source_sha256` — página
 #       mudou desde o export invalida qualquer offset derivado do span-map
@@ -2047,13 +2091,33 @@ class IngestResult:
     deleted: list[DocxCitation]
 
 
+def _corrupt_sidecar_message(path: Path, exc: ValidationError) -> str:
+    """Mensagem pt-BR única para sidecar (citemap/span-map) corrompido —
+    compartilhada pelas duas leituras de :func:`_read_sidecars` (achado do
+    review final da Fase 2, Important #1: ``pydantic.ValidationError`` cru
+    vazava traceback pelo CLI, fora de `_REVIEW_CATCHES`). ``exc.errors()``
+    dá o resumo curto — uma linha por erro, sem a URL de documentação que
+    ``str(exc)`` inclui; cai para ``str(exc)`` só se ``errors()`` vier
+    vazio (não deveria acontecer na prática, mas evita mensagem sem
+    detalhe nenhum)."""
+    detail = "; ".join(err["msg"] for err in exc.errors()) or str(exc)
+    return (
+        f"sidecar corrompido ({path}): re-exporte com `prumo write export "
+        f"--to docx` para regenerá-lo. Detalhe: {detail}"
+    )
+
+
 def _read_sidecars(review_dir: Path) -> tuple[CiteMapFile, SpanMapFile]:
     """Carrega `citemap.json`/`span-map.json` de `review_dir` (passo 3b).
 
     Ausência de QUALQUER um dos dois é `FileNotFoundError` (não uma
     exceção nova deste módulo — regra do repo: hard-fail de arquivo ausente
     usa o tipo stdlib direto, mensagem pt-BR com o comando embutido, mesmo
-    padrão de `export.export`/`export.compose` para `bib` ausente)."""
+    padrão de `export.export`/`export.compose` para `bib` ausente). JSON
+    presente mas corrompido/fora do schema (``pydantic.ValidationError`` —
+    achado do review final, Important #1) vira ``ValueError`` pt-BR via
+    :func:`_corrupt_sidecar_message`, nomeando qual dos dois arquivos
+    falhou — nunca o traceback cru do pydantic."""
     citemap_path = review_dir / "citemap.json"
     span_map_path = review_dir / "span-map.json"
     missing = [p.name for p in (citemap_path, span_map_path) if not p.is_file()]
@@ -2063,8 +2127,14 @@ def _read_sidecars(review_dir: Path) -> tuple[CiteMapFile, SpanMapFile]:
             f"A página nunca foi exportada para docx (ou o diretório "
             f"`reviews/` foi apagado) — {_SIDECAR_MISSING_HINT}."
         )
-    citemap = CiteMapFile.model_validate_json(citemap_path.read_text())
-    span_map = SpanMapFile.model_validate_json(span_map_path.read_text())
+    try:
+        citemap = CiteMapFile.model_validate_json(citemap_path.read_text())
+    except ValidationError as exc:
+        raise ValueError(_corrupt_sidecar_message(citemap_path, exc)) from exc
+    try:
+        span_map = SpanMapFile.model_validate_json(span_map_path.read_text())
+    except ValidationError as exc:
+        raise ValueError(_corrupt_sidecar_message(span_map_path, exc)) from exc
     return citemap, span_map
 
 
@@ -2125,17 +2195,39 @@ def ingest(reviewed_docx: Path, page: Path, project_root: Path | None = None) ->
     volta na página via ``apply_review`` (Task 9); o `git add`/commit desses
     sidecars é do humano (portão, per Global Constraints do plano).
 
-    Levanta (na ordem em que os passos 3a-3h checam, parando na primeira
-    falha): ``FileNotFoundError`` (sidecars ausentes, 3b);
-    :class:`SourceChangedError` (fonte mudou desde o export, 3c);
-    :class:`CitationConservationError` (I8 — docx idêntico ao exportado,
-    3d; ou qualquer divergência de conservação de citação, 3f);
-    :class:`StructuralChangeError` (Guarda A, 3e);
-    :class:`AdeuUnavailableError` (backend de prosa indisponível, 3g);
-    :class:`MarkLostError` (Guarda B, dentro de `transplant_to_source`, 3g).
+    Levanta (na ordem em que os passos checam, parando na primeira falha):
+    ``ValueError`` (ANTES de 3a — docx revisado estruturalmente inválido,
+    via `export._validate_docx_structure`; ou, dentro de 3b, sidecar JSON
+    corrompido, `pydantic.ValidationError` traduzido — achado do review
+    final da Fase 2, Important #1: `reviewed_docx` é o input mais hostil
+    do sistema, chega por e-mail); ``FileNotFoundError`` (sidecars
+    ausentes, 3b); :class:`SourceChangedError` (fonte mudou desde o
+    export, 3c); :class:`CitationConservationError` (I8 — docx idêntico ao
+    exportado, 3d; ou qualquer divergência de conservação de citação, 3f);
+    :class:`StructuralChangeError` (Guarda A, 3e — que também pode levantar
+    ``ValueError`` se `word/document.xml` for XML malformado, mesmo achado
+    do Important #1); :class:`AdeuUnavailableError` (backend de prosa
+    indisponível, 3g); :class:`MarkLostError` (Guarda B, dentro de
+    `transplant_to_source`, 3g).
     """
     # Preflight 3a: check uvx availability before any other work
     _check_uvx_on_path()
+
+    # Preflight de estrutura (achado do review final da Fase 2, Important
+    # #1, ANTES de 3a): reusa `export._validate_docx_structure` — o mesmo
+    # docx revisado que chega por e-mail é o input mais hostil do sistema;
+    # zip inválido/truncado, parte obrigatória ausente (`word/document.xml`,
+    # `[Content_Types].xml`) ou membro corrompido (CRC) vazavam
+    # `BadZipFile`/`KeyError` cru pelo CLI antes deste fix. Roda ANTES de
+    # `_read_sidecars`: não vale carregar sidecar nenhum se o arquivo
+    # revisado nem é um docx válido.
+    problems = _validate_docx_structure(reviewed_docx)
+    if problems:
+        raise ValueError(
+            f"o docx revisado não é um .docx válido: {'; '.join(problems)}. "
+            "Confirme que o coautor enviou o arquivo .docx correto (não .doc "
+            "renomeado/truncado) e rode novamente `prumo write review ingest ...`."
+        )
 
     project_root = project_root or detect_project_root(page)
     slug = _slugify(page, project_root)
