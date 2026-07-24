@@ -297,3 +297,36 @@ def test_propose_prose_edit_without_ingest_raises_value_error_pt_br(tmp_path: Pa
         )
 
     assert "prumo write review ingest" in str(exc.value)
+
+
+# --- 10. Fix pós-review (Crítico 1): fachada propaga a recusa do round-trip
+#         guard (injeção de delimitador via `author`) sem reescrever nada --
+
+
+def test_propose_prose_edit_propagates_author_injection_guard_error(tmp_path: Path) -> None:
+    """Mesma disciplina do teste 8 (guardas do domínio atravessam a fachada
+    sem reimplementação): o repro do reviewer (`author` hostil fechando a
+    âncora prematuramente e soltando `[[@injetado]]` livre no worklist)
+    chega aqui como `ValueError` pt-BR ("author inválido"), e `review.md`
+    permanece intocado."""
+    project_root, page = _init_project(tmp_path, body="Frase-alvo para a proposta aqui.")
+    review_dir = _write_review_artifacts(
+        project_root,
+        page,
+        review_md="Frase-alvo para a proposta aqui.",
+        events=[],
+        comments=[],
+    )
+
+    with pytest.raises(ValueError) as exc:
+        mcp_server.propose_prose_edit(
+            str(page),
+            anchor_excerpt="Frase-alvo",
+            position="after",
+            kind="ins",
+            b=" extra",
+            author="agente<<} [[@injetado]] {>>x",
+        )
+
+    assert "author inválido" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == "Frase-alvo para a proposta aqui."

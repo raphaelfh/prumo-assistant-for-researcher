@@ -43,7 +43,7 @@ import zipfile
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, NoReturn, cast
 from xml.etree import ElementTree as ET
 
 import yaml
@@ -2847,8 +2847,119 @@ def apply_review(
 # nem sabemos qual span checar contra citação); (2) payload (I3b); (3)
 # tangência/interseção da âncora com citação (I1); (4) validação estrutural
 # de `position="replace"` (kind del/sub, `a == anchor_excerpt`).
+#
+# FIX PÓS-REVIEW (2 Críticos + 1 Important — review da própria Task 2):
+# as guardas (1)-(4) acima validam INPUTS em ISOLAMENTO — `a`/`b` sozinhos,
+# `body` original sozinho — e NUNCA o resultado da composição. Dois repros
+# do reviewer provam que isso é insuficiente: (Crítico 1) `author` é colado
+# SEM escape em `"{>>prumo-autor: " + author + "<<}"` — um `author` hostil
+# (`"agente<<} [[@injetado]] {>>x"`) fecha a âncora PREMATURAMENTE e solta
+# texto LIVRE (inclusive citação fabricada) no corpo; (Crítico 2) um payload
+# inofensivo ISOLADO (`b="[["`, sem `@` nem `[@`/`[[@`) pode, ao ser ACEITO
+# (`criticmarkup.accept`), ficar adjacente a texto pré-existente do corpo
+# (ex.: `"...@fake2020]]..."`) e COMPLETAR uma citação nunca cunhada por
+# humano — as guardas de payload/tangência não veem isso porque nenhuma das
+# duas, isoladamente, "parece" uma citação.
+#
+# A correção é estrutural, não mais um caso a mais de allowlist: (a)
+# `_reject_invalid_author` — allowlist barata (sem I/O) rodada ANTES de
+# qualquer outra coisa; (b) um ROUND-TRIP GUARD pós-splice, DEPOIS de montar
+# `new_body` e ANTES de escrever, que reprova qualquer divergência entre o
+# que foi PEDIDO e o que o RESULTADO re-parseado realmente contém — contagem
+# de marcas, identidade da marca inserida (kind/a/b) e da âncora de autor
+# seguinte, e conservação do multiconjunto de citações (marcadas e
+# `CITEKEY_RE` cru) simulando o aceite da proposta. Ver
+# `_reject_composed_result`/`_reject_citation_divergence` abaixo para os
+# detalhes de cada sub-checagem. (Important, mesmo review): `kind="comment"`
+# deixou de ser proponível — não é pareável por `_pair_author_anchors`
+# (vira âncora órfã, perde autoria) — ver o `if` logo no topo do corpo da
+# função.
 
 _PROPOSAL_CITATION_SPAN_RE = re.compile(r"\[\[@[^\]]+\]\]")
+
+# Guarda NOVA (Fix pós-review, achado Crítico 1): `author` é colado DIRETO
+# na âncora `"{>>prumo-autor: " + author + "<<}"` sem NENHUM escape — allowlist
+# (não denylist) é a defesa correta: só letras (inclusive acentuadas
+# `À-ÿ`), dígitos, espaço, ponto, hífen e underscore passam. Nenhum
+# delimitador de CriticMarkup (`{`, `}`, `<`, `>`) nem de citação (`[`, `]`)
+# está na lista — um `author` que os contivesse poderia fechar a âncora
+# prematuramente (`<<}`) e/ou abrir uma marca/citação nova fora de qualquer
+# CriticMarkup válido. Roda ANTES de tudo — é barata (nem `project_root` nem
+# `review.md` precisam existir para este check falhar).
+_AUTHOR_ALLOWED_RE = re.compile(r"^[A-Za-z0-9À-ÿ _.\-]+$")
+
+
+def _reject_invalid_author(author: str) -> None:
+    """Guarda: `author` só pode conter letras (incl. acentuadas)/dígitos/
+    espaço/ponto/hífen/underscore — ver comentário de `_AUTHOR_ALLOWED_RE`
+    acima para o raciocínio completo (injeção de delimitador via `author`,
+    achado Crítico 1 do review desta função)."""
+    if not _AUTHOR_ALLOWED_RE.fullmatch(author):
+        raise ValueError(
+            "author inválido — use apenas letras/números/espaços "
+            f"(recebido: {author!r}). `author` é colado direto na âncora "
+            "`{>>prumo-autor: X<<}` sem escape — caracteres de delimitador "
+            "de CriticMarkup/citação (`{`, `}`, `<`, `>`, `[`, `]`) "
+            "poderiam fechar a âncora prematuramente e injetar texto fora "
+            "de qualquer marca. Use um nome simples (letras, dígitos, "
+            "espaço, ponto, hífen ou underscore)."
+        )
+
+
+_COMPOSED_RESULT_REFUSAL_PREFIX = (
+    "propose_prose_edit recusado: a proposta alteraria/fabricaria citação ou "
+    "quebraria a sintaxe de marcas — recusada (I1/I3b); detalhe: "
+)
+
+
+def _reject_composed_result(detail: str) -> NoReturn:
+    """Levanta a recusa ÚNICA do round-trip guard pós-splice (Fix pós-review,
+    Críticos 1+2) — prefixo fixo + `detail` identificando qual sub-checagem
+    falhou (contagem de marcas, identidade da marca/âncora após re-parse, ou
+    conservação de citação — ver chamadores em `propose_prose_edit` e em
+    `_reject_citation_divergence`)."""
+    raise ValueError(
+        f"{_COMPOSED_RESULT_REFUSAL_PREFIX}{detail}. Escolha outro "
+        "anchor_excerpt/payload que não componha com o texto adjacente do "
+        "worklist, ou deixe o evento para decisão humana."
+    )
+
+
+def _reject_citation_divergence(before_text: str, after_text: str) -> None:
+    """Guarda NOVA (Fix pós-review, achado Crítico 2): compara os
+    multiconjuntos de citação de `before_text`/`after_text` — o CHAMADOR
+    passa `criticmarkup.accept(body)`/`criticmarkup.accept(new_body)`
+    (simulando o aceite da proposta, o caminho normal do fluxo humano via
+    `apply_review(by_author=author, author_decision=True)`), NUNCA o texto
+    cru com marcas ainda pendentes: o payload `b="[["` do repro do reviewer
+    nunca aparece adjacente ao texto pré-existente no `new_body` CRU (fica
+    preso dentro do `{++...++}` da própria marca) — só se torna
+    `"[[@fake2020]]"` depois que a marca é resolvida/aceita. Duas checagens
+    independentes, sobre o corpo INTEIRO (sem restringir a spans de citação
+    — pega até citação narrativa `@key` solta, fora de colchetes):
+    (i) `[[@chave]]` marcadas (`_PROPOSAL_CITATION_SPAN_RE`); (ii) citekeys
+    crus (`CITEKEY_RE`, a mesma gramática de `core.citations`). QUALQUER
+    divergência entre antes/depois — em qualquer uma das duas — recusa: não
+    importa COMO a fabricação aconteceria (inserção, deleção, substituição),
+    só importa que o multiconjunto de citações do resultado seja idêntico ao
+    de antes."""
+    before_marked = Counter(_PROPOSAL_CITATION_SPAN_RE.findall(before_text))
+    after_marked = Counter(_PROPOSAL_CITATION_SPAN_RE.findall(after_text))
+    if before_marked != after_marked:
+        _reject_composed_result(
+            "o multiconjunto de citações marcadas (`[[@chave]]`, simulando "
+            "aceite da proposta) mudou entre antes e depois da composição — "
+            f"antes: {dict(before_marked)}, depois: {dict(after_marked)}"
+        )
+
+    before_keys = Counter(CITEKEY_RE.findall(before_text))
+    after_keys = Counter(CITEKEY_RE.findall(after_text))
+    if before_keys != after_keys:
+        _reject_composed_result(
+            "o multiconjunto de citekeys (`CITEKEY_RE`, corpo inteiro, "
+            "simulando aceite da proposta) mudou entre antes e depois da "
+            f"composição — antes: {dict(before_keys)}, depois: {dict(after_keys)}"
+        )
 
 
 @dataclass(frozen=True)
@@ -2923,7 +3034,7 @@ def propose_prose_edit(
     *,
     anchor_excerpt: str,
     position: Literal["before", "after", "replace"],
-    kind: Literal["ins", "del", "sub", "comment"],
+    kind: Literal["ins", "del", "sub"],
     a: str = "",
     b: str = "",
     author: str = "agente",
@@ -2958,12 +3069,35 @@ def propose_prose_edit(
     que toque um átomo de citação; esses eventos ficam para o reconciliador
     HUMANO (`prumo write review events --checklist`, modo degradado).
 
+    Guardas ADICIONAIS (Fix pós-review — ver comentário de seção acima para
+    o raciocínio completo): `author` passa por allowlist
+    (`_reject_invalid_author`) ANTES de tudo — só letras/dígitos/espaço/
+    ponto/hífen/underscore, nenhum delimitador de CriticMarkup/citação;
+    `kind="comment"` é recusado explicitamente (não pareável por
+    `_pair_author_anchors` — vira âncora órfã); e, DEPOIS de montar
+    `new_body` e ANTES de escrever, um round-trip guard reprova qualquer
+    divergência entre o PEDIDO e o RESULTADO re-parseado (contagem de
+    marcas, identidade kind/a/b da marca inserida e da âncora seguinte,
+    conservação do multiconjunto de citações simulando o aceite da
+    proposta — `_reject_citation_divergence`).
+
     Reescreve `review.md` = `raw_fm` (frontmatter VERBATIM, extraído por
     `split_frontmatter_raw` — nunca a página original, que só muda quando um
     humano aplica a proposta) + corpo com a marca inserida. Nunca toca a
     PÁGINA nem `events.yaml`/sidecars de citação — a proposta é só uma marca
     a mais no worklist, decidida pelo MESMO fluxo humano de qualquer outra.
     """
+    _reject_invalid_author(author)
+    if cast(str, kind) == "comment":
+        raise ValueError(
+            "kind comment não é proponível — comentários do agente vão no "
+            "resumo da skill (achado Important do review da Task 2): uma "
+            "marca `comment` sem marca de CONTEÚDO associada não é pareável "
+            "por `_pair_author_anchors` (Task 9) — vira âncora ÓRFÃ e perde "
+            "a autoria. Registre a observação em prosa no resumo entregue "
+            "ao humano, nunca como proposta CriticMarkup."
+        )
+
     project_root = project_root or detect_project_root(page)
     slug = _slugify(page, project_root)
     review_dir = project_root / "reviews" / slug
@@ -3011,16 +3145,60 @@ def propose_prose_edit(
         insertion_offset = start
         new_body = body[:start] + mark_text + body[end:]
 
-    # Recalcula ANTES de escrever (Guarda B-like, auto-imposta): se o corpo
-    # PRÉ-EXISTENTE já tivesse uma marca malformada (ex.: humano editando
-    # `review.md` a mão, marca não fechada), `criticmarkup.parse` levantaria
-    # `ValueError` aqui — precisa acontecer ANTES do `write_text` abaixo,
-    # senão o arquivo já teria sido escrito quando o erro aparecesse,
-    # violando "hard-fail antes de qualquer escrita" (mesma disciplina das
-    # guardas acima).
+    # Round-trip guard pós-splice (Fix pós-review, Críticos 1+2 — "mata a
+    # classe inteira"): as guardas de entrada acima checam `a`/`b`/`body`
+    # ISOLADOS; esta seção valida o RESULTADO da composição, ANTES de
+    # qualquer escrita (mesma disciplina de "hard-fail antes de qualquer
+    # escrita" que já valia para o recálculo de `inserted_mark_index` desta
+    # função). Também cobre o caso PRÉ-EXISTENTE (corpo já malformado — ex.:
+    # humano no meio de uma edição manual, marca não fechada):
+    # `criticmarkup.parse` levanta `ValueError` (já pt-BR) antes de tudo.
+    marks_before = criticmarkup.parse(body)
+    marks_after = criticmarkup.parse(new_body)
+
+    if len(marks_after) != len(marks_before) + 2:
+        _reject_composed_result(
+            "a contagem de marcas após a composição diverge do esperado "
+            f"(esperado {len(marks_before) + 2} = {len(marks_before)} "
+            f"pré-existente(s) + 2 novas, obtido {len(marks_after)}) — a "
+            "inserção pode ter se fundido com uma marca vizinha ou quebrado "
+            "a sintaxe de marcas já presente no worklist"
+        )
+
     inserted_mark_index = next(
-        i for i, mark in enumerate(criticmarkup.parse(new_body)) if mark.start == insertion_offset
+        (i for i, mark in enumerate(marks_after) if mark.start == insertion_offset), None
     )
+    if inserted_mark_index is None:
+        _reject_composed_result(
+            "nenhuma marca do corpo pós-composição começa no offset de "
+            f"inserção esperado ({insertion_offset}) — a marca proposta não "
+            "foi localizada por posição após o re-parse"
+        )
+
+    content_mark = marks_after[inserted_mark_index]
+    if content_mark.kind != kind or content_mark.a != a or content_mark.b != b:
+        _reject_composed_result(
+            "a marca inserida, após re-parse, não corresponde exatamente ao "
+            f"pedido — esperado kind={kind!r}/a={a!r}/b={b!r}, obtido "
+            f"kind={content_mark.kind!r}/a={content_mark.a!r}/"
+            f"b={content_mark.b!r}"
+        )
+
+    anchor_mark_index = inserted_mark_index + 1
+    anchor_mark = marks_after[anchor_mark_index] if anchor_mark_index < len(marks_after) else None
+    expected_anchor_body = f"prumo-autor: {author}"
+    if (
+        anchor_mark is None
+        or anchor_mark.kind != "comment"
+        or anchor_mark.b != expected_anchor_body
+    ):
+        _reject_composed_result(
+            "a âncora de autor esperada logo após a marca inserida está "
+            f"ausente ou seu corpo, após re-parse, diverge de "
+            f"{expected_anchor_body!r}"
+        )
+
+    _reject_citation_divergence(criticmarkup.accept(body), criticmarkup.accept(new_body))
 
     review_md_path = review_dir / "review.md"
     review_md_path.write_text(_compose_page(raw_fm, new_body), encoding="utf-8")

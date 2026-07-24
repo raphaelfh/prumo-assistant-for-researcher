@@ -173,7 +173,7 @@ def propose_prose_edit(
     *,
     anchor_excerpt: str,
     position: Literal["before", "after", "replace"],
-    kind: Literal["ins", "del", "sub", "comment"],
+    kind: Literal["ins", "del", "sub"],
     a: str = "",
     b: str = "",
     author: str = "agente",

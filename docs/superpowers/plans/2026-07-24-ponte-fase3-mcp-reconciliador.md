@@ -62,10 +62,11 @@ class ProposalResult:
 
 def propose_prose_edit(
     page: Path, *, anchor_excerpt: str, position: Literal["before", "after", "replace"],
-    kind: Literal["ins", "del", "sub", "comment"], a: str = "", b: str = "",
+    kind: Literal["ins", "del", "sub"], a: str = "", b: str = "",
     author: str = "agente", project_root: Path | None = None,
 ) -> ProposalResult: ...
 ```
+(`comment` removido dos kinds aceitos — não-pareável pelo apply; achado do review da T2.)
 Regras (todas hard-fail ValueError pt-BR): anchor_excerpt deve ocorrer EXATAMENTE 1 vez no review.md (0 → "âncora não encontrada"; >1 → "âncora ambígua — amplie o excerto"); guardas I1/I3b das Global Constraints (payload com citekey/sintaxe de citação; âncora intersectando/tangenciando `[[@...]]` — use regex de wikilink-citação do source-flavor: `\[\[@[^\]]+\]\]`, spans no review.md; adjacência imediata = distância 0); `position="replace"` exige `kind` del/sub e `a == anchor_excerpt` (o alvo é o excerto); a marca é inserida com `criticmarkup.emit(kind, a, b) + "{>>prumo-autor: " + author + "<<}"` (before: antes do excerto; after: depois; replace: no lugar); worklist reescrito; `inserted_mark_index` calculado por re-parse.
 
 Testes (domínio): ins after com âncora única → worklist contém marca+âncora e `apply --by-author agente --accept` aplica (E2E curto reusando fluxo da T9); âncora 0/>1 → erros; payload com `[@smith2020]` → recusa I3b; âncora colada em `[[@key]]` → recusa I1; replace com a != excerto → erro. Fachada MCP: tool delega e traduz Path/tipos.

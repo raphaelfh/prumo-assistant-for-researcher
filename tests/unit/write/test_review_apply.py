@@ -798,3 +798,130 @@ def test_propose_prose_edit_malformed_preexisting_body_raises_before_any_write(
 
     # a escrita NUNCA aconteceu — review.md permanece byte a byte o mesmo.
     assert (review_dir / "review.md").read_text() == malformed_review_body
+
+
+# =============================================================================
+# Fix pós-review (2 Críticos + 1 Important) — guardas validavam INPUTS em
+# isolamento (a/b, body original), nunca o RESULTADO da composição. Ver
+# comentário de `_reject_citation_divergence`/`_reject_composed_result` em
+# `review.py` para a arquitetura completa do round-trip guard.
+# =============================================================================
+
+# --- 19. Crítico 1 (repro do reviewer): `author` hostil injeta delimitador --
+#         e deixa texto livre (inclusive citação fabricada) no worklist -----
+
+
+def test_propose_prose_edit_rejects_author_delimiter_injection(tmp_path: Path) -> None:
+    """`author` é colado SEM escape em `"{>>prumo-autor: " + author + "<<}"`
+    — um `author` hostil (`"agente<<} [[@injetado]] {>>x"`) fecha a âncora
+    PREMATURAMENTE (`<<}`), solta `"[[@injetado]] {>>x"` como texto LIVRE
+    (não marcado — inclusive uma citação fabricada) no corpo do worklist, e
+    reabre um comentário (`{>>x`) que consumiria o resto do corpo. A
+    allowlist de `author` recusa ANTES de qualquer leitura/escrita."""
+    page_body = "Frase-alvo para a proposta aqui."
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Frase-alvo",
+            position="after",
+            kind="ins",
+            b=" extra",
+            author="agente<<} [[@injetado]] {>>x",
+            project_root=project_root,
+        )
+
+    assert "author inválido" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 20. Crítico 2 (repro do reviewer): payload inofensivo ISOLADO completa
+#         citação pré-existente ao compor com o corpo -----------------------
+
+
+def test_propose_prose_edit_rejects_composition_that_fabricates_citation(
+    tmp_path: Path,
+) -> None:
+    """`b="[["` sozinho não bate em NENHUMA guarda de entrada: não tem `@`,
+    não tem `[@`/`[[@`, e o corpo original (`"Prefixo @fake2020]] sufixo"`)
+    não tem `[[@...]]` nenhum (falta o `[[` de abertura) — `CITEKEY_RE` já
+    casa `@fake2020` como citekey NARRATIVO ali, mas a Guarda I1 só olha
+    spans JÁ marcados. Ao aceitar a proposta (`criticmarkup.accept`), o
+    `"[["` fica adjacente ao `"@fake2020]]"` pré-existente e COMPLETA uma
+    citação `[[@fake2020]]` nunca cunhada por humano. O round-trip guard
+    simula o aceite antes de escrever e recusa a composição."""
+    page_body = "Prefixo @fake2020]] sufixo"
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="@fake2020",
+            position="before",
+            kind="ins",
+            b="[[",
+            project_root=project_root,
+        )
+
+    assert "I1/I3b" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 21. author unicode legítimo (nome próprio de coautor humano) -> aceita -
+
+
+def test_propose_prose_edit_accepts_legitimate_unicode_author(tmp_path: Path) -> None:
+    """A allowlist cobre letras acentuadas (`À-ÿ`) — um `author` real de
+    coautor humano (ex.: alguém rodando a skill em nome de "José da Silva")
+    continua sendo aceito, não só ASCII puro."""
+    page_body = "Frase-alvo para a proposta aqui."
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+
+    result = propose_prose_edit(
+        page=page,
+        anchor_excerpt="Frase-alvo",
+        position="after",
+        kind="ins",
+        b=" extra",
+        author="José da Silva",
+        project_root=project_root,
+    )
+
+    assert isinstance(result, ProposalResult)
+    review_md_text = (review_dir / "review.md").read_text()
+    assert (
+        review_md_text
+        == "Frase-alvo{++ extra++}{>>prumo-autor: José da Silva<<} para a proposta aqui."
+    )
+
+
+# --- 22. Important: kind="comment" não é proponível (órfã, perde autoria) --
+
+
+def test_propose_prose_edit_rejects_kind_comment(tmp_path: Path) -> None:
+    """`kind="comment"` não é pareável por `_pair_author_anchors` (Task 9):
+    uma marca `comment` sem marca de CONTEÚDO associada vira âncora ÓRFÃ e
+    perde a autoria. Recusado explicitamente mesmo com o tipo estático
+    (`Literal["ins","del","sub"]`) já excluindo `"comment"` — uma chamada
+    que bypassa o type-checker (MCP/`**kwargs`) ainda pode passar a string
+    em runtime."""
+    page_body = "Frase-alvo para a proposta aqui."
+    project_root, page = _init_project(tmp_path, page_body=page_body)
+    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Frase-alvo",
+            position="after",
+            kind="comment",  # type: ignore[arg-type]
+            b=" observação",
+            project_root=project_root,
+        )
+
+    assert "comment" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
