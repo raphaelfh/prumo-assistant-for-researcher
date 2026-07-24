@@ -891,12 +891,16 @@ def collect_review_comments(docx_path: Path, page: str) -> ReviewCommentsFile:
 # existem no lado norm (`[@smith2020]`) — sem normalizar os dois para o MESMO
 # token, nenhum contexto que contenha uma citação bateria textualmente. Cada
 # `occurrence.formatted` é achado por BUSCA SEQUENCIAL em `plain_text` (nunca
-# por valor — displays repetidos pareiam pela ORDEM do citemap, documento
-# afora) e cada `(occ.norm_start, occ.norm_end)` é substituído DIRETO (já
-# sabemos onde está) no lado norm — ambos os lados usam o MESMO índice `i`
-# (posição da occurrence em `citemap.occurrences`) como id do token
-# `\x00CIT<i>\x00`, garantindo que o MESMO token nos dois lados sempre se
-# refere à MESMA citação.
+# por valor — displays repetidos pareiam pela ORDEM FÍSICA do documento, ou
+# seja, `occurrences` ordenadas por `norm_start` ANTES da busca, NUNCA pela
+# ordem de LISTA do citemap — ver nota "FIX APÓS REVIEW" abaixo) e cada
+# `(occ.norm_start, occ.norm_end)` é substituído DIRETO (já sabemos onde
+# está) no lado norm — ambos os lados usam o MESMO índice `i` (posição
+# ORIGINAL da occurrence em `citemap.occurrences`, preservada mesmo após o
+# reordenamento local para a busca) como id do token `\x00CIT<i>\x00`,
+# garantindo que o MESMO token nos dois lados sempre se refere à MESMA
+# citação — desde que a ordem FÍSICA concorde entre as duas renderizações
+# (ver defesa b abaixo para quando essa suposição falha).
 #
 # BOOKKEEPING (token-space -> offset original): substituir um span por um
 # token de tamanho diferente desloca todo offset posterior — `_OffsetSegment`
@@ -904,7 +908,11 @@ def collect_review_comments(docx_path: Path, page: str) -> ReviewCommentsFile:
 # sentinela) via uma lista de segmentos cobrindo o texto inteiro (passthrough
 # + token, em ordem); os spans localizados são sempre convertidos de volta
 # para os OFFSETS ORIGINAIS do `norm_text` antes de retornar — nunca
-# vazam offset em espaço-token.
+# vazam offset em espaço-token. O MESMO mecanismo (`_OffsetSegment` +
+# `_map_offset`) é reusado por `_collapse_whitespace_with_segments` para o
+# colapso de espaços do lado norm (ver "FIX APÓS REVIEW" abaixo) — os dois
+# mapas (sentinela + colapso) são COMPOSTOS em sequência (colapsado ->
+# sentinela -> original) na busca geral de `locate_marks_in_norm`.
 #
 # ORDEM contexto vs. sentinela vs. colapso: sentinela PRIMEIRO (texto inteiro
 # antes/depois do alvo, sem cortar), colapso de espaços DEPOIS, truncagem
@@ -922,16 +930,63 @@ def collect_review_comments(docx_path: Path, page: str) -> ReviewCommentsFile:
 #   de âncora (é aqui que o sentinela do CONTEXTO importa).
 # - Interseção com EXATAMENTE 1 span, esse span TOTALMENTE contido no alvo, e
 #   o que sobra do alvo fora do span é só espaço em branco (ou nada) -> "del
-#   de citação": se `kind == "del"` E a occurrence está em `deleted` (Task
-#   2/conservação) -> consumida SILENCIOSAMENTE (nem `LocatedMark` nem
-#   evento — o evento de drop é da conservação, não duplicamos aqui); se não
-#   está em `deleted` -> `citation-touched-prose` (adeu "viu" uma deleção que
-#   o OOXML não confirma — I1, nunca confiar no adeu para citação). Mesma
-#   classificação geométrica mas `kind != "del"` (ex.: `sub`/`highlight`
-#   cobrindo a citação inteira) também vira `citation-touched-prose` — só
-#   `del` tem o caminho de "casar com deleted" suportado no MVP.
+#   de citação": se `kind == "del"` E a identidade da occurrence é CONFIRMADA
+#   de forma independente no lado norm (`_confirm_citation_identity_in_norm`,
+#   defesa b — ver "FIX APÓS REVIEW" abaixo) E a occurrence está em `deleted`
+#   (Task 2/conservação) -> consumida SILENCIOSAMENTE (nem `LocatedMark` nem
+#   evento — o evento de drop é da conservação, não duplicamos aqui); se a
+#   identidade NÃO é confirmada, ou está confirmada mas não está em
+#   `deleted` -> `citation-touched-prose` (adeu "viu" uma deleção que o
+#   OOXML não confirma, OU a identidade do lado adeu não é confiável — I1,
+#   nunca confiar no adeu para decisão de citação). Mesma classificação
+#   geométrica mas `kind != "del"` (ex.: `sub`/`highlight` cobrindo a citação
+#   inteira) também vira `citation-touched-prose` — só `del` tem o caminho de
+#   "casar com deleted" suportado no MVP.
 # - Qualquer OUTRA interseção (parcial, ou múltiplos spans) -> sempre
 #   `citation-touched-prose` (decisão humana — I1, nunca auto-aplica).
+#
+# --- FIX APÓS REVIEW (Fase 2/Task 6, achados Crítico + Importante) ----------
+#
+# CRÍTICO: `_find_citation_spans_by_search` pareava citemap<->plain_text por
+# ORDEM DE LISTA do citemap com um cursor sequencial, enquanto o lado norm já
+# reordenava por `norm_start` — quando 2+ occurrences compartilhavam o mesmo
+# `formatted` E a ordem do citemap divergia da ordem física, o cursor casava
+# o display seguinte com o `occ_index` ERRADO (identity swap). Um `del`
+# batendo EXATAMENTE no display da citação LIVE podia então ser resolvido
+# para a OUTRA occurrence (a genuinamente `deleted`), sendo consumido
+# SILENCIOSAMENTE (`located == [] and events == []`) — uma deleção de
+# citação nunca confirmada pelo OOXML desaparecia sem rastro (I1 violado).
+# DUAS defesas, nenhuma sozinha suficiente:
+#   (a) `_find_citation_spans_by_search` agora ordena `occurrences` por
+#       `norm_start` ANTES da busca sequencial (mesma suposição de ordem
+#       física dos dois lados) — resolve o caso relatado pelo reviewer, mas
+#       depende da ordem física do adeu/plain_text concordar com a do
+#       norm_text (pode falhar em casos mais patológicos).
+#   (b) `_confirm_citation_identity_in_norm` cross-valida de forma
+#       INDEPENDENTE, rodando a mesma busca de âncora do caminho geral com o
+#       PRÓPRIO token do `occ_index` como alvo — só consome silenciosamente
+#       se o cross-check confirma EXATAMENTE 1 match; caso contrário, emite
+#       `citation-touched-prose` via `_citation_identity_unconfirmed_event`
+#       (nunca silencioso, mesmo que o `occ_index` atribuído aponte para uma
+#       occurrence que ESTÁ em `deleted`).
+#
+# IMPORTANTE: o colapso de espaços era unilateral — só `plain_text_sentinel`
+# (lado adeu) era colapsado antes da busca; `norm_text_sentinel` (lado norm)
+# era buscado CRU. Um espaço duplo GENUÍNO na fonte (norm_text) perto do alvo
+# quebrava o match (contexto colapsado do lado adeu nunca batia com o texto
+# cru do lado norm) -> `unanchored-mark` espúrio. Caminho ESCOLHIDO: colapso
+# SIMÉTRICO via `_collapse_whitespace_with_segments` (mesma máquina
+# `_OffsetSegment`/`_map_offset` de `_substitute_spans`, com `" "` no lugar
+# do token sentinela) aplicado também a `norm_text_sentinel`; a busca final
+# roda sobre `norm_text_collapsed`, e os offsets encontrados são convertidos
+# de volta para `norm_text` ORIGINAL compondo os dois mapas (colapsado ->
+# sentinela -> original) via `_map_offset` chamado duas vezes. A composição
+# não se mostrou patológica: tokens de citação (sem espaço interno) nunca são
+# tocados pelo colapso (`\s` não casa `\x00`), e cada segmento de colapso tem
+# largura 1 no lado colapsado — nenhum offset cai estritamente dentro de um
+# segmento de colapso, então a fronteira de token de citação (garantida pela
+# truncagem ciente de token do lado adeu) sempre sobrevive intacta pelos dois
+# mapas.
 
 _CONTEXT_CHARS = 48
 
@@ -1021,23 +1076,49 @@ def _plain_reject_rendering(
 def _find_citation_spans_by_search(
     text: str, occurrences: list[CiteOccurrence]
 ) -> list[_SentinelSpan]:
-    """Acha o span de CADA `occurrence.formatted` em `text`, occurrence a
-    occurrence NA ORDEM do citemap (documento) — busca SEQUENCIAL com cursor
-    avançando: displays repetidos (mesmo `formatted` em 2+ occurrences)
-    pareiam pela ORDEM em que aparecem, nunca por valor. Occurrence cujo
-    `formatted` está vazio, ou não é encontrado a partir do cursor atual
-    (ex.: adeu reformatou o display), é PULADA — sem span sentinela para
-    ela; o cursor não avança nesse caso."""
+    """Acha o span de CADA `occurrence.formatted` em `text`, busca SEQUENCIAL
+    com cursor avançando NA ORDEM FÍSICA do documento (`occurrences`
+    reordenadas por `norm_start` ANTES da busca, não na ordem de LISTA do
+    citemap) — achado CRÍTICO do review da Fase 2/Task 6 (defesa a): usar a
+    ordem de LISTA causava IDENTITY SWAP sempre que 2+ occurrences
+    compartilhavam o mesmo `formatted` E a ordem do citemap divergia da
+    ordem física (ex.: citemap reordenado por outro motivo entre export e
+    revisão) — o cursor, avançando na ordem ERRADA, casava o display
+    seguinte com o `occ_index` da occurrence ERRADA. Reordenar por
+    `norm_start` faz os dois lados (adeu/plain aqui, norm em
+    `locate_marks_in_norm`) compartilharem a MESMA suposição de ordem
+    física: displays repetidos pareiam pela ORDEM FÍSICA, nunca pela ordem
+    de lista do citemap nem por valor. O índice do token sentinela
+    (`occ_index`) continua sendo a posição ORIGINAL em `citemap.occurrences`
+    (preservada mesmo após o reordenamento local para a busca) — o lado
+    norm usa esse MESMO índice original como id do token, então a
+    correspondência de identidade entre os dois lados depende só da ordem
+    FÍSICA concordar entre as duas renderizações (adeu/plain e norm), não
+    da ordem de lista.
+
+    Isso NÃO elimina o risco de identity swap sozinho — a ordem física do
+    adeu/plain_text ainda PODE divergir da ordem física do norm_text em
+    casos patológicos (ex.: o adeu reordena/reflui conteúdo de um jeito que
+    o norm_text não reflete). Por isso o chamador faz uma segunda
+    verificação INDEPENDENTE antes de consumir silenciosamente qualquer
+    deleção de citação (`_confirm_citation_identity_in_norm`, defesa b,
+    `locate_marks_in_norm`) — nunca confia SÓ nesta função para decisão de
+    citação (I1).
+
+    Occurrence cujo `formatted` está vazio, ou não é encontrado a partir do
+    cursor atual (ex.: adeu reformatou o display), é PULADA — sem span
+    sentinela para ela; o cursor não avança nesse caso."""
+    ordered = sorted(enumerate(occurrences), key=lambda pair: pair[1].norm_start)
     spans: list[_SentinelSpan] = []
     cursor = 0
-    for i, occ in enumerate(occurrences):
+    for occ_index, occ in ordered:
         if not occ.formatted:
             continue
         idx = text.find(occ.formatted, cursor)
         if idx == -1:
             continue
         end = idx + len(occ.formatted)
-        spans.append(_SentinelSpan(start=idx, end=end, occ_index=i))
+        spans.append(_SentinelSpan(start=idx, end=end, occ_index=occ_index))
         cursor = end
     return spans
 
@@ -1105,6 +1186,61 @@ def _collapse_whitespace(text: str) -> str:
     quebras). Não toca os bytes `\x00` do token sentinela (`\\s` não casa
     NUL)."""
     return re.sub(r"\s+", " ", text)
+
+
+_WHITESPACE_RUN_RE = re.compile(r"\s+")
+
+
+def _collapse_whitespace_with_segments(text: str) -> tuple[str, list[_OffsetSegment]]:
+    """Colapsa cada sequência de espaço em branco (`\\s+`) em `text` para um
+    único espaço, retornando o texto colapsado e os `_OffsetSegment`s
+    (passthrough + colapso, cobrindo `text` inteiro em ordem) que
+    `_map_offset` usa para converter offsets nos dois sentidos — MESMA
+    máquina de bookkeeping de `_substitute_spans`/`_map_offset`, mas o
+    "token" substituído é sempre `" "` (não o token sentinela de citação).
+
+    Achado IMPORTANTE do review da Fase 2/Task 6: o colapso de espaços era
+    unilateral (só o lado adeu/plain era colapsado antes da busca; o lado
+    norm era buscado CRU) — um espaço duplo GENUÍNO na fonte (norm_text)
+    perto do alvo produzia `unanchored-mark` espúrio, porque o contexto
+    colapsado (adeu) nunca batia com o texto cru (norm) naquele ponto. Esta
+    função aplica o MESMO colapso ao lado norm (`locate_marks_in_norm`
+    chama isto sobre `norm_text_sentinel`, ANTES de qualquer busca), e o
+    chamador compõe os dois mapas de offset (este + o de
+    `_substitute_spans`/citação) para que `LocatedMark` continue reportando
+    offsets ORIGINAIS de `norm_text` — nunca em espaço colapsado nem em
+    espaço sentinela.
+
+    Segmentos de colapso têm SEMPRE largura 1 no lado colapsado
+    (`sent_end - sent_start == 1`) — nenhum offset pode cair ESTRITAMENTE
+    dentro de um segmento de colapso (não há inteiro entre `n` e `n+1`), o
+    que torna QUALQUER offset em espaço colapsado seguro para `_map_offset`
+    (ao contrário do token sentinela de citação, de largura > 1, que exige
+    a proteção de `_truncate_head`/`_truncate_tail`). Não casa os bytes
+    `\\x00` do token sentinela de citação (`\\s` não casa NUL) — tokens já
+    substituídos atravessam o colapso intactos, como um segmento passthrough
+    comum."""
+    parts: list[str] = []
+    segments: list[_OffsetSegment] = []
+    cursor = 0
+    collapsed_len = 0
+    for m in _WHITESPACE_RUN_RE.finditer(text):
+        ws_start, ws_end = m.start(), m.end()
+        if ws_start > cursor:
+            gap = text[cursor:ws_start]
+            parts.append(gap)
+            segments.append(
+                _OffsetSegment(cursor, ws_start, collapsed_len, collapsed_len + len(gap))
+            )
+            collapsed_len += len(gap)
+        parts.append(" ")
+        segments.append(_OffsetSegment(ws_start, ws_end, collapsed_len, collapsed_len + 1))
+        collapsed_len += 1
+        cursor = ws_end
+    tail = text[cursor:]
+    parts.append(tail)
+    segments.append(_OffsetSegment(cursor, len(text), collapsed_len, collapsed_len + len(tail)))
+    return "".join(parts), segments
 
 
 def _truncate_tail(text: str, limit: int) -> str:
@@ -1194,6 +1330,60 @@ def _classify_target_citation(
     return "touched", None
 
 
+def _confirm_citation_identity_in_norm(
+    target_start: int,
+    target_end: int,
+    plain_text_sentinel: str,
+    plain_segments: list[_OffsetSegment],
+    norm_text_collapsed: str,
+) -> bool:
+    """Defesa (b) do review da Fase 2/Task 6 (achado CRÍTICO): cross-valida
+    de forma INDEPENDENTE que o `occ_index` que `_classify_target_citation`
+    atribuiu ao alvo de um del "exato" de citação é o MESMO que aparece no
+    lado norm NA MESMA posição física — nunca confia cegamente no
+    `occ_index` do lado adeu para decidir se uma citação foi
+    genuinamente deletada (I1).
+
+    A defesa (a) (`_find_citation_spans_by_search` ordenada por
+    `norm_start`) já resolve o caso relatado pelo reviewer (ordem do
+    citemap divergente da ordem física), mas depende de uma suposição que
+    pode falhar em casos mais patológicos (ordem física do adeu/plain_text
+    divergindo da ordem física do norm_text) — esta função é o backstop:
+    roda a MESMA busca de âncora do caminho geral (contexto before/after em
+    espaço sentinela colapsado, truncado a 48 chars sem partir token), mas
+    com o "alvo" sendo o PRÓPRIO token sentinela do `occ_index` recebido
+    (fatiado de `plain_text_sentinel`, já contém o token exato por
+    construção — nunca precisa ser passado à parte). Se essa busca achar
+    EXATAMENTE 1 posição em `norm_text_collapsed`, a identidade está
+    confirmada: o match só é possível se o MESMO token aparecer lá, cercado
+    do MESMO contexto que envolve o alvo no lado adeu. 0 (contexto não bate
+    em lugar nenhum — sinal de identity swap) ou >1 (ambíguo) -> NÃO
+    confirmado; o chamador NUNCA consome silenciosamente nesse caso,
+    sempre emite `citation-touched-prose` (fail-toward-human).
+
+    `target_start`/`target_end` são offsets em `plain_text` (o texto ORIGINAL
+    pré-sentinela, mesmo espaço de `_classify_target_citation`) — seguro
+    para `_map_offset(..., plain_segments, to_sentinel=True)` pela MESMA
+    razão documentada em `_classify_target_citation`: o span de citação
+    está TOTALMENTE contido no alvo com sobra só de espaço em branco, então
+    `target_start`/`target_end` nunca caem estritamente dentro de um token
+    (só na fronteira do span de citação, ou dentro do passthrough da sobra
+    de espaço)."""
+    sent_target_start = _map_offset(target_start, plain_segments, to_sentinel=True)
+    sent_target_end = _map_offset(target_end, plain_segments, to_sentinel=True)
+    target_sentinel_str = plain_text_sentinel[sent_target_start:sent_target_end]
+
+    before_ctx = _truncate_tail(
+        _collapse_whitespace(plain_text_sentinel[:sent_target_start]), _CONTEXT_CHARS
+    )
+    after_ctx = _truncate_head(
+        _collapse_whitespace(plain_text_sentinel[sent_target_end:]), _CONTEXT_CHARS
+    )
+    search_str = before_ctx + target_sentinel_str + after_ctx
+    positions = _find_all(norm_text_collapsed, search_str)
+    return len(positions) == 1
+
+
 def _mark_excerpt(mark: ReviewMark, limit: int = 80) -> str:
     """Trecho representativo da marca para mensagens de evento (pt-BR, regra
     deste repo: contexto útil no `detail`) — `a` para del/sub/highlight (o
@@ -1277,6 +1467,41 @@ def _citation_touched_event(
     )
 
 
+def _citation_identity_unconfirmed_event(mark: ReviewMark, occ: CiteOccurrence) -> ReviewEvent:
+    """Evento `citation-touched-prose` para quando a defesa (b) (cross-check
+    de identidade, `_confirm_citation_identity_in_norm`) NÃO confirma o
+    `occ_index` atribuído pelo lado adeu — achado CRÍTICO do review da Fase
+    2/Task 6: displays idênticos (2+ occurrences com o mesmo `formatted`)
+    combinados com ordem física divergente entre citemap/adeu/norm podem
+    trocar a identidade de qual occurrence um del "exato" realmente afeta.
+    NUNCA consome silenciosamente neste caso, mesmo que o `occ_index`
+    (possivelmente errado) atribuído aponte para uma occurrence que ESTÁ em
+    `deleted` — é exatamente essa confiança cega que causava o "silent
+    swallow" (I1 violado): sem a confirmação cruzada, o evento de
+    conservação (Task 2/8) nunca dispara para a citação REALMENTE afetada,
+    e a mudança do coautor é descartada sem rastro. `occ` é o melhor
+    palpite disponível (o `occ_index` do lado adeu) — reportado com a
+    ressalva explícita de que não pôde ser confirmado."""
+    excerpt = _mark_excerpt(mark)
+    detail = (
+        f"Marca {mark.kind} de {mark.author} parece deletar a citação "
+        f"(occ {occ.occ_id}, melhor palpite — NÃO confirmado) — a identidade "
+        "da citação deletada não pôde ser confirmada (displays idênticos e/ou "
+        f'ordem divergente entre citemap e texto normalizado): trecho "{excerpt}". '
+        "Decisão humana necessária — nunca confie no adeu para decisão de "
+        "citação (I1). Confira o docx revisado manualmente, ou re-exporte e "
+        "re-ingira."
+    )
+    return ReviewEvent(
+        kind="citation-touched-prose",
+        detail=detail,
+        occ_id=occ.occ_id,
+        citekeys=list(occ.citekeys),
+        author=mark.author,
+        mark_excerpt=excerpt,
+    )
+
+
 def locate_marks_in_norm(
     clean_text: str,
     marks: list[ReviewMark],
@@ -1295,13 +1520,27 @@ def locate_marks_in_norm(
        `citation-touched-prose` (decisão humana, I1), EXCETO o caso "del de
        citação" confirmado por `deleted` (Task 2), que é consumido
        silenciosamente (sem `LocatedMark` nem evento próprio — o evento de
-       drop já é da conservação).
+       drop já é da conservação) — mas SÓ depois que a identidade do
+       `occ_index` atribuído é CROSS-VALIDADA de forma independente no lado
+       norm (`_confirm_citation_identity_in_norm`, defesa b do review da
+       Fase 2/Task 6, achado CRÍTICO): displays idênticos (2+ occurrences
+       com o mesmo `formatted`) combinados com ordem física divergente
+       podiam trocar a identidade da occurrence e consumir silenciosamente
+       uma deleção de citação NÃO confirmada (I1 violado) — a cross-
+       validação nunca deixa esse consumo acontecer sem confirmação; se a
+       identidade não bate, vira `citation-touched-prose` em vez de
+       silêncio (fail-toward-human, nunca vazio).
     2. Sem interseção: monta `before`/`after` (texto plano, sentinela
        aplicada, colapsado, truncado a 48 chars sem partir token) e
        `alvo` (`a` para del/sub/highlight, vazio/ponto para ins/comment);
-       busca `before + alvo + after` em `norm_text` (com sentinela também
-       aplicada). Exatamente 1 match -> `LocatedMark`; 0 -> `unanchored-mark`;
-       >1 -> `ambiguous-anchor`.
+       busca `before + alvo + after` no `norm_text` — TAMBÉM com sentinela
+       de citação E colapso de espaços aplicados (achado IMPORTANTE do
+       review: o colapso era unilateral, só do lado adeu; um espaço duplo
+       genuíno na fonte perto do alvo produzia `unanchored-mark` espúrio —
+       agora os offsets encontrados são convertidos de volta para
+       `norm_text` original compondo os DOIS mapas de offset, colapso e
+       sentinela, nessa ordem). Exatamente 1 match -> `LocatedMark`; 0 ->
+       `unanchored-mark`; >1 -> `ambiguous-anchor`.
 
     Retorna `(located, events)` — a ORDEM de `located`/`events` segue a
     ordem de `marks` (documento).
@@ -1319,6 +1558,9 @@ def locate_marks_in_norm(
         key=lambda s: s.start,
     )
     norm_text_sentinel, norm_segments = _substitute_spans(norm_text, norm_spans)
+    norm_text_collapsed, norm_collapse_segments = _collapse_whitespace_with_segments(
+        norm_text_sentinel
+    )
 
     deleted_occ_ids = {c.occ_id for c in deleted}
 
@@ -1333,6 +1575,21 @@ def locate_marks_in_norm(
         if classification == "exact_del_candidate" and mark.kind == "del":
             assert occ_index is not None  # invariante de _classify_target_citation
             occ = citemap.occurrences[occ_index]
+            if not _confirm_citation_identity_in_norm(
+                target_start,
+                target_end,
+                plain_text_sentinel,
+                plain_segments,
+                norm_text_collapsed,
+            ):
+                # Defesa (b): identidade NÃO confirmada de forma
+                # independente — NUNCA consumir silenciosamente, mesmo que
+                # `occ.occ_id` esteja em `deleted_occ_ids` (esse é
+                # exatamente o cenário do "silent swallow" achado no
+                # review: confiar no `occ_index` do lado adeu sem
+                # cross-check).
+                events.append(_citation_identity_unconfirmed_event(mark, occ))
+                continue
             if occ.occ_id not in deleted_occ_ids:
                 events.append(_citation_touched_event(mark, [occ], confirmed_by_ooxml=False))
             continue  # confirmado: consumida silenciosamente (evento é da conservação)
@@ -1365,14 +1622,21 @@ def locate_marks_in_norm(
                 events.append(_ambiguous_event(mark, count=None))
             continue
 
-        positions = _find_all(norm_text_sentinel, search_str)
+        positions = _find_all(norm_text_collapsed, search_str)
         if not positions:
             events.append(_unanchored_event(mark))
         elif len(positions) > 1:
             events.append(_ambiguous_event(mark, count=len(positions)))
         else:
-            sent_norm_start = positions[0] + len(before_ctx)
-            sent_norm_end = sent_norm_start + len(target_str)
+            # Compõe os DOIS mapas de offset, nesta ordem: colapsado ->
+            # sentinela (pré-colapso) -> original de `norm_text` — nunca
+            # reporta offset em espaço colapsado nem em espaço sentinela.
+            collapsed_start = positions[0] + len(before_ctx)
+            collapsed_end = collapsed_start + len(target_str)
+            sent_norm_start = _map_offset(
+                collapsed_start, norm_collapse_segments, to_sentinel=False
+            )
+            sent_norm_end = _map_offset(collapsed_end, norm_collapse_segments, to_sentinel=False)
             norm_start = _map_offset(sent_norm_start, norm_segments, to_sentinel=False)
             norm_end = _map_offset(sent_norm_end, norm_segments, to_sentinel=False)
             located.append(LocatedMark(mark=mark, norm_start=norm_start, norm_end=norm_end))

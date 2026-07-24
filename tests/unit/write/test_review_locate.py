@@ -440,3 +440,264 @@ def test_zero_matches_emits_unanchored_mark() -> None:
     assert len(events) == 1
     assert events[0].kind == "unanchored-mark"
     assert events[0].author == "Coautor"
+
+
+# --- Fix após review (Fase 2/Task 6): achados Crítico + Importante -----------
+#
+# CRÍTICO: `_find_citation_spans_by_search` pareava citemap<->plain_text por
+# ORDEM DE LISTA do citemap com cursor sequencial; o lado norm já reordenava
+# por `norm_start`. Reprodução do reviewer: 2 occurrences com o MESMO
+# `formatted`, ordem do citemap invertida em relação à ordem física — um del
+# batendo EXATAMENTE no display da citação LIVE podia trocar de identidade
+# com a OUTRA occurrence (genuinamente `deleted`) e ser consumido
+# SILENCIOSAMENTE (`located == [] and events == []`, I1 violado).
+
+
+def test_same_display_citations_order_mismatch_never_silent() -> None:
+    """Reprodução EXATA do reviewer: 2 occurrences com o MESMO `formatted`,
+    lista do citemap [A, B] só que a ORDEM FÍSICA (norm_start) é invertida
+    (B vem antes de A no documento). O del bate EXATAMENTE no display da
+    ocorrência física SEGUNDA (A, a LIVE — B é quem está em `deleted`).
+
+    O resultado NUNCA pode ser (located == [] and events == []): ou a
+    defesa (a) já pareia corretamente pela ordem física (e o del resolve
+    para A, que não está em `deleted` -> `citation-touched-prose` pela
+    regra já existente), ou a defesa (b) barraria um consumo indevido caso
+    a identidade não fosse cross-validável. De um jeito ou de outro,
+    `events != []` — nunca um swallow silencioso de uma deleção de citação
+    não confirmada."""
+    formatted = "(Mesmo Display, 2020)"
+    prose_b = "Um estudo prévio "
+    prose_mid = " mostrou tendência semelhante, e outro estudo "
+    prose_after = " reforçou esse achado independentemente."
+
+    # Lado adeu/plain: B (display) aparece fisicamente PRIMEIRO (texto
+    # comum, não tocado); o del (pré-imagem = mesmo display) aparece
+    # DEPOIS — fisicamente na posição de A.
+    mark_syntax = "{--" + formatted + "--}"
+    clean_text = prose_b + formatted + prose_mid + mark_syntax + prose_after
+    start = len(prose_b + formatted + prose_mid)
+    mark = ReviewMark(
+        kind="del",
+        a=formatted,
+        b="",
+        author="Coautor",
+        chg_id="10",
+        start=start,
+        end=start + len(mark_syntax),
+    )
+
+    # Lado norm: MESMA ordem física (B primeiro, A depois) — a suposição de
+    # ordem física que a defesa (a) depende.
+    citekey_b = "[@bkey2020]"
+    citekey_a = "[@akey2020]"
+    norm_text = prose_b + citekey_b + prose_mid + citekey_a + prose_after
+    b_start = len(prose_b)
+    b_end = b_start + len(citekey_b)
+    a_start = b_end + len(prose_mid)
+    a_end = a_start + len(citekey_a)
+
+    occ_a = _occ(
+        occ_id="AAAAAAAA",
+        citekeys=["akey2020"],
+        formatted=formatted,
+        norm_start=a_start,
+        norm_end=a_end,
+    )
+    occ_b = _occ(
+        occ_id="BBBBBBBB",
+        citekeys=["bkey2020"],
+        formatted=formatted,
+        norm_start=b_start,
+        norm_end=b_end,
+    )
+    # ORDEM DO CITEMAP (lista: A, B) invertida em relação à ordem FÍSICA
+    # (B vem antes de A no norm_text) — reprodução literal do reviewer.
+    citemap = _citemap([occ_a, occ_b])
+
+    # B é a citação GENUINAMENTE deletada (confirmada pela conservação); o
+    # del alvo é EXATAMENTE o display da OUTRA (A, a LIVE).
+    deleted = [_deleted(occ_id="BBBBBBBB", citekeys=["bkey2020"], formatted=formatted)]
+
+    located, events = locate_marks_in_norm(clean_text, [mark], norm_text, citemap, deleted)
+
+    assert not (located == [] and events == [])
+    # Nem a defesa (a) nem a (b) produzem `LocatedMark` neste ramo — o alvo
+    # é sempre classificado como "citação" (silêncio OU evento), nunca vira
+    # uma âncora de prosa comum.
+    assert located == []
+    assert len(events) == 1
+    assert events[0].kind == "citation-touched-prose"
+    assert events[0].author == "Coautor"
+
+
+def test_same_display_citations_pair_by_document_order() -> None:
+    """Mesmos 2 occurrences com display idêntico do teste anterior, mas com
+    a ordem do citemap CONSISTENTE com a ordem física (norm_start) — o caso
+    NORMAL que a correção não pode quebrar: del do display exato da citação
+    genuinamente deletada (a segunda fisicamente) -> consumida
+    silenciosamente (sem `LocatedMark`, sem evento), exatamente como
+    projetado antes deste fix (ver teste 5, versão com 1 única
+    occurrence)."""
+    formatted = "(Dup, 2023)"
+    prose_c = "Um estudo "
+    prose_mid = " e também outro estudo "
+    prose_after = " confirmaram o achado."
+
+    mark_syntax = "{--" + formatted + "--}"
+    clean_text = prose_c + formatted + prose_mid + mark_syntax + prose_after
+    start = len(prose_c + formatted + prose_mid)
+    mark = ReviewMark(
+        kind="del",
+        a=formatted,
+        b="",
+        author="Coautor",
+        chg_id="11",
+        start=start,
+        end=start + len(mark_syntax),
+    )
+
+    citekey_c = "[@ckey2023]"
+    citekey_d = "[@dkey2023]"
+    norm_text = prose_c + citekey_c + prose_mid + citekey_d + prose_after
+    c_start = len(prose_c)
+    c_end = c_start + len(citekey_c)
+    d_start = c_end + len(prose_mid)
+    d_end = d_start + len(citekey_d)
+
+    occ_c = _occ(
+        occ_id="CCCCCCCC",
+        citekeys=["ckey2023"],
+        formatted=formatted,
+        norm_start=c_start,
+        norm_end=c_end,
+    )
+    occ_d = _occ(
+        occ_id="DDDDDDDD",
+        citekeys=["dkey2023"],
+        formatted=formatted,
+        norm_start=d_start,
+        norm_end=d_end,
+    )
+    # Ordem do citemap (lista: C, D) == ordem FÍSICA (C primeiro nos dois
+    # lados) — sem divergência.
+    citemap = _citemap([occ_c, occ_d])
+    # D é a citação genuinamente deletada; o del alvo é EXATAMENTE o
+    # display da segunda ocorrência física (D).
+    deleted = [_deleted(occ_id="DDDDDDDD", citekeys=["dkey2023"], formatted=formatted)]
+
+    located, events = locate_marks_in_norm(clean_text, [mark], norm_text, citemap, deleted)
+
+    assert located == []
+    assert events == []  # consumida silenciosamente — comportamento preservado
+
+
+def test_identity_unconfirmed_when_adeu_physical_order_diverges_from_norm() -> None:
+    """Defesa (b) ISOLADA: verificado empiricamente (não só por inspeção)
+    que, com SÓ a defesa (a) ativa (busca ordenada por `norm_start`), este
+    cenário AINDA produz `located == [] and events == []` — porque aqui é a
+    ORDEM FÍSICA do próprio lado adeu/plain_text que diverge da ordem
+    física do norm_text (não a ordem de lista do citemap, que a defesa (a)
+    já resolve sozinha — ver teste acima). O del (mesmo display das 2
+    occurrences) aparece fisicamente PRIMEIRO no lado adeu; a citação
+    genuinamente deletada (H) aparece fisicamente PRIMEIRO no norm_text —
+    ordens opostas. A prosa ao redor de cada citação é DIFERENTE entre
+    plain e norm (como no mundo real: o adeu não re-renderiza byte-a-byte
+    igual ao norm_text) — só a defesa (b) (cross-check independente no
+    lado norm) impede o consumo indevido aqui, porque o contexto
+    genuinamente não bate em nenhuma posição do norm_text."""
+    formatted = "(Divergente, 2021)"
+
+    # Lado adeu/plain: o del (alvo) aparece fisicamente PRIMEIRO; a citação
+    # não tocada (literal) aparece DEPOIS.
+    plain_prefix = "No texto revisado pelo adeu, "
+    plain_mid = " e mais adiante, segundo outro autor, "
+    plain_suffix = " concluiu-se o capítulo."
+    mark_syntax = "{--" + formatted + "--}"
+    clean_text = plain_prefix + mark_syntax + plain_mid + formatted + plain_suffix
+    start = len(plain_prefix)
+    mark = ReviewMark(
+        kind="del",
+        a=formatted,
+        b="",
+        author="Coautor",
+        chg_id="13",
+        start=start,
+        end=start + len(mark_syntax),
+    )
+
+    # Lado norm: prosa DIFERENTE da do plain, e ordem física INVERTIDA (H
+    # primeiro, G depois) — H é quem está genuinamente em `deleted`.
+    citekey_g = "[@gkey2021]"
+    citekey_h = "[@hkey2021]"
+    norm_prefix = "Na fonte normalizada, conforme "
+    norm_mid = " e também conforme "
+    norm_suffix = " conclui-se a seção final."
+    norm_text = norm_prefix + citekey_h + norm_mid + citekey_g + norm_suffix
+    h_start = len(norm_prefix)
+    h_end = h_start + len(citekey_h)
+    g_start = h_end + len(norm_mid)
+    g_end = g_start + len(citekey_g)
+
+    occ_g = _occ(
+        occ_id="GGGGGGGG",
+        citekeys=["gkey2021"],
+        formatted=formatted,
+        norm_start=g_start,
+        norm_end=g_end,
+    )
+    occ_h = _occ(
+        occ_id="HHHHHHHH",
+        citekeys=["hkey2021"],
+        formatted=formatted,
+        norm_start=h_start,
+        norm_end=h_end,
+    )
+    citemap = _citemap([occ_g, occ_h])
+    deleted = [_deleted(occ_id="HHHHHHHH", citekeys=["hkey2021"], formatted=formatted)]
+
+    located, events = locate_marks_in_norm(clean_text, [mark], norm_text, citemap, deleted)
+
+    assert located == []
+    assert len(events) == 1
+    assert events[0].kind == "citation-touched-prose"
+    assert "identidade" in events[0].detail
+    assert events[0].author == "Coautor"
+
+
+# --- Importante: colapso de espaços simétrico (lado norm também) ------------
+
+
+def test_double_space_in_norm_still_locates() -> None:
+    """Achado IMPORTANTE do review: o colapso de espaços era unilateral (só
+    o lado adeu/plain era colapsado antes da busca; o norm era buscado
+    CRU) — um espaço duplo GENUÍNO na fonte (norm_text), perto do alvo,
+    produzia `unanchored-mark` espúrio mesmo quando o conteúdo realmente
+    bate. Fix: colapso SIMÉTRICO (`_collapse_whitespace_with_segments`
+    aplicado também ao lado norm) — localiza normalmente, e o span
+    retornado está em offsets ORIGINAIS de `norm_text` (não colapsados)."""
+    prefix = "Os resultados mostraram melhora"  # sem espaço final aqui de propósito
+    target = "significativa"
+    mark_syntax = "{--" + target + "--}"
+    suffix = " nos escores de dor relatados pelos participantes."
+    # Lado adeu: espaço ÚNICO entre o prefixo e o alvo.
+    clean_text = prefix + " " + mark_syntax + suffix
+    start = len(prefix + " ")
+    mark = ReviewMark(
+        kind="del",
+        a=target,
+        b="",
+        author="Coautor",
+        chg_id="21",
+        start=start,
+        end=start + len(mark_syntax),
+    )
+    # Lado norm: espaço DUPLO genuíno na fonte, no mesmo lugar.
+    norm_text = prefix + "  " + target + suffix
+
+    located, events = locate_marks_in_norm(clean_text, [mark], norm_text, _citemap([]), [])
+
+    assert events == []
+    assert len(located) == 1
+    loc = located[0]
+    assert norm_text[loc.norm_start : loc.norm_end] == target
