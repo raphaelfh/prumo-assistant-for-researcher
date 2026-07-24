@@ -10,7 +10,7 @@ when_to_use: |
   (`citation-touched-prose`/`citation-drop`) nem para aplicar decisões — isso é
   sempre `prumo write review apply`, rodado pelo humano.
 argument-hint: "--page <page.md>"
-allowed-tools: Read Glob Grep Bash(prumo *) mcp__prumo-review__review_status mcp__prumo-review__review_events mcp__prumo-review__review_worklist mcp__prumo-review__propose_prose_edit
+allowed-tools: Read Glob Grep Bash(prumo write review events *) Bash(prumo doctor *) mcp__prumo-review__review_status mcp__prumo-review__review_events mcp__prumo-review__review_worklist mcp__prumo-review__propose_prose_edit
 prumo:
   version: 1.0.0
   determinism: hybrid
@@ -58,9 +58,12 @@ skill — é sempre o humano, com `prumo write review apply`.
   aqui: mesma lista numerada em pt-BR com a AÇÃO por kind, boa referência para
   o resumo do Passo 4.
 - Cada evento tem `kind`, `detail` (mensagem pt-BR já pronta explicando a
-  causa), `author` (o **coautor do Word** que fez a mudança original — nunca
-  "agente"), `mark_excerpt` (o texto afetado: `a` para `del`/`sub`, `b` para
-  `ins`) e, só em eventos de citação, `occ_id`/`citekeys`.
+  causa). Os campos `author` (o **coautor do Word** que fez a mudança original
+  — nunca "agente") e `mark_excerpt` (o texto afetado: `a` para `del`/`sub`/`highlight`, `b` para `ins`/`comment`) estão presentes nos 4 kinds de marca
+  (`unanchored-mark`, `ambiguous-anchor`, `non-identity-span`,
+  `citation-touched-prose`); `citation-drop` tem `author: null` (o leitor
+  OOXML não captura o autor da deleção) e `applied` não carrega nenhum dos
+  dois (é histórico). Só em eventos de citação, `occ_id`/`citekeys`.
 
 ### 2. Para cada evento `unanchored-mark` / `ambiguous-anchor` / `non-identity-span`
 
@@ -101,8 +104,8 @@ contexto real e decidir o ponto certo.
 citação é átomo, decisão sempre humana (I1/I3b). Liste-os com a AÇÃO exata
 (mesma do `events --checklist`):
 
-- `citation-drop` → confirme com `--confirm-citation-drops <occ_id>` no
-  `apply`.
+- `citation-drop` → confirme com `--confirm-citation-drops <occ_id>` (aceita
+  lista separada por vírgula) no `apply`.
 - `citation-touched-prose` → decisão humana: rejeite a mudança no Word ou
   edite a fonte diretamente.
 - `applied` → histórico; ignore ao contar pendências.
