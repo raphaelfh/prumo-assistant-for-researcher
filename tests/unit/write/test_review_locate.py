@@ -14,15 +14,32 @@ contrato de `locate_marks_in_norm` (offsets em `clean_text`), não o parser
 da Task 4 (já coberto em `test_review_adeu.py`). `clean_text`/`norm_text`
 são montados por CONCATENAÇÃO de variáveis Python (nunca índices contados à
 mão) para que os offsets de cada `ReviewMark` sejam sempre exatos.
+
+Task 7 (`transplant_to_source`) é ANEXADA neste mesmo arquivo (per brief:
+"Modify test_review_locate.py (append)") — `LocatedMark` é a interface
+entre as duas tasks, então os testes convivem lado a lado. Os testes de
+Task 7 usam `normalize_markdown_with_map` REAL (não fixtures locais) para
+obter `span_frags` genuínos sempre que o teste depende da forma exata do
+span-map (atributo central da task); `ReviewMark.start`/`.end` (offsets em
+`clean_text`) são irrelevantes para `transplant_to_source` — só
+`LocatedMark.norm_start`/`.norm_end` (offsets em `norm_text`) importam —,
+por isso ficam com `start=0, end=0` (dummy) nesses testes.
 """
 
 from __future__ import annotations
 
+import pytest
+
+import prumo_assist.domains.write.review as review_mod
+from prumo_assist.core import criticmarkup
+from prumo_assist.core.obsidian import normalize_markdown_with_map
 from prumo_assist.domains.write.review import (
     DocxCitation,
     LocatedMark,
+    MarkLostError,
     ReviewMark,
     locate_marks_in_norm,
+    transplant_to_source,
 )
 from prumo_assist.domains.write.schemas.v1 import CiteMapFile, CiteOccurrence
 
@@ -701,3 +718,240 @@ def test_double_space_in_norm_still_locates() -> None:
     assert len(located) == 1
     loc = located[0]
     assert norm_text[loc.norm_start : loc.norm_end] == target
+
+
+# --- Task 7: transplante para o source + Guarda B (`transplant_to_source`) --
+#
+# 1. ins/del/sub transplantados no lugar certo do source, com wikilink e
+#    citação AO REDOR intactos byte a byte ------------------------------------
+
+
+def test_ins_del_sub_transplant_with_wikilink_and_citation_intact() -> None:
+    """Os 3 kinds transplantáveis (ins/del/sub) num único `source_body` com
+    `[[@key]]` e `[[Conceito|alias]]` — span_frags REAIS de
+    `normalize_markdown_with_map` (não fixture local). Os 3 alvos vivem
+    dentro do MESMO fragment `identity` (a prosa entre os dois átomos), sem
+    tocar nenhuma fronteira — isso é coberto à parte pelos 2 edge cases de
+    self-review mais abaixo. Verifica tanto os marcadores exatos quanto o
+    round-trip `criticmarkup.reject(source_with_marks) == source_body`
+    (prova mais forte: reconstrói o original, átomos inclusive)."""
+    source_body = (
+        "Paragrafo inicial cita o estudo [[@smith2020]] logo no comeco. "
+        "Depois descreve um resultado antigo que precisa ser removido, "
+        "e mais adiante indica onde um comentario novo deve entrar, "
+        "e por fim menciona um termo errado que sera corrigido "
+        "antes de encerrar com o conceito relacionado [[Conceito|alias]] final."
+    )
+    norm_text, span_frags = normalize_markdown_with_map(source_body)
+    # sanity: os dois átomos normalizaram como o esperado (senão o teste
+    # não estaria exercitando o que diz exercitar).
+    assert "[@smith2020]" in norm_text
+    assert "alias" in norm_text
+    assert "[[@smith2020]]" not in norm_text
+
+    del_target = "um resultado antigo"
+    ins_anchor = "e mais adiante indica"
+    sub_target = "um termo errado"
+
+    del_start = norm_text.index(del_target)
+    del_end = del_start + len(del_target)
+    ins_point = norm_text.index(ins_anchor)
+    sub_start = norm_text.index(sub_target)
+    sub_end = sub_start + len(sub_target)
+
+    del_mark = ReviewMark(
+        kind="del", a=del_target, b="", author="Coautor", chg_id="1", start=0, end=0
+    )
+    ins_mark = ReviewMark(
+        kind="ins", a="", b="URGENTE: ", author="Coautor", chg_id="2", start=0, end=0
+    )
+    sub_mark = ReviewMark(
+        kind="sub",
+        a=sub_target,
+        b="um termo correto",
+        author="Coautor",
+        chg_id="3",
+        start=0,
+        end=0,
+    )
+    located = [
+        LocatedMark(mark=del_mark, norm_start=del_start, norm_end=del_end),
+        LocatedMark(mark=ins_mark, norm_start=ins_point, norm_end=ins_point),
+        LocatedMark(mark=sub_mark, norm_start=sub_start, norm_end=sub_end),
+    ]
+
+    source_with_marks, events = transplant_to_source(source_body, span_frags, located)
+
+    assert events == []
+    assert "[[@smith2020]]" in source_with_marks
+    assert "[[Conceito|alias]]" in source_with_marks
+    assert criticmarkup.emit("del", del_target, "") in source_with_marks
+    assert criticmarkup.emit("ins", "", "URGENTE: ") + "e mais adiante indica" in source_with_marks
+    assert criticmarkup.emit("sub", sub_target, "um termo correto") in source_with_marks
+    assert criticmarkup.reject(source_with_marks) == source_body
+
+
+# --- 2. marca em fragment `citation` → evento `non-identity-span` -----------
+
+
+def test_mark_in_citation_fragment_emits_non_identity_span_event() -> None:
+    """`LocatedMark` cujo intervalo inteiro cai DENTRO do fragment `citation`
+    (não `identity`) nunca transplanta — vira `non-identity-span`, e o
+    `source_body` sai intocado (nenhuma marca aplicada)."""
+    source_body = "Este estudo [[@jones2021]] mostrou resultados relevantes."
+    norm_text, span_frags = normalize_markdown_with_map(source_body)
+    citation_frag = next(f for f in span_frags if f.kind == "citation")
+
+    mark = ReviewMark(
+        kind="del",
+        a=norm_text[citation_frag.norm_start : citation_frag.norm_end],
+        b="",
+        author="Coautor",
+        chg_id="9",
+        start=0,
+        end=0,
+    )
+    located = [
+        LocatedMark(mark=mark, norm_start=citation_frag.norm_start, norm_end=citation_frag.norm_end)
+    ]
+
+    source_with_marks, events = transplant_to_source(source_body, span_frags, located)
+
+    assert source_with_marks == source_body
+    assert len(events) == 1
+    assert events[0].kind == "non-identity-span"
+    assert events[0].author == "Coautor"
+
+
+# --- 3. Guarda B: monkeypatch em helper interno força marca a "sumir" -------
+
+
+def test_forced_marker_loss_raises_mark_lost_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Guarda B: monkeypatch no helper interno `_emit_marker` (seam isolado
+    só para este teste) simula uma marca cujo texto nunca chega a ser
+    escrito no source — a contagem (aplicadas + eventos) não fecha contra
+    `len(located)`, e a função aborta com `MarkLostError` ANTES de devolver
+    qualquer `source_with_marks` (nunca um resultado parcialmente
+    corrompido)."""
+    source_body = "Frase de prosa pura sem nenhum atomo obsidian aqui dentro."
+    norm_text, span_frags = normalize_markdown_with_map(source_body)
+    target = "prosa pura"
+    start = norm_text.index(target)
+    end = start + len(target)
+    mark = ReviewMark(kind="del", a=target, b="", author="Coautor", chg_id="99", start=0, end=0)
+    located = [LocatedMark(mark=mark, norm_start=start, norm_end=end)]
+
+    monkeypatch.setattr(review_mod, "_emit_marker", lambda mark: "")
+
+    with pytest.raises(MarkLostError) as exc_info:
+        transplant_to_source(source_body, span_frags, located)
+
+    assert "prosa pura" in str(exc_info.value)
+    assert "Coautor" in str(exc_info.value)
+
+
+# --- 4. múltiplas marcas preservam offsets (aplicação em ordem reversa) -----
+
+
+def test_multiple_marks_preserve_offsets_when_applied_back_to_front() -> None:
+    """Aplicar N marcas com marcadores de comprimentos DIFERENTES precisa
+    preservar os offsets pré-calculados de TODAS elas — se a implementação
+    aplicasse na ordem do documento (frente pra trás), a primeira marca já
+    deslocaria os offsets, ainda não consumidos, das seguintes. Compara o
+    resultado com uma reconstrução EXATA (não só substring) e com o
+    round-trip `criticmarkup.reject`."""
+    source_body = "Alfa Bravo Charlie Delta Echo"
+    norm_text, span_frags = normalize_markdown_with_map(source_body)
+    assert norm_text == source_body  # nenhum átomo Obsidian aqui
+
+    alfa_start = norm_text.index("Alfa")
+    alfa_end = alfa_start + len("Alfa")
+    charlie_start = norm_text.index("Charlie")
+    charlie_end = charlie_start + len("Charlie")
+    echo_start = norm_text.index("Echo")
+    echo_end = echo_start + len("Echo")
+
+    del_alfa = ReviewMark(kind="del", a="Alfa", b="", author="Coautor", chg_id="1", start=0, end=0)
+    ins_novo = ReviewMark(kind="ins", a="", b="NOVO ", author="Coautor", chg_id="2", start=0, end=0)
+    sub_charlie = ReviewMark(
+        kind="sub", a="Charlie", b="CharlieX", author="Coautor", chg_id="3", start=0, end=0
+    )
+    del_echo = ReviewMark(kind="del", a="Echo", b="", author="Coautor", chg_id="4", start=0, end=0)
+
+    located = [
+        LocatedMark(mark=del_alfa, norm_start=alfa_start, norm_end=alfa_end),
+        LocatedMark(mark=ins_novo, norm_start=charlie_start, norm_end=charlie_start),
+        LocatedMark(mark=sub_charlie, norm_start=charlie_start, norm_end=charlie_end),
+        LocatedMark(mark=del_echo, norm_start=echo_start, norm_end=echo_end),
+    ]
+
+    source_with_marks, events = transplant_to_source(source_body, span_frags, located)
+
+    assert events == []
+    expected = (
+        criticmarkup.emit("del", "Alfa", "")
+        + " Bravo "
+        + criticmarkup.emit("ins", "", "NOVO ")
+        + criticmarkup.emit("sub", "Charlie", "CharlieX")
+        + " Delta "
+        + criticmarkup.emit("del", "Echo", "")
+    )
+    assert source_with_marks == expected
+    assert criticmarkup.reject(source_with_marks) == source_body
+
+
+# --- self-review (Task 7): 2 edge cases próprios — fronteira exata do `ins` -
+#
+# Nuance documentada na Task 7: um ponto de `ins`/`comment` (`norm_start ==
+# norm_end`) que cai EXATAMENTE na fronteira entre dois fragments (norm_end
+# de um == norm_start do outro) resolve deterministicamente para o fragment
+# que TERMINA ali se ele é `identity`; senão, para o que COMEÇA ali. Os 2
+# testes abaixo isolam cada ramo da regra.
+
+
+def test_ins_point_at_boundary_uses_ending_identity_fragment() -> None:
+    """Ponto de `ins` EXATAMENTE na fronteira entre um fragment `identity`
+    que TERMINA ali e um fragment `citation` que COMEÇA ali — a regra
+    escolhe o fragment que termina (é identity): o `ins` ancora IMEDIATAMENTE
+    ANTES da citação, sem tocá-la. Se a implementação preferisse sempre o
+    fragment que começa (a citação, não-identity), isto viraria
+    `non-identity-span` por engano."""
+    prose = "Texto de prosa antes"
+    citation_src = "[[@key2020]]"
+    rest = " resto depois."
+    source_body = prose + citation_src + rest
+    _norm_text, span_frags = normalize_markdown_with_map(source_body)
+
+    point = len(prose)  # fim exato do fragment identity == início do fragment citation
+    mark = ReviewMark(kind="ins", a="", b="NOVO ", author="Coautor", chg_id="5", start=0, end=0)
+    located = [LocatedMark(mark=mark, norm_start=point, norm_end=point)]
+
+    source_with_marks, events = transplant_to_source(source_body, span_frags, located)
+
+    assert events == []
+    expected = prose + criticmarkup.emit("ins", "", "NOVO ") + citation_src + rest
+    assert source_with_marks == expected
+
+
+def test_ins_point_at_boundary_falls_back_to_starting_identity_fragment() -> None:
+    """Ponto de `ins` na fronteira entre um fragment `citation` que TERMINA
+    ali (não é identity) e um fragment `identity` que COMEÇA ali — a regra
+    cai para o fragment que começa ("senão ao que começa"): o `ins` ainda
+    transplanta, ancorado IMEDIATAMENTE DEPOIS da citação. Prova que a
+    implementação não rejeita cegamente só por checar o fragment que
+    termina ali."""
+    citation_src = "[[@key2021]]"
+    rest_prose = " resto de prosa depois do ponto."
+    source_body = citation_src + rest_prose
+    _norm_text, span_frags = normalize_markdown_with_map(source_body)
+    citation_frag = next(f for f in span_frags if f.kind == "citation")
+    point = citation_frag.norm_end
+
+    mark = ReviewMark(kind="ins", a="", b="NOVO ", author="Coautor", chg_id="6", start=0, end=0)
+    located = [LocatedMark(mark=mark, norm_start=point, norm_end=point)]
+
+    source_with_marks, events = transplant_to_source(source_body, span_frags, located)
+
+    assert events == []
+    expected = citation_src + criticmarkup.emit("ins", "", "NOVO ") + rest_prose
+    assert source_with_marks == expected

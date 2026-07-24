@@ -43,6 +43,7 @@ from typing import Any, Literal, cast
 from xml.etree import ElementTree as ET
 
 from prumo_assist.core import criticmarkup
+from prumo_assist.core.obsidian import SpanFragment
 from prumo_assist.domains.write.comments import extract_from_docx
 from prumo_assist.domains.write.export import _parse_csl_payload
 from prumo_assist.domains.write.schemas.v1 import (
@@ -1642,3 +1643,223 @@ def locate_marks_in_norm(
             located.append(LocatedMark(mark=mark, norm_start=norm_start, norm_end=norm_end))
 
     return located, events
+
+
+# --- Task 7: transplante para o source + Guarda B (`transplant_to_source`) --
+#
+# Cada `LocatedMark` (Task 6, offsets em `norm_text`) só transplanta
+# DETERMINISTICAMENTE quando o intervalo INTEIRO cai em UM fragment
+# `kind="identity"` do span-map (spec: prosa-pura-âncora-única-zero-overlap)
+# — cruzar fronteira de fragment, ou pousar num átomo (citação/wikilink/
+# callout/embed/block-id/code), vira evento `non-identity-span` (decisão
+# humana; nunca auto-aplica). Offset source = `frag.source_start + (norm_off
+# - frag.norm_start)` — válido porque um fragment `identity` é sempre uma
+# cópia VERBATIM (`core.obsidian.normalize_markdown_with_map`,
+# `emit_verbatim`): mesmo comprimento e mesmo conteúdo nos dois lados, então
+# a mesma fórmula linear resolve tanto o início quanto o fim do intervalo.
+#
+# NUANCE DO `ins`/`comment` (span vazio, `norm_start == norm_end`, PONTO):
+# como os fragments são contíguos (cobrem `[0, len(norm))` sem buracos nem
+# sobreposição — invariante de `SpanFragment`), um ponto que não é a borda
+# EXATA de um fragment pertence, sem ambiguidade, ao único fragment que o
+# contém estritamente. Na fronteira EXATA entre dois fragments (`norm_end`
+# de um == `norm_start` do outro) a escolha é DETERMINÍSTICA por decisão de
+# design desta task: pertence ao fragment que TERMINA ali se ele é
+# `identity` (o ponto ancora no fim da prosa, imediatamente ANTES do átomo
+# seguinte — permite `ins` logo antes de uma citação/wikilink sem tocá-la);
+# senão, ao que COMEÇA ali (permite `ins` logo DEPOIS de um átomo, quando a
+# prosa seguinte é identity — mesmo que o fragment anterior, que termina
+# ali, não seja identity). Ver `_owning_fragment_for_point`; os 2 edge
+# cases de self-review em `test_review_locate.py` isolam cada ramo.
+#
+# ORDEM DE APLICAÇÃO: de trás pra frente (maior offset SOURCE primeiro) —
+# substituir/inserir num offset maior nunca desloca os offsets, já
+# calculados, das marcas anteriores no documento.
+#
+# GUARDA B (ingest-side): nº de `LocatedMark`s recebidas == nº de marcas
+# efetivamente ESCRITAS no texto + nº de eventos gerados. "Escritas" é
+# roteado por `_emit_marker` (seam isolado, não confundir com chamar
+# `criticmarkup.emit` direto no laço principal) — só para permitir o teste
+# forçar uma marca a "sumir" (monkeypatch retornando `""`) e comprovar que
+# a guarda de fato dispara ANTES de devolver qualquer coisa (nunca um
+# `source_with_marks` parcialmente corrompido: a checagem acontece antes do
+# `return`). Em uso normal a contagem SEMPRE fecha — cada `LocatedMark` cai
+# em exatamente um destino (aplicada ou evento) por construção; a guarda é
+# defesa contra regressão futura, não um caminho esperado.
+
+
+def _owning_fragment_for_point(point: int, span_frags: list[SpanFragment]) -> SpanFragment | None:
+    """Fragment que "possui" um PONTO (alvo de `ins`/`comment`, onde
+    `norm_start == norm_end`) — ver nota de design acima para a regra de
+    fronteira exata. `None` só se `span_frags` não cobrir o ponto
+    (defensivo; não deveria ocorrer com um span-map bem formado, que cobre
+    `[0, len(norm_text))` sem buracos nem sobreposição)."""
+    ending: SpanFragment | None = None
+    starting: SpanFragment | None = None
+    for frag in span_frags:
+        if frag.norm_start < point < frag.norm_end:
+            return frag
+        if ending is None and frag.norm_end == point:
+            ending = frag
+        if starting is None and frag.norm_start == point:
+            starting = frag
+    if ending is not None and ending.kind == "identity":
+        return ending
+    return starting
+
+
+def _covering_identity_fragment(
+    start: int, end: int, span_frags: list[SpanFragment]
+) -> SpanFragment | None:
+    """Fragment `kind="identity"` que cobre `[start, end)` INTEIRO (alvo de
+    `del`/`sub`/`highlight`) — ou `None` se o intervalo cruza fronteira de
+    fragment, cai fora do span-map, ou o fragment que o contém não é
+    `identity`. Sem ambiguidade de fronteira (ao contrário do ponto): um
+    intervalo de largura > 0 só pode estar inteiramente contido em UM
+    fragment, dada a contiguidade sem sobreposição do span-map."""
+    for frag in span_frags:
+        if frag.norm_start <= start and end <= frag.norm_end:
+            return frag if frag.kind == "identity" else None
+    return None
+
+
+def _classify_located_mark(
+    loc: LocatedMark, span_frags: list[SpanFragment]
+) -> tuple[int, int] | None:
+    """Offsets SOURCE `(start, end)` de `loc` quando transplantável
+    deterministicamente, ou `None` quando não (o chamador emite
+    `non-identity-span`). Ponto (`ins`/`comment`, `norm_start == norm_end`)
+    via :func:`_owning_fragment_for_point`; span (`del`/`sub`/`highlight`)
+    via :func:`_covering_identity_fragment`."""
+    if loc.norm_start == loc.norm_end:
+        frag = _owning_fragment_for_point(loc.norm_start, span_frags)
+        if frag is None or frag.kind != "identity":
+            return None
+        offset = frag.source_start + (loc.norm_start - frag.norm_start)
+        return offset, offset
+
+    frag = _covering_identity_fragment(loc.norm_start, loc.norm_end, span_frags)
+    if frag is None:
+        return None
+    src_start = frag.source_start + (loc.norm_start - frag.norm_start)
+    src_end = frag.source_start + (loc.norm_end - frag.norm_start)
+    return src_start, src_end
+
+
+def _non_identity_span_event(mark: ReviewMark) -> ReviewEvent:
+    """Evento `non-identity-span` — o alvo da marca não cai inteiro em UM
+    fragment `kind="identity"` do span-map (cruza fronteira de fragment, ou
+    pousa num átomo: citação/wikilink/callout/embed/block-id/code).
+    Transplante determinístico não suportado; decisão humana necessária."""
+    excerpt = _mark_excerpt(mark)
+    return ReviewEvent(
+        kind="non-identity-span",
+        detail=(
+            f"Marca {mark.kind} de {mark.author} não cai inteiramente numa "
+            f'região de prosa pura da fonte (trecho: "{excerpt}"). O '
+            "transplante determinístico só localiza mudanças que caem "
+            "inteiras em texto puro (fora de citação/wikilink/callout/embed/"
+            "bloco de código, e sem cruzar fronteira de fragment). Resolva "
+            "manualmente comparando o docx revisado com a página fonte, ou "
+            "aplique a mudança direto na página."
+        ),
+        author=mark.author,
+        mark_excerpt=excerpt,
+    )
+
+
+def _emit_marker(mark: ReviewMark) -> str:
+    """Serializa `mark` via `criticmarkup.emit` — seam isolado (não chamado
+    como `criticmarkup.emit` direto no laço principal de
+    :func:`transplant_to_source`) só para permitir o teste de Guarda B
+    forçar uma marca a "sumir" (monkeypatch retornando `""` para simular um
+    bug em que o texto da marca nunca chega a ser escrito no source)."""
+    return criticmarkup.emit(mark.kind, mark.a, mark.b)
+
+
+def _mark_lost_message(lost: list[ReviewMark], total: int, applied: int, event_count: int) -> str:
+    """Mensagem pt-BR da Guarda B — nomeia a contagem que não fechou e o
+    excerpt de cada marca perdida (`lost`, sempre não-vazia quando a guarda
+    dispara nesta implementação: é a única fonte possível de divergência
+    de contagem)."""
+    excerpts = "; ".join(f'"{_mark_excerpt(m)}" ({m.author})' for m in lost)
+    return (
+        f"Guarda B: contagem não fecha no transplante para o source — "
+        f"{total} ReviewMark(s) localizada(s), mas só {applied} aplicada(s) + "
+        f"{event_count} evento(s) = {applied + event_count}. Marca(s) "
+        f"perdida(s): {excerpts}. Isso é um BUG interno do transplante (nunca "
+        "deveria acontecer em uso normal) — não prossiga; reporte o problema "
+        "com o docx revisado e a página em questão."
+    )
+
+
+def transplant_to_source(
+    source_body: str,
+    span_frags: list[SpanFragment],
+    located: list[LocatedMark],
+) -> tuple[str, list[ReviewEvent]]:
+    """Transplanta cada `LocatedMark` (Task 6) para offsets do `source_body`
+    (corpo da página SEM frontmatter — o chamador, Task 8, preserva o
+    frontmatter na escrita de `review.md`) via o span-map (`span_frags`,
+    saída de `core.obsidian.normalize_markdown_with_map` sobre o mesmo
+    `source_body`).
+
+    Para cada `loc` em `located`, NESTA ordem: classifica o alvo contra
+    `span_frags` (:func:`_classify_located_mark` — só identity, intervalo
+    inteiro, ver nota de design da seção acima); sem classificação possível
+    -> evento `non-identity-span`; senão, serializa a marca
+    (:func:`_emit_marker`) e enfileira `(source_start, source_end, marker)`
+    para aplicação. Aplica todas as marcas enfileiradas DE TRÁS PRA FRENTE
+    — ordenadas por `(source_start, source_end)` DESCENDENTE, não só
+    `source_start` — substituindo `source_body[start:end]` pelo marcador
+    serializado. Para `ins`/`comment` (ponto, `start == end`), isso é uma
+    inserção pura; para `del`/`sub`/`highlight` (span), o marcador já
+    reincorpora `mark.a` (semântica de `criticmarkup.emit`), então a
+    substituição preserva a reconstrução via `criticmarkup.reject`.
+
+    A chave de ordenação inclui `source_end` (não só `source_start`) por
+    causa de um caso real: um `ins` (ponto) cujo offset coincide EXATAMENTE
+    com o início de outro span adjacente (`ins.start == span.start`, ambos
+    com o MESMO `source_start`) — ordenar só por `source_start` deixa a
+    ordem relativa dos dois indefinida (empate), e aplicar o ponto ANTES do
+    span corrompe o span (o ponto desloca tudo a partir dali, invalidando o
+    `source_end` já calculado do span). Desempatar por `source_end`
+    descendente aplica sempre o span (maior `source_end`) primeiro — como
+    ele começa exatamente onde o ponto seria inserido, aplicá-lo primeiro
+    não desloca a posição do ponto (que continua válida logo antes do
+    resultado), e só então o ponto é inserido, corretamente, imediatamente
+    antes do marcador do span.
+
+    **Guarda B (ingest-side):** ao final, nº de `LocatedMark`s recebidas
+    tem que fechar com nº de marcas efetivamente aplicadas + nº de eventos
+    gerados — qualquer divergência (só possível hoje via o seam
+    `_emit_marker` devolvendo `""`, o que esta função trata como "marca
+    perdida" e NÃO aplica) levanta `MarkLostError` com o excerpt de cada
+    marca perdida, antes de retornar (o chamador nunca recebe um
+    `source_with_marks` parcialmente corrompido).
+
+    Retorna `(source_with_marks, events)`.
+    """
+    events: list[ReviewEvent] = []
+    placements: list[tuple[int, int, str]] = []
+    lost: list[ReviewMark] = []
+
+    for loc in located:
+        offsets = _classify_located_mark(loc, span_frags)
+        if offsets is None:
+            events.append(_non_identity_span_event(loc.mark))
+            continue
+        marker = _emit_marker(loc.mark)
+        if not marker:
+            lost.append(loc.mark)
+            continue
+        placements.append((offsets[0], offsets[1], marker))
+
+    source_with_marks = source_body
+    for src_start, src_end, marker in sorted(placements, key=lambda p: (p[0], p[1]), reverse=True):
+        source_with_marks = source_with_marks[:src_start] + marker + source_with_marks[src_end:]
+
+    if len(placements) + len(events) != len(located):
+        raise MarkLostError(_mark_lost_message(lost, len(located), len(placements), len(events)))
+
+    return source_with_marks, events
