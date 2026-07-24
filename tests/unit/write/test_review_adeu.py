@@ -193,6 +193,50 @@ def test_run_adeu_extract_parses_markdown_field_from_stdout_json(tmp_path: Path)
     assert markdown == "# titulo\n\ncorpo com {++marca++}"
 
 
+def test_run_adeu_extract_invalid_json_stdout_raises_adeu_unavailable(tmp_path: Path) -> None:
+    """Achado da review da Task 4 (endossado para a Task 8, MUST-DO): stdout
+    que não é JSON válido vazava `json.JSONDecodeError` cru — vira
+    `AdeuUnavailableError` pt-BR nomeando o contrato esperado (campo
+    `markdown`) e o comando de verificação da versão pinada."""
+    docx = tmp_path / "revisado.docx"
+
+    with (
+        patch(
+            "prumo_assist.domains.write.review.subprocess.run",
+            return_value=_completed(returncode=0, stdout="isto nao e json valido"),
+        ),
+        pytest.raises(AdeuUnavailableError) as exc,
+    ):
+        _run_adeu_extract(docx)
+
+    message = str(exc.value)
+    assert "JSON esperado" in message
+    assert "uvx adeu==1.29.0 --version" in message
+
+
+def test_run_adeu_extract_json_without_markdown_field_raises_adeu_unavailable(
+    tmp_path: Path,
+) -> None:
+    """Mesmo achado: JSON válido mas sem o campo `markdown` esperado
+    (`payload["markdown"]` vazava `KeyError` cru) — mesma
+    `AdeuUnavailableError` do stdout inválido."""
+    docx = tmp_path / "revisado.docx"
+    stdout = json.dumps({"other": 123})
+
+    with (
+        patch(
+            "prumo_assist.domains.write.review.subprocess.run",
+            return_value=_completed(returncode=0, stdout=stdout),
+        ),
+        pytest.raises(AdeuUnavailableError) as exc,
+    ):
+        _run_adeu_extract(docx)
+
+    message = str(exc.value)
+    assert "JSON esperado" in message
+    assert "campo 'markdown'" in message
+
+
 def test_run_adeu_extract_nonzero_exit_raises_adeu_unavailable(tmp_path: Path) -> None:
     docx = tmp_path / "revisado.docx"
 

@@ -33,6 +33,7 @@ o leitor stateless nunca precisou saber.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -42,16 +43,20 @@ from pathlib import Path
 from typing import Any, Literal, cast
 from xml.etree import ElementTree as ET
 
+import yaml
+
 from prumo_assist.core import criticmarkup
-from prumo_assist.core.obsidian import SpanFragment
+from prumo_assist.core.obsidian import SpanFragment, normalize_markdown_with_map, split_frontmatter
 from prumo_assist.domains.write.comments import extract_from_docx
-from prumo_assist.domains.write.export import _parse_csl_payload
+from prumo_assist.domains.write.export import _parse_csl_payload, _slugify, detect_project_root
 from prumo_assist.domains.write.schemas.v1 import (
     CiteMapFile,
     CiteOccurrence,
     ReviewComment,
     ReviewCommentsFile,
     ReviewEvent,
+    ReviewEventsFile,
+    SpanMapFile,
 )
 
 # Mesmo padrão de comments.py (W_NS + iteração ET sobre word/document.xml).
@@ -658,7 +663,12 @@ def _run_adeu_extract(docx_path: Path) -> str:
     ``subprocess.run``) e exit != 0 (adeu resolvido mas falhou — docx
     incompatível, versão incorreta, etc.) viram a MESMA
     :class:`AdeuUnavailableError`: o chamador (Task 8, ``ingest``) só
-    precisa tratar um único tipo de falha do backend de prosa.
+    precisa tratar um único tipo de falha do backend de prosa. O mesmo vale
+    para stdout que não é o JSON esperado (:class:`json.JSONDecodeError`) ou
+    JSON válido sem o campo ``markdown`` (:class:`KeyError`) — achado do
+    review da Task 4, endossado como MUST-DO para a Task 8: sem este catch,
+    as duas exceções vazavam cruas (tipo Python interno, sem o comando de
+    correção pt-BR que este módulo garante em todo outro hard-fail).
     """
     try:
         proc = subprocess.run(
@@ -679,8 +689,15 @@ def _run_adeu_extract(docx_path: Path) -> str:
             f"{_ADEU_INSTALL_HINT}"
         )
 
-    payload = cast(dict[str, Any], json.loads(proc.stdout))
-    return str(payload["markdown"])
+    try:
+        payload = cast(dict[str, Any], json.loads(proc.stdout))
+        return str(payload["markdown"])
+    except (json.JSONDecodeError, KeyError) as exc:
+        raise AdeuUnavailableError(
+            "saída do adeu não é o JSON esperado (campo 'markdown') — confirme "
+            "a versão pinada: `uvx adeu==1.29.0 --version`; detalhe: "
+            f"{exc!r}"
+        ) from exc
 
 
 @dataclass(frozen=True)
@@ -1903,3 +1920,235 @@ def transplant_to_source(
         raise MarkLostError(_mark_lost_message(lost, len(located), len(placements), len(events)))
 
     return source_with_marks, events
+
+
+# --- Task 8: ingest() — orquestração + preflight + escrita dos sidecars -----
+#
+# `ingest()` é o único ponto que amarra T1-T7: nenhuma lógica NOVA de
+# guarda/conservação/localização/transplante mora aqui — só a SEQUÊNCIA (o
+# fluxo "3a-3h" do spec) e a escrita dos 3 sidecars desta fase
+# (`review.md`, `review-comments.yaml`, `events.yaml`). Passos, nesta ordem
+# (cada um hard-fail antes do próximo quando aplicável — nenhum caminho
+# prossegue parcial, per Global Constraints do plano):
+#
+#   3a. resolve `project_root` (`export.detect_project_root`, se não
+#       fornecido) e o `slug` (`export._slugify`) — juntos apontam
+#       `reviews/<slug>/`, onde tanto os sidecars do export (entrada) quanto
+#       os desta fase (saída) moram.
+#   3b. carrega `citemap.json`/`span-map.json` — ausência de QUALQUER um dos
+#       dois é `FileNotFoundError` pt-BR (não `SourceChangedError`: sidecar
+#       ausente significa "nunca foi exportado", não "mudou depois").
+#   3c. preflight de fonte: sha256 do corpo ATUAL da página (sem
+#       frontmatter) precisa bater com `span_map.source_sha256` — página
+#       mudou desde o export invalida qualquer offset derivado do span-map
+#       antigo (spec: "offsets derivados nunca são confiados").
+#   3d. I8: sha256 do docx REVISADO precisa DIVERGIR de `citemap.docx_sha256`
+#       — se bater, o arquivo que voltou do coautor é literalmente o mesmo
+#       que foi exportado (nada foi revisado, ou o coautor mandou o arquivo
+#       errado). Usa `CitationConservationError` (mesma família do I8 geral,
+#       per docstring da classe — não introduz exceção nova só para este
+#       caso; ver "Interfaces centrais" do plano).
+#   3e. Guarda A (`assert_no_structural_changes`) sobre o docx revisado.
+#   3f. leitor com estado (`read_docx_citations_with_state`) + conservação
+#       (`check_conservation`) — devolve `deleted` (citações removidas sob
+#       Track Changes, candidatas a `citation-drop`).
+#   3g. adeu extract+parse (`_run_adeu_extract` + `parse_adeu_markdown`),
+#       recomputa `norm_text`/`span_frags` via
+#       `normalize_markdown_with_map(body, page_dir=page.parent)` — MESMA
+#       chamada que o export fez (nunca lê `span_map.fragments`: como o
+#       preflight 3c já confirmou que `body` é byte-idêntico ao que o export
+#       normalizou, recalcular é determinístico e produz o MESMO span-map,
+#       sem precisar desserializar `SpanFragmentModel` de volta pro
+#       dataclass `SpanFragment` que `transplant_to_source` espera) —,
+#       localiza (`locate_marks_in_norm`) e transplanta
+#       (`transplant_to_source`).
+#   3h. monta os eventos finais (eventos da localização + eventos do
+#       transplante + um `citation-drop` por citação `deleted`) e escreve os
+#       3 sidecars. Retorna `IngestResult`.
+#
+# NADA disto toca a página original (`page`): ela só é LIDA (para o corpo e
+# o frontmatter); toda saída vai para `reviews/<slug>/`. O `apply` (Task 9)
+# é quem eventualmente escreve de volta na página, com confirmação humana.
+
+_SIDECAR_MISSING_HINT = "rode `prumo write export --to docx` antes"
+
+
+@dataclass(frozen=True)
+class IngestResult:
+    """Resultado de `ingest()` — nada aqui já foi escrito na página original.
+
+    ``review_md`` é o caminho de `reviews/<slug>/review.md` (frontmatter da
+    página + corpo com as marcas transplantadas, Task 7); ``marks_applied``
+    é a contagem de `LocatedMark`s que efetivamente viraram marcador
+    CriticMarkup em ``review_md`` (`len(located) - len(eventos do
+    transplante)` — as demais marcas localizadas viraram evento
+    `non-identity-span`, e as NUNCA localizadas nem entram nessa conta,
+    per Guarda B de `transplant_to_source`); ``events``/``comments`` são os
+    objetos JÁ gravados em `events.yaml`/`review-comments.yaml`
+    (retornados também em memória para o chamador — CLI da Task 10 — não
+    precisar reler do disco); ``deleted`` é a lista de `DocxCitation` que
+    `check_conservation` (Task 2) devolveu (mesmas citações por trás dos
+    eventos `citation-drop` em ``events``), exposta separadamente porque o
+    `apply` (Task 9) precisa dela para validar `--confirm-citation-drops`.
+    """
+
+    review_md: Path
+    marks_applied: int
+    events: ReviewEventsFile
+    comments: ReviewCommentsFile
+    deleted: list[DocxCitation]
+
+
+def _read_sidecars(review_dir: Path) -> tuple[CiteMapFile, SpanMapFile]:
+    """Carrega `citemap.json`/`span-map.json` de `review_dir` (passo 3b).
+
+    Ausência de QUALQUER um dos dois é `FileNotFoundError` (não uma
+    exceção nova deste módulo — regra do repo: hard-fail de arquivo ausente
+    usa o tipo stdlib direto, mensagem pt-BR com o comando embutido, mesmo
+    padrão de `export.export`/`export.compose` para `bib` ausente)."""
+    citemap_path = review_dir / "citemap.json"
+    span_map_path = review_dir / "span-map.json"
+    missing = [p.name for p in (citemap_path, span_map_path) if not p.is_file()]
+    if missing:
+        raise FileNotFoundError(
+            f"Sidecar(s) de review ausente(s) em {review_dir}: {', '.join(missing)}. "
+            f"A página nunca foi exportada para docx (ou o diretório "
+            f"`reviews/` foi apagado) — {_SIDECAR_MISSING_HINT}."
+        )
+    citemap = CiteMapFile.model_validate_json(citemap_path.read_text())
+    span_map = SpanMapFile.model_validate_json(span_map_path.read_text())
+    return citemap, span_map
+
+
+def _citation_drop_event(citation: DocxCitation) -> ReviewEvent:
+    """Evento `citation-drop` para uma citação `deleted` (Task 2 —
+    `check_conservation`), passo 3h.
+
+    ``author`` fica sempre ``None`` aqui: `DocxCitation` (leitor T1, I2b)
+    NÃO expõe o autor do `w:del` que envolve o campo — só o ESTADO
+    (`live`/`deleted`/`touched`), decidido em `_frame_state` a partir da
+    ancestralidade `w:ins`/`w:del` de cada run, sem guardar o atributo
+    `w:author` do elemento `w:del` em si. Diferente do `"(desconhecido)"`
+    textual que o parser do adeu usa para PROSA sem anotação pareada
+    (`_UNKNOWN_AUTHOR`) — aqui é `None` porque citação nunca passa pelo
+    adeu (I1: citação é sempre OOXML próprio), então não há um valor
+    "desconhecido" a preencher, só um dado que o leitor atual não coleta.
+    Registrado no relatório da Task 8 como melhoria futura (exigiria
+    `read_docx_citations_with_state` devolver o `w:author` do primeiro
+    `w:del` do frame)."""
+    citekeys = ", ".join(citation.citekeys)
+    return ReviewEvent(
+        kind="citation-drop",
+        detail=(
+            f"citação (occ {citation.occ_id}, citekeys {citekeys}) deletada "
+            "no Word — confirme no apply."
+        ),
+        occ_id=citation.occ_id,
+        citekeys=list(citation.citekeys),
+        author=None,
+        mark_excerpt=citation.formatted or None,
+    )
+
+
+def _render_review_md(meta: dict[str, Any], source_with_marks: str) -> str:
+    """Reconstrói o texto de `review.md`: frontmatter da página (se houver,
+    reserializado via `yaml.safe_dump`) + o corpo com as marcas transplantadas
+    — mesmo padrão de reconstrução de frontmatter usado em
+    `domains/wiki/study.py`/`domains/wiki/findings.py`
+    (``f"---\\n{yaml_block}\\n---\\n\\n{body}"``). Página sem frontmatter
+    (``meta`` vazio, `split_frontmatter` devolveu ``{}``) escreve só o
+    corpo — não inventa um bloco `---` que a página original não tinha."""
+    if not meta:
+        return source_with_marks
+    yaml_block = yaml.safe_dump(meta, sort_keys=False, allow_unicode=True).strip()
+    return f"---\n{yaml_block}\n---\n\n{source_with_marks}"
+
+
+def ingest(reviewed_docx: Path, page: Path, project_root: Path | None = None) -> IngestResult:
+    """Orquestra o ingest de um docx revisado (fluxo 3a-3h — ver comentário
+    da seção acima para o design completo de cada passo).
+
+    Nunca escreve ou modifica ``page`` (a página-fonte original): ela só é
+    lida (corpo + frontmatter). Toda saída vai para
+    ``reviews/<slug>/{review.md,review-comments.yaml,events.yaml}`` —
+    ``review.md`` é o artefato que o humano revisa e eventualmente aplica de
+    volta na página via ``apply_review`` (Task 9); o `git add`/commit desses
+    sidecars é do humano (portão, per Global Constraints do plano).
+
+    Levanta (na ordem em que os passos 3a-3h checam, parando na primeira
+    falha): ``FileNotFoundError`` (sidecars ausentes, 3b);
+    :class:`SourceChangedError` (fonte mudou desde o export, 3c);
+    :class:`CitationConservationError` (I8 — docx idêntico ao exportado,
+    3d; ou qualquer divergência de conservação de citação, 3f);
+    :class:`StructuralChangeError` (Guarda A, 3e);
+    :class:`AdeuUnavailableError` (backend de prosa indisponível, 3g);
+    :class:`MarkLostError` (Guarda B, dentro de `transplant_to_source`, 3g).
+    """
+    project_root = project_root or detect_project_root(page)
+    slug = _slugify(page, project_root)
+    review_dir = project_root / "reviews" / slug
+
+    citemap, span_map = _read_sidecars(review_dir)
+
+    page_text = page.read_text()
+    meta, body = split_frontmatter(page_text)
+
+    body_sha256 = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    if body_sha256 != span_map.source_sha256:
+        raise SourceChangedError(
+            "A fonte mudou desde o export: sha256 do corpo atual de "
+            f"{page} ({body_sha256}) diverge de `source_sha256` em "
+            f"{review_dir / 'span-map.json'} ({span_map.source_sha256}) — "
+            "página mudou desde o export — re-exporte e peça nova revisão "
+            "sobre o docx novo."
+        )
+
+    docx_sha256 = hashlib.sha256(reviewed_docx.read_bytes()).hexdigest()
+    if docx_sha256 == citemap.docx_sha256:
+        raise CitationConservationError(
+            f"O docx revisado ({reviewed_docx}) tem o MESMO sha256 do docx "
+            f"exportado registrado em {review_dir / 'citemap.json'} (I8): "
+            "docx não contém revisão (é o exportado) — confirme que o "
+            "coautor devolveu o arquivo certo, com as mudanças salvas."
+        )
+
+    assert_no_structural_changes(reviewed_docx)
+
+    observed = read_docx_citations_with_state(reviewed_docx)
+    deleted = check_conservation(observed, citemap)
+
+    markdown = _run_adeu_extract(reviewed_docx)
+    clean_text, marks = parse_adeu_markdown(markdown)
+
+    norm_text, span_frags = normalize_markdown_with_map(body, page_dir=page.parent)
+
+    located, locate_events = locate_marks_in_norm(clean_text, marks, norm_text, citemap, deleted)
+    source_with_marks, transplant_events = transplant_to_source(body, span_frags, located)
+
+    drop_events = [_citation_drop_event(citation) for citation in deleted]
+    all_events = [*locate_events, *transplant_events, *drop_events]
+    marks_applied = len(located) - len(transplant_events)
+
+    rel_page = page.relative_to(project_root) if page.is_absolute() else page
+    comments = collect_review_comments(reviewed_docx, str(rel_page))
+    events_file = ReviewEventsFile(page=str(rel_page), events=all_events)
+
+    review_dir.mkdir(parents=True, exist_ok=True)
+    review_md_path = review_dir / "review.md"
+    review_md_path.write_text(_render_review_md(meta, source_with_marks), encoding="utf-8")
+    (review_dir / "review-comments.yaml").write_text(
+        yaml.safe_dump(comments.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    (review_dir / "events.yaml").write_text(
+        yaml.safe_dump(events_file.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    return IngestResult(
+        review_md=review_md_path,
+        marks_applied=marks_applied,
+        events=events_file,
+        comments=comments,
+        deleted=deleted,
+    )
