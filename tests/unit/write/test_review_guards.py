@@ -159,6 +159,16 @@ def _body_with_ordinary_tracked_change(text: str) -> str:
     )
 
 
+def _clean_table(text: str) -> str:
+    """`w:tbl > w:tr > w:tc > w:p > w:r > w:t` — tabela limpa sem mudança
+    rastreada inside."""
+    return (
+        "<w:tbl><w:tr><w:tc><w:p>"
+        f'<w:r><w:t xml:space="preserve">{text}</w:t></w:r>'
+        "</w:p></w:tc></w:tr></w:tbl>"
+    )
+
+
 # --- (a) tabela --------------------------------------------------------
 
 
@@ -281,6 +291,22 @@ def test_assert_no_structural_changes_passes_with_ordinary_tracked_change_in_bod
     docx = _write_docx(
         tmp_path / "corpo_normal.docx",
         document_body=_body_with_ordinary_tracked_change("texto inserido no corpo, fora de tabela"),
+    )
+
+    assert_no_structural_changes(docx)  # não levanta
+
+
+def test_clean_table_with_sibling_tracked_change_passes(tmp_path: Path) -> None:
+    """Regressão: tabela limpa (sem mudança rastreada) + mudança rastreada em
+    parágrafo irmão fora da tabela. Uma implementação ingênua (verifica "tabela
+    existe EM ALGUM LUGAR" E "mudança rastreada existe EM ALGUM LUGAR") falharia
+    aqui. A Guarda A deve verificar que a mudança está DENTRO da estrutura
+    (tabela/nota/equação), não apenas que ambas existem."""
+    document_body = _clean_table("Célula normal sem mudanca.") + _body_with_ordinary_tracked_change(
+        "Paragrafo irmao com mudanca rastreada."
+    )
+    docx = _write_docx(
+        tmp_path / "tabela_limpa_com_irmao_rastreado.docx", document_body=document_body
     )
 
     assert_no_structural_changes(docx)  # não levanta
