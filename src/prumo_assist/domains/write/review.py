@@ -35,10 +35,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import shutil
 import subprocess
 import zipfile
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -47,9 +49,20 @@ from xml.etree import ElementTree as ET
 import yaml
 
 from prumo_assist.core import criticmarkup
-from prumo_assist.core.obsidian import SpanFragment, normalize_markdown_with_map, split_frontmatter
+from prumo_assist.core.citations import CITEKEY_RE
+from prumo_assist.core.obsidian import (
+    SpanFragment,
+    normalize_markdown,
+    normalize_markdown_with_map,
+    split_frontmatter,
+)
 from prumo_assist.domains.write.comments import extract_from_docx
-from prumo_assist.domains.write.export import _parse_csl_payload, _slugify, detect_project_root
+from prumo_assist.domains.write.export import (
+    _norm_citation_spans,
+    _parse_csl_payload,
+    _slugify,
+    detect_project_root,
+)
 from prumo_assist.domains.write.schemas.v1 import (
     CiteMapFile,
     CiteOccurrence,
@@ -59,6 +72,8 @@ from prumo_assist.domains.write.schemas.v1 import (
     ReviewEventsFile,
     SpanMapFile,
 )
+
+logger = logging.getLogger(__name__)
 
 # Mesmo padrão de comments.py (W_NS + iteração ET sobre word/document.xml).
 W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -1845,12 +1860,28 @@ def transplant_to_source(
     source_body: str,
     span_frags: list[SpanFragment],
     located: list[LocatedMark],
+    *,
+    author_anchors: bool = False,
 ) -> tuple[str, list[ReviewEvent]]:
     """Transplanta cada `LocatedMark` (Task 6) para offsets do `source_body`
     (corpo da página SEM frontmatter — o chamador, Task 8, preserva o
     frontmatter na escrita de `review.md`) via o span-map (`span_frags`,
     saída de `core.obsidian.normalize_markdown_with_map` sobre o mesmo
     `source_body`).
+
+    ``author_anchors`` (Task 9, default ``False`` — mantém o comportamento
+    de Task 7 intacto): quando ``True``, cada marcador colocado ganha, colado
+    IMEDIATAMENTE depois, um comentário-âncora ``{>>autor: <Autor><<}`` com o
+    ``mark.author`` daquele placement especificamente (nunca pareado
+    depois — o autor só existe aqui, no momento em que a marca ainda carrega
+    o `ReviewMark` original). É a SIMPLIFICAÇÃO DO MVP decidida no plano da
+    Fase 2/Task 9 para autoria sobreviver no CriticMarkup puro: `apply_review`
+    pareia essa âncora com a marca de conteúdo por adjacência estrita (mesma
+    regra de :func:`parse_adeu_markdown`) e a filtra por autor; a âncora
+    NUNCA vai para a página final (é consumida na aplicação). ``ingest()``
+    chama sempre com ``author_anchors=True``; os testes de Task 7
+    (`test_review_locate.py`) usam o default ``False`` e permanecem
+    idênticos.
 
     Para cada `loc` em `located` (índice `idx` == posição original na
     lista), NESTA ordem: classifica o alvo contra `span_frags`
@@ -1919,6 +1950,8 @@ def transplant_to_source(
         if not marker:
             lost.append(loc.mark)
             continue
+        if author_anchors:
+            marker += criticmarkup.emit("comment", "", f"autor: {loc.mark.author}")
         placements.append((offsets[0], offsets[1], idx, marker))
 
     source_with_marks = source_body
@@ -2137,7 +2170,9 @@ def ingest(reviewed_docx: Path, page: Path, project_root: Path | None = None) ->
     norm_text, span_frags = normalize_markdown_with_map(body, page_dir=page.parent)
 
     located, locate_events = locate_marks_in_norm(clean_text, marks, norm_text, citemap, deleted)
-    source_with_marks, transplant_events = transplant_to_source(body, span_frags, located)
+    source_with_marks, transplant_events = transplant_to_source(
+        body, span_frags, located, author_anchors=True
+    )
 
     drop_events = [_citation_drop_event(citation) for citation in deleted]
     all_events = [*locate_events, *transplant_events, *drop_events]
@@ -2165,4 +2200,412 @@ def ingest(reviewed_docx: Path, page: Path, project_root: Path | None = None) ->
         events=events_file,
         comments=comments,
         deleted=deleted,
+    )
+
+
+# --- Task 9: apply_review() — decisões por marca/autor + write-back --------
+#
+# `apply_review()` fecha o loop: lê `review.md` (marcas CriticMarkup + âncoras
+# de autor emitidas por `transplant_to_source(..., author_anchors=True)`) e
+# `events.yaml` (Task 8), resolve as marcas conforme o modo de decisão
+# escolhido, e reescreve a PÁGINA original — nunca `review.md`, que
+# permanece intocado como histórico Git do que o coautor pediu.
+#
+# CITAÇÃO NUNCA É TOCADA POR MARCA CRITICMARKUP (I1): um `citation-drop`
+# confirmado não é "aplicado" por transplante nenhum — `ingest()` já deixa a
+# citação intocada em `review.md` mesmo quando `deleted` (Task 8). Só o
+# HUMANO, editando `review.md` (git-tracked, é o gate per spec), de fato
+# remove a referência à citação; `apply_review` apenas VERIFICA, via
+# conservação pós-apply, que o corpo final tem o multiconjunto de citekeys
+# esperado (citemap − drops confirmados) — I5: bibliografia é função da
+# fonte, nada a transplantar. Confirmar o drop sem editar `review.md` não
+# remove a citação sozinho: a conservação pega essa divergência (hard-fail).
+#
+# ÂNCORA DE AUTOR: `{>>autor: X<<}` é pareada com a marca de conteúdo
+# IMEDIATAMENTE anterior pela MESMA regra de adjacência de
+# `parse_adeu_markdown` (Task 4) — ver `_pair_author_anchors`. Nunca
+# sobrevive à página final: TODA âncora reconhecida (pareada ou órfã) é
+# removida do resultado, independente de a marca de conteúdo pareada (se
+# houver) ter sido decidida ou não — `comment` resolve para "" nos dois
+# sentidos (accept/reject), então o valor do bool não importa para ela.
+#
+# MODOS DE DECISÃO (exatamente um por chamada — `_validate_apply_mode`):
+# `accept_all`/`reject_all` decidem TODAS as marcas de conteúdo de uma vez —
+# únicos modos com Guarda B apply-side (nenhuma marca pode sobrar depois).
+# `by_author` + `author_decision` decidem só as marcas cujo autor pareado
+# bate com `by_author`; `marks` decide por ÍNDICE na lista de marcas de
+# CONTEÚDO (índice ignora âncoras — é a posição entre as marcas DECIDÍVEIS,
+# não a posição bruta de `criticmarkup.parse`). Nos dois modos parciais,
+# marca sem decisão explícita permanece intacta na página (semântica de
+# `criticmarkup.apply`: "marca sem decisão permanece intacta") — sem Guarda
+# B, documentado, não é bug.
+
+_NON_BLOCKING_EVENT_KINDS = frozenset({"citation-drop", "applied"})
+
+_AUTHOR_ANCHOR_RE = re.compile(r"^autor: (?P<author>.*)$")
+
+
+@dataclass(frozen=True)
+class ApplyResult:
+    """Resultado de `apply_review()` — quando retorna sem erro, a página já
+    foi reescrita e `events.yaml` já ganhou o registro `applied`."""
+
+    page: Path
+    applied: int
+    rejected: int
+    drops_confirmed: list[str]
+
+
+def _validate_apply_mode(
+    *,
+    accept_all: bool,
+    reject_all: bool,
+    by_author: str | None,
+    author_decision: bool | None,
+    marks: dict[int, bool] | None,
+) -> None:
+    """Exatamente UM modo de decisão por chamada — `accept_all` XOR
+    `reject_all` XOR (`by_author` + `author_decision`) XOR `marks` — senão
+    `ValueError` pt-BR. `by_author`/`author_decision` têm que vir SEMPRE
+    juntos (um sem o outro não é modo válido, mesmo que só `by_author`
+    entre na contagem XOR abaixo)."""
+    selected = (accept_all, reject_all, by_author is not None, marks is not None)
+    if sum(1 for s in selected if s) != 1:
+        raise ValueError(
+            "escolha exatamente um modo de decisão por chamada: `accept_all`, "
+            "`reject_all`, `by_author` (junto de `author_decision`), ou "
+            "`marks` (dict índice->decisão) — nunca zero, nunca mais de um."
+        )
+    if (by_author is not None) != (author_decision is not None):
+        raise ValueError(
+            "`by_author` exige `author_decision` (True aceitar/False "
+            "rejeitar) explícito junto, e vice-versa — os dois formam UM "
+            "único modo de decisão, nunca isolados."
+        )
+
+
+def _pair_author_anchors(
+    marks: list[criticmarkup.Mark],
+) -> tuple[dict[int, int], dict[int, str], set[int]]:
+    """Pareia cada marca de CONTEÚDO com a âncora `{>>autor: X<<}` que a
+    segue IMEDIATAMENTE (adjacência estrita — MESMA regra de pareamento de
+    :func:`parse_adeu_markdown`/Task 4: `current.kind == "comment"`,
+    `previous.kind != "comment"` e `current.start == previous.end`, zero
+    caracteres entre as duas).
+
+    Retorna `(anchor_of_content, anchor_author, anchor_indices)`:
+    ``anchor_of_content`` mapeia índice da marca de conteúdo (posição em
+    ``marks``, saída de `criticmarkup.parse`) -> índice da âncora pareada;
+    ``anchor_author`` mapeia índice de âncora -> autor extraído do corpo;
+    ``anchor_indices`` é o conjunto de TODOS os índices reconhecidos como
+    âncora de autor — pareados OU órfãos, os dois nunca sobrevivem à página
+    final (per design do módulo).
+
+    Âncora ÓRFÃ (corpo casa `autor: X` mas sem marca de conteúdo NÃO-comment
+    imediatamente antes — ex.: duas âncoras encostadas, ou âncora logo no
+    início do texto) é reconhecida no segundo laço e um aviso é emitido via
+    `logger.warning` — nunca hard-fail: um `review.md` com âncora órfã ainda
+    precisa ser aplicável (o chamador remove a âncora órfã do mesmo jeito
+    que uma pareada)."""
+    anchor_of_content: dict[int, int] = {}
+    anchor_author: dict[int, str] = {}
+    anchor_indices: set[int] = set()
+
+    for i in range(1, len(marks)):
+        previous, current = marks[i - 1], marks[i]
+        if current.kind != "comment" or previous.kind == "comment" or current.start != previous.end:
+            continue
+        match = _AUTHOR_ANCHOR_RE.match(current.b)
+        if match is None:
+            continue
+        anchor_of_content[i - 1] = i
+        anchor_author[i] = match.group("author")
+        anchor_indices.add(i)
+
+    for i, mark in enumerate(marks):
+        if mark.kind != "comment" or i in anchor_indices:
+            continue
+        match = _AUTHOR_ANCHOR_RE.match(mark.b)
+        if match is None:
+            continue
+        anchor_indices.add(i)
+        anchor_author[i] = match.group("author")
+        logger.warning(
+            "âncora de autor órfã em review.md (marca #%d, corpo %r) — "
+            "ignorada (âncoras nunca vão para a página final).",
+            i,
+            mark.b,
+        )
+
+    return anchor_of_content, anchor_author, anchor_indices
+
+
+def _citekey_multiset(text: str) -> Counter[str]:
+    """Multiconjunto de citekeys em `text` (fonte, sintaxe Obsidian/Pandoc) —
+    a conservação pós-apply precisa do MULTIconjunto exato (uma citação
+    repetida conta 2x), não da lista deduplicada de
+    `core.citations.scan_citekeys`. Mesmo caminho de detecção do export
+    (`export._norm_citation_spans` sobre o texto normalizado): cada grupo
+    `[@a]`/`[@a; @b]` contribui os citekeys que contém, via `CITEKEY_RE`.
+
+    LIMITAÇÃO conhecida (consistente com `export._norm_citation_spans`):
+    citação narrativa `@key` fora de colchetes não é contada — o pipeline
+    docx do prumo usa exclusivamente a forma com colchetes."""
+    norm = normalize_markdown(text)
+    counter: Counter[str] = Counter()
+    for start, end in _norm_citation_spans(norm):
+        counter.update(CITEKEY_RE.findall(norm[start:end]))
+    return counter
+
+
+def _read_review_md_and_events(review_dir: Path) -> tuple[str, ReviewEventsFile]:
+    """Carrega o CORPO de `review.md` (frontmatter descartado — o write-back
+    usa o frontmatter ATUAL da página, nunca o de `review.md`) e
+    `events.yaml` de `review_dir`. Ausência de QUALQUER um dos dois é
+    `FileNotFoundError` pt-BR (mesmo padrão de `_read_sidecars`, Task 8)."""
+    review_md_path = review_dir / "review.md"
+    events_path = review_dir / "events.yaml"
+    missing = [p.name for p in (review_md_path, events_path) if not p.is_file()]
+    if missing:
+        raise FileNotFoundError(
+            f"Sidecar(s) de review ausente(s) em {review_dir}: {', '.join(missing)}. "
+            "Rode `prumo write review ingest <reviewed.docx> --page <page.md>` antes."
+        )
+    _, review_body = split_frontmatter(review_md_path.read_text())
+    events_file = ReviewEventsFile.model_validate(yaml.safe_load(events_path.read_text()) or {})
+    return review_body, events_file
+
+
+def _missing_drop_confirmation_message(missing: list[str]) -> str:
+    occ_list = ", ".join(missing)
+    return (
+        f"Evento(s) `citation-drop` pendente(s) sem confirmação explícita "
+        f"(I6 — decisão humana explícita em Git): occ {occ_list}. Rode de "
+        f"novo com `--confirm-citation-drops {','.join(missing)}` (cobrindo "
+        "TODOS os drops listados) para confirmar a remoção dessa(s) "
+        "citação(ões) — lembre de também remover a referência à citação do "
+        "corpo de `review.md` antes do apply — ou reverta a deleção no Word "
+        "e re-ingira."
+    )
+
+
+def _apply_mark_lost_message(residual: list[criticmarkup.Mark]) -> str:
+    excerpts = "; ".join(f'"{(m.a or m.b).strip()[:80]}"' for m in residual)
+    return (
+        f"Guarda B (apply-side): {len(residual)} marca(s) residual(is) em "
+        "review.md após aplicar TODAS as decisões pedidas "
+        f"(--accept-all/--reject-all): {excerpts}. Isso é um BUG interno do "
+        "apply (nunca deveria acontecer em uso normal) — não prossiga; "
+        "reporte o problema com o review.md em questão."
+    )
+
+
+def apply_review(
+    page: Path,
+    *,
+    accept_all: bool = False,
+    reject_all: bool = False,
+    by_author: str | None = None,
+    author_decision: bool | None = None,
+    marks: dict[int, bool] | None = None,
+    confirm_citation_drops: list[str] | None = None,
+    today: str,
+    project_root: Path | None = None,
+) -> ApplyResult:
+    """Aplica as decisões de revisão de `reviews/<slug>/review.md` de volta
+    na PÁGINA original (Task 9 — fecha o loop aberto por `ingest()`, Task 8).
+
+    Modo de decisão — EXATAMENTE um por chamada (`_validate_apply_mode`):
+    `accept_all`/`reject_all` decidem TODAS as marcas; `by_author` +
+    `author_decision` decidem só as marcas cujo autor pareado (via âncora
+    `{>>autor: X<<}`, emitida por `transplant_to_source(...,
+    author_anchors=True)` no `ingest()`) bate com `by_author`; `marks`
+    decide por ÍNDICE na lista de marcas de CONTEÚDO (âncoras nunca contam
+    para esse índice). Marca de conteúdo sem decisão explícita permanece
+    intacta na página — só `accept_all`/`reject_all` recebem Guarda B
+    (nenhum residual pode sobrar).
+
+    Pré-condições (nesta ordem, cada uma hard-fail antes da próxima):
+    1. eventos `citation-drop` pendentes precisam estar TODOS cobertos por
+       `confirm_citation_drops` (I6 — decisão humana explícita em Git);
+       `confirm_citation_drops` com occ_id que não corresponde a nenhum
+       drop pendente também é erro (evita confirmação "morta").
+    2. qualquer OUTRO kind de evento pendente (`unanchored-mark`,
+       `ambiguous-anchor`, `non-identity-span`, `citation-touched-prose`)
+       bloqueia o apply — modo degradado do spec: resolva manualmente.
+
+    Aplicação: `criticmarkup.parse(review_body)` + `criticmarkup.apply` com
+    as decisões computadas (âncoras de autor SEMPRE removidas, decididas ou
+    não — nunca vão para a página final). Guarda B (só `accept_all`/
+    `reject_all`): `criticmarkup.parse(corpo_final) == []` senão
+    `MarkLostError`. Conservação pós-apply (SEMPRE, todos os modos):
+    `_citekey_multiset(corpo_final)` == citekeys do citemap MENOS os
+    confirmados como drop — I5, bibliografia é função da fonte; a citação em
+    si só sai do corpo se o HUMANO já a removeu de `review.md` (este módulo
+    nunca transplanta citação, só verifica a conservação do que está lá).
+
+    Write-back: PÁGINA original reescrita com o frontmatter ATUAL da própria
+    página (preservado, relido de `page` — nunca o de `review.md`) + o corpo
+    resolvido. `review.md` NUNCA é reescrito (permanece para o histórico
+    Git); `events.yaml` ganha um registro `kind="applied"` (timestamp via
+    `today`, nunca `datetime.now()` — determinismo em teste).
+    """
+    _validate_apply_mode(
+        accept_all=accept_all,
+        reject_all=reject_all,
+        by_author=by_author,
+        author_decision=author_decision,
+        marks=marks,
+    )
+
+    project_root = project_root or detect_project_root(page)
+    slug = _slugify(page, project_root)
+    review_dir = project_root / "reviews" / slug
+
+    review_body, events_file = _read_review_md_and_events(review_dir)
+    citemap, _span_map = _read_sidecars(review_dir)
+
+    drop_events = [event for event in events_file.events if event.kind == "citation-drop"]
+    drop_occ_ids = {event.occ_id for event in drop_events if event.occ_id}
+    confirm_set = set(confirm_citation_drops or [])
+
+    missing_confirmation = sorted(drop_occ_ids - confirm_set)
+    if missing_confirmation:
+        raise ValueError(_missing_drop_confirmation_message(missing_confirmation))
+
+    extraneous = sorted(confirm_set - drop_occ_ids)
+    if extraneous:
+        raise ValueError(
+            "`confirm_citation_drops` cita occ_id(s) sem evento `citation-drop` "
+            f"pendente correspondente: {', '.join(extraneous)}. Confira "
+            f"{review_dir / 'events.yaml'}."
+        )
+
+    other_pending = [
+        event for event in events_file.events if event.kind not in _NON_BLOCKING_EVENT_KINDS
+    ]
+    if other_pending:
+        kinds = ", ".join(sorted({event.kind for event in other_pending}))
+        raise ValueError(
+            f"Evento(s) pendente(s) em events.yaml além de citation-drop "
+            f"(kind(s): {kinds}) impedem o apply (modo degradado do spec): "
+            "resolva manualmente os eventos em events.yaml e re-rode ingest, "
+            "ou edite review.md diretamente."
+        )
+
+    flat_marks = criticmarkup.parse(review_body)
+    anchor_of_content, anchor_author, anchor_indices = _pair_author_anchors(flat_marks)
+    content_flat_indices = [i for i in range(len(flat_marks)) if i not in anchor_indices]
+
+    if marks is not None:
+        invalid = sorted(k for k in marks if k < 0 or k >= len(content_flat_indices))
+        if invalid:
+            valid_range = (
+                f"0..{len(content_flat_indices) - 1}"
+                if content_flat_indices
+                else "nenhum (review.md sem marca de conteúdo)"
+            )
+            raise ValueError(
+                f"índice(s) de marca fora do intervalo: {invalid} — review.md "
+                f"tem {len(content_flat_indices)} marca(s) de conteúdo "
+                f"(índices válidos: {valid_range})."
+            )
+
+    flat_decisions: dict[int, bool] = {}
+    applied_count = 0
+    rejected_count = 0
+
+    if accept_all:
+        for i in content_flat_indices:
+            flat_decisions[i] = True
+        applied_count = len(content_flat_indices)
+    elif reject_all:
+        for i in content_flat_indices:
+            flat_decisions[i] = False
+        rejected_count = len(content_flat_indices)
+    elif by_author is not None:
+        assert author_decision is not None  # _validate_apply_mode já garantiu
+        for content_idx in content_flat_indices:
+            anchor_idx = anchor_of_content.get(content_idx)
+            author = anchor_author.get(anchor_idx) if anchor_idx is not None else None
+            if author != by_author:
+                continue
+            flat_decisions[content_idx] = author_decision
+            if author_decision:
+                applied_count += 1
+            else:
+                rejected_count += 1
+    else:
+        assert marks is not None  # _validate_apply_mode já garantiu
+        for content_position, content_idx in enumerate(content_flat_indices):
+            if content_position not in marks:
+                continue
+            decision = marks[content_position]
+            flat_decisions[content_idx] = decision
+            if decision:
+                applied_count += 1
+            else:
+                rejected_count += 1
+
+    # Âncoras de autor NUNCA sobrevivem à página final — independente do
+    # modo e independente de a marca de conteúdo pareada ter sido decidida
+    # (modos parciais legitimamente deixam conteúdo pendente; a âncora some
+    # do mesmo jeito). O valor do bool é irrelevante: `comment` resolve para
+    # "" nos dois sentidos (accept/reject) — ver `core/criticmarkup._resolve`.
+    for anchor_idx in anchor_indices:
+        flat_decisions.setdefault(anchor_idx, False)
+
+    final_body = criticmarkup.apply(review_body, flat_decisions)
+
+    if accept_all or reject_all:
+        residual = criticmarkup.parse(final_body)
+        if residual:
+            raise MarkLostError(_apply_mark_lost_message(residual))
+
+    citemap_multiset: Counter[str] = Counter(
+        key for occ in citemap.occurrences for key in occ.citekeys
+    )
+    confirmed_drop_multiset: Counter[str] = Counter(
+        key for event in drop_events for key in event.citekeys
+    )
+    expected_multiset = citemap_multiset - confirmed_drop_multiset
+    final_multiset = _citekey_multiset(final_body)
+    if final_multiset != expected_multiset:
+        raise CitationConservationError(
+            "Conservação de citações violada pós-apply (I5): multiconjunto "
+            f"de citekeys no corpo final ({dict(final_multiset)}) diverge do "
+            f"esperado — citemap menos drops confirmados ({dict(expected_multiset)}). "
+            "Se confirmou um drop, remova a citação correspondente também do "
+            "corpo de `review.md` antes do apply; senão, confira se "
+            "`review.md` foi editado incorretamente."
+        )
+
+    page_meta, _old_body = split_frontmatter(page.read_text())
+    # Reaproveita `_render_review_md` (Task 8): a lógica (frontmatter + corpo)
+    # é genérica — só o NOME é específico de review.md; aqui escreve a PÁGINA.
+    page.write_text(_render_review_md(page_meta, final_body), encoding="utf-8")
+
+    drops_confirmed = sorted(drop_occ_ids)
+    applied_event = ReviewEvent(
+        kind="applied",
+        detail=(
+            f"apply em {today}: {applied_count} marca(s) aceita(s), "
+            f"{rejected_count} marca(s) rejeitada(s), {len(drops_confirmed)} "
+            "drop(s) de citação confirmado(s)."
+        ),
+        citekeys=sorted({key for event in drop_events for key in event.citekeys}),
+    )
+    updated_events = ReviewEventsFile(
+        page=events_file.page, events=[*events_file.events, applied_event]
+    )
+    (review_dir / "events.yaml").write_text(
+        yaml.safe_dump(updated_events.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    return ApplyResult(
+        page=page,
+        applied=applied_count,
+        rejected=rejected_count,
+        drops_confirmed=drops_confirmed,
     )

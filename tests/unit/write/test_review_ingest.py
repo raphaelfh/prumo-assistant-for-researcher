@@ -188,8 +188,11 @@ def test_ingest_happy_path_prose_insertion_and_comment_writes_valid_sidecars(
     assert len(result.comments.comments) == 1
     assert result.comments.comments[0].author == "Revisor Alice"
 
-    # {++...++} no lugar certo (posição exata, não só substring).
-    assert result.review_md.read_text() == prefix + "{++ novo++}" + suffix
+    # {++...++} no lugar certo (posição exata, não só substring), seguido da
+    # âncora de autoria `{>>autor: X<<}` (Task 9 — `transplant_to_source`
+    # agora roda com `author_anchors=True` dentro de `ingest()`; a âncora
+    # nunca sobrevive ao `apply`, só existe em review.md).
+    assert result.review_md.read_text() == prefix + "{++ novo++}{>>autor: Coautor<<}" + suffix
 
     # comments.yaml e events.yaml são YAML válido conforme os schemas.
     slug = _slugify(page, project_root)
@@ -260,7 +263,10 @@ def test_ingest_happy_path_preserves_frontmatter_in_review_md(
     fm_text, _, rest = review_md_text.partition("\n---\n\n")
     meta = yaml.safe_load(fm_text.removeprefix("---\n"))
     assert meta == {"title": "Pagina com frontmatter"}
-    assert rest == prefix + "{++ ADICIONADO++}" + suffix
+    # Sem anotação `[Chg:...]` pareada, o autor cai no default
+    # `_UNKNOWN_AUTHOR` (Task 4) — a âncora ainda é emitida (Task 9:
+    # `author_anchors=True` sempre anota, mesmo autor desconhecido).
+    assert rest == prefix + "{++ ADICIONADO++}{>>autor: (desconhecido)<<}" + suffix
 
 
 # --- 2. sidecars ausentes → FileNotFoundError pt-BR -------------------------
