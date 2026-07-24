@@ -571,17 +571,13 @@ def verify_refs(
             continue
         findings.extend(check_entry(by_key[key], cache=cache, refresh=refresh))
 
-    # Camada profunda opcional (Task 3): citekeys duplicadas estão em `scope`
-    # mas não em estado verificável (qual entrada é a verdadeira?) — o
-    # subconjunto enviado ao refchecker e o filtro de escopo dos findings
-    # excluem `duplicate_counts` (emenda pós-review T3; ver Global Constraints).
-    if deep and scope:
-        deep_report = _run_refchecker(
-            _bib_subset_text([by_key[k] for k in scope if k not in duplicate_counts])
-        )
-        findings.extend(
-            _findings_from_report(deep_report, set(k for k in scope if k not in duplicate_counts))
-        )
+    # Citekeys duplicadas ficam fora do deep (mesma razão do skip nativo) e o
+    # guard usa o subconjunto filtrado: escopo só-de-duplicatas não dispara
+    # subprocess nenhum (emenda pós-review T3).
+    deep_keys = [k for k in scope if k not in duplicate_counts]
+    if deep and deep_keys:
+        deep_report = _run_refchecker(_bib_subset_text([by_key[k] for k in deep_keys]))
+        findings.extend(_findings_from_report(deep_report, set(deep_keys)))
 
     summary = {
         "errors": sum(1 for f in findings if f.level == "error"),

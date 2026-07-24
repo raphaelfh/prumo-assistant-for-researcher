@@ -580,3 +580,22 @@ class TestDeepLayer:
         monkeypatch.setattr("prumo_assist.domains.paper.verify.subprocess.run", fake_run)
         report = verify.verify_refs(tmp_path, cache_path=tmp_path / "c.json")
         assert report["deep"] is False
+
+    def test_deep_com_escopo_so_duplicatas_nao_roda_subprocess(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # emenda pós-review T3: escopo 100% duplicado não pode disparar
+        # subprocess real contra um .bib derivado vazio
+        (tmp_path / "references").mkdir()
+        (tmp_path / "references" / "_references.bib").write_text(
+            "@article{dup2020,\n  title = {A},\n}\n@article{dup2020,\n  title = {B},\n}\n",
+            encoding="utf-8",
+        )
+
+        def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            raise AssertionError("subprocess não deveria rodar com escopo só de duplicatas")
+
+        monkeypatch.setattr("prumo_assist.domains.paper.verify.subprocess.run", fake_run)
+        report = verify.verify_refs(tmp_path, deep=True, cache_path=tmp_path / "c.json")
+        assert report["deep"] is True
+        assert [f["kind"] for f in report["findings"]] == ["duplicate-citekey"]
