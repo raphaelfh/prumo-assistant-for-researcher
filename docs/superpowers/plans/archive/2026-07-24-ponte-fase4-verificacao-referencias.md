@@ -1,4 +1,26 @@
+---
+status: implemented
+verified: 2026-07-24
+release: null
+spec: "[[2026-07-05-review-docx-criticmarkup-design]]"
+phase: "Fase 4 de 0–4 (spec da ponte — ÚLTIMA fase do programa); Fase 3 do guarda-chuva zero-friction"
+---
+
 # Ponte Fase 4 — Verificação de Referências Implementation Plan
+
+> **Nota de reconciliação (review final da fase, 2026-07-24):** o texto da Task 6
+> Step 1 deste plano ficou com dois fatos que a skill SHIPADA corrigiu com
+> evidência (adjudicados corretos pelo reviewer): o arquivo canônico de extract é
+> `_extract.md` (não `_extraction.md` — `core/note_paths.py`, ADR-0008) e o entry
+> point real de extração é `/prumo-assist:paper-extract <citekey>` (não
+> `prumo paper extract`, que é passo interno com JSON via stdin). As emendas
+> pós-review T1–T4 e a do review final (mensagem de duplicate-citekey sem a
+> promessa falsa de lint) estão refletidas nos blocos de código deste plano.
+> Backlog consolidado (não implementado nesta fase): fila m1–m9 + report
+> refchecker dict-hostil degrada silencioso (enrichment-only), gap de identidade
+> PMID-only, e parse_bib cego a brace em campo com aspas (m7, COM framing de
+> privacidade no --deep) — registrados no ledger `.superpowers/sdd/progress.md`
+> e na mensagem deste commit de archive.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -914,7 +936,9 @@ def verify_refs(
                     message=(
                         f"citekey aparece {duplicate_counts[key]}x no bib — a verificação "
                         "seria ambígua (qual entrada é a verdadeira?); corrija a duplicata "
-                        "no Zotero e re-exporte o BBT (`prumo paper lint` ajuda a localizar)."
+                        "no Zotero e re-exporte o BBT."
+                        # (emenda pós-review final: a referência a `prumo paper lint`
+                        # saiu — o lint de hoje não detecta duplicata de citekey.)
                     ),
                     source="local",
                 )
