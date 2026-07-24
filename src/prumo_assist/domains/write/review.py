@@ -390,8 +390,8 @@ def check_conservation(observed: list[DocxCitation], citemap: CiteMapFile) -> li
        diagnosticado: se a duplicata é EXATAMENTE um par `deleted` + `touched`
        — a cópia sobrevivente está inteira dentro de `w:ins` (Word marca assim
        o texto colado sob Track Changes) — a mensagem vira um diagnóstico de
-       possível MOVE (mover citação não é suportado no MVP; I2c fica para a
-       Fase 3). Qualquer outra combinação de duplicatas usa a mensagem
+       possível MOVE (mover citação não é suportado; I2c permanece
+       diagnóstico). Qualquer outra combinação de duplicatas usa a mensagem
        genérica. Continua hard-fail nos dois casos; só o diagnóstico melhora.
     2. **Multiconjunto** `{occ_id: citekeys}` de TODOS os estados (live +
        touched + deleted) precisa bater com o citemap: occ ausente do
@@ -405,8 +405,8 @@ def check_conservation(observed: list[DocxCitation], citemap: CiteMapFile) -> li
        Fase 4).
     4. **`touched`** — qualquer citação com campo tocado por `w:ins`/`w:del`
        (mas não inteiramente deletada) é fail-informativo: o MVP não
-       transplanta CITATION-TOUCHED, decisão humana é necessária (I2c vira
-       evento reconciliável só na Fase 3).
+       transplanta CITATION-TOUCHED, decisão humana é necessária (I2c
+       permanece diagnóstico).
 
     Retorna a lista das citações `deleted` (candidatas a evento de drop
     pendente de confirmação explícita no `apply`, Task 9) quando NENHUMA
@@ -423,8 +423,8 @@ def check_conservation(observed: list[DocxCitation], citemap: CiteMapFile) -> li
         if len(group) == 2 and states == {"deleted", "touched"}:
             raise CitationConservationError(
                 f"possível MOVE de citação (occ {occ_id}) — mover citação "
-                "não é suportado no MVP; rejeite a mudança no Word e mova "
-                "via edição da fonte, ou aguarde a Fase 3 (I2c)."
+                "não é suportado; rejeite a mudança no Word e mova via "
+                "edição da fonte (I2c)."
             )
         duplicated_citekeys = sorted({key for c in group for key in c.citekeys})
         raise CitationConservationError(
@@ -2720,9 +2720,15 @@ def apply_review(
         kinds = ", ".join(sorted({event.kind for event in other_pending}))
         raise ValueError(
             f"Evento(s) pendente(s) em events.yaml além de citation-drop "
-            f"(kind(s): {kinds}) impedem o apply (modo degradado do spec): "
-            "resolva manualmente os eventos em events.yaml e re-rode ingest, "
-            "ou edite review.md diretamente."
+            f"(kind(s): {kinds}) impedem o apply (modo degradado do spec). "
+            "Resolva cada evento — editando review.md manualmente ou aceitando "
+            "uma proposta da skill /prumo-assist:review-reconcile — e depois "
+            "REMOVA a entrada correspondente de events.yaml (o bloco YAML "
+            "inteiro do evento, não só um campo): nem a edição manual nem a "
+            "proposta da skill removem o evento sozinhas. AVISO: NÃO rode "
+            "`prumo write review ingest` de novo para tentar limpar isso — o "
+            "ingest reescreve review.md do zero e destrói qualquer proposta "
+            "pendente no worklist atual."
         )
 
     flat_marks = criticmarkup.parse(review_body)

@@ -62,8 +62,9 @@ skill — é sempre o humano, com `prumo write review apply`.
   — nunca "agente") e `mark_excerpt` (o texto afetado: `a` para `del`/`sub`/`highlight`, `b` para `ins`/`comment`) estão presentes nos 4 kinds de marca
   (`unanchored-mark`, `ambiguous-anchor`, `non-identity-span`,
   `citation-touched-prose`); `citation-drop` tem `author: null` (o leitor
-  OOXML não captura o autor da deleção) e `applied` não carrega nenhum dos
-  dois (é histórico). Só em eventos de citação, `occ_id`/`citekeys`.
+  OOXML não captura o autor da deleção, mas `mark_excerpt` continua presente
+  — a citação formatada, `formattedCitation`) e `applied` não carrega nenhum
+  dos dois (é histórico). Só em eventos de citação, `occ_id`/`citekeys`.
 
 ### 2. Para cada evento `unanchored-mark` / `ambiguous-anchor` / `non-identity-span`
 
@@ -118,6 +119,14 @@ Reporte ao usuário — nunca aplique nada sozinho:
   com `--by-author agente`).
 - **M itens humanos** (eventos de citação do Passo 3 + qualquer evento do
   Passo 2 que você teve que escalar).
+- **Antes do apply, um passo manual do humano**: `propose_prose_edit` só
+  grava a marca pendente em `review.md` — o evento correspondente CONTINUA
+  em `reviews/<slug>/events.yaml` até alguém remover a entrada (o bloco YAML
+  inteiro do evento, não só um campo). `prumo write review apply` bloqueia
+  enquanto sobrar qualquer evento fora de `citation-drop`/`applied`, mesmo
+  já proposto. Avise o humano: ele precisa abrir `events.yaml` e apagar a
+  entrada de cada evento já resolvido (por proposta sua ou por edição manual
+  dele) antes de rodar o `apply` abaixo.
 - O comando sugerido para o humano decidir:
 
   ```bash
@@ -126,6 +135,12 @@ Reporte ao usuário — nunca aplique nada sozinho:
   ```
 
 Esta skill nunca roda `apply` — só sugere o comando.
+
+> **AVISO:** nunca sugira re-rodar `prumo write review ingest` para "limpar"
+> eventos pendentes que já têm proposta no worklist — o ingest reescreve
+> `review.md` do zero e destrói as propostas ainda não decididas. Um
+> mecanismo de 1ª classe pra isso (`--resolve-events`, ou equivalente) está
+> na fila; até lá, remover a entrada de `events.yaml` é sempre manual.
 
 ## Guardas e recusas — antecipe, não force
 
@@ -173,6 +188,13 @@ qualquer coisa. Trate cada recusa como esperada, não como bug a contornar:
 
 ## Erros comuns
 
+- **Evento com proposta ainda bloqueia o `apply`** → `propose_prose_edit` só
+  grava a marca em `review.md`; o evento continua "pendente" em
+  `events.yaml` até o humano remover a entrada inteira dele — sem isso,
+  `prumo write review apply` recusa com `ValueError` mesmo já tendo a marca
+  resolvida no worklist. NUNCA sugira `ingest` de novo pra resolver isso:
+  reescreve `review.md` do zero e destrói o worklist com as propostas ainda
+  pendentes.
 - **`events.yaml`/`review.md` ausentes** → o ciclo de revisão ainda não foi
   iniciado para essa página; rode `prumo write review ingest <reviewed.docx>
   --page <page>` primeiro.

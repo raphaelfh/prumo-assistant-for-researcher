@@ -550,6 +550,7 @@ def test_write_review_events_checklist(tmp_path: Path, monkeypatch: pytest.Monke
         "  - kind: applied\n"
         "    detail: '2 citekey(s) confirmadas em 2026-07-23'\n"
     )
+    monkeypatch.setenv("COLUMNS", "300")
 
     result = runner.invoke(app, ["write", "review", "events", "--page", str(page), "--checklist"])
     assert result.exit_code == 0, result.output
@@ -566,7 +567,9 @@ def test_write_review_events_checklist(tmp_path: Path, monkeypatch: pytest.Monke
     assert "AÇÃO: nenhuma ação — histórico" in result.output
 
 
-def test_write_review_events_missing_sidecars_exits_cleanly(tmp_path: Path) -> None:
+def test_write_review_events_missing_sidecars_exits_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     pj = tmp_path / "pj_demo"
     page = pj / "docs" / "p.md"
     page.parent.mkdir(parents=True)
@@ -575,6 +578,7 @@ def test_write_review_events_missing_sidecars_exits_cleanly(tmp_path: Path) -> N
     (pj / "references").mkdir()
     (pj / "references" / "_references.bib").write_text("")
     # No review dir created, so events.yaml is missing
+    monkeypatch.setenv("COLUMNS", "300")
 
     result = runner.invoke(app, ["write", "review", "events", "--page", str(page)])
     assert result.exit_code == 1
@@ -588,7 +592,9 @@ def test_write_review_events_missing_sidecars_exits_cleanly(tmp_path: Path) -> N
 #     ponto de leitura+validação, usado por `cli.py` e `mcp_server.py`. -----
 
 
-def test_write_review_events_corrupt_sidecar_shows_pt_br_message(tmp_path: Path) -> None:
+def test_write_review_events_corrupt_sidecar_shows_pt_br_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     pj = tmp_path / "pj_demo"
     page = pj / "docs" / "p.md"
     page.parent.mkdir(parents=True)
@@ -603,6 +609,7 @@ def test_write_review_events_corrupt_sidecar_shows_pt_br_message(tmp_path: Path)
     (review_dir / "events.yaml").write_text(
         "page: docs/p.md\nevents:\n  - kind: unanchored-mark\n", encoding="utf-8"
     )
+    monkeypatch.setenv("COLUMNS", "300")
 
     result = runner.invoke(app, ["write", "review", "events", "--page", str(page)])
 

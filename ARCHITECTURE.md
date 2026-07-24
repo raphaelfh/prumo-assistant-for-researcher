@@ -35,7 +35,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
        └────────────────┴───────────────┼────────────────┴────────────────┘
                                  ┌──────▼──────┐
                                  │   prumo     │  ← CLI (Typer); raiz: init ·
-                                 │             │     doctor · skills · add · capture
+                                 │             │     doctor · skills · add · mcp (+ capture)
                                  └──────┬──────┘
                                  ┌──────▼──────────────────────┐
                                  │ core/ (transversal)         │
@@ -63,7 +63,7 @@ prumo-assist/
 ├── ROADMAP.md · CHANGELOG.md · RELEASING.md · README.md · CITATION.cff · LICENSE
 │
 ├── .claude-plugin/            ← plugin.json + marketplace.json (self-hosting, ADR-0010)
-├── .mcp.json                  ← MCP qmd — config do projeto E do plugin distribuído
+├── .mcp.json                  ← MCP qmd + prumo-review — config do projeto E do plugin distribuído
 ├── .github/
 │   ├── workflows/             ← ci.yml (lint+types+test+índices) · validate-manifests.yml
 │   ├── schemas/               ← schemas vivos do validador de plugin (ADR-0010)
@@ -73,7 +73,10 @@ prumo-assist/
 │   ├── _version.py            ← FONTE ÚNICA de versão (constitution VII)
 │   ├── __init__.py            ← hierarquia de exceções (PrumoError, ...)
 │   ├── api.py                 ← Python API pública (SemVer)
-│   ├── cli.py                 ← Typer root: init · doctor · skills · add (+ capture)
+│   ├── cli.py                 ← Typer root: init · doctor · skills · add · mcp (+ capture)
+│   ├── mcp_server.py          ← servidor MCP local (stdio) `prumo-review`; vive no TOPO
+│                                 do pacote por design (nunca em domains/) — importa
+│                                 domains/ livremente (ADR-0017)
 │   ├── _filters/              ← filtros Lua vendorados do Pandoc (zotero_live_docx.lua)
 │   ├── core/                  ← transversal; NUNCA importa domains/ (ADR-0005)
 │   ├── domains/               ← paper · wiki · capture · protocol · write
@@ -81,7 +84,7 @@ prumo-assist/
 │   │                             exceção: capture é mínimo (cli.py + route.py, sem api/schemas)
 │   └── integrations/          ← adapters por agent-host (claude_code)
 │
-├── skills/                    ← 14 skills (SKILL.md = única metadata, ADR-0003)
+├── skills/                    ← 15 skills (SKILL.md = única metadata, ADR-0003)
 ├── templates/
 │   ├── pj_base/               ← núcleo mínimo copiado por `prumo init`
 │   └── modules/{clinical,ml}/ ← overlays opt-in (`prumo add`), self-describing (_module.toml)

@@ -394,7 +394,9 @@ def review_events_command(
                 elif event.kind in ("unanchored-mark", "ambiguous-anchor", "non-identity-span"):
                     action = (
                         "   AÇÃO: edite review.md inserindo a mudança manualmente "
-                        "no ponto certo, ou rode a skill /prumo-assist:review-reconcile"
+                        "no ponto certo, ou rode a skill /prumo-assist:review-reconcile; "
+                        "após resolver (manualmente ou por proposta da skill), remova "
+                        "o evento de events.yaml"
                     )
                 elif event.kind == "citation-touched-prose":
                     action = "   AÇÃO: decisão humana: rejeite no Word ou edite a fonte"
