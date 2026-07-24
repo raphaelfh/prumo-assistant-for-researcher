@@ -487,3 +487,71 @@ def test_write_review_apply_mark_without_decision_exits_cleanly(
     assert result.exit_code == 1
     assert "--mark exige" in result.output
     assert "Traceback" not in result.output
+
+
+def test_write_review_events_list_plain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pj = tmp_path / "pj_demo"
+    page = pj / "docs" / "p.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("Texto.\n")
+    # Create project root marker
+    (pj / "references").mkdir()
+    (pj / "references" / "_references.bib").write_text("")
+    review_dir = pj / "reviews" / "p"
+    review_dir.mkdir(parents=True)
+    (review_dir / "events.yaml").write_text(
+        "page: docs/p.md\nevents:\n  - kind: citation-drop\n    detail: 'citação (occ occ1, citekeys k2020) deletada no Word — confirme no apply.'\n    occ_id: occ1\n    citekeys: [k2020]\n  - kind: unanchored\n    detail: 'marca não localizada no corpo normalizado — edite manualmente ou aguarde'\n  - kind: citation-touched\n    detail: 'decisão humana: edite a fonte'\n"
+    )
+    monkeypatch.setenv("COLUMNS", "300")
+
+    result = runner.invoke(app, ["write", "review", "events", "--page", str(page)])
+    assert result.exit_code == 0, result.output
+    assert "citation-drop" in result.output
+    assert "unanchored" in result.output
+    assert "citation-touched" in result.output
+    # Verify detail resumido is present and truncated (~80 chars)
+    assert "deletada no Word" in result.output
+    assert "não localizada" in result.output
+
+
+def test_write_review_events_checklist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pj = tmp_path / "pj_demo"
+    page = pj / "docs" / "p.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("Texto.\n")
+    # Create project root marker
+    (pj / "references").mkdir()
+    (pj / "references" / "_references.bib").write_text("")
+    review_dir = pj / "reviews" / "p"
+    review_dir.mkdir(parents=True)
+    (review_dir / "events.yaml").write_text(
+        "page: docs/p.md\nevents:\n  - kind: citation-drop\n    detail: 'citação (occ occ1, citekeys k2020) deletada'\n    occ_id: occ1\n    citekeys: [k2020]\n  - kind: unanchored\n    detail: 'marca não localizada'\n  - kind: ambiguous\n    detail: 'múltiplas localizações possíveis'\n  - kind: citation-touched\n    detail: 'decisão humana'\n"
+    )
+
+    result = runner.invoke(app, ["write", "review", "events", "--page", str(page), "--checklist"])
+    assert result.exit_code == 0, result.output
+    # Verify checklist format: numbered, pt-BR, with ACÇÃOs per kind
+    assert "1." in result.output or "1 " in result.output  # Numbered
+    assert "citation-drop" in result.output
+    assert "--confirm-citation-drops" in result.output
+    assert "unanchored" in result.output
+    assert "edite review.md" in result.output or "review-reconcile" in result.output
+    assert "ambiguous" in result.output
+    assert "citation-touched" in result.output
+    assert "decisão humana" in result.output
+
+
+def test_write_review_events_missing_sidecars_exits_cleanly(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    page = pj / "docs" / "p.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("Texto.\n")
+    # Create project root marker
+    (pj / "references").mkdir()
+    (pj / "references" / "_references.bib").write_text("")
+    # No review dir created, so events.yaml is missing
+
+    result = runner.invoke(app, ["write", "review", "events", "--page", str(page)])
+    assert result.exit_code == 1
+    assert "Traceback" not in result.output  # Clean error
+    assert "events.yaml" in result.output or "ausente" in result.output
