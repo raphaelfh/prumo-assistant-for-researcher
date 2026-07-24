@@ -14,17 +14,21 @@ Respostas ficam em cache local (TTL 7 dias) em ``default_cache_path()``.
 
 from __future__ import annotations
 
+import difflib
 import json
 import os
 import re
+import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import quote
 
 from prumo_assist._version import __version__
-from prumo_assist.core.bib import BibEntry, extract_field
+from prumo_assist.core.bib import BibEntry, extract_field, parse_bib
+from prumo_assist.core.citations import scan_marked_citekeys
 
 _USER_AGENT = f"prumo-assist/{__version__} (+https://github.com/raphaelfh/prumo-assist)"
 
@@ -158,3 +162,283 @@ def _http_get_json(url: str, *, timeout: float = 10.0) -> dict[str, Any]:
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return cast(dict[str, Any], json.loads(response.read().decode("utf-8")))
+
+
+_CROSSREF_WORKS_URL = "https://api.crossref.org/works/{doi}"
+_CROSSREF_UPDATES_URL = (
+    "https://api.crossref.org/works?filter=updates:{doi}&rows=5&select=DOI,update-to"
+)
+_PUBMED_ESUMMARY_URL = (
+    "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={pmid}&retmode=json"
+)
+
+_TITLE_SIMILARITY_FLOOR = 0.6
+
+_NETWORK_ERRORS = (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError)
+
+
+@dataclass(frozen=True)
+class Finding:
+    """Um achado de verificação sobre UMA entrada do bib."""
+
+    citekey: str
+    level: str  # "error" | "warning" | "info" — só "error" deriva exit 1
+    kind: str
+    message: str
+    source: str  # "crossref" | "pubmed" | "local" | "refchecker"
+
+
+def _cached_get_json(cache: RefCache, key: str, url: str, *, refresh: bool) -> dict[str, Any]:
+    if not refresh:
+        hit = cache.get(key)
+        if hit is not None:
+            return hit
+    payload = _http_get_json(url)
+    cache.put(key, payload)
+    return payload
+
+
+def _normalized_title(raw: str) -> str:
+    cleaned = raw.replace("{", "").replace("}", "").casefold()
+    return " ".join(re.sub(r"[^a-z0-9 ]", " ", cleaned).split())
+
+
+def _title_similarity(a: str, b: str) -> float:
+    return difflib.SequenceMatcher(None, _normalized_title(a), _normalized_title(b)).ratio()
+
+
+def _network_finding(citekey: str, source: str, api: str, exc: Exception) -> Finding:
+    return Finding(
+        citekey=citekey,
+        level="error",
+        kind="network-error",
+        message=(
+            f"falha de rede ao consultar {api}: {exc} — verifique a conexão e rode "
+            "de novo (respostas boas ficam em cache local por 7 dias)."
+        ),
+        source=source,
+    )
+
+
+def _check_crossref(
+    citekey: str, doi: str, bib_title: str | None, *, cache: RefCache, refresh: bool
+) -> list[Finding]:
+    findings: list[Finding] = []
+    quoted = quote(doi, safe="/")
+    try:
+        works = _cached_get_json(
+            cache,
+            f"crossref:works:{doi.lower()}",
+            _CROSSREF_WORKS_URL.format(doi=quoted),
+            refresh=refresh,
+        )
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            findings.append(
+                Finding(
+                    citekey=citekey,
+                    level="error",
+                    kind="doi-not-found",
+                    message=(
+                        f"DOI {doi} não resolve no Crossref (HTTP 404) — confira o campo "
+                        "doi da entrada no Zotero e re-exporte o BBT."
+                    ),
+                    source="crossref",
+                )
+            )
+        else:
+            findings.append(_network_finding(citekey, "crossref", "Crossref works", exc))
+        return findings
+    except _NETWORK_ERRORS as exc:
+        findings.append(_network_finding(citekey, "crossref", "Crossref works", exc))
+        return findings
+
+    message = works.get("message") if isinstance(works.get("message"), dict) else {}
+    titles = message.get("title") if isinstance(message, dict) else None
+    crossref_title = titles[0] if isinstance(titles, list) and titles else None
+    if bib_title and isinstance(crossref_title, str):
+        ratio = _title_similarity(bib_title, crossref_title)
+        if ratio < _TITLE_SIMILARITY_FLOOR:
+            findings.append(
+                Finding(
+                    citekey=citekey,
+                    level="warning",
+                    kind="title-mismatch",
+                    message=(
+                        f"título no bib difere do registro Crossref do DOI {doi} "
+                        f"(similaridade {ratio:.0%}) — confira se o DOI aponta para o "
+                        "trabalho certo no Zotero e re-exporte o BBT."
+                    ),
+                    source="crossref",
+                )
+            )
+
+    try:
+        updates = _cached_get_json(
+            cache,
+            f"crossref:updates:{doi.lower()}",
+            _CROSSREF_UPDATES_URL.format(doi=quoted),
+            refresh=refresh,
+        )
+    except (urllib.error.HTTPError, *_NETWORK_ERRORS) as exc:
+        findings.append(_network_finding(citekey, "crossref", "Crossref updates (retração)", exc))
+        return findings
+
+    upd_message = updates.get("message") if isinstance(updates.get("message"), dict) else {}
+    items = upd_message.get("items") if isinstance(upd_message, dict) else None
+    for item in items if isinstance(items, list) else []:
+        for update in item.get("update-to", []) if isinstance(item, dict) else []:
+            if isinstance(update, dict) and str(update.get("type", "")).lower() == "retraction":
+                findings.append(
+                    Finding(
+                        citekey=citekey,
+                        level="error",
+                        kind="retracted",
+                        message=(
+                            f"RETRATADO: o Crossref registra retração para o DOI {doi} — "
+                            "reavalie a citação (o Zotero também sinaliza via Retraction Watch)."
+                        ),
+                        source="crossref",
+                    )
+                )
+                return findings
+    return findings
+
+
+def _check_pubmed(citekey: str, pmid: str, *, cache: RefCache, refresh: bool) -> list[Finding]:
+    try:
+        summary = _cached_get_json(
+            cache,
+            f"pubmed:esummary:{pmid}",
+            _PUBMED_ESUMMARY_URL.format(pmid=pmid),
+            refresh=refresh,
+        )
+    except (urllib.error.HTTPError, *_NETWORK_ERRORS) as exc:
+        return [_network_finding(citekey, "pubmed", "PubMed esummary", exc)]
+
+    result = summary.get("result") if isinstance(summary.get("result"), dict) else {}
+    record = result.get(pmid) if isinstance(result, dict) else None
+    if not isinstance(record, dict) or "error" in record:
+        return [
+            Finding(
+                citekey=citekey,
+                level="warning",
+                kind="pmid-not-found",
+                message=(
+                    f"PMID {pmid} não encontrado no PubMed — confira o campo na entrada "
+                    "do Zotero e re-exporte o BBT."
+                ),
+                source="pubmed",
+            )
+        ]
+    pubtypes = record.get("pubtype")
+    if isinstance(pubtypes, list) and "Retracted Publication" in pubtypes:
+        return [
+            Finding(
+                citekey=citekey,
+                level="error",
+                kind="retracted",
+                message=(
+                    f"RETRATADO: o PubMed marca o PMID {pmid} como 'Retracted Publication' "
+                    "— reavalie a citação (o Zotero também sinaliza via Retraction Watch)."
+                ),
+                source="pubmed",
+            )
+        ]
+    return []
+
+
+def check_entry(entry: BibEntry, *, cache: RefCache, refresh: bool = False) -> list[Finding]:
+    """Checks nativos determinísticos de UMA entrada. Nunca levanta por falha
+    de rede — traduz em achado ``network-error`` (fail-soft por entrada, para
+    o restante do bib seguir verificável offline parcial)."""
+    ids = _identifiers_for(entry)
+    if ids.doi is None and ids.pmid is None:
+        extra = f" (arXiv {ids.arxiv_id})" if ids.arxiv_id else ""
+        return [
+            Finding(
+                citekey=entry.citekey,
+                level="info",
+                kind="no-identifier",
+                message=(
+                    f"entrada sem DOI/PMID{extra} — verificação nativa impossível; rode "
+                    "com --deep para busca por título/autores (refchecker)."
+                ),
+                source="local",
+            )
+        ]
+
+    findings: list[Finding] = []
+    raw_title = extract_field(entry.body, "title")
+    if ids.doi:
+        findings.extend(
+            _check_crossref(entry.citekey, ids.doi, raw_title, cache=cache, refresh=refresh)
+        )
+    if ids.pmid:
+        already_retracted = any(f.kind == "retracted" for f in findings)
+        pubmed = _check_pubmed(entry.citekey, ids.pmid, cache=cache, refresh=refresh)
+        if already_retracted:
+            pubmed = [f for f in pubmed if f.kind != "retracted"]
+        findings.extend(pubmed)
+    return findings
+
+
+def verify_refs(
+    pj_path: Path,
+    *,
+    page: Path | None = None,
+    refresh: bool = False,
+    cache_path: Path | None = None,
+) -> dict[str, Any]:
+    """Verifica as referências do ``references/_references.bib`` do pj.
+
+    Com ``page``, restringe às citekeys MARCADAS na página (``[[@key]]`` /
+    ``[@key]``) — recomendado: sem chave de API o pool público é lento.
+    """
+    bib_path = pj_path / "references" / "_references.bib"
+    if not bib_path.exists():
+        raise FileNotFoundError(
+            f"{bib_path} não existe — Better BibTeX export? Rode `prumo paper lint` "
+            "para o diagnóstico completo do pj."
+        )
+    entries = parse_bib(bib_path.read_text(encoding="utf-8"))
+    by_key = {e.citekey: e for e in entries}
+
+    findings: list[Finding] = []
+    if page is not None:
+        page_keys = scan_marked_citekeys(page.read_text(encoding="utf-8"))
+        scope = [k for k in page_keys if k in by_key]
+        findings.extend(
+            Finding(
+                citekey=key,
+                level="info",
+                kind="missing-citekey",
+                message=(
+                    "citekey citada na página mas ausente do bib — rode `prumo paper lint` "
+                    "para o diagnóstico completo."
+                ),
+                source="local",
+            )
+            for key in page_keys
+            if key not in by_key
+        )
+    else:
+        scope = [e.citekey for e in entries]
+
+    cache = RefCache(path=cache_path or default_cache_path())
+    for key in scope:
+        findings.extend(check_entry(by_key[key], cache=cache, refresh=refresh))
+
+    summary = {
+        "errors": sum(1 for f in findings if f.level == "error"),
+        "warnings": sum(1 for f in findings if f.level == "warning"),
+        "infos": sum(1 for f in findings if f.level == "info"),
+    }
+    return {
+        "pj": str(pj_path),
+        "page": str(page) if page is not None else None,
+        "scope": scope,
+        "checked": len(scope),
+        "findings": [asdict(f) for f in findings],
+        "summary": summary,
+    }
