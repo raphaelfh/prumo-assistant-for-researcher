@@ -874,6 +874,14 @@ def verify_refs(
 
     findings: list[Finding] = []
     if page is not None:
+        # Emenda pós-review T4: sem esta guarda, --page inexistente vazava
+        # FileNotFoundError cru do SO (inglês) — regra do repo é pt-BR com
+        # comando de correção.
+        if not page.exists():
+            raise FileNotFoundError(
+                f"{page} não existe — confira o caminho passado em --page "
+                "(a página .md que cita as referências)."
+            )
         page_keys = scan_marked_citekeys(page.read_text(encoding="utf-8"))
         scope = [k for k in page_keys if k in by_key]
         findings.extend(
