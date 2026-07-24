@@ -529,8 +529,11 @@ def init_command(
         verb = {MODE_NEW: "criado", MODE_MERGE: "mesclado", MODE_FORCE: "recriado"}[mode]
         console.success(f"Projeto {verb} em {target}")
         if mode == MODE_MERGE and not json_mode:
+            # Sem marcação Rich embutida (Fix pós-review, Crítico #2 do
+            # Console: `info()` agora sempre `markup=False`) — a tag `[dim]`
+            # apareceria literal na saída em vez de ser interpretada.
             console.info(
-                f"  [dim]{len(copied)} arquivo(s) novo(s), {len(skipped)} já existiam (preservados).[/dim]"
+                f"  {len(copied)} arquivo(s) novo(s), {len(skipped)} já existiam (preservados)."
             )
         console.emit(payload)
         _render_next_steps(console, target, mode)
@@ -699,7 +702,8 @@ def add_command(
     }
     console.success(f"Módulo '{module}' aplicado em {target}")
     if not json_mode and skipped:
-        console.info(f"  [dim]{len(skipped)} arquivo(s) já existiam (preservados).[/dim]")
+        # Sem marcação Rich embutida — mesmo motivo do fix acima em `_do_init`.
+        console.info(f"  {len(skipped)} arquivo(s) já existiam (preservados).")
     console.emit(payload)
 
 

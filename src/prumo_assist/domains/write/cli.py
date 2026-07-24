@@ -6,13 +6,12 @@ from pathlib import Path
 from typing import Annotated, cast
 
 import typer
-import yaml
 
 from prumo_assist import PrumoError
 from prumo_assist.core.cli_io import parse_json_list, read_stdin_text
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.domains.write import comments, compose, export, review
-from prumo_assist.domains.write.schemas.v1 import ReviewEventsFile, WriteKind, WriteMode
+from prumo_assist.domains.write.schemas.v1 import WriteKind, WriteMode
 
 write_app = typer.Typer(
     name="write",
@@ -52,6 +51,16 @@ _REVIEW_CATCHES = (
     review.CitationConservationError,
     review.AdeuUnavailableError,
 )
+
+
+def _truncate_detail(detail: str, limit: int = 80) -> str:
+    """Trunca ``detail`` em ``limit`` caracteres pro modo lista/checklist do
+    comando ``events`` — reticências (``…``) só aparecem quando o corte de
+    fato remove conteúdo (Minor do review da Fase 3: ``detail[:80]`` cru
+    cortava sem sinalizar, indistinguível de um detail que coubesse
+    inteiro)."""
+    return detail if len(detail) <= limit else f"{detail[:limit]}…"
+
 
 review_app = typer.Typer(
     help="Round-trip docx↔CriticMarkup do coautor: ingest da revisão, aplicação de decisões.",
@@ -365,32 +374,32 @@ def review_events_command(
     """
     with cli_run(json_mode=json_mode, catches=_REVIEW_CATCHES) as console:
         page_resolved = page.resolve()
-        project_root = export.detect_project_root(page_resolved)
-        slug = export._slugify(page_resolved, project_root)
-        review_dir = project_root / "reviews" / slug
-        events_path = review_dir / "events.yaml"
-
-        if not events_path.is_file():
-            raise FileNotFoundError(
-                f"events.yaml ausente em {review_dir}. Rode `prumo write review ingest ...` antes."
-            )
-
-        raw = yaml.safe_load(events_path.read_text())
-        events_file = ReviewEventsFile.model_validate(raw)
+        events_file = review.read_events_file(page_resolved)
 
         if json_mode:
             console.emit(events_file.model_dump(mode="json"))
         elif checklist:
-            # Checklist numerado pt-BR com AÇÃO por kind
+            # Checklist numerado pt-BR com AÇÃO por kind — kinds REAIS
+            # persistidos por `review.py` (Fix pós-review, Crítico #1: o
+            # mapeamento antigo comparava contra "unanchored"/"ambiguous"/
+            # "non-identity"/"citation-touched", strings que NUNCA são
+            # gravadas de verdade em `events.yaml` — os kinds reais são
+            # "unanchored-mark", "ambiguous-anchor", "non-identity-span",
+            # "citation-touched-prose", "citation-drop" e "applied").
             lines = []
             for i, event in enumerate(events_file.events, start=1):
-                lines.append(f"{i}. {event.kind}: {event.detail[:80]}")
+                lines.append(f"{i}. {event.kind}: {_truncate_detail(event.detail)}")
                 if event.kind == "citation-drop":
                     action = f"   AÇÃO: confirme com --confirm-citation-drops {event.occ_id}"
-                elif event.kind in ("unanchored", "ambiguous", "non-identity"):
-                    action = "   AÇÃO: edite review.md inserindo a mudança manualmente no ponto certo, ou rode a skill /prumo-assist:review-reconcile"
-                elif event.kind == "citation-touched":
+                elif event.kind in ("unanchored-mark", "ambiguous-anchor", "non-identity-span"):
+                    action = (
+                        "   AÇÃO: edite review.md inserindo a mudança manualmente "
+                        "no ponto certo, ou rode a skill /prumo-assist:review-reconcile"
+                    )
+                elif event.kind == "citation-touched-prose":
                     action = "   AÇÃO: decisão humana: rejeite no Word ou edite a fonte"
+                elif event.kind == "applied":
+                    action = "   AÇÃO: nenhuma ação — histórico"
                 else:
                     action = f"   AÇÃO: revise este evento (kind desconhecido: {event.kind})"
                 lines.append(action)
@@ -398,7 +407,7 @@ def review_events_command(
         else:
             # Lista simples: kind, detail resumido
             for event in events_file.events:
-                console.emit(f"{event.kind}: {event.detail[:80]}")
+                console.emit(f"{event.kind}: {_truncate_detail(event.detail)}")
 
 
 @review_app.command("apply")

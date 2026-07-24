@@ -100,12 +100,17 @@ def _corrupt_sidecar_message(path: Path) -> str:
     return f"sidecar corrompido ({path}): re-rode `{_INGEST_HINT}` para regenerá-lo."
 
 
-def _read_events(review_dir: Path) -> ReviewEventsFile:
-    path = _require_review_artifact(review_dir, "events.yaml")
+def _read_events(page: str) -> ReviewEventsFile:
+    """Wrapper fino sobre `review.read_events_file` (achado Important #3 do
+    review da Fase 3: esta função duplicava — DIVERGENTE de `cli.py` — a
+    leitura+validação de `events.yaml`; consolidada no domínio). Só traduz
+    `FileNotFoundError` (sidecar ausente ou raiz de projeto não localizada)
+    para `ValueError`, mesma disciplina de toda tool deste módulo;
+    `ValueError` de sidecar corrompido já sai pronto do domínio."""
     try:
-        return ReviewEventsFile.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
-    except ValidationError as exc:
-        raise ValueError(_corrupt_sidecar_message(path)) from exc
+        return review.read_events_file(Path(page).resolve())
+    except FileNotFoundError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _read_comments(review_dir: Path) -> ReviewCommentsFile:
@@ -125,7 +130,7 @@ def review_status(page: str) -> dict[str, Any]:
     try:
         review_dir = _resolve_review_dir(page)
         review_md_text = _read_review_md(review_dir)
-        events_file = _read_events(review_dir)
+        events_file = _read_events(page)
         comments_file = _read_comments(review_dir)
     except FileNotFoundError as exc:
         raise ValueError(str(exc)) from exc
@@ -146,12 +151,7 @@ def review_status(page: str) -> dict[str, Any]:
 def review_events(page: str) -> list[dict[str, Any]]:
     """`events.yaml` completo de `page` — cada evento serializado via
     `model_dump(mode="json")`, na mesma ordem em que `ingest()` os gravou."""
-    try:
-        review_dir = _resolve_review_dir(page)
-        events_file = _read_events(review_dir)
-    except FileNotFoundError as exc:
-        raise ValueError(str(exc)) from exc
-
+    events_file = _read_events(page)
     return [event.model_dump(mode="json") for event in events_file.events]
 
 

@@ -2510,6 +2510,61 @@ def _citekey_multiset(text: str) -> Counter[str]:
     return counter
 
 
+def _corrupt_events_message(path: Path) -> str:
+    """Mensagem pt-BR única para `events.yaml` corrompido/fora do schema —
+    MESMA mensagem que `mcp_server._corrupt_sidecar_message` compunha
+    isoladamente (achado Important #3 do review da Fase 3: a tradução de
+    `pydantic.ValidationError`/erro de YAML pra `ValueError` pt-BR estava
+    duplicada, e DIVERGENTE, entre `mcp_server.py` (traduzia) e `cli.py`
+    (não traduzia — `pydantic.ValidationError` cru vazava pelo comando
+    `prumo write review events`). Consolidada aqui, junto de
+    :func:`read_events_file`, pra nunca mais divergir."""
+    return (
+        f"sidecar corrompido ({path}): re-rode `prumo write review ingest "
+        "<reviewed.docx> --page <page>` para regenerá-lo."
+    )
+
+
+def read_events_file(page: Path, project_root: Path | None = None) -> ReviewEventsFile:
+    """Lê e valida `events.yaml` de `reviews/<slug>/` para `page` — ÚNICO
+    ponto de leitura de `events.yaml` usado por `cli.py` (comando `prumo
+    write review events`) e por `mcp_server` (`review_status`/
+    `review_events`, via wrapper fino `_read_events`); achado Important #3
+    do review da Fase 3, ver :func:`_corrupt_events_message`.
+
+    Resolve `project_root`/`slug` (MESMO padrão de `ingest()`/
+    `apply_review()`: `export.detect_project_root` se `project_root` não
+    for fornecido, `export._slugify`) e computa `reviews/<slug>/`.
+
+    Levanta `FileNotFoundError` pt-BR (comando de ingest embutido) se
+    `events.yaml` ainda não existir — a página nunca foi ingerida, ou os
+    artefatos de `reviews/` foram apagados. `events.yaml` presente mas com
+    YAML malformado (`yaml.YAMLError`) ou fora do schema
+    (`pydantic.ValidationError`) vira `ValueError` pt-BR via
+    :func:`_corrupt_events_message` — nunca o traceback cru de
+    pydantic/PyYAML vazando pro CLI ou pro agente MCP."""
+    project_root = project_root or detect_project_root(page)
+    slug = _slugify(page, project_root)
+    review_dir = project_root / "reviews" / slug
+    events_path = review_dir / "events.yaml"
+
+    if not events_path.is_file():
+        raise FileNotFoundError(
+            f"Sidecar de review ausente em {review_dir}: events.yaml. Rode "
+            "`prumo write review ingest <reviewed.docx> --page <page.md>` antes."
+        )
+
+    try:
+        raw = yaml.safe_load(events_path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise ValueError(_corrupt_events_message(events_path)) from exc
+
+    try:
+        return ReviewEventsFile.model_validate(raw or {})
+    except ValidationError as exc:
+        raise ValueError(_corrupt_events_message(events_path)) from exc
+
+
 def _read_review_md_and_events(review_dir: Path) -> tuple[str, str, ReviewEventsFile]:
     """Carrega `review.md` + `events.yaml` de `review_dir`.
 

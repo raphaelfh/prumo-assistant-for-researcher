@@ -20,7 +20,18 @@ from rich.console import Console as RichConsole
 
 
 class Console:
-    """Fachada fina sobre ``rich.Console`` com modo JSON e detecção de TTY."""
+    """Fachada fina sobre ``rich.Console`` com modo JSON e detecção de TTY.
+
+    Todo ``self._rich.print(...)`` desta classe passa ``markup=False`` (Fix
+    pós-review, Crítico #2): conteúdo de domínio (detail de evento de
+    review, citekey, texto de manuscrito) chega aqui como ``str`` arbitrária
+    e NUNCA deve ser reinterpretada como marcação Rich — sem o
+    ``markup=False``, um detail contendo ``[[@smith2020]]`` era silenciosamente
+    corrompido para ``[]`` (colchete duplo lido como par de tags Rich vazias),
+    achado do review da Fase 3. Estilo (cor/ícone) agora vem sempre do
+    parâmetro ``style=``, nunca de tags ``[cor]...[/cor]`` embutidas na
+    string — a ÚNICA forma de dar estilo sem reabrir a mesma classe de bug.
+    """
 
     def __init__(self, *, json_mode: bool = False, force_terminal: bool | None = None) -> None:
         self._json = json_mode
@@ -37,24 +48,24 @@ class Console:
     def info(self, message: str) -> None:
         if self._json:
             return  # mensagens informativas não poluem stream JSON
-        self._rich.print(message)
+        self._rich.print(message, markup=False)
 
     def success(self, message: str) -> None:
         if self._json:
             return
-        self._rich.print(f"[green]✓[/green] {message}")
+        self._rich.print(f"✓ {message}", style="green", markup=False)
 
     def warn(self, message: str) -> None:
         if self._json:
             print(json.dumps({"level": "warn", "message": message}), file=sys.stderr)
             return
-        self._rich.print(f"[yellow]⚠[/yellow] {message}", style="yellow")
+        self._rich.print(f"⚠ {message}", style="yellow", markup=False)
 
     def error(self, message: str) -> None:
         if self._json:
             print(json.dumps({"level": "error", "message": message}), file=sys.stderr)
             return
-        self._rich.print(f"[red]✗[/red] {message}", style="red")
+        self._rich.print(f"✗ {message}", style="red", markup=False)
 
     def emit(self, payload: Any) -> None:
         """Emite o payload primário do comando.
@@ -66,15 +77,15 @@ class Console:
             print(json.dumps(payload, ensure_ascii=False, default=str))
             return
         if isinstance(payload, str):
-            self._rich.print(payload)
+            self._rich.print(payload, markup=False)
         elif isinstance(payload, dict):
             self._render_dict(payload)
         elif isinstance(payload, list):
             for item in payload:
                 self.emit(item)
         else:
-            self._rich.print(repr(payload))
+            self._rich.print(repr(payload), markup=False)
 
     def _render_dict(self, d: dict[str, Any]) -> None:
         for k, v in d.items():
-            self._rich.print(f"[cyan]{k}[/cyan]: {v}")
+            self._rich.print(f"{k}: {v}", style="cyan", markup=False)

@@ -499,16 +499,19 @@ def test_write_review_events_list_plain(tmp_path: Path, monkeypatch: pytest.Monk
     (pj / "references" / "_references.bib").write_text("")
     review_dir = pj / "reviews" / "p"
     review_dir.mkdir(parents=True)
+    # Kinds REAIS gravados por `review.py` (Fix pós-review, Crítico #1) —
+    # NUNCA "unanchored"/"citation-touched" fabricados; ver grep `kind="` em
+    # `review.py` (`unanchored-mark`, `citation-touched-prose`, etc.).
     (review_dir / "events.yaml").write_text(
-        "page: docs/p.md\nevents:\n  - kind: citation-drop\n    detail: 'citação (occ occ1, citekeys k2020) deletada no Word — confirme no apply.'\n    occ_id: occ1\n    citekeys: [k2020]\n  - kind: unanchored\n    detail: 'marca não localizada no corpo normalizado — edite manualmente ou aguarde'\n  - kind: citation-touched\n    detail: 'decisão humana: edite a fonte'\n"
+        "page: docs/p.md\nevents:\n  - kind: citation-drop\n    detail: 'citação (occ occ1, citekeys k2020) deletada no Word — confirme no apply.'\n    occ_id: occ1\n    citekeys: [k2020]\n  - kind: unanchored-mark\n    detail: 'marca não localizada no corpo normalizado — edite manualmente ou aguarde'\n  - kind: citation-touched-prose\n    detail: 'decisão humana: edite a fonte'\n"
     )
     monkeypatch.setenv("COLUMNS", "300")
 
     result = runner.invoke(app, ["write", "review", "events", "--page", str(page)])
     assert result.exit_code == 0, result.output
     assert "citation-drop" in result.output
-    assert "unanchored" in result.output
-    assert "citation-touched" in result.output
+    assert "unanchored-mark" in result.output
+    assert "citation-touched-prose" in result.output
     # Verify detail resumido is present and truncated (~80 chars)
     assert "deletada no Word" in result.output
     assert "não localizada" in result.output
@@ -524,21 +527,43 @@ def test_write_review_events_checklist(tmp_path: Path, monkeypatch: pytest.Monke
     (pj / "references" / "_references.bib").write_text("")
     review_dir = pj / "reviews" / "p"
     review_dir.mkdir(parents=True)
+    # Cobertura dos 6 kinds REAIS que `review.py` persiste (Fix pós-review,
+    # Crítico #1 — grep `kind="` em `review.py`): "unanchored"/"ambiguous"/
+    # "non-identity"/"citation-touched" fabricados NUNCA são gravados de
+    # verdade; os kinds reais levam o sufixo "-mark"/"-anchor"/"-span"/
+    # "-prose", mais "citation-drop" e "applied" (histórico do apply).
     (review_dir / "events.yaml").write_text(
-        "page: docs/p.md\nevents:\n  - kind: citation-drop\n    detail: 'citação (occ occ1, citekeys k2020) deletada'\n    occ_id: occ1\n    citekeys: [k2020]\n  - kind: unanchored\n    detail: 'marca não localizada'\n  - kind: ambiguous\n    detail: 'múltiplas localizações possíveis'\n  - kind: citation-touched\n    detail: 'decisão humana'\n"
+        "page: docs/p.md\n"
+        "events:\n"
+        "  - kind: citation-drop\n"
+        "    detail: 'citação (occ occ1, citekeys k2020) deletada'\n"
+        "    occ_id: occ1\n"
+        "    citekeys: [k2020]\n"
+        "  - kind: unanchored-mark\n"
+        "    detail: 'marca não localizada'\n"
+        "  - kind: ambiguous-anchor\n"
+        "    detail: 'múltiplas localizações possíveis'\n"
+        "  - kind: non-identity-span\n"
+        "    detail: 'alvo cruza fronteira de fragment'\n"
+        "  - kind: citation-touched-prose\n"
+        "    detail: 'decisão humana'\n"
+        "  - kind: applied\n"
+        "    detail: '2 citekey(s) confirmadas em 2026-07-23'\n"
     )
 
     result = runner.invoke(app, ["write", "review", "events", "--page", str(page), "--checklist"])
     assert result.exit_code == 0, result.output
-    # Verify checklist format: numbered, pt-BR, with ACÇÃOs per kind
-    assert "1." in result.output or "1 " in result.output  # Numbered
-    assert "citation-drop" in result.output
-    assert "--confirm-citation-drops" in result.output
-    assert "unanchored" in result.output
+    # Numeração + AÇÃO específica do evento #1 (citation-drop) — asserção
+    # fortalecida (Minor do review: "1." sozinho casava com qualquer texto).
+    assert "1. citation-drop: citação (occ occ1" in result.output
+    assert "AÇÃO: confirme com --confirm-citation-drops occ1" in result.output
+    assert "unanchored-mark" in result.output
     assert "edite review.md" in result.output or "review-reconcile" in result.output
-    assert "ambiguous" in result.output
-    assert "citation-touched" in result.output
-    assert "decisão humana" in result.output
+    assert "ambiguous-anchor" in result.output
+    assert "non-identity-span" in result.output
+    assert "citation-touched-prose" in result.output
+    assert "AÇÃO: decisão humana: rejeite no Word ou edite a fonte" in result.output
+    assert "AÇÃO: nenhuma ação — histórico" in result.output
 
 
 def test_write_review_events_missing_sidecars_exits_cleanly(tmp_path: Path) -> None:
@@ -555,3 +580,105 @@ def test_write_review_events_missing_sidecars_exits_cleanly(tmp_path: Path) -> N
     assert result.exit_code == 1
     assert "Traceback" not in result.output  # Clean error
     assert "events.yaml" in result.output or "ausente" in result.output
+
+
+# --- Fix pós-review (Important #3): events.yaml fora do schema mostrava o --
+#     traceback cru de `pydantic.ValidationError` pelo comando `events` (só
+#     `mcp_server.py` traduzia) — `review.read_events_file` agora é o ÚNICO
+#     ponto de leitura+validação, usado por `cli.py` e `mcp_server.py`. -----
+
+
+def test_write_review_events_corrupt_sidecar_shows_pt_br_message(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    page = pj / "docs" / "p.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("Texto.\n")
+    (pj / "references").mkdir()
+    (pj / "references" / "_references.bib").write_text("")
+    review_dir = pj / "reviews" / "p"
+    review_dir.mkdir(parents=True)
+    # `detail` é obrigatório em `ReviewEvent` (schemas/v1.py) — ausência viola
+    # o schema (`pydantic.ValidationError`), simulando events.yaml corrompido
+    # (editado à mão incorretamente).
+    (review_dir / "events.yaml").write_text(
+        "page: docs/p.md\nevents:\n  - kind: unanchored-mark\n", encoding="utf-8"
+    )
+
+    result = runner.invoke(app, ["write", "review", "events", "--page", str(page)])
+
+    assert result.exit_code == 1
+    assert "Traceback" not in result.output
+    assert "sidecar corrompido" in result.output
+    assert "events.yaml" in result.output
+    assert "prumo write review ingest" in result.output
+    # Mensagem POLIDA pt-BR, não o jargão cru do pydantic vazando por trás.
+    assert "validation error" not in result.output.lower()
+    assert "field required" not in result.output.lower()
+
+
+def test_review_read_events_file_with_malformed_yaml_raises_value_error_pt_br(
+    tmp_path: Path,
+) -> None:
+    """`review.read_events_file` (helper de domínio) traduz
+    `pydantic.ValidationError` pra ValueError pt-BR — mesma mensagem que
+    `mcp_server._corrupt_sidecar_message` compunha isoladamente antes deste
+    fix; `cli.py` e `mcp_server.py` delegam aqui agora, fonte única."""
+    project_root = tmp_path
+    (project_root / "references").mkdir(parents=True)
+    (project_root / "references" / "_references.bib").write_text("")
+    page = project_root / "docs" / "p.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("Texto.\n")
+    page_resolved = page.resolve()
+    review_dir = project_root / "reviews" / export._slugify(page_resolved, project_root)
+    review_dir.mkdir(parents=True)
+    (review_dir / "events.yaml").write_text(
+        "page: docs/p.md\nevents:\n  - kind: unanchored-mark\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError) as exc:
+        review.read_events_file(page_resolved, project_root)
+
+    message = str(exc.value)
+    assert "sidecar corrompido" in message
+    assert "events.yaml" in message
+    assert "prumo write review ingest" in message
+    assert "validation error" not in message.lower()
+
+
+# --- Fix pós-review (Crítico #2): `Console` imprimia via Rich SEM ----------
+#     `markup=False` — um `detail` contendo `[[@smith2020]]` (colchete
+#     duplo) era silenciosamente corrompido pra `[]` (Rich interpretava como
+#     par de tags vazias). `detail` é conteúdo de manuscrito arbitrário e
+#     nunca pode ser reinterpretado como marcação Rich. -------------------
+
+
+def test_write_review_events_preserves_citation_brackets_literal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj = tmp_path / "pj_demo"
+    page = pj / "docs" / "p.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("Texto.\n")
+    (pj / "references").mkdir()
+    (pj / "references" / "_references.bib").write_text("")
+    review_dir = pj / "reviews" / "p"
+    review_dir.mkdir(parents=True)
+    (review_dir / "events.yaml").write_text(
+        "page: docs/p.md\n"
+        "events:\n"
+        "  - kind: citation-touched-prose\n"
+        '    detail: "prosa perto de [[@smith2020]] mudou sob track changes"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("COLUMNS", "300")
+
+    plain = runner.invoke(app, ["write", "review", "events", "--page", str(page)])
+    assert plain.exit_code == 0, plain.output
+    assert "[[@smith2020]]" in plain.output
+
+    checklist = runner.invoke(
+        app, ["write", "review", "events", "--page", str(page), "--checklist"]
+    )
+    assert checklist.exit_code == 0, checklist.output
+    assert "[[@smith2020]]" in checklist.output
