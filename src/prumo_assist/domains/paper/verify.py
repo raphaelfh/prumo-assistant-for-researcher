@@ -571,7 +571,7 @@ def verify_refs(
                     message=(
                         f"citekey aparece {duplicate_counts[key]}x no bib — a verificação "
                         "seria ambígua (qual entrada é a verdadeira?); corrija a duplicata "
-                        "no Zotero e re-exporte o BBT (`prumo paper lint` ajuda a localizar)."
+                        "no Zotero e re-exporte o BBT."
                     ),
                     source="local",
                 )

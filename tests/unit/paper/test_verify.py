@@ -411,7 +411,9 @@ class TestDuplicateCitekey:
         assert report["summary"]["errors"] == 1
         [finding] = report["findings"]
         assert finding["kind"] == "duplicate-citekey" and finding["level"] == "error"
-        assert "2x" in finding["message"] and "prumo paper lint" in finding["message"]
+        assert "2x" in finding["message"]
+        assert "re-exporte o BBT" in finding["message"]
+        assert "prumo paper lint" not in finding["message"]
 
     def test_duplicata_com_page_tambem_acusa(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
