@@ -18,8 +18,11 @@ import difflib
 import json
 import os
 import re
+import subprocess
+import tempfile
 import urllib.error
 import urllib.request
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -389,10 +392,115 @@ def check_entry(entry: BibEntry, *, cache: RefCache, refresh: bool = False) -> l
     return findings
 
 
+REFCHECKER_PIN = "academic-refchecker==3.0.151"
+_REFCHECKER_HINT = (
+    "Instale o uv (https://docs.astral.sh/uv/) e confirme: "
+    f"`uvx {REFCHECKER_PIN} --help`. Sem uv, rode sem --deep — a verificação "
+    "nativa (Crossref/PubMed) continua funcionando."
+)
+
+
+class RefcheckerUnavailableError(RuntimeError):
+    """Backend profundo (`uvx academic-refchecker==3.0.151`) ausente ou hostil."""
+
+
+def _bib_subset_text(entries: Sequence[BibEntry]) -> str:
+    """Reconstrói um .bib só com as entradas em escopo (privacidade: o bib
+    inteiro nunca sai da máquina; ver Global Constraints)."""
+    return "\n".join(f"@{e.entry_type}{{{e.citekey},{e.body}}}" for e in entries) + "\n"
+
+
+def _run_refchecker(bib_text: str, *, timeout: float = 600.0) -> dict[str, Any]:
+    """Roda o refchecker PINADO sobre um .bib temporário e devolve o report.
+
+    Fatos do spike 2026-07-24 que este seam honra: o refchecker termina com
+    **exit 0 mesmo com erros** — o gate é o ``--report-file``; sem chave de
+    API o pool público é lento (default 600s de timeout). Seam isolado para
+    mock nos testes (regra do repo).
+    """
+    with tempfile.TemporaryDirectory(prefix="prumo-refcheck-") as tmp:
+        bib_path = Path(tmp) / "scope.bib"
+        report_path = Path(tmp) / "report.json"
+        bib_path.write_text(bib_text, encoding="utf-8")
+        try:
+            proc = subprocess.run(
+                [
+                    "uvx",
+                    REFCHECKER_PIN,
+                    "--paper",
+                    str(bib_path),
+                    "--report-file",
+                    str(report_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except FileNotFoundError as exc:
+            raise RefcheckerUnavailableError(
+                "uv/uvx não encontrado no PATH — o backend profundo "
+                f"(`uvx {REFCHECKER_PIN}`) não pode ser invocado. {_REFCHECKER_HINT}"
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise RefcheckerUnavailableError(
+                f"refchecker excedeu {timeout:.0f}s — sem chave de API o pool público "
+                "é lento; reduza o escopo (--page) ou rode de novo mais tarde. "
+                f"{_REFCHECKER_HINT}"
+            ) from exc
+        if proc.returncode != 0:
+            raise RefcheckerUnavailableError(
+                f"refchecker (`uvx {REFCHECKER_PIN}`) terminou com exit "
+                f"{proc.returncode}. stderr:\n{proc.stderr.strip()[-2000:]}\n{_REFCHECKER_HINT}"
+            )
+        try:
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RefcheckerUnavailableError(
+                "refchecker terminou com exit 0 mas o report JSON está ausente/ilegível "
+                "— o exit code dele NÃO sinaliza falha (spike 2026-07-24); sem report "
+                f"não há verificação. {_REFCHECKER_HINT}"
+            ) from exc
+        if not isinstance(payload, dict):
+            raise RefcheckerUnavailableError(
+                f"report do refchecker não é o JSON esperado (objeto no topo). {_REFCHECKER_HINT}"
+            )
+        return cast(dict[str, Any], payload)
+
+
+def _findings_from_report(report: dict[str, Any], scope: set[str]) -> list[Finding]:
+    """Records → Findings ``warning`` (deep é enriquecimento, nunca gate —
+    Global Constraints). Mapeamento pelo ``original_reference.bibtex_key``."""
+    findings: list[Finding] = []
+    records = report.get("records")
+    for record in records if isinstance(records, list) else []:
+        if not isinstance(record, dict):
+            continue
+        error_type = record.get("error_type")
+        if not error_type:
+            continue
+        original = record.get("original_reference")
+        citekey = original.get("bibtex_key") if isinstance(original, dict) else None
+        if not isinstance(citekey, str) or citekey not in scope:
+            continue
+        details = str(record.get("error_details") or "").strip()
+        first_line = details.splitlines()[0] if details else "achado sem detalhes"
+        findings.append(
+            Finding(
+                citekey=citekey,
+                level="warning",
+                kind=f"refchecker:{error_type}",
+                message=(f"[deep] {first_line} — confira a entrada no Zotero e re-exporte o BBT."),
+                source="refchecker",
+            )
+        )
+    return findings
+
+
 def verify_refs(
     pj_path: Path,
     *,
     page: Path | None = None,
+    deep: bool = False,
     refresh: bool = False,
     cache_path: Path | None = None,
 ) -> dict[str, Any]:
@@ -463,6 +571,18 @@ def verify_refs(
             continue
         findings.extend(check_entry(by_key[key], cache=cache, refresh=refresh))
 
+    # Camada profunda opcional (Task 3): citekeys duplicadas estão em `scope`
+    # mas não em estado verificável (qual entrada é a verdadeira?) — o
+    # subconjunto enviado ao refchecker e o filtro de escopo dos findings
+    # excluem `duplicate_counts` (emenda pós-review T3; ver Global Constraints).
+    if deep and scope:
+        deep_report = _run_refchecker(
+            _bib_subset_text([by_key[k] for k in scope if k not in duplicate_counts])
+        )
+        findings.extend(
+            _findings_from_report(deep_report, set(k for k in scope if k not in duplicate_counts))
+        )
+
     summary = {
         "errors": sum(1 for f in findings if f.level == "error"),
         "warnings": sum(1 for f in findings if f.level == "warning"),
@@ -473,6 +593,7 @@ def verify_refs(
         "page": str(page) if page is not None else None,
         "scope": scope,
         "checked": len(scope),
+        "deep": deep,
         "findings": [asdict(f) for f in findings],
         "summary": summary,
     }
