@@ -1,3 +1,11 @@
+---
+status: implemented
+verified: 2026-07-24
+release: null
+spec: "[[2026-07-05-review-docx-criticmarkup-design]]"
+phase: "Fase 2 de 0–4 (spec da ponte); Fase 3 do guarda-chuva zero-friction"
+---
+
 # Ponte docx↔CriticMarkup — Fase 2: MVP `review ingest`/`apply` — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -6,7 +14,7 @@
 
 **Architecture:** Novo módulo `domains/write/review.py` (toda a lógica; fachada fina no CLI). Citação NUNCA vem do adeu (decisão (b) da Fase 0): o leitor OOXML próprio (ET sobre `word/document.xml`) classifica cada campo `ADDIN ZOTERO_ITEM` como `live`/`deleted`/`touched` andando pelos ancestrais `w:del`/`w:ins`. Prosa vem do `uvx adeu==1.29.0 extract --json` (seam subprocess; SEM precisar do docx original — validado no spike: as tracked changes saem inline como `{++...++}{>>[Chg:N tipo] Autor<<}`). O transplante determinístico localiza cada marca no texto NORMALIZADO por âncora única de contexto e inverte para o SOURCE via span-map (`kind=identity` only); todo o resto vira evento em `events.yaml` (modo degradado do spec: checklist manual; reconciliador chega na Fase 3). Guardas hard-fail em pt-BR com comando embutido.
 
-**Tech Stack:** Python 3.11 stdlib (ET/zipfile/subprocess/difflib), `core/criticmarkup` (parse/emit/apply), `core/obsidian` (span-map), schemas Pydantic v1, adeu pinado `uvx adeu==1.29.0` (seam mockado nos testes; golden fixture do formato de saída registrada do spike).
+**Tech Stack:** Python 3.11 stdlib (ET/zipfile/subprocess), `core/criticmarkup` (parse/emit/apply), `core/obsidian` (span-map), schemas Pydantic v1, adeu pinado `uvx adeu==1.29.0` (seam mockado nos testes; golden fixture do formato de saída registrada do spike). *(difflib saiu do stack: o pareamento move/reescrever — spec 3f — foi deferido para a Fase 3; ver nota de reconciliação abaixo.)*
 
 **Spec:** `docs/superpowers/specs/2026-07-05-review-docx-criticmarkup-design.md` (fluxo 3a–3h, guardas A/B/C, I1–I8, "Ingest e transplante", CLI). Release: PATCH (ADR-0015: pré-1.0 tudo PATCH releasável; comandos novos anotados no CHANGELOG).
 
@@ -46,7 +54,7 @@ def assert_no_structural_changes(docx_path: Path) -> None                    # G
 def _run_adeu_extract(docx_path: Path) -> str                                # seam
 def parse_adeu_markdown(markdown: str) -> list[ReviewMark]                   # marca + autor/tipo do {>>[Chg:...]<<}
 def locate_marks_in_norm(marks, norm_text, citemap) -> tuple[list[LocatedMark], list[ReviewEvent]]
-def transplant_to_source(located, source_text, span_frags) -> tuple[str, list[ReviewEvent]]
+def transplant_to_source(source_body, span_frags, located, *, author_anchors=False) -> tuple[str, list[ReviewEvent]]  # assinatura REAL (T7/T9); a ordem original desta tabela era rascunho
 def ingest(reviewed_docx: Path, page: Path, project_root: Path | None = None) -> IngestResult
 def apply_review(page: Path, *, accept_all=False, reject_all=False, by_author: str | None = None,
                  accept: bool | None = None, marks: list[int] | None = None,
@@ -181,6 +189,8 @@ Commit: `feat(write): transplante determinístico para o source via span-map + g
 
 ---
 
+**Nota de reconciliação — reduções de spec do MVP (registrada no review final da fase, 2026-07-24):** duas reduções deliberadas que estavam implícitas ficam aqui nomeadas: (1) **"cópia de revisão em branch" (spec §3h e §CLI) → `reviews/<slug>/review.md` versionado + commit humano** — o portão humano é o diff do worklist no Git, sem automação de branch no MVP (a mecânica de branch pode voltar na Fase 3 se o reconciliador precisar); (2) **pareamento move/reescrever por `difflib` (spec 3f) → deferido para a Fase 3** — no MVP, deleção+inserção da mesma citação é diagnosticada pela conservação (mensagem de possível MOVE, T2.1) e mudanças ambíguas de prosa caem em `unanchored-mark`/`ambiguous-anchor` para decisão humana; nenhum pareamento difflib foi implementado.
+
 **Nota de reconciliação — Guarda C (registrada no controller review da T8, 2026-07-24):** a tabela de fases do spec lista "guardas A/B/C" na Fase 2, mas a Guarda C ("sobrevivência de campo na extração") foi desenhada para o mundo pré-decisão-(b), em que a EXTRAÇÃO (adeu) podia achatar campos. Com o backend (b) da Fase 0 — citação lida 100% do OOXML próprio — a substância da Guarda C é subsumida por: (1) fldChar desbalanceado → hard-fail do leitor (T1, I2b); (2) campo sumido/achatado → occ ausente do multiconjunto → `CitationConservationError` (T2, I2); (3) o adeu nunca participa de decisão de citação (T6, defesa de identidade). Nenhum cheque redundante é adicionado; o review final da fase (T11) valida esta subsunção.
 
 ### Task 8: `ingest()` — orquestração + preflight + escrita dos sidecars
@@ -223,5 +233,5 @@ Review final (modelo mais capaz) sobre o range da fase; fixes se houver; frontma
 
 ## Verificação final
 
-- [ ] Fluxo end-to-end nos testes de integração: export (fixture) → ingest (reviewed sintético) → review.md → apply → página final; cada hard-fail com fixture própria.
-- [ ] Smoke manual futuro (dono, não-bloqueante): rodada real com um docx revisado no Word.
+- [x] Fluxo end-to-end nos testes de integração: export (fixture) → ingest (reviewed sintético) → review.md → apply → página final; cada hard-fail com fixture própria.
+- [x] Smoke manual futuro (dono, não-bloqueante): rodada real com um docx revisado no Word.
