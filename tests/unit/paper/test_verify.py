@@ -374,6 +374,11 @@ class TestVerifyRefs:
         assert "prumo paper lint" in missing[0]["message"]
         assert report["page"] == str(pagina)
 
+    def test_page_inexistente_mensagem_pt_br(self, tmp_path: Path) -> None:
+        pj = self._pj(tmp_path)
+        with pytest.raises(FileNotFoundError, match="--page"):
+            verify.verify_refs(pj, page=tmp_path / "nao-existe.md", cache_path=tmp_path / "c.json")
+
 
 class TestDuplicateCitekey:
     _DUP_BIB = """@article{guan2020clinical,
