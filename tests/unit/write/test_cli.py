@@ -460,3 +460,30 @@ def test_write_review_apply_missing_drop_confirmation_exits_1(
     assert result.exit_code == 1
     assert "citation-drop" in result.output
     assert "Traceback" not in result.output
+
+
+def test_write_review_apply_accept_and_reject_conflict_exits_cleanly(
+    tmp_path: Path,
+) -> None:
+    page = tmp_path / "p.md"
+    page.write_text("Texto.\n")
+
+    result = runner.invoke(
+        app,
+        ["write", "review", "apply", "--page", str(page), "--mark", "0", "--accept", "--reject"],
+    )
+    assert result.exit_code == 1
+    assert "mutuamente exclusivos" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_write_review_apply_mark_without_decision_exits_cleanly(
+    tmp_path: Path,
+) -> None:
+    page = tmp_path / "p.md"
+    page.write_text("Texto.\n")
+
+    result = runner.invoke(app, ["write", "review", "apply", "--page", str(page), "--mark", "0"])
+    assert result.exit_code == 1
+    assert "--mark exige" in result.output
+    assert "Traceback" not in result.output

@@ -383,6 +383,9 @@ def review_apply_command(
     with cli_run(json_mode=json_mode, catches=_REVIEW_CATCHES) as console:
         from datetime import UTC, datetime
 
+        if accept and reject:
+            raise PrumoError("--accept e --reject são mutuamente exclusivos — escolha um.")
+
         decision: bool | None = True if accept else (False if reject else None)
 
         marks: dict[int, bool] | None = None
