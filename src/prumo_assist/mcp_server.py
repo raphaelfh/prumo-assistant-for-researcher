@@ -1,0 +1,152 @@
+"""Servidor MCP local (stdio) do prumo — `prumo-review`.
+
+Task 1 da Fase 3 da ponte docx↔CriticMarkup
+(`docs/superpowers/plans/2026-07-24-ponte-fase3-mcp-reconciliador.md`):
+expõe o ciclo de revisão (`reviews/<slug>/{review.md,events.yaml,
+review-comments.yaml}`, produzidos por `domains.write.review.ingest`) para
+agentes (Claude Code/Desktop) via `mcp` (SDK oficial, FastMCP —
+`mcp==1.28.1`, ADR-0017 a registrar na Task 5).
+
+Vive no TOPO do pacote (não em `domains/`) porque é a própria fachada do
+protocolo — importa domínios livremente (`domains/write/export.py` para
+resolução de caminho, `domains/write/schemas/v1.py` para os schemas), nunca
+o contrário; `core/` permanece intocado (regra deste plano — "Global
+Constraints").
+
+Fachada fina sobre o domínio: nenhuma lógica de revisão mora aqui. Cada
+tool resolve o caminho (`export.detect_project_root` + `export._slugify`,
+MESMO padrão de path resolution de `review.ingest()`), lê o(s) artefato(s)
+certo(s) de `reviews/<slug>/` e devolve dado plano (`dict`/`list[dict]`/
+`str`) — nunca um objeto de domínio. Falha de resolução ou leitura (sidecars
+de review ainda não gerados — a página nunca foi ingerida — ou raiz de
+projeto não localizada) vira sempre `ValueError` pt-BR com o comando de
+correção embutido: FastMCP serializa qualquer exceção do corpo da tool como
+erro de protocolo (nunca um traceback cru chega ao agent-host), mas só
+`ValueError` com mensagem pt-BR + comando dá ao agente algo acionável —
+mesma disciplina de mensagem de `export._read_sidecars`, adaptada aqui para
+sempre re-levantar como `ValueError` (nunca `FileNotFoundError` cru), pra
+unificar o contrato de erro das 3 tools de leitura.
+
+Task 1 entrega as 3 tools READ-ONLY (`review_status`, `review_events`,
+`review_worklist`) + `run_stdio()` (chamado por `prumo mcp serve`,
+`cli.py`). Task 2 acrescenta a única tool de ESCRITA (`propose_prose_edit`).
+"""
+
+from __future__ import annotations
+
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+import yaml
+from mcp.server.fastmcp import FastMCP
+
+from prumo_assist.core import criticmarkup
+from prumo_assist.domains.write.export import _slugify, detect_project_root
+from prumo_assist.domains.write.schemas.v1 import ReviewCommentsFile, ReviewEventsFile
+
+server = FastMCP("prumo-review")
+
+# Comando de correção embutido em toda mensagem de artefato de review
+# ausente — mesma disciplina de `.claude/rules/code.md` ("comando de
+# correção embutido na mensagem de erro").
+_INGEST_HINT = "prumo write review ingest <reviewed.docx> --page <page>"
+
+
+def _resolve_review_dir(page: str) -> Path:
+    """`reviews/<slug>/` a partir de `page` — MESMO padrão de path
+    resolution de `review.ingest()`: resolve o caminho absoluto, sobe até a
+    raiz do projeto (`export.detect_project_root`) e computa o slug
+    (`export._slugify`). Propaga o `FileNotFoundError` pt-BR de
+    `detect_project_root` (sem raiz encontrada) — cada tool traduz para
+    `ValueError` no `except` do próprio corpo."""
+    page_path = Path(page).resolve()
+    project_root = detect_project_root(page_path)
+    slug = _slugify(page_path, project_root)
+    return project_root / "reviews" / slug
+
+
+def _require_review_artifact(review_dir: Path, name: str) -> Path:
+    """Caminho de `review_dir / name`, ou `FileNotFoundError` pt-BR (com o
+    comando de ingest embutido) se o artefato ainda não existir — a página
+    nunca foi ingerida, ou os artefatos de `reviews/` foram apagados."""
+    artifact = review_dir / name
+    if not artifact.is_file():
+        raise FileNotFoundError(
+            f"Artefato de review ausente: {artifact}. A página ainda não foi "
+            "ingerida (ou os artefatos de `reviews/` foram apagados) — rode "
+            f"`{_INGEST_HINT}` primeiro."
+        )
+    return artifact
+
+
+def _read_review_md(review_dir: Path) -> str:
+    return _require_review_artifact(review_dir, "review.md").read_text(encoding="utf-8")
+
+
+def _read_events(review_dir: Path) -> ReviewEventsFile:
+    path = _require_review_artifact(review_dir, "events.yaml")
+    return ReviewEventsFile.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+
+
+def _read_comments(review_dir: Path) -> ReviewCommentsFile:
+    path = _require_review_artifact(review_dir, "review-comments.yaml")
+    return ReviewCommentsFile.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+
+
+@server.tool()
+def review_status(page: str) -> dict[str, Any]:
+    """Contagens do ciclo de revisão de `page`: marcas pendentes em
+    `review.md` (`criticmarkup.parse`), eventos por `kind`, comentários
+    extraídos do docx revisado e drops de citação (`kind ==
+    "citation-drop"`) ainda pendentes de confirmação no `apply`."""
+    try:
+        review_dir = _resolve_review_dir(page)
+        review_md_text = _read_review_md(review_dir)
+        events_file = _read_events(review_dir)
+        comments_file = _read_comments(review_dir)
+    except FileNotFoundError as exc:
+        raise ValueError(str(exc)) from exc
+
+    events_by_kind = dict(Counter(event.kind for event in events_file.events))
+    pending_drops = sum(1 for event in events_file.events if event.kind == "citation-drop")
+
+    return {
+        "page": events_file.page,
+        "pending_marks": len(criticmarkup.parse(review_md_text)),
+        "events_by_kind": events_by_kind,
+        "comments": len(comments_file.comments),
+        "pending_drops": pending_drops,
+    }
+
+
+@server.tool()
+def review_events(page: str) -> list[dict[str, Any]]:
+    """`events.yaml` completo de `page` — cada evento serializado via
+    `model_dump(mode="json")`, na mesma ordem em que `ingest()` os gravou."""
+    try:
+        review_dir = _resolve_review_dir(page)
+        events_file = _read_events(review_dir)
+    except FileNotFoundError as exc:
+        raise ValueError(str(exc)) from exc
+
+    return [event.model_dump(mode="json") for event in events_file.events]
+
+
+@server.tool()
+def review_worklist(page: str) -> str:
+    """Conteúdo cru de `review.md` de `page` — o worklist vivo do ciclo de
+    revisão (frontmatter + corpo com as marcas CriticMarkup ainda
+    pendentes)."""
+    try:
+        review_dir = _resolve_review_dir(page)
+        return _read_review_md(review_dir)
+    except FileNotFoundError as exc:
+        raise ValueError(str(exc)) from exc
+
+
+def run_stdio() -> None:
+    """Inicia o transporte stdio do servidor MCP `prumo-review` — bloqueia
+    até o cliente encerrar a conexão. Chamado por `prumo mcp serve`
+    (`cli.py`, fachada fina)."""
+    server.run()

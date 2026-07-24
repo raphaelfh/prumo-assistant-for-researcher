@@ -35,6 +35,7 @@ from prumo_assist import (
     PrumoError,
     __version__,
 )
+from prumo_assist.core.cli_op import cli_run
 from prumo_assist.core.deps import check_external_deps
 from prumo_assist.core.output import Console
 from prumo_assist.core.paths import find_resource, resolve_resource
@@ -742,6 +743,35 @@ def _pick_module_interactive(
     if 0 <= idx < len(modules):
         return modules[idx].name
     return None
+
+
+# ---------------------------------------------------------------------------
+# prumo mcp (servidor MCP local, stdio — expõe o ciclo de revisão a agentes)
+# ---------------------------------------------------------------------------
+
+mcp_app = typer.Typer(
+    name="mcp",
+    help="Servidor MCP local (stdio) do prumo — expõe o ciclo de revisão para agentes.",
+    no_args_is_help=True,
+)
+app.add_typer(mcp_app)
+
+
+@mcp_app.command("serve")
+def mcp_serve_command() -> None:
+    """Inicia o servidor MCP ``prumo-review`` via stdio.
+
+    Usado por agent-hosts (Claude Code/Desktop) via ``.mcp.json``. Bloqueia
+    a chamada: o transporte stdio consome stdin/stdout inteiros para o
+    protocolo MCP (JSON-RPC) até o cliente encerrar a conexão — por isso
+    nenhuma mensagem é emitida via ``Console`` aqui (qualquer texto solto em
+    stdout corromperia o protocolo). Erros de inicialização, se houver,
+    ainda viram ``typer.Exit`` via ``cli_run``.
+    """
+    with cli_run():
+        from prumo_assist import mcp_server
+
+        mcp_server.run_stdio()
 
 
 def _entry() -> None:
