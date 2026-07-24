@@ -1,3 +1,11 @@
+---
+status: implemented
+verified: 2026-07-24
+release: null
+spec: "[[2026-07-05-review-docx-criticmarkup-design]]"
+phase: "Fase 3 de 0–4 (spec da ponte); Fase 3 do guarda-chuva zero-friction"
+---
+
 # Ponte docx↔CriticMarkup — Fase 3: prumo-MCP + reconciliador — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -21,6 +29,8 @@
 - Dependência `mcp` é a PRIMEIRA dependência de servidor do pacote: pin exato `mcp==1.28.1` em pyproject `[project.dependencies]`; se `uv lock`/sync reclamar de resolução com o Python floor do repo, reportar BLOCKED (não afrouxar o pin sem registro).
 
 ---
+
+**Nota de reconciliação — insumos do reconciliador vs spec (registrada no review final da fase, 2026-07-24):** o spec §Ingest lista "clusters, citation-touched, seams, moves ambíguos" como eventos tipados do reconciliador. No MVP entregue: **clusters** são resolvidos pré-parse por design (F1 — marcas planas, cluster não-serializável é erro); **seams e moves ambíguos** caem nos kinds existentes (`unanchored-mark`/`ambiguous-anchor`/`non-identity-span`) ou no diagnóstico hard-fail de MOVE da conservação (F2 T2) — kinds dedicados de cluster/seam/move nunca existiram; o **pareamento move/reescrever por difflib** (deferido da F2 para cá) segue não implementado e re-aponta para F4/backlog junto do mecanismo `--resolve-events` de 1ª classe. O fluxo pós-proposta (remover eventos resolvidos de events.yaml antes do apply) está documentado na skill/checklist/mensagem do apply (fix do review final, b1acd7c).
 
 ### Task 1: Dependência + servidor MCP read-only (`prumo mcp serve`)
 

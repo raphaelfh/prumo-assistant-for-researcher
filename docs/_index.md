@@ -61,9 +61,8 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 
 - [[superpowers/plans/2026-07-22-zettlr-front]] · draft
 - [[superpowers/plans/2026-07-23-zero-friction-fase0-spike-desktop-cowork]] · —
-- [[superpowers/plans/2026-07-24-ponte-fase3-mcp-reconciliador]] · —
 
-**Plans arquivados:** 20 em `superpowers/plans/archive/`
+**Plans arquivados:** 21 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->
