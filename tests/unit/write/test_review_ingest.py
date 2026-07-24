@@ -189,10 +189,12 @@ def test_ingest_happy_path_prose_insertion_and_comment_writes_valid_sidecars(
     assert result.comments.comments[0].author == "Revisor Alice"
 
     # {++...++} no lugar certo (posição exata, não só substring), seguido da
-    # âncora de autoria `{>>autor: X<<}` (Task 9 — `transplant_to_source`
+    # âncora de autoria `{>>prumo-autor: X<<}` (Task 9 — `transplant_to_source`
     # agora roda com `author_anchors=True` dentro de `ingest()`; a âncora
-    # nunca sobrevive ao `apply`, só existe em review.md).
-    assert result.review_md.read_text() == prefix + "{++ novo++}{>>autor: Coautor<<}" + suffix
+    # nunca sobrevive ao `apply`, só existe em review.md. Prefixo `prumo-`
+    # — Fix pós-review, achado Menor — evita colisão com um comentário
+    # humano genuíno `{>>autor: ...<<}`).
+    assert result.review_md.read_text() == prefix + "{++ novo++}{>>prumo-autor: Coautor<<}" + suffix
 
     # comments.yaml e events.yaml são YAML válido conforme os schemas.
     slug = _slugify(page, project_root)
@@ -237,13 +239,22 @@ def test_ingest_fails_fast_without_uvx(tmp_path: Path, monkeypatch: pytest.Monke
 def test_ingest_happy_path_preserves_frontmatter_in_review_md(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Frontmatter da página é preservado em `review.md` (reserializado via
-    `yaml.safe_dump`, per brief) mesmo quando a página original tem
-    metadados — o corpo com marcas vem logo em seguida."""
+    """Frontmatter da página sobrevive em `review.md` BYTE A BYTE (Fix
+    pós-review, achado Crítico 1 — `_compose_page` nunca faz
+    `yaml.safe_dump`; write-back usa `core.obsidian.split_frontmatter_raw`),
+    inclusive comentário YAML e espaçamento incomum que um reserialize
+    destruiria."""
     prefix = "Frase inicial da pagina de teste completo"
     suffix = " e nada mais."
     prose = prefix + suffix
-    page_text = "---\ntitle: Pagina com frontmatter\n---\n\n" + prose
+    raw_frontmatter = (
+        "---\n"
+        "title: Pagina com frontmatter\n"
+        "# comentario do humano que nao pode sumir\n"
+        "tags:   [a, b]\n"
+        "---\n\n"
+    )
+    page_text = raw_frontmatter + prose
     project_root = tmp_path
     (project_root / "references").mkdir(parents=True, exist_ok=True)
     (project_root / "references" / "_references.bib").write_text("")
@@ -259,14 +270,19 @@ def test_ingest_happy_path_preserves_frontmatter_in_review_md(
     result = ingest(reviewed_docx=docx, page=page, project_root=project_root)
 
     review_md_text = result.review_md.read_text()
-    assert review_md_text.startswith("---\n")
-    fm_text, _, rest = review_md_text.partition("\n---\n\n")
-    meta = yaml.safe_load(fm_text.removeprefix("---\n"))
-    assert meta == {"title": "Pagina com frontmatter"}
+    # frontmatter VERBATIM — comentário e espaçamento sobrevivem byte a byte
+    # (um `yaml.safe_dump` de round-trip, como a versão antiga fazia,
+    # deletaria o comentário e reformataria `tags:   [a, b]`).
+    assert review_md_text.startswith(raw_frontmatter)
+    assert "# comentario do humano que nao pode sumir" in review_md_text
+    assert "tags:   [a, b]" in review_md_text
+    rest = review_md_text[len(raw_frontmatter) :]
     # Sem anotação `[Chg:...]` pareada, o autor cai no default
     # `_UNKNOWN_AUTHOR` (Task 4) — a âncora ainda é emitida (Task 9:
-    # `author_anchors=True` sempre anota, mesmo autor desconhecido).
-    assert rest == prefix + "{++ ADICIONADO++}{>>autor: (desconhecido)<<}" + suffix
+    # `author_anchors=True` sempre anota, mesmo autor desconhecido); formato
+    # `prumo-autor:` (Fix pós-review, achado Menor — evita colisão com
+    # comentário humano `{>>autor: ...<<}`).
+    assert rest == prefix + "{++ ADICIONADO++}{>>prumo-autor: (desconhecido)<<}" + suffix
 
 
 # --- 2. sidecars ausentes → FileNotFoundError pt-BR -------------------------

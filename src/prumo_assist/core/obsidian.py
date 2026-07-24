@@ -50,6 +50,29 @@ def split_frontmatter(text: str) -> tuple[dict[str, Any], str]:
     return meta, text[match.end() :]
 
 
+def split_frontmatter_raw(text: str) -> tuple[str, str]:
+    """Separa o BLOCO de frontmatter VERBATIM (delimitadores ``---`` inclusos)
+    do corpo — sem passar por ``yaml.safe_load``/``yaml.safe_dump``.
+
+    Diferente de :func:`split_frontmatter` (que parseia o YAML e portanto
+    perde comentários e formatação num eventual re-dump), esta função devolve
+    ``raw_block`` byte a byte tal como aparece na fonte — usada pela ponte
+    docx↔CriticMarkup (``domains/write/review.py``) para write-back
+    byte-fiel de frontmatter (Fix pós-review da Fase 2/Task 9, achado
+    Crítico 1: reserializar via ``yaml.safe_dump`` deletava comentários YAML
+    e reformatava o bloco).
+
+    Retorna ``(raw_block, body)``; ``("", text)`` se não houver frontmatter
+    — ``raw_block + body == text`` sempre (round-trip exato), pela mesma
+    razão que ``split_frontmatter`` reusa: ``text[match.end():]`` é o
+    complemento exato de ``match.group(0)``.
+    """
+    match = _FRONTMATTER_RE.match(text)
+    if not match:
+        return "", text
+    return match.group(0), text[match.end() :]
+
+
 @dataclass(frozen=True)
 class SpanFragment:
     """Fragmento do mapa norm↔source (offsets absolutos, fim exclusivo).
