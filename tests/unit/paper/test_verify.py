@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import urllib.error
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -371,3 +372,73 @@ class TestVerifyRefs:
         assert [m["citekey"] for m in missing] == ["naoexiste2020"]
         assert "prumo paper lint" in missing[0]["message"]
         assert report["page"] == str(pagina)
+
+
+class TestDuplicateCitekey:
+    _DUP_BIB = """@article{guan2020clinical,
+  title = {Entrada limpa},
+  doi = {10.1056/NEJMoa2002032},
+}
+@article{guan2020clinical,
+  title = {Duplicata retratada},
+  doi = {10.1016/S0140-6736(97)11096-0},
+}
+"""
+
+    def _pj(self, tmp_path: Path) -> Path:
+        (tmp_path / "references").mkdir(parents=True)
+        (tmp_path / "references" / "_references.bib").write_text(self._DUP_BIB, encoding="utf-8")
+        return tmp_path
+
+    def test_duplicata_vira_error_e_pula_checks(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[str] = []
+
+        def fake(url: str, *, timeout: float = 10.0) -> dict[str, Any]:
+            calls.append(url)
+            raise AssertionError("nenhuma chamada de rede deveria ocorrer para citekey duplicada")
+
+        monkeypatch.setattr("prumo_assist.domains.paper.verify._http_get_json", fake)
+        report = verify.verify_refs(self._pj(tmp_path), cache_path=tmp_path / "c.json")
+        assert calls == []
+        assert report["summary"]["errors"] == 1
+        [finding] = report["findings"]
+        assert finding["kind"] == "duplicate-citekey" and finding["level"] == "error"
+        assert "2x" in finding["message"] and "prumo paper lint" in finding["message"]
+
+    def test_duplicata_com_page_tambem_acusa(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pj = self._pj(tmp_path)
+        pagina = tmp_path / "draft.md"
+        pagina.write_text("Como em [[@guan2020clinical]].\n", encoding="utf-8")
+
+        def fake(url: str, *, timeout: float = 10.0) -> dict[str, Any]:
+            raise AssertionError("nenhuma chamada de rede deveria ocorrer")
+
+        monkeypatch.setattr("prumo_assist.domains.paper.verify._http_get_json", fake)
+        report = verify.verify_refs(pj, page=pagina, cache_path=tmp_path / "c.json")
+        assert [f["kind"] for f in report["findings"]] == ["duplicate-citekey"]
+
+
+class TestHttpSeamContract:
+    def test_json_nao_objeto_vira_jsondecodeerror(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class _FakeResponse:
+            def read(self) -> bytes:
+                return b"[1, 2]"
+
+            def __enter__(self) -> _FakeResponse:
+                return self
+
+            def __exit__(self, *exc: object) -> None:
+                return None
+
+        def fake_urlopen(request: Any, timeout: float = 10.0) -> _FakeResponse:
+            return _FakeResponse()
+
+        monkeypatch.setattr(
+            "prumo_assist.domains.paper.verify.urllib.request.urlopen", fake_urlopen
+        )
+        with pytest.raises(json.JSONDecodeError, match="não é objeto"):
+            verify._http_get_json("https://api.example.test/x")

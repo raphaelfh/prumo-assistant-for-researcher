@@ -161,7 +161,13 @@ def _http_get_json(url: str, *, timeout: float = 10.0) -> dict[str, Any]:
         url, headers={"User-Agent": _USER_AGENT, "Accept": "application/json"}
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        return cast(dict[str, Any], json.loads(response.read().decode("utf-8")))
+        payload = json.loads(response.read().decode("utf-8"))
+    # Contrato do seam: SEMPRE objeto no topo (emenda pós-review T2 — corpo
+    # JSON válido mas não-objeto viraria AttributeError vazando do
+    # check_entry, violando o "nunca levanta").
+    if not isinstance(payload, dict):
+        raise json.JSONDecodeError("resposta JSON não é objeto no topo", "", 0)
+    return cast(dict[str, Any], payload)
 
 
 _CROSSREF_WORKS_URL = "https://api.crossref.org/works/{doi}"
@@ -402,7 +408,17 @@ def verify_refs(
             "para o diagnóstico completo do pj."
         )
     entries = parse_bib(bib_path.read_text(encoding="utf-8"))
-    by_key = {e.citekey: e for e in entries}
+    # Colisão de citekey NUNCA é silenciosa (emenda pós-review T2): o dict
+    # ficaria só com a última entrada e uma duplicata retratada sumiria da
+    # verificação sem rastro — a classe exata de erro que este comando existe
+    # para impedir.
+    by_key: dict[str, BibEntry] = {}
+    duplicate_counts: dict[str, int] = {}
+    for e in entries:
+        if e.citekey in by_key:
+            duplicate_counts[e.citekey] = duplicate_counts.get(e.citekey, 1) + 1
+        else:
+            by_key[e.citekey] = e
 
     findings: list[Finding] = []
     if page is not None:
@@ -423,10 +439,28 @@ def verify_refs(
             if key not in by_key
         )
     else:
-        scope = [e.citekey for e in entries]
+        # dedup por citekey (emenda pós-review T2): uma citekey duplicada não
+        # pode contar 2x no escopo — o achado duplicate-citekey já cobre o
+        # problema uma única vez por citekey, não uma vez por ocorrência no bib.
+        scope = list(dict.fromkeys(e.citekey for e in entries))
 
     cache = RefCache(path=cache_path or default_cache_path())
     for key in scope:
+        if key in duplicate_counts:
+            findings.append(
+                Finding(
+                    citekey=key,
+                    level="error",
+                    kind="duplicate-citekey",
+                    message=(
+                        f"citekey aparece {duplicate_counts[key]}x no bib — a verificação "
+                        "seria ambígua (qual entrada é a verdadeira?); corrija a duplicata "
+                        "no Zotero e re-exporte o BBT (`prumo paper lint` ajuda a localizar)."
+                    ),
+                    source="local",
+                )
+            )
+            continue
         findings.extend(check_entry(by_key[key], cache=cache, refresh=refresh))
 
     summary = {
