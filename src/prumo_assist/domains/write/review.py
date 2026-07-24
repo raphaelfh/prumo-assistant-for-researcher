@@ -1669,8 +1669,15 @@ def locate_marks_in_norm(
 # seguinte — permite `ins` logo antes de uma citação/wikilink sem tocá-la);
 # senão, ao que COMEÇA ali (permite `ins` logo DEPOIS de um átomo, quando a
 # prosa seguinte é identity — mesmo que o fragment anterior, que termina
-# ali, não seja identity). Ver `_owning_fragment_for_point`; os 2 edge
-# cases de self-review em `test_review_locate.py` isolam cada ramo.
+# ali, não seja identity). Fragments ZERO-WIDTH em norm (`norm_start ==
+# norm_end`, ex.: block-id `^anchor` — replacement vazio) podem se
+# sanduichar EXATAMENTE no ponto, entre o fragment que termina ali e o
+# fragment real que começa ali: eles nunca são o dono do ponto (só o
+# fragment `identity` REAL que segue é, se existir) — ver nota do fix pós-
+# review em `_owning_fragment_for_point`. Ver `_owning_fragment_for_point`;
+# os 2 edge cases de self-review em `test_review_locate.py` isolam cada
+# ramo da regra, e `test_ins_after_atom_with_zero_width_block_id_transplants`
+# isola o caso zero-width.
 #
 # ORDEM DE APLICAÇÃO: de trás pra frente (maior offset SOURCE primeiro) —
 # substituir/inserir num offset maior nunca desloca os offsets, já
@@ -1693,7 +1700,20 @@ def _owning_fragment_for_point(point: int, span_frags: list[SpanFragment]) -> Sp
     `norm_start == norm_end`) — ver nota de design acima para a regra de
     fronteira exata. `None` só se `span_frags` não cobrir o ponto
     (defensivo; não deveria ocorrer com um span-map bem formado, que cobre
-    `[0, len(norm_text))` sem buracos nem sobreposição)."""
+    `[0, len(norm_text))` sem buracos nem sobreposição).
+
+    `starting` guarda o ÚLTIMO fragment (não o primeiro) cujo `norm_start
+    == point` — fix pós-review (achado Importante): fragments ZERO-WIDTH em
+    norm (ex.: block-id `^anchor`, `norm_start == norm_end == point`) podem
+    aparecer sanduichados exatamente na fronteira, ANTES do fragment real
+    (`identity` ou não) que também começa ali. Como `span_frags` é
+    construído em ordem crescente de posição, e um fragment zero-width só
+    ocorre PRECEDENDO o fragment real que assume aquele mesmo `norm_start`
+    (nunca depois), sobrescrever a cada match garante que `starting` acabe
+    no fragment real — não no zero-width. Já `ending` mantém o PRIMEIRO
+    match: o fragment real que termina no ponto sempre aparece ANTES de
+    qualquer zero-width que também "termine" ali (mesmo raciocínio, sentido
+    oposto), então o primeiro match já é o certo."""
     ending: SpanFragment | None = None
     starting: SpanFragment | None = None
     for frag in span_frags:
@@ -1701,7 +1721,7 @@ def _owning_fragment_for_point(point: int, span_frags: list[SpanFragment]) -> Sp
             return frag
         if ending is None and frag.norm_end == point:
             ending = frag
-        if starting is None and frag.norm_start == point:
+        if frag.norm_start == point:
             starting = frag
     if ending is not None and ending.kind == "identity":
         return ending
@@ -1804,18 +1824,19 @@ def transplant_to_source(
     saída de `core.obsidian.normalize_markdown_with_map` sobre o mesmo
     `source_body`).
 
-    Para cada `loc` em `located`, NESTA ordem: classifica o alvo contra
-    `span_frags` (:func:`_classify_located_mark` — só identity, intervalo
-    inteiro, ver nota de design da seção acima); sem classificação possível
-    -> evento `non-identity-span`; senão, serializa a marca
-    (:func:`_emit_marker`) e enfileira `(source_start, source_end, marker)`
-    para aplicação. Aplica todas as marcas enfileiradas DE TRÁS PRA FRENTE
-    — ordenadas por `(source_start, source_end)` DESCENDENTE, não só
-    `source_start` — substituindo `source_body[start:end]` pelo marcador
-    serializado. Para `ins`/`comment` (ponto, `start == end`), isso é uma
-    inserção pura; para `del`/`sub`/`highlight` (span), o marcador já
-    reincorpora `mark.a` (semântica de `criticmarkup.emit`), então a
-    substituição preserva a reconstrução via `criticmarkup.reject`.
+    Para cada `loc` em `located` (índice `idx` == posição original na
+    lista), NESTA ordem: classifica o alvo contra `span_frags`
+    (:func:`_classify_located_mark` — só identity, intervalo inteiro, ver
+    nota de design da seção acima); sem classificação possível -> evento
+    `non-identity-span`; senão, serializa a marca (:func:`_emit_marker`) e
+    enfileira `(source_start, source_end, idx, marker)` para aplicação.
+    Aplica todas as marcas enfileiradas DE TRÁS PRA FRENTE — ordenadas por
+    `(source_start, source_end, idx)` DESCENDENTE, não só `source_start` —
+    substituindo `source_body[start:end]` pelo marcador serializado. Para
+    `ins`/`comment` (ponto, `start == end`), isso é uma inserção pura; para
+    `del`/`sub`/`highlight` (span), o marcador já reincorpora `mark.a`
+    (semântica de `criticmarkup.emit`), então a substituição preserva a
+    reconstrução via `criticmarkup.reject`.
 
     A chave de ordenação inclui `source_end` (não só `source_start`) por
     causa de um caso real: um `ins` (ponto) cujo offset coincide EXATAMENTE
@@ -1830,6 +1851,23 @@ def transplant_to_source(
     resultado), e só então o ponto é inserido, corretamente, imediatamente
     antes do marcador do span.
 
+    A chave inclui, por fim, `idx` (fix pós-review, achado Menor #1): dois
+    pontos (`ins`/`comment`) que colidem EXATAMENTE no mesmo
+    `(source_start, source_end)` — mesma posição, ambos largura zero —
+    ficam empatados nas duas chaves acima. Sem desempate, a ordem de
+    aplicação segue a ordem de `located` (estável em `sorted(...,
+    reverse=True)`), e como cada aplicação SUBSEQUENTE no mesmo ponto
+    insere à ESQUERDA da anterior (empurrando-a pra direita), aplicar na
+    ordem de `located` produz o texto final INVERTIDO relativo a
+    `located`. Desempatar por `idx` descendente (junto de `source_start`/
+    `source_end`, também descendentes) aplica primeiro a marca de índice
+    MAIOR (mais tardia em `located`) — ela fica mais à direita — e por
+    último a de índice MENOR (mais cedo em `located`), que por ser a
+    ÚLTIMA a inserir no ponto fica mais à ESQUERDA: o texto final passa a
+    preservar a ordem de `located`. Ver
+    `test_two_point_marks_same_offset_preserve_located_order` (as duas
+    ordens de entrada).
+
     **Guarda B (ingest-side):** ao final, nº de `LocatedMark`s recebidas
     tem que fechar com nº de marcas efetivamente aplicadas + nº de eventos
     gerados — qualquer divergência (só possível hoje via o seam
@@ -1841,10 +1879,10 @@ def transplant_to_source(
     Retorna `(source_with_marks, events)`.
     """
     events: list[ReviewEvent] = []
-    placements: list[tuple[int, int, str]] = []
+    placements: list[tuple[int, int, int, str]] = []
     lost: list[ReviewMark] = []
 
-    for loc in located:
+    for idx, loc in enumerate(located):
         offsets = _classify_located_mark(loc, span_frags)
         if offsets is None:
             events.append(_non_identity_span_event(loc.mark))
@@ -1853,10 +1891,12 @@ def transplant_to_source(
         if not marker:
             lost.append(loc.mark)
             continue
-        placements.append((offsets[0], offsets[1], marker))
+        placements.append((offsets[0], offsets[1], idx, marker))
 
     source_with_marks = source_body
-    for src_start, src_end, marker in sorted(placements, key=lambda p: (p[0], p[1]), reverse=True):
+    for src_start, src_end, _idx, marker in sorted(
+        placements, key=lambda p: (p[0], p[1], p[2]), reverse=True
+    ):
         source_with_marks = source_with_marks[:src_start] + marker + source_with_marks[src_end:]
 
     if len(placements) + len(events) != len(located):

@@ -955,3 +955,116 @@ def test_ins_point_at_boundary_falls_back_to_starting_identity_fragment() -> Non
     assert events == []
     expected = citation_src + criticmarkup.emit("ins", "", "NOVO ") + rest_prose
     assert source_with_marks == expected
+
+
+# --- Fix após review (Fase 2/Task 7): achados Importante + Menor #1 ---------
+#
+# IMPORTANTE: `_owning_fragment_for_point` travava `starting` no PRIMEIRO
+# fragment cujo `norm_start == point` — cego a fragments ZERO-WIDTH em norm
+# (ex.: `^anchor` block-id, cujo `replacement=""` faz `norm_start ==
+# norm_end == point`) que ficam SANDUICHADOS bem na fronteira, entre o
+# fragment que termina ali e o fragment `identity` REAL que também começa
+# ali. Reprodução EXATA do reviewer abaixo.
+
+
+def test_ins_after_atom_with_zero_width_block_id_transplants() -> None:
+    """`source` do reviewer: citação seguida de um block-id (`^anchor1`),
+    cujo fragment é ZERO-WIDTH em norm (`norm_start == norm_end == 15`) —
+    sanduichado entre o fragment `citation` (termina em 15) e o fragment
+    `identity` que vem depois (também começa em 15). Um `ins` no ponto 15
+    tem que transplantar para a identity seguinte (design: "permite ins
+    logo DEPOIS de um átomo") — a implementação faltosa travava em
+    `starting` no PRIMEIRO match (o block-id, zero-width) e nunca via a
+    identity real, emitindo `non-identity-span` por engano."""
+    source_body = "Isso [[@abc2020]] ^anchor1 continua com mais prosa normal aqui."
+    _norm_text, span_frags = normalize_markdown_with_map(source_body)
+
+    # sanity: reproduz EXATAMENTE a forma do span-map do reviewer (senão o
+    # teste não estaria exercitando o cenário relatado).
+    assert [(f.norm_start, f.norm_end, f.kind) for f in span_frags] == [
+        (0, 5, "identity"),
+        (5, 15, "citation"),
+        (15, 15, "block-id"),
+        (15, 52, "identity"),
+    ]
+    block_id_frag = next(f for f in span_frags if f.kind == "block-id")
+    following_identity = next(
+        f for f in span_frags if f.kind == "identity" and f.norm_start == block_id_frag.norm_end
+    )
+    point = block_id_frag.norm_end  # == block_id_frag.norm_start (zero-width) == 15
+
+    mark = ReviewMark(kind="ins", a="", b="NOVO ", author="Coautor", chg_id="14", start=0, end=0)
+    located = [LocatedMark(mark=mark, norm_start=point, norm_end=point)]
+
+    source_with_marks, events = transplant_to_source(source_body, span_frags, located)
+
+    assert events == []
+    marker = criticmarkup.emit("ins", "", "NOVO ")
+    split_at = following_identity.source_start
+    expected = source_body[:split_at] + marker + source_body[split_at:]
+    assert source_with_marks == expected
+    # os dois átomos ao redor da fronteira seguem intactos byte a byte.
+    assert "[[@abc2020]]" in source_with_marks
+    assert "^anchor1" in source_with_marks
+    # round-trip: rejeitar todas as marcas reconstrói o source original.
+    assert criticmarkup.reject(source_with_marks) == source_body
+
+
+# MENOR #1: duas marcas PONTO (`ins`/`comment`) na MESMA posição source —
+# sem tie-break, a ordenação `(source_start, source_end)` empata, e o
+# `sorted(..., reverse=True)` (estável) mantém a ordem de `located`; como
+# quem é APLICADO por último acaba mais à ESQUERDA no texto final (cada
+# aplicação subsequente no mesmo ponto empurra a anterior pra direita), a
+# ordem de aplicação (== ordem de `located`) produz o texto INVERTIDO. Fix:
+# o índice original de `located` entra na chave de ordenação, e passa a ser
+# a marca de índice MAIOR (mais tardia em `located`) quem aplica primeiro —
+# ela fica mais à direita, e a de índice MENOR (mais cedo em `located`)
+# aplica por último, ficando mais à esquerda: ordem final == ordem de
+# `located`.
+
+
+def test_two_point_marks_same_offset_preserve_located_order() -> None:
+    """2 `ins` no mesmo ponto (mesmo `norm_start == norm_end`), testados nas
+    DUAS ordens de entrada (trocando qual `ReviewMark` vem primeiro em
+    `located`) — em cada uma, o texto final tem que preservar a ordem
+    DAQUELA chamada especificamente (quem vem primeiro em `located` sai
+    mais à esquerda no texto final), não a identidade do objeto `ReviewMark`
+    nem alguma ordem fixa de aplicação."""
+    source_body = "Alfa Bravo Charlie"
+    norm_text, span_frags = normalize_markdown_with_map(source_body)
+    assert norm_text == source_body  # prosa pura, sem átomo Obsidian
+
+    point = norm_text.index("Bravo")
+    prefix = source_body[:point]
+    suffix = source_body[point:]
+
+    mark_um = ReviewMark(kind="ins", a="", b="UM ", author="Coautor", chg_id="15", start=0, end=0)
+    mark_dois = ReviewMark(
+        kind="ins", a="", b="DOIS ", author="Coautor", chg_id="16", start=0, end=0
+    )
+    marker_um = criticmarkup.emit("ins", "", "UM ")
+    marker_dois = criticmarkup.emit("ins", "", "DOIS ")
+
+    located_um_first = [
+        LocatedMark(mark=mark_um, norm_start=point, norm_end=point),
+        LocatedMark(mark=mark_dois, norm_start=point, norm_end=point),
+    ]
+    result_um_first, events_um_first = transplant_to_source(
+        source_body, span_frags, located_um_first
+    )
+    assert events_um_first == []
+    assert result_um_first == prefix + marker_um + marker_dois + suffix
+
+    located_dois_first = [
+        LocatedMark(mark=mark_dois, norm_start=point, norm_end=point),
+        LocatedMark(mark=mark_um, norm_start=point, norm_end=point),
+    ]
+    result_dois_first, events_dois_first = transplant_to_source(
+        source_body, span_frags, located_dois_first
+    )
+    assert events_dois_first == []
+    assert result_dois_first == prefix + marker_dois + marker_um + suffix
+
+    # as duas ordens produzem textos DIFERENTES entre si — prova de que é a
+    # ordem de `located` (e não outro critério) quem decide.
+    assert result_um_first != result_dois_first
