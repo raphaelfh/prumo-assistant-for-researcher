@@ -11,6 +11,10 @@ STATEFUL de citações: :func:`read_docx_citations_with_state` (I2b).
 Task 2 entrega :func:`check_conservation` (I2/I2b/I3-lite): compara o
 OBSERVADO (saída do leitor) contra o citemap (EXPECTED, gravado no
 export) e hard-fail em qualquer divergência.
+Task 3 entrega a Guarda A: :func:`assert_no_structural_changes` hard-fail
+quando há mudança rastreada/comentário numa região que o transplante por
+âncora de texto (Task 6/7, sobre a prosa linear do adeu) não sabe
+localizar — tabela, nota de rodapé/fim, ou equação (oMath).
 
 É o sibling STATEFUL de
 :func:`prumo_assist.domains.write.export._read_docx_citations` (MÉTODO
@@ -34,6 +38,11 @@ from prumo_assist.domains.write.schemas.v1 import CiteMapFile
 
 # Mesmo padrão de comments.py (W_NS + iteração ET sobre word/document.xml).
 W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+# Namespace math (ECMA-376 parte 1, §22) — usado só pela Guarda A (Task 3)
+# para achar ancestral `m:oMath` de `w:ins`/`w:del` (mudança dentro de
+# equação).
+M_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/math}"
 
 # Mesma marca de campo que `export._read_docx_citations` (MÉTODO I2)
 # reconhece via regex — usada aqui só para decidir se um campo fechado é
@@ -428,3 +437,159 @@ def check_conservation(observed: list[DocxCitation], citemap: CiteMapFile) -> li
         )
 
     return [citation for citation in observed if citation.state == "deleted"]
+
+
+# --- Guarda A: mudanças estruturais (Task 3) --------------------------------
+#
+# Tabela/nota/equação não têm contrapartida confiável no texto normalizado
+# que o adeu extrai (prosa linear) — o localizador de âncora única (Task 6)
+# não sabe onde transplantar uma mudança que vive só na estrutura OOXML.
+# Guarda A hard-fail ANTES de chamar o adeu (Task 8 chama esta função no
+# preflight do `ingest`, antes do leitor/conservação) para essas 3 regiões,
+# nomeadas na ordem em que o brief as lista: tabela, nota, equação.
+
+_STRUCTURAL_FIX_INSTRUCTION = (
+    "peça ao coautor para mover a mudança para o corpo do texto ou aplique "
+    "manualmente; re-exporte e re-ingira"
+)
+
+_STRUCTURAL_KIND_LABELS = {
+    "ins": "inserção rastreada",
+    "del": "deleção rastreada",
+    "commentRangeStart": "comentário",
+}
+
+
+def _region_text(elem: ET.Element) -> str:
+    """Concatena o texto de `w:t`/`m:t`/`w:delText` dentro do elemento,
+    casando pelo NOME LOCAL (ignora namespace, via :func:`_local_tag`): `w:t`
+    (texto normal) e `m:t` (texto de run matemático, ECMA-376 parte 1
+    §22.1.2.147) têm o mesmo nome local `t` em namespaces diferentes, então
+    um único filtro cobre tanto célula/nota quanto equação sem precisar de
+    dois caminhos. Usado só para o trecho (60 chars) da mensagem da Guarda A
+    — não precisa ser posicionalmente exato, só identificar a região para o
+    coautor."""
+    parts = [node.text or "" for node in elem.iter() if _local_tag(node.tag) in ("t", "delText")]
+    return "".join(parts).strip()
+
+
+def _first_table_hit(document_xml: ET.Element) -> tuple[str, str] | None:
+    """Primeiro `w:ins`/`w:del`/`w:commentRangeStart` achado com ancestral
+    `w:tbl` (regra (a) do brief, literal), em ordem de documento — ou `None`
+    se nenhum.
+
+    Ancestral é `w:tbl`, não `w:tc`, DE PROPÓSITO: cobre tanto a mudança de
+    CONTEÚDO dentro de célula (`w:tbl > w:tr > w:tc > w:p > w:ins`, a forma
+    mais comum, descrita no brief) quanto o marcador de linha INTEIRA
+    inserida/deletada sob Track Changes (`w:tr > w:trPr > w:ins` — mesma tag
+    `w:ins`, mas fora de qualquer `w:tc`, então um filtro por `w:tc` deixaria
+    esse caso passar batido). Itera `w:tbl` diretamente (não desce por
+    `w:tr`/`w:tc` manualmente): no caso raro de tabela aninhada, a mudança é
+    reportada com o texto da tabela EXTERNA como trecho — mais abrangente
+    que a célula específica, mas ainda identifica a região; precisão fina de
+    aninhamento não é objetivo da Guarda A, só apontar a região pro coautor.
+
+    Retorna `(kind, trecho)` com `trecho` já truncado em 60 chars — o texto
+    vem da TABELA inteira, não só do `w:ins`/`w:del`, porque
+    `w:commentRangeStart` (e o marcador de linha) são elementos vazios sem
+    texto próprio.
+    """
+    for tbl in document_xml.iter(f"{W_NS}tbl"):
+        for kind in ("ins", "del", "commentRangeStart"):
+            if next(tbl.iter(f"{W_NS}{kind}"), None) is not None:
+                return kind, _region_text(tbl)[:60]
+    return None
+
+
+def _first_note_hit(note_root: ET.Element, note_tag: str) -> tuple[str, str] | None:
+    """Primeiro `w:ins`/`w:del` achado dentro de qualquer `w:footnote`/
+    `w:endnote` da PARTE já parseada (`note_root` é a raiz de
+    `footnotes.xml`/`endnotes.xml`) — ou `None` se nenhum. `note_tag` é
+    `"footnote"` ou `"endnote"` conforme a parte lida pelo chamador."""
+    for note in note_root.iter(f"{W_NS}{note_tag}"):
+        for kind in ("ins", "del"):
+            if next(note.iter(f"{W_NS}{kind}"), None) is not None:
+                return kind, _region_text(note)[:60]
+    return None
+
+
+def _first_omath_hit(document_xml: ET.Element) -> tuple[str, str] | None:
+    """Primeiro `w:ins`/`w:del` achado dentro de uma equação (`m:oMath`) —
+    ou `None` se nenhum. Mesma lógica de :func:`_first_table_hit`: iterar
+    `m:oMath` diretamente cobre equação aninhada sem contagem dupla."""
+    for omath in document_xml.iter(f"{M_NS}oMath"):
+        for kind in ("ins", "del"):
+            if next(omath.iter(f"{W_NS}{kind}"), None) is not None:
+                return kind, _region_text(omath)[:60]
+    return None
+
+
+def _structural_change_message(region: str, kind: str, excerpt: str) -> str:
+    """Mensagem pt-BR única da Guarda A, compartilhada pelas 3 regiões
+    (tabela/nota/equação) — nomeia a região, o rótulo humano de `kind` e o
+    trecho (60 chars, já truncado pelo chamador), e embute o comando de
+    correção (regra de mensagens de usuário, `.claude/rules/code.md`)."""
+    label = _STRUCTURAL_KIND_LABELS.get(kind, kind)
+    return (
+        f"Mudança estrutural não suportada em região de {region}: {label} "
+        f'(trecho: "{excerpt}"). O ingest de review não transplanta mudanças '
+        "dentro de tabelas, notas de rodapé/fim ou equações — "
+        f"{_STRUCTURAL_FIX_INSTRUCTION}."
+    )
+
+
+def assert_no_structural_changes(docx_path: Path) -> None:
+    """Guarda A: hard-fail se o docx revisado tiver mudança rastreada ou
+    comentário numa região estrutural que o transplante por âncora de texto
+    (Task 6/7, sobre a prosa linear extraída pelo adeu) não sabe localizar —
+    tabela, nota de rodapé/fim, ou equação (oMath). Mudança rastreada NO
+    CORPO do texto (fora dessas 3 regiões) passa livre: é o caminho normal
+    do pipeline.
+
+    Verifica nesta ordem, parando no primeiro achado (mesmo estilo hard-fail
+    de :func:`check_conservation` — primeira divergência encontrada):
+
+    (a) **tabela** — `w:ins`/`w:del`/`w:commentRangeStart` com ancestral
+        `w:tbl` (cobre tanto conteúdo dentro de célula quanto o marcador de
+        linha inteira inserida/deletada).
+    (b) **nota** — `word/footnotes.xml`/`word/endnotes.xml`, se existirem
+        como parte do zip, contendo `w:ins`/`w:del` dentro de algum
+        `w:footnote`/`w:endnote` (partes SEPARADAS de `word/document.xml`
+        no formato OOXML — não aparecem lá).
+    (c) **equação** — `w:ins`/`w:del` com ancestral `m:oMath` (namespace
+        math, ECMA-376 parte 1).
+
+    Levanta :class:`StructuralChangeError` nomeando a região, o tipo
+    (inserção/deleção/comentário) e os 60 primeiros chars do texto da
+    região (tabela/nota/equação inteira — não só do `w:ins`/`w:del`, porque
+    `w:commentRangeStart` não tem texto próprio), instruindo a mover a
+    mudança para o corpo do texto ou aplicar manualmente, re-exportar e
+    re-ingerir.
+    """
+    with zipfile.ZipFile(docx_path) as z:
+        document_xml = ET.fromstring(z.read("word/document.xml"))
+        note_parts: list[tuple[str, ET.Element]] = []
+        for part_name, note_tag in (
+            ("word/footnotes.xml", "footnote"),
+            ("word/endnotes.xml", "endnote"),
+        ):
+            try:
+                note_parts.append((note_tag, ET.fromstring(z.read(part_name))))
+            except KeyError:
+                continue
+
+    table_hit = _first_table_hit(document_xml)
+    if table_hit is not None:
+        kind, excerpt = table_hit
+        raise StructuralChangeError(_structural_change_message("tabela", kind, excerpt))
+
+    for note_tag, note_root in note_parts:
+        note_hit = _first_note_hit(note_root, note_tag)
+        if note_hit is not None:
+            kind, excerpt = note_hit
+            raise StructuralChangeError(_structural_change_message("nota", kind, excerpt))
+
+    omath_hit = _first_omath_hit(document_xml)
+    if omath_hit is not None:
+        kind, excerpt = omath_hit
+        raise StructuralChangeError(_structural_change_message("equação", kind, excerpt))
