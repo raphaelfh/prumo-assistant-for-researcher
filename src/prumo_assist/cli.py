@@ -41,6 +41,7 @@ from prumo_assist.core.output import Console
 from prumo_assist.core.paths import find_resource, resolve_resource
 from prumo_assist.core.scaffold import (
     ModuleInfo,
+    apply_project_name,
     discover_modules,
     get_module,
     is_applied,
@@ -449,6 +450,8 @@ def init_command(
         else:  # MODE_NEW or MODE_FORCE
             shutil.copytree(template, target)
             copied = [str(p.relative_to(template)) for p in template.rglob("*") if p.is_file()]
+
+        apply_project_name(target, target.name, copied)
 
         # git init (somente em MODE_NEW por default; merge não toca git existente).
         git_initialized = False

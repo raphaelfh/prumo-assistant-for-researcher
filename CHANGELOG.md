@@ -45,6 +45,11 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   (spec 2026-07-05, [ADR-0017](docs/adr/adr-0017-prumo-mcp-reconciliador.md)).
 
 ### Corrigido
+- `prumo init`: os placeholders de nome do template (`pj-NOME` no
+  `pyproject.toml`, `pj_<NOME>` nos títulos de README/docs) agora são
+  substituídos pelo nome real do projeto nos arquivos copiados — o projeto
+  novo não aparece mais como `pj-NOME` no PyCharm/uv. Em `--merge`,
+  arquivos preservados do usuário seguem intocados.
 - `prumo write export/compose --to docx`: o docx gerado passa por validação
   estrutural (zip, partes obrigatórias, `[Content_Types].xml`) com um retry
   automático do pandoc — absorve o defeito intermitente de "arquivo
