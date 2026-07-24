@@ -324,13 +324,20 @@ def review_ingest_command(
     page: Annotated[
         Path, typer.Option("--page", help="Página .md original — a mesma que gerou o docx.")
     ],
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Re-ingere mesmo com marcas pendentes no worklist (DESCARTA as pendências).",
+        ),
+    ] = False,
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Ingere um docx revisado: guardas + transplante determinístico → ``reviews/<slug>/review.md``."""
     with cli_run(json_mode=json_mode, catches=_REVIEW_CATCHES) as console:
         page_resolved = page.resolve()
         reviewed_docx_resolved = reviewed_docx.resolve()
-        result = review.ingest(reviewed_docx_resolved, page_resolved)
+        result = review.ingest(reviewed_docx_resolved, page_resolved, force=force)
         pending_drops = sum(1 for event in result.events.events if event.kind == "citation-drop")
 
         console.success(f"ingerido: {result.review_md}")

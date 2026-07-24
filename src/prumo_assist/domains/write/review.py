@@ -737,11 +737,17 @@ def _run_adeu_extract(docx_path: Path) -> str:
             ["uvx", "adeu==1.29.0", "extract", "--json", str(docx_path), "-o", "-"],
             capture_output=True,
             text=True,
+            timeout=120,
         )
     except FileNotFoundError as exc:
         raise AdeuUnavailableError(
             "uv/uvx não encontrado no PATH — adeu (backend de PROSA pinado, "
             f"`uvx adeu==1.29.0`) não pode ser invocado. {_ADEU_INSTALL_HINT}"
+        ) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise AdeuUnavailableError(
+            "adeu (backend de PROSA pinado, `uvx adeu==1.29.0`) excedeu 120s — "
+            f"rede lenta no primeiro download do uvx? Re-rode. {_ADEU_INSTALL_HINT}"
         ) from exc
 
     if proc.returncode != 0:
@@ -2184,7 +2190,9 @@ def _compose_page(raw_fm: str, body: str) -> str:
     return raw_fm + body
 
 
-def ingest(reviewed_docx: Path, page: Path, project_root: Path | None = None) -> IngestResult:
+def ingest(
+    reviewed_docx: Path, page: Path, project_root: Path | None = None, *, force: bool = False
+) -> IngestResult:
     """Orquestra o ingest de um docx revisado (fluxo 3a-3h — ver comentário
     da seção acima para o design completo de cada passo).
 
@@ -2197,7 +2205,10 @@ def ingest(reviewed_docx: Path, page: Path, project_root: Path | None = None) ->
 
     Levanta (na ordem em que os passos checam, parando na primeira falha):
     ``ValueError`` (ANTES de 3a — docx revisado estruturalmente inválido,
-    via `export._validate_docx_structure`; ou, dentro de 3b, sidecar JSON
+    via `export._validate_docx_structure`; ou, logo após resolver
+    `review_dir`, se já existe `review.md` com marca(s) pendente(s) e
+    `force=False` — fila herdada do archive da F3, protege propostas do
+    agente de sobrescrita silenciosa; ou, dentro de 3b, sidecar JSON
     corrompido, `pydantic.ValidationError` traduzido — achado do review
     final da Fase 2, Important #1: `reviewed_docx` é o input mais hostil
     do sistema, chega por e-mail); ``FileNotFoundError`` (sidecars
@@ -2232,6 +2243,22 @@ def ingest(reviewed_docx: Path, page: Path, project_root: Path | None = None) ->
     project_root = project_root or detect_project_root(page)
     slug = _slugify(page, project_root)
     review_dir = project_root / "reviews" / slug
+
+    # Guarda herdada da fila F2+F3 (archive da F3, 711c0c0): re-ingest
+    # SOBRESCREVE o worklist — se há marcas pendentes (inclusive propostas do
+    # agente via propose_prose_edit), destruí-las exige opt-in explícito.
+    existing_review_md = review_dir / "review.md"
+    if existing_review_md.exists() and not force:
+        _fm, existing_body = split_frontmatter_raw(existing_review_md.read_text(encoding="utf-8"))
+        pending = len(criticmarkup.parse(existing_body))
+        if pending:
+            raise ValueError(
+                f"{existing_review_md} já existe com {pending} marca(s) pendente(s) — "
+                "re-ingerir SOBRESCREVE o worklist (inclusive propostas do agente). "
+                f"Decida primeiro com `prumo write review apply --page {page}` "
+                "(--accept-all/--reject-all/--by-author/--mark) ou re-rode o ingest "
+                "com --force para descartar as pendências."
+            )
 
     citemap, span_map = _read_sidecars(review_dir)
 

@@ -19,11 +19,13 @@ import json
 import subprocess
 import zipfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 
 from prumo_assist.core import criticmarkup
+from prumo_assist.domains.write import review
 from prumo_assist.domains.write.review import (
     AdeuUnavailableError,
     ReviewMark,
@@ -177,6 +179,7 @@ def test_run_adeu_extract_invokes_pinned_uvx_command(tmp_path: Path) -> None:
         ["uvx", "adeu==1.29.0", "extract", "--json", str(docx), "-o", "-"],
         capture_output=True,
         text=True,
+        timeout=120,
     )
 
 
@@ -405,3 +408,29 @@ def test_review_comments_file_roundtrip_from_collector(tmp_path: Path) -> None:
 
     assert restored == collected
     assert restored.comments[0].author == "Revisor Alice"
+
+
+# --- timeout de 120s no seam adeu (fila F2+F3) -------------------------------
+
+
+def test_run_adeu_extract_passa_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(cmd, 0, stdout='{"markdown": "ok"}', stderr="")
+
+    monkeypatch.setattr("prumo_assist.domains.write.review.subprocess.run", fake_run)
+    assert review._run_adeu_extract(Path("x.docx")) == "ok"
+    assert captured["timeout"] == 120
+
+
+def test_run_adeu_extract_timeout_vira_adeu_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd="uvx", timeout=120)
+
+    monkeypatch.setattr("prumo_assist.domains.write.review.subprocess.run", fake_run)
+    with pytest.raises(review.AdeuUnavailableError, match="120"):
+        review._run_adeu_extract(Path("x.docx"))

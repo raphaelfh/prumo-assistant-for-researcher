@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -381,7 +382,11 @@ def test_write_review_ingest_happy_path(tmp_path: Path, monkeypatch: pytest.Monk
     review_md = pj / "reviews" / "p" / "review.md"
 
     def fake_ingest(
-        reviewed_docx: Path, page_arg: Path, project_root: Path | None = None
+        reviewed_docx: Path,
+        page_arg: Path,
+        project_root: Path | None = None,
+        *,
+        force: bool = False,
     ) -> review.IngestResult:
         return _fake_ingest_result(review_md)
 
@@ -689,3 +694,22 @@ def test_write_review_events_preserves_citation_brackets_literal(
     )
     assert checklist.exit_code == 0, checklist.output
     assert "[[@smith2020]]" in checklist.output
+
+
+# --- repasse da flag --force (guarda de re-ingest, fila F2+F3) --------------
+
+
+def test_review_ingest_cli_repassa_force(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_ingest(reviewed_docx: Path, page: Path, **kwargs: Any) -> Any:
+        captured.update(kwargs)
+        raise ValueError("stop aqui — só interessa a captura do kwarg")
+
+    monkeypatch.setattr("prumo_assist.domains.write.review.ingest", fake_ingest)
+    docx = tmp_path / "r.docx"
+    docx.write_text("x")
+    pagina = tmp_path / "p.md"
+    pagina.write_text("x")
+    runner.invoke(app, ["write", "review", "ingest", str(docx), "--page", str(pagina), "--force"])
+    assert captured["force"] is True

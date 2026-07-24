@@ -470,3 +470,68 @@ def test_ingest_deleted_citation_emits_drop_event_without_duplicate_mark(
     assert review_md_text == body
     assert "{--" not in review_md_text
     assert "[[@jones2021]]" in review_md_text
+
+
+# --- 6. guarda de re-ingest: worklist pendente exige --force ----------------
+#
+# Fila herdada do archive da F3 (commit 711c0c0): re-ingest SOBRESCREVE
+# `reviews/<slug>/review.md` silenciosamente — se há marcas pendentes
+# (inclusive propostas do agente via `propose_prose_edit`), elas são
+# destruídas. Prioridade subiu: hard-fail por padrão, `--force` para optar
+# pelo descarte.
+
+
+def _ingest_ok_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path, Path]:
+    """Receita mínima de ingest válido (mesma do happy path, linha ~185):
+    devolve (project_root, page, docx) com adeu mockado no seam."""
+    prefix = "O paciente recebeu o tratamento"
+    suffix = " conforme protocolo estabelecido pela equipe."
+    body = prefix + suffix
+    project_root, page = _init_project(tmp_path, body=body)
+    docx = _write_docx(
+        tmp_path / "revisado.docx", paragraphs=[_comment_paragraph()], with_comment=True
+    )
+    _write_sidecars(project_root, page, source_text=body, docx_sha256=_UNRELATED_DOCX_SHA256)
+    adeu_markdown = prefix + "{++ novo++}{>>[Chg:1 insert] Coautor<<}" + suffix
+    monkeypatch.setattr(review, "_run_adeu_extract", lambda _docx: adeu_markdown)
+    return project_root, page, docx
+
+
+def test_reingest_com_worklist_pendente_hard_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root, page, docx = _ingest_ok_setup(tmp_path, monkeypatch)
+    first = ingest(reviewed_docx=docx, page=page, project_root=project_root)
+    assert first.marks_applied == 1  # worklist ficou com marca pendente
+
+    with pytest.raises(ValueError, match=r"marca\(s\) pendente"):
+        ingest(reviewed_docx=docx, page=page, project_root=project_root)
+    # a mensagem embute os DOIS caminhos de saída (decidir ou --force):
+    with pytest.raises(ValueError, match="prumo write review apply"):
+        ingest(reviewed_docx=docx, page=page, project_root=project_root)
+    with pytest.raises(ValueError, match="--force"):
+        ingest(reviewed_docx=docx, page=page, project_root=project_root)
+
+
+def test_reingest_com_force_sobrescreve_propostas(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root, page, docx = _ingest_ok_setup(tmp_path, monkeypatch)
+    first = ingest(reviewed_docx=docx, page=page, project_root=project_root)
+    first.review_md.write_text(
+        first.review_md.read_text() + "{++proposta do agente++}{>>prumo-autor: agente<<}"
+    )
+    result = ingest(reviewed_docx=docx, page=page, project_root=project_root, force=True)
+    assert "proposta do agente" not in result.review_md.read_text()
+    assert "{++ novo++}" in result.review_md.read_text()  # worklist regenerado
+
+
+def test_reingest_com_worklist_consumido_nao_exige_force(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root, page, docx = _ingest_ok_setup(tmp_path, monkeypatch)
+    first = ingest(reviewed_docx=docx, page=page, project_root=project_root)
+    # simula worklist 100% consumido pelo apply: corpo sem nenhuma marca
+    first.review_md.write_text("corpo decidido, sem marcas")
+    result = ingest(reviewed_docx=docx, page=page, project_root=project_root)
+    assert "{++ novo++}" in result.review_md.read_text()
