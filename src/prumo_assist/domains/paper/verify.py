@@ -35,7 +35,7 @@ _DOI_PREFIXES = (
     "http://dx.doi.org/",
     "doi:",
 )
-_PMID_IN_BODY_RE = re.compile(r"\bPMID:?\s*(\d{1,9})\b", re.IGNORECASE)
+_PMID_RE = re.compile(r"\bPMID:?\s*(\d{1,9})\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -54,14 +54,18 @@ def _normalize_doi(raw: str) -> str | None:
         if lowered.startswith(prefix):
             doi = doi[len(prefix) :].strip()
             break
+    # DOI nunca contém whitespace; campo bib brace-delimited pode quebrar
+    # linha (emenda pós-review T1: newline embutido virava URL malformada).
+    doi = "".join(doi.split())
     return doi or None
 
 
 def _identifiers_for(entry: BibEntry) -> RefIdentifiers:
     """Extrai DOI/PMID/arXiv tolerando as convenções do BBT.
 
-    PMID: campo dedicado ``pmid`` OU padrão ``PMID: NNNN`` em qualquer campo
-    (BBT costuma despejar no ``note``). arXiv: ``eprint`` quando
+    PMID: campo dedicado ``pmid`` OU padrão ``PMID: NNNN`` em ``note``/``extra``/
+    ``annotation`` (nessa ordem de prioridade — BBT costuma despejar no
+    ``note``), nunca varrendo o body inteiro. arXiv: ``eprint`` quando
     ``eprinttype``/``archiveprefix`` é ``arxiv`` (case-insensitive).
     """
     raw_doi = extract_field(entry.body, "doi")
@@ -72,9 +76,16 @@ def _identifiers_for(entry: BibEntry) -> RefIdentifiers:
     if raw_pmid and raw_pmid.strip().isdigit():
         pmid = raw_pmid.strip()
     else:
-        m = _PMID_IN_BODY_RE.search(entry.body)
-        if m:
-            pmid = m.group(1)
+        # BBT despeja "PMID: NNNN" em note/extra/annotation — NUNCA varrer o
+        # body inteiro: um abstract que menciona o PMID de OUTRO trabalho
+        # venceria e o gate validaria o registro errado (emenda pós-review T1).
+        for field_name in ("note", "extra", "annotation"):
+            field_value = extract_field(entry.body, field_name)
+            if field_value:
+                m = _PMID_RE.search(field_value)
+                if m:
+                    pmid = m.group(1)
+                    break
 
     arxiv_id: str | None = None
     eprint_type = extract_field(entry.body, "eprinttype") or extract_field(

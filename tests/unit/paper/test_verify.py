@@ -35,6 +35,23 @@ class TestIdentifiers:
         ids = verify._identifiers_for(_entry("note = {PMID: 9500320},"))
         assert ids.pmid == "9500320"
 
+    def test_pmid_prioriza_note_sobre_abstract(self) -> None:
+        # emenda pós-review T1: abstract citando PMID de OUTRO trabalho não
+        # pode vencer o note verdadeiro (gate validaria o registro errado)
+        ids = verify._identifiers_for(
+            _entry("abstract = {Como no trial X (PMID: 111111).},\n  note = {PMID: 222222},")
+        )
+        assert ids.pmid == "222222"
+
+    def test_pmid_em_abstract_nao_conta(self) -> None:
+        ids = verify._identifiers_for(_entry("abstract = {(PMID: 111111)},"))
+        assert ids.pmid is None
+
+    def test_doi_multilinha_colapsa_whitespace(self) -> None:
+        # emenda pós-review T1: campo brace-delimited pode quebrar linha
+        ids = verify._identifiers_for(_entry("doi = {10.1056/\n    NEJMoa2002032},"))
+        assert ids.doi == "10.1056/NEJMoa2002032"
+
     def test_arxiv_por_eprinttype(self) -> None:
         ids = verify._identifiers_for(_entry("eprint = {2301.00001},\n  eprinttype = {arXiv},"))
         assert ids.arxiv_id == "2301.00001"
