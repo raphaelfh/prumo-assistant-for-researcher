@@ -36,6 +36,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import zipfile
 from dataclasses import dataclass
@@ -642,6 +643,16 @@ _ADEU_INSTALL_HINT = (
     "pinada do backend de PROSA."
 )
 
+
+def _check_uvx_on_path() -> None:
+    """Preflight 3a: o backend de prosa (adeu via uvx) precisa existir antes de começar."""
+    if shutil.which("uvx") is None:
+        raise AdeuUnavailableError(
+            "uvx não encontrado no PATH — o backend de prosa (adeu pinado) roda via uv. "
+            "Instale o uv (https://docs.astral.sh/uv/) e confirme: `uvx adeu==1.29.0 --version`."
+        )
+
+
 # Corpo de anotação: `[Chg:<id> insert|delete] <Autor>`. `search` (não
 # `match`/`fullmatch`) de propósito: o formato alternativo markup-path do
 # adeu (`{>>Diff: ...<<}`) pode trazer o padrão em QUALQUER posição do
@@ -692,7 +703,7 @@ def _run_adeu_extract(docx_path: Path) -> str:
     try:
         payload = cast(dict[str, Any], json.loads(proc.stdout))
         return str(payload["markdown"])
-    except (json.JSONDecodeError, KeyError) as exc:
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
         raise AdeuUnavailableError(
             "saída do adeu não é o JSON esperado (campo 'markdown') — confirme "
             "a versão pinada: `uvx adeu==1.29.0 --version`; detalhe: "
@@ -2084,6 +2095,9 @@ def ingest(reviewed_docx: Path, page: Path, project_root: Path | None = None) ->
     :class:`AdeuUnavailableError` (backend de prosa indisponível, 3g);
     :class:`MarkLostError` (Guarda B, dentro de `transplant_to_source`, 3g).
     """
+    # Preflight 3a: check uvx availability before any other work
+    _check_uvx_on_path()
+
     project_root = project_root or detect_project_root(page)
     slug = _slugify(page, project_root)
     review_dir = project_root / "reviews" / slug

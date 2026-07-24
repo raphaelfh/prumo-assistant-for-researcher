@@ -272,6 +272,27 @@ def test_run_adeu_extract_uvx_not_found_raises_adeu_unavailable(tmp_path: Path) 
     assert "uvx adeu==1.29.0 --version" in message
 
 
+def test_run_adeu_extract_non_object_json_raises_adeu_unavailable(tmp_path: Path) -> None:
+    """Fix após review (Task 8): JSON válido mas não-objeto (`[1, 2, 3]`)
+    vazava TypeError cru — vira `AdeuUnavailableError` pt-BR nomeando o
+    contrato esperado (campo 'markdown') como nos demais casos."""
+    docx = tmp_path / "revisado.docx"
+    stdout = json.dumps([1, 2, 3])
+
+    with (
+        patch(
+            "prumo_assist.domains.write.review.subprocess.run",
+            return_value=_completed(returncode=0, stdout=stdout),
+        ),
+        pytest.raises(AdeuUnavailableError) as exc,
+    ):
+        _run_adeu_extract(docx)
+
+    message = str(exc.value)
+    assert "JSON esperado" in message
+    assert "uvx adeu==1.29.0 --version" in message
+
+
 # --- Task 5: coleta de comentários (ReviewCommentsFile) ----------------------
 
 

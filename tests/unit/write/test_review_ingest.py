@@ -25,6 +25,7 @@ from prumo_assist.core.obsidian import normalize_markdown_with_map
 from prumo_assist.domains.write import review
 from prumo_assist.domains.write.export import _slugify
 from prumo_assist.domains.write.review import (
+    AdeuUnavailableError,
     CitationConservationError,
     IngestResult,
     SourceChangedError,
@@ -204,6 +205,30 @@ def test_ingest_happy_path_prose_insertion_and_comment_writes_valid_sidecars(
 
     # Nada toca a página original no ingest.
     assert page.read_text() == body
+
+
+# --- 1a. preflight 3a: uvx não disponível → fail-fast antes de sidecars ------
+
+
+def test_ingest_fails_fast_without_uvx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Preflight 3a: `ingest()` checa uvx no PATH ANTES de carregar sidecars.
+    Sem uvx, levanta `AdeuUnavailableError` mencionando o comando de
+    instalação, e NÃO faz nenhuma leitura de sidecar (fail-fast: economia de
+    trabalho inútil se o backend não estiver disponível)."""
+    body = "Pagina de teste para preflight uvx."
+    project_root, page = _init_project(tmp_path, body=body)
+    _write_sidecars(project_root, page, source_text=body, docx_sha256=_UNRELATED_DOCX_SHA256)
+    docx = _write_docx(tmp_path / "revisado.docx", paragraphs=[])
+
+    # Monkeypatch shutil.which no módulo review para simular uvx ausente
+    monkeypatch.setattr("prumo_assist.domains.write.review.shutil.which", lambda _: None)
+
+    with pytest.raises(AdeuUnavailableError) as exc:
+        ingest(reviewed_docx=docx, page=page, project_root=project_root)
+
+    message = str(exc.value)
+    assert "uvx" in message
+    assert "uvx adeu==1.29.0 --version" in message
 
 
 def test_ingest_happy_path_preserves_frontmatter_in_review_md(
