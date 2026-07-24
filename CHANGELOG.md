@@ -27,6 +27,11 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - **`prumoOcc`/`prumoFingerprint`** no payload OOXML — ocorrência estável por campo
   e impressão digital por chave (cadeia de prioridade: `doi:<valor>` quando o `.bib`
   tem DOI; senão `sha256:` de `itemID|uri` do BBT; senão `bib:` sha256 do entry cru).
+- **`prumo write review ingest`/`apply`** — fecham o round-trip docx↔CriticMarkup do
+  coautor: guardas A/B e conservação de citação (I2) na entrada, `review.md` como
+  worklist viva (decisões por marca, autor ou lote) e confirmação humana explícita
+  para cada drop de citação antes do write-back na página (spec 2026-07-05,
+  [ADR-0016](docs/adr/adr-0016-criticmarkup-conservacao-ooxml.md)).
 
 ### Corrigido
 - `prumo write export/compose --to docx`: o docx gerado passa por validação

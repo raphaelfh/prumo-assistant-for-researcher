@@ -14,6 +14,7 @@ from prumo_assist.domains.write.compose import (
 )
 from prumo_assist.domains.write.disclosure import generate_disclosure
 from prumo_assist.domains.write.export import compose, export, list_styles
+from prumo_assist.domains.write.review import ApplyResult, IngestResult, apply_review, ingest
 from prumo_assist.domains.write.schemas.v1 import (
     ComposeInputs,
     FindingSummary,
@@ -24,11 +25,14 @@ from prumo_assist.domains.write.zettlr import generate_profile as generate_zettl
 from prumo_assist.domains.write.zettlr import profile_issues as zettlr_profile_issues
 
 __all__ = [
+    "ApplyResult",
     "ComposeInputs",
     "FindingSummary",
+    "IngestResult",
     "PaperSummary",
     "WriteOutput",
     "WritePrep",
+    "apply_review",
     "compose",
     "compose_path",
     "export",
@@ -36,6 +40,7 @@ __all__ = [
     "extract_missing_refs",
     "generate_disclosure",
     "generate_zettlr_profile",
+    "ingest",
     "list_styles",
     "prep",
     "read_inputs",

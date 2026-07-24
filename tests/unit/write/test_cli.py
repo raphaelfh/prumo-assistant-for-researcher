@@ -9,7 +9,13 @@ import pytest
 from typer.testing import CliRunner
 
 from prumo_assist.cli import app
-from prumo_assist.domains.write import export
+from prumo_assist.domains.write import export, review
+from prumo_assist.domains.write.schemas.v1 import (
+    ReviewComment,
+    ReviewCommentsFile,
+    ReviewEvent,
+    ReviewEventsFile,
+)
 
 runner = CliRunner()
 
@@ -336,4 +342,121 @@ def test_export_command_reports_citekey_error_cleanly(
     result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
     assert result.exit_code == 1
     assert "ghost2020" in result.output
+    assert "Traceback" not in result.output
+
+
+def _fake_ingest_result(review_md: Path) -> review.IngestResult:
+    events = ReviewEventsFile(
+        page="docs/p.md",
+        events=[
+            ReviewEvent(
+                kind="citation-drop",
+                detail="citação (occ occ1, citekeys k2020) deletada no Word — confirme no apply.",
+                occ_id="occ1",
+                citekeys=["k2020"],
+            ),
+            ReviewEvent(kind="non-identity-span", detail="marca não localizada."),
+        ],
+    )
+    comments = ReviewCommentsFile(
+        page="docs/p.md",
+        comments=[ReviewComment(id="c1", author="Alice", text="ver isso")],
+    )
+    return review.IngestResult(
+        review_md=review_md,
+        marks_applied=3,
+        events=events,
+        comments=comments,
+        deleted=[],
+    )
+
+
+def test_write_review_ingest_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pj = tmp_path / "pj_demo"
+    page = pj / "docs" / "p.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("Texto revisado.\n")
+    docx = tmp_path / "reviewed.docx"
+    docx.write_bytes(b"PK\x03\x04")
+    review_md = pj / "reviews" / "p" / "review.md"
+
+    def fake_ingest(
+        reviewed_docx: Path, page_arg: Path, project_root: Path | None = None
+    ) -> review.IngestResult:
+        return _fake_ingest_result(review_md)
+
+    monkeypatch.setattr("prumo_assist.domains.write.cli.review.ingest", fake_ingest)
+    monkeypatch.setenv("COLUMNS", "300")  # evita quebra de linha do Rich no path longo
+
+    plain = runner.invoke(app, ["write", "review", "ingest", str(docx), "--page", str(page)])
+    assert plain.exit_code == 0, plain.output
+    assert f"ingerido: {review_md}" in plain.output
+    assert "3" in plain.output  # marcas aplicadas
+    assert "apply" in plain.output  # próximo passo menciona o comando apply
+
+    result = runner.invoke(
+        app, ["write", "review", "ingest", str(docx), "--page", str(page), "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    out = _last_json(result.stdout)
+    assert out["marks_applied"] == 3
+    assert out["events"] == 2
+    assert out["comments"] == 1
+    assert out["pending_drops"] == 1
+    assert out["review_md"] == str(review_md)
+
+
+def test_write_review_ingest_source_changed_shows_clean_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page = tmp_path / "p.md"
+    page.write_text("Texto.\n")
+    docx = tmp_path / "reviewed.docx"
+    docx.write_bytes(b"PK\x03\x04")
+
+    def fake_ingest(*args: object, **kwargs: object) -> review.IngestResult:
+        raise review.SourceChangedError("fonte mudou desde o export — mensagem teste")
+
+    monkeypatch.setattr("prumo_assist.domains.write.cli.review.ingest", fake_ingest)
+    result = runner.invoke(app, ["write", "review", "ingest", str(docx), "--page", str(page)])
+    assert result.exit_code == 1
+    assert "mensagem teste" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_write_review_apply_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    page = tmp_path / "p.md"
+    page.write_text("Texto.\n")
+
+    def fake_apply(page_arg: Path, **kwargs: object) -> review.ApplyResult:
+        return review.ApplyResult(page=page_arg, applied=2, rejected=1, drops_confirmed=["occ1"])
+
+    monkeypatch.setattr("prumo_assist.domains.write.cli.review.apply_review", fake_apply)
+    result = runner.invoke(
+        app,
+        ["write", "review", "apply", "--page", str(page), "--accept-all", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    out = _last_json(result.stdout)
+    assert out["applied"] == 2
+    assert out["rejected"] == 1
+    assert out["drops_confirmed"] == ["occ1"]
+
+
+def test_write_review_apply_missing_drop_confirmation_exits_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page = tmp_path / "p.md"
+    page.write_text("Texto.\n")
+
+    def fake_apply(*args: object, **kwargs: object) -> review.ApplyResult:
+        raise ValueError(
+            "Evento(s) `citation-drop` pendente(s) sem confirmação explícita "
+            "(I6 — decisão humana explícita em Git): occ occ1."
+        )
+
+    monkeypatch.setattr("prumo_assist.domains.write.cli.review.apply_review", fake_apply)
+    result = runner.invoke(app, ["write", "review", "apply", "--page", str(page), "--accept-all"])
+    assert result.exit_code == 1
+    assert "citation-drop" in result.output
     assert "Traceback" not in result.output

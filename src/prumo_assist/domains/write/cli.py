@@ -10,7 +10,7 @@ import typer
 from prumo_assist import PrumoError
 from prumo_assist.core.cli_io import parse_json_list, read_stdin_text
 from prumo_assist.core.cli_op import cli_run
-from prumo_assist.domains.write import comments, compose, export
+from prumo_assist.domains.write import comments, compose, export, review
 from prumo_assist.domains.write.schemas.v1 import WriteKind, WriteMode
 
 write_app = typer.Typer(
@@ -41,6 +41,22 @@ _EXPORT_CATCHES = (
     export.MissingBibliographyPlaceholderError,
     export.CiteMapMismatchError,
 )
+
+_REVIEW_CATCHES = (
+    FileNotFoundError,
+    ValueError,
+    review.SourceChangedError,
+    review.StructuralChangeError,
+    review.MarkLostError,
+    review.CitationConservationError,
+    review.AdeuUnavailableError,
+)
+
+review_app = typer.Typer(
+    help="Round-trip docx↔CriticMarkup do coautor: ingest da revisão, aplicação de decisões.",
+    no_args_is_help=True,
+)
+write_app.add_typer(review_app, name="review")
 
 
 @write_app.command("export")
@@ -290,6 +306,119 @@ def draft_command(
             f"Draft gravado em {result.output_path} ({result.words_generated} palavras)."
         )
         console.emit(result.model_dump(mode="json"))
+
+
+@review_app.command("ingest")
+def review_ingest_command(
+    reviewed_docx: Annotated[Path, typer.Argument(help="Caminho do .docx revisado pelo coautor.")],
+    page: Annotated[
+        Path, typer.Option("--page", help="Página .md original — a mesma que gerou o docx.")
+    ],
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Ingere um docx revisado: guardas + transplante determinístico → ``reviews/<slug>/review.md``."""
+    with cli_run(json_mode=json_mode, catches=_REVIEW_CATCHES) as console:
+        page_resolved = page.resolve()
+        reviewed_docx_resolved = reviewed_docx.resolve()
+        result = review.ingest(reviewed_docx_resolved, page_resolved)
+        pending_drops = sum(1 for event in result.events.events if event.kind == "citation-drop")
+
+        console.success(f"ingerido: {result.review_md}")
+        console.info(
+            f"{result.marks_applied} marca(s) aplicada(s), {len(result.events.events)} "
+            f"evento(s), {len(result.comments.comments)} comentário(s), {pending_drops} "
+            "drop(s) de citação pendente(s) de confirmação."
+        )
+        console.info(
+            f"Próximo passo: revise {result.review_md} e rode `prumo write review apply "
+            f"--page {page_resolved} ...` com o modo de decisão desejado."
+        )
+        console.emit(
+            {
+                "page": str(page_resolved),
+                "reviewed_docx": str(reviewed_docx_resolved),
+                "review_md": str(result.review_md),
+                "marks_applied": result.marks_applied,
+                "events": len(result.events.events),
+                "comments": len(result.comments.comments),
+                "pending_drops": pending_drops,
+            }
+        )
+
+
+@review_app.command("apply")
+def review_apply_command(
+    page: Annotated[
+        Path, typer.Option("--page", help="Página .md original — a mesma passada ao ingest.")
+    ],
+    accept_all: Annotated[
+        bool, typer.Option("--accept-all", help="Aceita todas as marcas pendentes.")
+    ] = False,
+    reject_all: Annotated[
+        bool, typer.Option("--reject-all", help="Rejeita todas as marcas pendentes.")
+    ] = False,
+    by_author: Annotated[
+        str | None, typer.Option("--by-author", help="Decide só as marcas deste autor.")
+    ] = None,
+    mark: Annotated[
+        int | None, typer.Option("--mark", help="Decide só a marca deste índice (0-based).")
+    ] = None,
+    accept: Annotated[
+        bool, typer.Option("--accept", help="Junto de --by-author/--mark: aceita a(s) marca(s).")
+    ] = False,
+    reject: Annotated[
+        bool,
+        typer.Option("--reject", help="Junto de --by-author/--mark: rejeita a(s) marca(s)."),
+    ] = False,
+    confirm_citation_drops: Annotated[
+        str | None,
+        typer.Option(
+            "--confirm-citation-drops",
+            help="occ_id(s) de citação deletada a confirmar, separados por vírgula.",
+        ),
+    ] = None,
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Aplica as decisões de ``reviews/<slug>/review.md`` de volta na página original."""
+    with cli_run(json_mode=json_mode, catches=_REVIEW_CATCHES) as console:
+        from datetime import UTC, datetime
+
+        decision: bool | None = True if accept else (False if reject else None)
+
+        marks: dict[int, bool] | None = None
+        if mark is not None:
+            if decision is None:
+                raise PrumoError("--mark exige --accept ou --reject junto.")
+            marks = {mark: decision}
+
+        drops = (
+            [item.strip() for item in confirm_citation_drops.split(",") if item.strip()]
+            if confirm_citation_drops
+            else None
+        )
+
+        result = review.apply_review(
+            page.resolve(),
+            accept_all=accept_all,
+            reject_all=reject_all,
+            by_author=by_author,
+            author_decision=decision if by_author is not None else None,
+            marks=marks,
+            confirm_citation_drops=drops,
+            today=datetime.now(UTC).date().isoformat(),
+        )
+        console.success(
+            f"aplicado: {result.applied} marca(s) aceita(s), {result.rejected} marca(s) "
+            f"rejeitada(s), {len(result.drops_confirmed)} drop(s) de citação confirmado(s)."
+        )
+        console.emit(
+            {
+                "page": str(result.page),
+                "applied": result.applied,
+                "rejected": result.rejected,
+                "drops_confirmed": result.drops_confirmed,
+            }
+        )
 
 
 def zettlr_export_entry() -> None:
