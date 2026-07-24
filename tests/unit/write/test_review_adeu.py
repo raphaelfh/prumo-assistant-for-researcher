@@ -240,7 +240,7 @@ def _docx_with_one_comment(path: Path) -> Path:
     """
     w_ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 
-    document_xml = f'''<?xml version="1.0"?>
+    document_xml = f"""<?xml version="1.0"?>
 <w:document {w_ns}>
     <w:body>
         <w:p>
@@ -260,9 +260,9 @@ def _docx_with_one_comment(path: Path) -> Path:
             </w:r>
         </w:p>
     </w:body>
-</w:document>'''
+</w:document>"""
 
-    comments_xml = '''<?xml version="1.0"?>
+    comments_xml = """<?xml version="1.0"?>
 <w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
     <w:comment w:id="0" w:author="Revisor Alice" w:date="2026-07-23T10:30:00Z">
         <w:p>
@@ -271,7 +271,7 @@ def _docx_with_one_comment(path: Path) -> Path:
             </w:r>
         </w:p>
     </w:comment>
-</w:comments>'''
+</w:comments>"""
 
     with zipfile.ZipFile(path, "w") as z:
         z.writestr("word/document.xml", document_xml)
@@ -306,7 +306,7 @@ def test_collect_review_comments_empty_docx(tmp_path: Path) -> None:
     docx = tmp_path / "no_comments.docx"
     w_ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 
-    document_xml = f'''<?xml version="1.0"?>
+    document_xml = f"""<?xml version="1.0"?>
 <w:document {w_ns}>
     <w:body>
         <w:p>
@@ -315,7 +315,7 @@ def test_collect_review_comments_empty_docx(tmp_path: Path) -> None:
             </w:r>
         </w:p>
     </w:body>
-</w:document>'''
+</w:document>"""
 
     with zipfile.ZipFile(docx, "w") as z:
         z.writestr("word/document.xml", document_xml)
