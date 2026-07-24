@@ -181,6 +181,8 @@ Commit: `feat(write): transplante determinístico para o source via span-map + g
 
 ---
 
+**Nota de reconciliação — Guarda C (registrada no controller review da T8, 2026-07-24):** a tabela de fases do spec lista "guardas A/B/C" na Fase 2, mas a Guarda C ("sobrevivência de campo na extração") foi desenhada para o mundo pré-decisão-(b), em que a EXTRAÇÃO (adeu) podia achatar campos. Com o backend (b) da Fase 0 — citação lida 100% do OOXML próprio — a substância da Guarda C é subsumida por: (1) fldChar desbalanceado → hard-fail do leitor (T1, I2b); (2) campo sumido/achatado → occ ausente do multiconjunto → `CitationConservationError` (T2, I2); (3) o adeu nunca participa de decisão de citação (T6, defesa de identidade). Nenhum cheque redundante é adicionado; o review final da fase (T11) valida esta subsunção.
+
 ### Task 8: `ingest()` — orquestração + preflight + escrita dos sidecars
 
 **Files:** Modify `review.py`; Create `tests/unit/write/test_review_ingest.py`
