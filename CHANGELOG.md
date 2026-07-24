@@ -43,6 +43,17 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   consome essas tools para reconciliar eventos ambíguos do transplante sem nunca
   decidir; modo degradado sem MCP via `prumo write review events --checklist`
   (spec 2026-07-05, [ADR-0017](docs/adr/adr-0017-prumo-mcp-reconciliador.md)).
+- **`prumo paper verify-refs`** — verificação determinística de referências do
+  `.bib`: existência e título via Crossref, retração via Crossref/PubMed, com
+  cache local (TTL 7 dias). `--page` restringe o escopo às citekeys marcadas na
+  página (recomendado); `--deep` liga o backend opcional `uvx
+  academic-refchecker==3.0.151` (pinado; achados viram `warning`, nunca gate);
+  `--refresh` ignora o cache. Só achado `error` deriva exit 1 (spec 2026-07-05,
+  [ADR-0018](docs/adr/adr-0018-verificacao-referencias-apis-publicas.md)).
+- **Skill `citation-support`** — classifica se cada citação de uma página
+  sustenta a frase que a cita (Fully/Partially/Unsubstantiated) a partir dos
+  extracts do acervo; sinaliza no chat, nunca edita nem bloqueia — camada LLM
+  da Fase 4 ([ADR-0018](docs/adr/adr-0018-verificacao-referencias-apis-publicas.md)).
 
 ### Corrigido
 - `prumo write export/compose --to docx`: o docx gerado passa por validação
@@ -56,6 +67,10 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   SEMPRE o citekey (o id numérico do Zotero migra para `zoteroItemID`) —
   pré-condição do átomo de citação da ponte docx↔CriticMarkup (spec 2026-07-05,
   invariantes I1/I2b).
+- Seam do `adeu` (backend de prosa pinado, `uvx adeu==1.29.0`) no `review
+  ingest` ganha timeout de 120s — evita travar indefinidamente numa rede lenta
+  no primeiro download do `uvx`; erro acionável (`AdeuUnavailableError`) em vez
+  de pendurar o comando (fila herdada F2+F3).
 
 ### Mudado
 - `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par
@@ -68,6 +83,10 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   (pandoc exit ≠ 0 com stderr embutido) — em vez do `RuntimeError` amplo
   introduzido em 0.62.1: erro acionável continua saindo limpo no CLI, e erro
   inesperado volta a vazar traceback (filosofia do `cli_run`: bug é bug).
+- `prumo write review ingest` agora exige `--force` para re-ingerir uma página
+  que já tem `review.md` com marca(s) pendente(s) — protege propostas do
+  agente (`propose_prose_edit`) de sobrescrita silenciosa; sem `--force`, falha
+  com o comando de correção embutido (fila herdada F2+F3).
 
 ## [0.62.1] - 2026-07-22
 

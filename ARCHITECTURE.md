@@ -23,6 +23,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
 │              │ │              │ │            │ │              │ │              │
 │ sync · graph │ │ lint · index │ │ capture    │ │ propagate    │ │ export       │
 │ find · lint  │ │ stats        │ │ <input>    │ │ diff         │ │ compose      │
+│ verify-refs  │ │              │ │            │ │              │ │              │
 │ set-primary  │ │              │ │            │ │              │ │ list-styles  │
 │ sync-pdfs    │ │              │ │            │ │              │ │ extract-     │
 │ sync-        │ │              │ │            │ │              │ │   comments   │
@@ -84,7 +85,7 @@ prumo-assist/
 │   │                             exceção: capture é mínimo (cli.py + route.py, sem api/schemas)
 │   └── integrations/          ← adapters por agent-host (claude_code)
 │
-├── skills/                    ← 15 skills (SKILL.md = única metadata, ADR-0003)
+├── skills/                    ← 16 skills (SKILL.md = única metadata, ADR-0003)
 ├── templates/
 │   ├── pj_base/               ← núcleo mínimo copiado por `prumo init`
 │   └── modules/{clinical,ml}/ ← overlays opt-in (`prumo add`), self-describing (_module.toml)
