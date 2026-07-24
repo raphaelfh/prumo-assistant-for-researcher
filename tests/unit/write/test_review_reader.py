@@ -461,3 +461,46 @@ def test_check_conservation_touched_raises_with_human_decision_message(tmp_path:
     with pytest.raises(CitationConservationError) as exc:
         check_conservation(observed, citemap)
     assert "decisão humana" in str(exc.value)
+
+
+def test_check_conservation_extra_occ_raises(tmp_path: Path) -> None:
+    """occ presente no docx revisado mas ausente do citemap — citação nova não é
+    suportada no MVP (hard-fail, I2). Docx tem 2 campos, citemap tem só 1."""
+    payload_a = _payload(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")
+    payload_b = _payload(occ_id="00000002", citekeys=["bbb2021"], formatted="(Bbb, 2021)")
+    docx = _write_docx_with_fields(
+        tmp_path / "extra_occ.docx", [_field_xml(payload_a), _field_xml(payload_b)]
+    )
+    observed = read_docx_citations_with_state(docx)
+    citemap = _citemap([_occ(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")])
+
+    with pytest.raises(CitationConservationError) as exc:
+        check_conservation(observed, citemap)
+    assert "00000002" in str(exc.value)
+
+
+def test_check_conservation_divergent_citekeys_raises(tmp_path: Path) -> None:
+    """Citekeys divergentes para o mesmo occ_id entre docx e citemap (campo
+    re-chaveado no Zotero/BBT, I2) — hard-fail mesmo com occ_id idêntico."""
+    payload = _payload(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")
+    docx = _write_docx_with_fields(tmp_path / "divergent_keys.docx", [_field_xml(payload)])
+    observed = read_docx_citations_with_state(docx)
+    citemap = _citemap(
+        [
+            CiteOccurrence(
+                occ_id="00000001",
+                citation_id="00000001",
+                citekeys=["bbb2021"],
+                fingerprints={"bbb2021": "doi:10.1/bbb2021"},
+                formatted="(Bbb, 2021)",
+                norm_start=0,
+                norm_end=1,
+            )
+        ]
+    )
+
+    with pytest.raises(CitationConservationError) as exc:
+        check_conservation(observed, citemap)
+    error_msg = str(exc.value)
+    assert "aaa2020" in error_msg
+    assert "bbb2021" in error_msg
