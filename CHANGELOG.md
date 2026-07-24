@@ -32,6 +32,17 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   worklist viva (decisões por marca, autor ou lote) e confirmação humana explícita
   para cada drop de citação antes do write-back na página (spec 2026-07-05,
   [ADR-0016](docs/adr/adr-0016-criticmarkup-conservacao-ooxml.md)).
+- **Servidor MCP `prumo-review`** (`prumo mcp serve`, stdio, registrado em `.mcp.json`) —
+  expõe o ciclo de revisão a agentes (Claude Code/Desktop) com 3 tools read-only
+  (`review_status`/`review_events`/`review_worklist`) e `propose_prose_edit`, a única
+  escrita permitida a um agente: insere marca CriticMarkup pendente no worklist
+  `review.md` com âncora `{>>prumo-autor: <autor><<}`, decidida pelo `apply_review`
+  humano; guardas hard-fail (âncora única, payload sem citação I3b, tangência de
+  citação recusada I1, allowlist de autor, round-trip guard pós-composição) recusam
+  qualquer proposta que fabrique ou aproxime citação. A skill `review-reconcile`
+  consome essas tools para reconciliar eventos ambíguos do transplante sem nunca
+  decidir; modo degradado sem MCP via `prumo write review events --checklist`
+  (spec 2026-07-05, [ADR-0017](docs/adr/adr-0017-prumo-mcp-reconciliador.md)).
 
 ### Corrigido
 - `prumo write export/compose --to docx`: o docx gerado passa por validação

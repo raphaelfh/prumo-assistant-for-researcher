@@ -24,4 +24,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0014-findings-canonico]] — Caminho canônico de findings: `docs/wiki/findings/` com fallback · aceito
 - [[adr/adr-0015-pre-1-0-patch-para-releasavel]] — Pré-1.0: PATCH para todo release; MINOR reservado a breaking/marco · aceito
 - [[adr/adr-0016-criticmarkup-conservacao-ooxml]] — CriticMarkup como representação de revisão + conservação de citações contada no OOXML · aceito
+- [[adr/adr-0017-prumo-mcp-reconciliador]] — prumo-MCP local e reconciliador que propõe marcas · aceito
 <!-- prumo:adr-index:end -->
