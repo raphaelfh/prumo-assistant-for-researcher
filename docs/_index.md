@@ -33,6 +33,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 - `superpowers/specs/` — specs vivas de design (não-perecíveis; `status: approved | superseded`).
 - `superpowers/plans/` — planos ativos; implementados movem pra `plans/archive/` com `status/verified/release`.
 - `adr/` — decisões registradas (MADR minimal, imutáveis). Índice: [[adr/_index]].
+- `onboarding-pesquisador.md` — trilha do pesquisador sem terminal (Desktop/Cowork) + kit do piloto da Fase 2.
 
 ## Convenções
 

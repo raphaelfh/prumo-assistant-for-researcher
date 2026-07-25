@@ -45,11 +45,12 @@ conversa e peça:
 Isso já foi testado na prática: numa sessão real, o `/prumo-assist:peer-review`
 rodou o fluxo completo sem precisar de CLI, Zotero ou busca semântica, e pegou
 todos os problemas plantados de propósito num draft de teste (claims sem
-evidência, superlativos, contradição com a própria fonte citada). Essa skill é
-declarada "julgamento puro": o próprio contrato dela (o preflight do
-ADR-0019) diz que roda em qualquer superfície Claude — porque Desktop, Cowork
-e Claude Code sincronizam o mesmo plugin, não sistemas diferentes. É esse o
-valor imediato: o Claude lê o que você colou e responde, antes de você
+evidência, superlativos, contradição com a própria fonte citada) (no spike da
+Fase 0, testado no Claude Code). Essa skill é declarada "julgamento puro": o
+próprio contrato dela (o preflight do ADR-0019) diz que roda em qualquer
+superfície Claude — porque Desktop, Cowork e Claude Code instalam a partir do
+mesmo `marketplace.json` do mesmo repositório, não sistemas diferentes. É esse
+o valor imediato: o Claude lê o que você colou e responde, antes de você
 instalar qualquer coisa.
 
 ## 3. Quando você quiser ir além
@@ -78,8 +79,9 @@ assistente não consegue rodar nada sozinho: ele vai te indicar este mesmo
 documento, e você vai precisar do Cowork (ou de alguém com Claude Code) para
 de fato instalar.
 
-> **Nota para quem usa Windows:** os comandos acima são de macOS/Linux — no
-> Windows, rode-os dentro do WSL (Windows Subsystem for Linux).
+> Os comandos desta trilha foram validados em macOS/Linux. No Windows, use o
+> WSL — ou os instaladores nativos de Windows documentados pelo uv e pelo bun
+> (não validados neste piloto).
 
 ## 4. O que é opcional (e o que não é)
 
