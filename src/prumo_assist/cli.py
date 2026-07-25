@@ -50,6 +50,7 @@ from prumo_assist.core.scaffold import overlay as _overlay
 from prumo_assist.core.skills import load_skill_registry
 from prumo_assist.domains.capture.cli import capture_command
 from prumo_assist.domains.paper.cli import paper_app
+from prumo_assist.domains.paper.connect import bib_is_placeholder
 from prumo_assist.domains.protocol.cli import protocol_app
 from prumo_assist.domains.wiki.cli import wiki_app
 from prumo_assist.domains.write.cli import write_app
@@ -592,10 +593,13 @@ def doctor_command(
 
     deps = check_external_deps()
 
+    warnings: list[str] = []
+
     payload = {
         "project": str(target),
         "ok": not issues,
         "issues": issues,
+        "warnings": warnings,
         "external_deps": [d.as_dict() for d in deps],
         "version": __version__,
     }
@@ -605,6 +609,13 @@ def doctor_command(
             console.info(f"  • {i}")
     else:
         console.success("Estrutura do projeto OK.")
+        if bib_is_placeholder(target):
+            bib_warning = (
+                "references/_references.bib ainda é o placeholder do scaffold — "
+                'conecte sua coleção do Zotero: prumo paper connect "<nome da coleção>"'
+            )
+            console.warn(bib_warning)
+            warnings.append(bib_warning)
 
     console.info("")
     console.info("Dependências externas:")
