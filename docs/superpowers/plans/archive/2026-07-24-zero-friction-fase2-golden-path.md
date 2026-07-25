@@ -409,3 +409,21 @@ autor (`make ...`) — a pessoa instalou um plugin, não clonou um repositório.
 - Item 2 (instalação guiada via start; demais roteiam): T4 (start) + T2 (bloco item 1 roteia) ✓
 - Item 3 (docs duas trilhas com material da F0): T5 ✓ (R3 coberto por T3 no CLI)
 - Item 4 (piloto ≤15 min): kit em T5; GATE EXTERNO documentado nas Global Constraints ✓
+
+## Resultado do piloto (item 4 do spec — executado pelo dono, registrado 2026-07-25)
+
+Piloto com **colega real** + instalação guiada via `/prumo-assist:start`:
+**≤15 min até o primeiro output** (critério de sucesso nº 1 do guarda-chuva
+BATIDO). Instalação do CLI "tranquila, rodou sozinho".
+
+**Adjudicação dos gates (spec §Fases 4–5):**
+- **Fase 5 (empacotamento do CLI): trigger NÃO disparou** — colega não travou
+  apesar da (na verdade, graças à) instalação guiada. Encerra FECHADA (YAGNI).
+- **Fase 4 (colapso de dependências): trigger DISPAROU** — Zotero/BBT foi
+  ponto de fricção observado no piloto. Fase 4 DESTRAVADA, com escopo a
+  calibrar pela dor observada (lado Zotero primeiro; qmd→MCPB sem dor
+  registrada neste piloto).
+
+Sugestões do dono para o grounding da F4: conector PubMed/literatura;
+zotero-mcp (github.com/54yyyu/zotero-mcp); recomendar Zettlr como editor na
+trilha do pesquisador.
