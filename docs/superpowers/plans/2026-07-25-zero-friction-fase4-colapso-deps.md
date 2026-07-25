@@ -37,9 +37,10 @@ BETTER_BIBLATEX_GUID = "f895aa0d-f28e-47fe-b247-2ea77c6ed583"
 
 @dataclass(frozen=True)
 class CollectionRef:
-    library: str      # ex. "My Library"
-    path: str         # ex. "Pesquisa/Colecao do estudo piloto1" (cadeia de pais)
-    bbt_path: str     # ex. "/My Library/Pesquisa/Colecao do estudo piloto1"
+    library: str                 # ex. "My Library"
+    path: str                    # ex. "Pesquisa/Colecao do estudo piloto1" (cadeia de pais)
+    bbt_path: str                # ex. "/My Library/Pesquisa/Colecao do estudo piloto1"
+    segments: tuple[str, ...]    # nomes CRUS: (library, pai, ..., filha) — emenda pós-review T1
 
 @dataclass(frozen=True)
 class ConnectResult:
@@ -51,6 +52,7 @@ class ZoteroOfflineError(RuntimeError): ...
 class CollectionNotFoundError(RuntimeError): ...
 class AmbiguousCollectionError(RuntimeError): ...
 class AlreadyConnectedError(RuntimeError): ...
+class UnsupportedCollectionNameError(RuntimeError): ...  # emenda pós-review T1: nome com "/"
 
 def list_collections() -> list[CollectionRef]: ...
 def find_collection(name: str, *, library: str | None = None) -> CollectionRef: ...
@@ -64,8 +66,9 @@ def connect_collection(
 Regras exatas:
 - `list_collections`: chama `user.groups` com params `[True]`; para cada library, monta cadeia de pais via mapa `key -> (name, parentCollection)` (parent `False`/ausente = raiz); resposta hostil (não-lista, library sem `collections`) → ignora o pedaço malformado sem crashar. `urllib.error.URLError`/`OSError`/JSON hostil do seam → `ZoteroOfflineError` com msg: `"Zotero não respondeu em 127.0.0.1:23119 — abra o Zotero (com Better BibTeX instalado) e rode de novo."`.
 - `find_collection`: match por `casefold()` no ÚLTIMO segmento do path (nome da coleção). 0 matches → `CollectionNotFoundError` com até 3 sugestões via `difflib.get_close_matches` sobre todos os nomes (msg: `"coleção '{name}' não existe no Zotero — NADA foi criado. Parecidas: {sugestões}. Confira o nome exato no Zotero."`); >1 match e `library is None` → `AmbiguousCollectionError` listando os `bbt_path` candidatos + hint `--library`; com `library`, filtra por `library.casefold()` antes.
+- **Guarda de nome (emenda pós-review T1 — fecha o Critical do invariante semântico):** após selecionar o `ref`, se QUALQUER `segment` (library ou coleções da cadeia) contiver `"/"`, levanta `UnsupportedCollectionNameError`: `"o nome '{segment}' contém '/' — que é o separador de caminho do Better BibTeX; o export apontaria para uma cadeia INEXISTENTE que o Zotero criaria. NADA foi criado. Renomeie a coleção/biblioteca no Zotero (ex.: troque '/' por '-') e rode de novo."` Sem esta guarda, uma coleção real chamada `"Foo/Bar"` casa com `find_collection("Bar")` e o `bbt_path` aliasa `Foo→Bar` fantasma (reproduzido no review).
 - `bib_is_placeholder`: True se o arquivo não existe, está vazio, ou (1ª linha começa com `"% Bibliografia do projeto"` E `parse_bib(texto)` devolve `[]`).
-- `connect_collection`: (guarda 1) se NÃO `bib_is_placeholder` → `AlreadyConnectedError`: `"references/_references.bib já tem entradas reais — reconectar às cegas duplicaria o export automático. Confira no Zotero: Preferences → Better BibTeX → Automatic export."`; (guarda 2) `find_collection` valida existência ANTES de qualquer mutação; então chama `autoexport.add` com params POSICIONAIS `[ref.bbt_path, BETTER_BIBLATEX_GUID, str(bib.resolve())]`; erro JSON-RPC na resposta (`"error"` no dict) → `ZoteroOfflineError` com a mensagem do BBT embutida; poll: até `poll_timeout`, dormindo `poll_interval` via seam módulo-level `_sleep = time.sleep` (monkeypatchável), checando `not bib_is_placeholder(pj_path)` → `exported=True`; timeout → `exported=False` (não é erro — o export do BBT pode demorar; a mensagem do CLI cobre).
+- `connect_collection`: (guarda 1) se NÃO `bib_is_placeholder` → `AlreadyConnectedError`: `"references/_references.bib já tem entradas reais — reconectar às cegas duplicaria o export automático. Confira no Zotero: Preferences → Better BibTeX → Automatic export."`; (guarda 2) `find_collection` valida existência ANTES de qualquer mutação; então chama `autoexport.add` com params POSICIONAIS `[ref.bbt_path, BETTER_BIBLATEX_GUID, str(bib.resolve())]`; erro JSON-RPC na resposta (`"error"` no dict) → `ZoteroOfflineError` com a mensagem do BBT embutida; poll: UMA checagem de `not bib_is_placeholder(pj_path)` ANTES do loop (emenda pós-review T1: `poll_timeout=0` ainda checa uma vez — export síncrono conta como `exported=True`), depois até `poll_timeout`, dormindo `poll_interval` via seam módulo-level `_sleep = time.sleep` (monkeypatchável); timeout → `exported=False` (não é erro — o export do BBT pode demorar; a mensagem do CLI cobre).
 
 - [ ] **Step 1: Testes que falham** — criar `tests/unit/paper/test_connect.py` (mypy strict cobre tests/; monkeypatch SEMPRE string-target):
 
@@ -262,7 +265,8 @@ def test_paper_connect_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
     result_obj = ConnectResult(
         collection=CollectionRef(
-            library="My Library", path="Pesquisa", bbt_path="/My Library/Pesquisa"
+            library="My Library", path="Pesquisa", bbt_path="/My Library/Pesquisa",
+            segments=("My Library", "Pesquisa"),
         ),
         bib_path=tmp_path / "references" / "_references.bib",
         exported=True,
@@ -281,7 +285,9 @@ def test_paper_connect_export_pendente_avisa(tmp_path: Path, monkeypatch: pytest
     from prumo_assist.domains.paper.connect import CollectionRef, ConnectResult
 
     result_obj = ConnectResult(
-        collection=CollectionRef(library="My Library", path="G", bbt_path="/My Library/G"),
+        collection=CollectionRef(
+            library="My Library", path="G", bbt_path="/My Library/G", segments=("My Library", "G")
+        ),
         bib_path=tmp_path / "b.bib",
         exported=False,
     )
@@ -323,7 +329,7 @@ def connect_command(
     """Conecta a coleção do Zotero ao projeto: cria o export automático do BBT → references/_references.bib."""
 ```
 
-corpo: `cli_run` com catches na mecânica do sync-annotations (exceções de T1: `CollectionNotFoundError`/`AmbiguousCollectionError`/`AlreadyConnectedError` → erro pt-BR exit 1; `ZoteroOfflineError` → `exit_code=2`); sucesso: `console.success(f"coleção '{r.collection.path}' ({r.collection.library}) conectada → {r.bib_path}")` e, quando `exported=False`, `console.info("export agendado no BBT — o arquivo aparece em instantes; confira com `prumo paper sync` em seguida.")`; `console.emit` com dict do resultado; próximo passo no output: `prumo paper sync`.
+corpo: `cli_run` com catches na mecânica do sync-annotations (exceções de T1: `CollectionNotFoundError`/`AmbiguousCollectionError`/`AlreadyConnectedError`/`UnsupportedCollectionNameError` → erro pt-BR exit 1; `ZoteroOfflineError` → `exit_code=2`); sucesso: `console.success(f"coleção '{r.collection.path}' ({r.collection.library}) conectada → {r.bib_path}")` e, quando `exported=False`, `console.info("export agendado no BBT — o arquivo aparece em instantes; confira com `prumo paper sync` em seguida.")`; `console.emit` com dict do resultado; próximo passo no output: `prumo paper sync`.
 
 `api.py`: `from prumo_assist.domains.paper.connect import connect_collection` + `__all__`.
 
