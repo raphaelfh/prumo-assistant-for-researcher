@@ -29,13 +29,15 @@
 
 | Passo | Funcionou? | Mensagem/observação | Screenshot |
 |---|---|---|---|
-| 1 marketplace in-app | | | |
-| 2 skills visíveis | | | |
-| 3 julgamento sem stack | | | |
-| 4 falha sem CLI (baseline) | | | |
+| 1 marketplace in-app | (pendente detalhes) | Instalação claramente funcionou (skills rodando na sessão do dono); falta registrar ONDE fica o fluxo na UI e o que o catálogo mostra (nome/versão/nº) | pendente |
+| 2 skills visíveis | PARCIAL | Corroboração indireta: a sessão Claude Code do dono também carregou o plugin com **14 skills** (= estado do `main` v0.62.1; `review-reconcile` e `citation-support` só existem no branch do PR #11 — re-sync pós-merge é teste natural) | pendente |
+| 3 julgamento sem stack | PARCIAL | `wiki-ingest` identificou o paper via web (Khalil 2022, DOI 10.1016/j.jclinepi.2021.12.005), RECUSOU ingest direto de paper (regra Zotero-fonte-de-verdade obedecida) e roteou p/ paper-manager; `peer-review` com trecho de draft ainda não testado | pendente |
+| 4 falha sem CLI (baseline) | **SIM — capturada** | `write-paper section=intro` ABORTOU fail-closed com razões precisas: sem scaffold `pj_*` (pasta `teste` vazia), CLI `prumo` indisponível p/ `write prep`, sem `.claude/picot.toml` (regra de abort da skill), sem `references/_references.bib` (tudo viraria `[REF FALTANTE]`). Nada foi simulado. **ACHADO-CHAVE p/ Fase 2:** a remediação sugerida foi "`make new-project` no monorepo do prumo" — contexto do DONO, não da persona (colega não tem monorepo; pós-PR#12 o comando certo é `prumo init`). O preflight uniforme da Fase 2 precisa de comando de correção por CONTEXTO | transcrição colada |
 | 5 MCP qmd | | | |
-| 6 Cowork + execução | | | |
+| 6 Cowork + execução | PARCIAL | "Add folder" conectou a pasta `teste`; o agente LEU a pasta (detectou vazia, sem `docs/`/`references/`) e EXECUTOU comando no fluxo do write-paper (CLI ausente → falha limpa). Falta: repetir com `pj_*` REAL + registrar o modelo de consentimento numa ação de escrita | pendente |
 | 7 upload de arquivo | | | |
+
+**Evidência recebida (2026-07-24, transcrição colada pelo dono — parcial):** fluxo real Desktop/Cowork com `teste` (pasta vazia). Validações: fail-closed do D1 funcionou na prática (abort com razões, zero simulação); roteamento paper→Zotero obedecido; agente lê pasta conectada e executa comandos. Alerta metodológico registrado: a sessão Cowork OFERECEU "criar o scaffold mínimo do wiki" na mão — oferta RECUSÁVEL por contaminar o spike (agente simulando trabalho do CLI, exatamente o que o fail-closed proíbe).
 
 ## Critérios de saída
 
