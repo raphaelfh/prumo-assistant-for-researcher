@@ -10,6 +10,21 @@ protocolos e escrever/revisar documentos.
 
 Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de design em [`docs/constitution.md`](docs/constitution.md); decisões registradas em [`docs/adr/`](docs/adr/); status atual e próximas fases em [`ROADMAP.md`](ROADMAP.md).
 
+## Para pesquisadores (Desktop/Cowork, sem terminal)
+
+Você não precisa de terminal para usar o prumo-assist. Direto no Claude
+Desktop ou no Cowork: menu de plugins → **"Add from a repository"** →
+`raphaelfh/prumo-assist` (exige plano Claude pago — Pro ou Max).
+
+Depois de instalado, cole um trecho de draft e peça `/prumo-assist:peer-review`
+— funciona sem instalar mais nada (julgamento puro; testado no spike da Fase 0
+sem CLI/Zotero/qmd). Quando quiser ir além (bibliografia, projeto no disco), a
+própria conversa guia a instalação do resto — `/prumo-assist:start` pede seu
+consentimento a cada comando.
+
+Guia completo, passo a passo, em linguagem simples:
+[`docs/onboarding-pesquisador.md`](docs/onboarding-pesquisador.md).
+
 ## Conteúdo
 
 ### Skills
@@ -48,6 +63,20 @@ Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de
 ```
 
 Após a instalação, as skills aparecem com o prefixo `/prumo-assist:...`.
+
+Para usar as skills que dependem do CLI Python (bibliografia, escrita, wiki),
+instale também o `prumo`:
+
+```bash
+uv tool install git+https://github.com/raphaelfh/prumo-assist.git
+```
+
+Atualizar depois: `uv tool upgrade prumo-assist`.
+
+Guia sem terminal para quem prefere não usar o CLI/Claude Code: [Para
+pesquisadores](#para-pesquisadores-desktopcowork-sem-terminal) acima, ou o
+passo a passo completo em
+[`docs/onboarding-pesquisador.md`](docs/onboarding-pesquisador.md).
 
 ## Pré-requisitos externos
 
