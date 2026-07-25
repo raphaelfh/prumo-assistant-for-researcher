@@ -101,10 +101,36 @@ Executa o programa do spec [2026-07-05-review-docx-criticmarkup-design.md](2026-
 
 ### Fase 4 — Colapso de dependências (gated)
 
-1. **qmd → bundle MCPB Node:** o runtime Node embutido no Desktop elimina `bun install -g`. Não-trivial (binários nativos de node-llama-cpp, modelos GGUF, Node ≥22) — dimensionar no plan. Adoção de MCPB é decisão estrutural → ADR.
-2. **Camada Zotero via `.xpi`:** adotar/integrar o padrão cookjohn/zotero-mcp (MCP embutido no Zotero, one-click) ou empacotar `.xpi` próprio com o que o prumo precisa — avaliação no plan.
+> **Emenda (2026-07-25, aprovada pelo dono — escopo A):** o trigger DISPAROU
+> no piloto real da Fase 2 com AMBAS as dores: (1) conectar a coleção do
+> Zotero ao projeto (o fio "Keep updated"→`_references.bib`); (2) qmd
+> inutilizável sem terminal. O grounding verificado (workflow 13 agentes,
+> 2026-07-25) REESCREVE os itens originais:
+>
+> 1. **Zotero → `prumo paper connect <coleção>`** (substitui "camada via
+>    .xpi"): o JSON-RPC do BBT expõe `autoexport.add(collection, translator,
+>    path)` (provado ao vivo) e `user.groups(true)` para validação — o prumo
+>    cria o fio coleção→bib programaticamente com guardas anti-fantasma
+>    (validar existência + fuzzy-match; desambiguar multi-library; typo NUNCA
+>    cria coleção no Zotero). Zero dependência nova. Decisão estrutural
+>    (mutação controlada no Zotero do usuário) → ADR.
+> 2. **qmd → MCPB REFUTADO na prática** (14 binários nativos por plataforma,
+>    ~2 GB GGUF no 1º uso, Homebrew SQLite no macOS; ninguém publicou qmd
+>    como .mcpb): o fallback lexical documentado (mesmo mecanismo nativo do
+>    Cowork) vira o caminho NORMAL da persona para o wiki; qmd permanece
+>    opcional-avançado.
+> 3. **Docs:** conectores de literatura via marketplace oficial
+>    `anthropics/life-sciences` (PubMed em MCP remoto da Anthropic, sem auth,
+>    in-app sem terminal — recomendar, não construir); ponte
+>    cookjohn/zotero-mcp (.xpi, semantic search do acervo) mencionada com
+>    rótulo "não validado neste piloto"; Zettlr recomendado como editor.
 
-**Trigger:** bloqueio real observado no piloto da Fase 2 (colega ativo precisando de busca semântica sem terminal; ou config Zotero/BBT como ponto de abandono). Sem dor observada, a fase não começa.
+Itens originais (superados pela emenda, mantidos como registro):
+
+1. ~~**qmd → bundle MCPB Node:** o runtime Node embutido no Desktop elimina `bun install -g`. Não-trivial (binários nativos de node-llama-cpp, modelos GGUF, Node ≥22) — dimensionar no plan. Adoção de MCPB é decisão estrutural → ADR.~~
+2. ~~**Camada Zotero via `.xpi`:** adotar/integrar o padrão cookjohn/zotero-mcp (MCP embutido no Zotero, one-click) ou empacotar `.xpi` próprio com o que o prumo precisa — avaliação no plan.~~
+
+**Trigger:** bloqueio real observado no piloto da Fase 2 (colega ativo precisando de busca semântica sem terminal; ou config Zotero/BBT como ponto de abandono). Sem dor observada, a fase não começa. **[DISPARADO em 2026-07-25 — ver emenda acima.]**
 
 ### Fase 5 — Empacotamento do CLI Python (gated, decisão adiada)
 
