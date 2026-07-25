@@ -283,3 +283,62 @@ def test_verify_refs_bib_ausente_mensagem_limpa(
     result = runner.invoke(app, ["paper", "verify-refs", str(tmp_path)])
     assert result.exit_code == 1
     assert "Better BibTeX" in result.output
+
+
+def test_paper_connect_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from prumo_assist.domains.paper.connect import CollectionRef, ConnectResult
+
+    result_obj = ConnectResult(
+        collection=CollectionRef(
+            library="My Library",
+            path="Pesquisa",
+            bbt_path="/My Library/Pesquisa",
+            segments=("My Library", "Pesquisa"),
+        ),
+        bib_path=tmp_path / "references" / "_references.bib",
+        exported=True,
+    )
+
+    def fake(*args: Any, **kwargs: Any) -> ConnectResult:
+        return result_obj
+
+    monkeypatch.setattr("prumo_assist.domains.paper.connect.connect_collection", fake)
+    result = runner.invoke(app, ["paper", "connect", "Pesquisa", "--path", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "Pesquisa" in result.output and "conectada" in result.output
+
+
+def test_paper_connect_export_pendente_avisa(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from prumo_assist.domains.paper.connect import CollectionRef, ConnectResult
+
+    result_obj = ConnectResult(
+        collection=CollectionRef(
+            library="My Library", path="G", bbt_path="/My Library/G", segments=("My Library", "G")
+        ),
+        bib_path=tmp_path / "b.bib",
+        exported=False,
+    )
+
+    def fake(*args: Any, **kwargs: Any) -> ConnectResult:
+        return result_obj
+
+    monkeypatch.setattr("prumo_assist.domains.paper.connect.connect_collection", fake)
+    result = runner.invoke(app, ["paper", "connect", "G", "--path", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "instantes" in result.output  # aviso honesto de export agendado
+
+
+def test_paper_connect_zotero_fechado_exit_2(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from prumo_assist.domains.paper.connect import ZoteroOfflineError
+
+    def fake(*args: Any, **kwargs: Any) -> Any:
+        raise ZoteroOfflineError("Zotero não respondeu em 127.0.0.1:23119 — abra o Zotero.")
+
+    monkeypatch.setattr("prumo_assist.domains.paper.connect.connect_collection", fake)
+    result = runner.invoke(app, ["paper", "connect", "X", "--path", str(tmp_path)])
+    assert result.exit_code == 2
+    assert "abra o Zotero" in result.output
