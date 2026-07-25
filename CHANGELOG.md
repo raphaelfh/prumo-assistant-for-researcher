@@ -122,11 +122,12 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   que já tem `review.md` com marca(s) pendente(s) — protege propostas do
   agente (`propose_prose_edit`) de sobrescrita silenciosa; sem `--force`, falha
   com o comando de correção embutido (fila herdada F2+F3).
-- Remediação de estrutura ausente por CONTEXTO em `wiki-ingest`,
-  `paper-manager` e `paper-extract`: as três skills agora orientam
-  `prumo init pj_<nome>` (via `/prumo-assist:start` se o CLI não existir) —
-  nunca tooling do monorepo do autor (`make new-project`) nem scaffold
-  manual; achado R4 do spike da Fase 0
+- Remediação de estrutura ausente por CONTEXTO em `wiki-ingest` e
+  `paper-manager`: as duas skills agora orientam `prumo init pj_<nome>` (via
+  `/prumo-assist:start` se o CLI não existir) — nunca tooling do monorepo do
+  autor (`make new-project`) nem scaffold manual. `paper-extract` troca, na
+  própria descrição da skill, a referência a `make sync-pdfs` (monorepo do
+  dono) por `prumo paper sync-pdfs`. Achado R4 do spike da Fase 0
   ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
 
 ## [0.62.1] - 2026-07-22
