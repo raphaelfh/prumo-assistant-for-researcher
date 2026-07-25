@@ -26,4 +26,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0016-criticmarkup-conservacao-ooxml]] — CriticMarkup como representação de revisão + conservação de citações contada no OOXML · aceito
 - [[adr/adr-0017-prumo-mcp-reconciliador]] — prumo-MCP local e reconciliador que propõe marcas · aceito
 - [[adr/adr-0018-verificacao-referencias-apis-publicas]] — Verificação de referências via APIs públicas, gate determinístico + enriquecimento opcional · aceito
+- [[adr/adr-0019-preflight-uniforme-skills]] — Preflight uniforme gerado nas skills a partir de `requires:` · aceito
 <!-- prumo:adr-index:end -->

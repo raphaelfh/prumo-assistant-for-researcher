@@ -54,6 +54,36 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   sustenta a frase que a cita (Fully/Partially/Unsubstantiated) a partir dos
   extracts do acervo; sinaliza no chat, nunca edita nem bloqueia — camada LLM
   da Fase 4 ([ADR-0018](docs/adr/adr-0018-verificacao-referencias-apis-publicas.md)).
+- **Contrato de preflight uniforme (ADR-0019)** — bloco machine-owned
+  (`<!-- prumo:preflight:begin/end -->`) gerado por `gen_indexes.py` e estampado
+  nas 16 skills do plugin, a partir do campo novo `requires:`
+  (`cli`/`qmd`/`zotero`, canônico em `core/skills.py`/`VALID_REQUIRES`) no
+  frontmatter `prumo:` de cada `SKILL.md`. Recusa fail-closed com roteamento
+  para `/prumo-assist:start` quando o CLI falta, checa drift de versão
+  CLI×plugin via `$CLAUDE_PLUGIN_ROOT` (fallback silencioso sem a variável),
+  avisa sobre MCP `qmd` ausente do inventário da sessão e sobre Zotero
+  fechado/ausente; skills de julgamento puro (`start`, `peer-review`,
+  `scientific-writing`) declaram `requires: []`. Enforcement:
+  `gen_indexes.py --check` no CI
+  ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)). Fecha os itens
+  1–3 da Fase 2 do guarda-chuva zero-friction — item 4 (piloto com 1 colega
+  real) segue pendente, a cargo do dono.
+- **Skill `start` reescrita como instalador guiado** — além de rotear pelas
+  capacidades do plugin, conduz a instalação do stack (uv, CLI `prumo`,
+  Zotero, qmd opcional, `prumo init pj_<nome>`) dentro da própria conversa,
+  com consentimento explícito por comando e sem simular saída de comando que
+  falhou; é o destino único para onde as demais skills roteiam quando o CLI
+  falta ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
+- **`docs/onboarding-pesquisador.md`** — trilha sem terminal (Desktop/Cowork)
+  para quem não programa, com o kit de medição do piloto da Fase 2 (cronômetro
+  até o primeiro output, meta ≤15 min; o que observar no consentimento da UI);
+  a trilha dev do README passa a documentar a instalação do CLI (`uv tool
+  install git+https://github.com/raphaelfh/prumo-assist.git`), que antes não
+  aparecia em nenhum lugar do repo.
+- **Finding `empty-bib`** (nível info) em `prumo paper verify-refs` — `.bib`
+  sem entradas agora emite orientação explícita (adicionar referências no
+  Zotero + `prumo paper sync`) em vez de reportar silenciosamente zero
+  referências verificadas.
 
 ### Corrigido
 - `prumo init`: os placeholders de nome do template (`pj-NOME` no
@@ -92,6 +122,12 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   que já tem `review.md` com marca(s) pendente(s) — protege propostas do
   agente (`propose_prose_edit`) de sobrescrita silenciosa; sem `--force`, falha
   com o comando de correção embutido (fila herdada F2+F3).
+- Remediação de estrutura ausente por CONTEXTO em `wiki-ingest`,
+  `paper-manager` e `paper-extract`: as três skills agora orientam
+  `prumo init pj_<nome>` (via `/prumo-assist:start` se o CLI não existir) —
+  nunca tooling do monorepo do autor (`make new-project`) nem scaffold
+  manual; achado R4 do spike da Fase 0
+  ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
 
 ## [0.62.1] - 2026-07-22
 
