@@ -231,3 +231,11 @@ def test_requires_valor_invalido_manifest_error(tmp_path: Path) -> None:
     )
     with pytest.raises(ManifestError, match="requires"):
         parse_skill_file(skill)
+
+
+def test_requires_duplicata_deduplicada(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "demo" / "SKILL.md",
+        "---\nname: demo\ndescription: D.\nprumo:\n  requires: [cli, cli, qmd]\n---\n\nBody.\n",
+    )
+    assert parse_skill_file(skill).requires == ("cli", "qmd")

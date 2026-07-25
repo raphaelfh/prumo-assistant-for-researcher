@@ -135,6 +135,9 @@ def parse_skill_file(path: Path) -> SkillManifest:
         raise ManifestError(
             f"{path}: prumo.requires inválido {invalid}; use {sorted(VALID_REQUIRES)}"
         )
+    # dedup preservando ordem (emenda pós-review T1: o campo dirige GERAÇÃO —
+    # duplicata silenciosa viraria bloco de preflight duplicado).
+    requires = tuple(dict.fromkeys(requires))
 
     extra_keys = set(prumo_block) - {
         "version",

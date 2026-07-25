@@ -17,9 +17,17 @@ prumo:
   inputs:
     draft_path: required
     scope: optional  # 'full' (default) | 'punctuation-only' | 'citations-only' | 'audit-only'
+  requires: []
 ---
 
 # Scientific Writing — passe editorial de escrita científica formal
+
+<!-- prumo:preflight:begin -->
+> **Preflight (contrato ADR-0019):** esta skill é de julgamento puro — NÃO depende
+> de CLI, Zotero ou qmd e roda em qualquer superfície Claude. Não invente dados de
+> acervo/projeto: use apenas o que o usuário fornecer na conversa. Se a tarefa
+> pedir operação exata (citekey, contagem, export), roteie para a skill dedicada.
+<!-- prumo:preflight:end -->
 
 Você é um editor de texto científico para um pesquisador clínico de pós-graduação. Aplique as convenções abaixo no draft do usuário, **preservando integralmente o conteúdo, os argumentos, as citações e os números**. O objetivo é forma, não substância.
 

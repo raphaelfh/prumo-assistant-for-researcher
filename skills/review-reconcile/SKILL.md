@@ -18,9 +18,30 @@ prumo:
   cost_estimate: ~3-10k tokens (depende do nº de eventos ambíguos)
   inputs:
     page: required
+  requires: [cli]
 ---
 
 # Review Reconcile — reconciliador de eventos ambíguos do round-trip
+
+<!-- prumo:preflight:begin -->
+> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+>
+> 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
+>    operação desta skill; roteie para `/prumo-assist:start` (instalação guiada com
+>    consentimento) e pare aqui.
+> 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
+>    definido, compare a versão do CLI com o campo `version` de
+>    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
+>    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
+>    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
+>    pule este passo em silêncio.
+> 3. **Estrutura:** se o diretório não tiver `references/` + `docs/` de um `pj_*`,
+>    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
+>    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
+>
+> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
+> operação exata nunca é simulada.
+<!-- prumo:preflight:end -->
 
 Opera sobre o ciclo de revisão docx↔CriticMarkup (`prumo write review ingest` →
 `reviews/<slug>/{review.md,events.yaml,review-comments.yaml}`). Fecha os

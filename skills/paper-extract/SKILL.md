@@ -17,9 +17,30 @@ prumo:
     citekey: optional (single mode)
     limit: optional (batch mode)
     stale_only: optional (batch mode)
+  requires: [cli]
 ---
 
 # Paper Extract — extração estruturada de PDF → callout da nota
+
+<!-- prumo:preflight:begin -->
+> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+>
+> 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
+>    operação desta skill; roteie para `/prumo-assist:start` (instalação guiada com
+>    consentimento) e pare aqui.
+> 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
+>    definido, compare a versão do CLI com o campo `version` de
+>    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
+>    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
+>    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
+>    pule este passo em silêncio.
+> 3. **Estrutura:** se o diretório não tiver `references/` + `docs/` de um `pj_*`,
+>    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
+>    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
+>
+> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
+> operação exata nunca é simulada.
+<!-- prumo:preflight:end -->
 
 Skill que lê o PDF (via symlink em `references/pdfs/<citekey>.pdf`), gera conteúdo para 5 seções estruturadas e escreve em `references/notes/<citekey>/_extract.md` (arquivo dedicado, layout α). O usuário edita/refina as seções humanas em `_meta.md`; o `_extract.md` é 100% auto.
 

@@ -11,9 +11,17 @@ prumo:
   determinism: agentic
   agent_compat: [claude-code]
   cost_estimate: ~1-2k tokens
+  requires: []
 ---
 
 # prumo-assist: por onde começar
+
+<!-- prumo:preflight:begin -->
+> **Preflight (contrato ADR-0019):** esta skill é de julgamento puro — NÃO depende
+> de CLI, Zotero ou qmd e roda em qualquer superfície Claude. Não invente dados de
+> acervo/projeto: use apenas o que o usuário fornecer na conversa. Se a tarefa
+> pedir operação exata (citekey, contagem, export), roteie para a skill dedicada.
+<!-- prumo:preflight:end -->
 
 Você é o guia de entrada. Pergunte ao usuário, em 1 linha, o que ele quer fazer e
 roteie para a skill adequada (não execute a tarefa você mesmo — apenas oriente/inicie):

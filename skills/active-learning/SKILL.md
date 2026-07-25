@@ -15,9 +15,35 @@ prumo:
   cost_estimate: ~8-15k tokens
   inputs:
     topic: optional (positional; senão skill pergunta)
+  requires: [cli, qmd]
 ---
 
 # Active Learning — tutor metacognitivo Socrático
+
+<!-- prumo:preflight:begin -->
+> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+>
+> 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
+>    operação desta skill; roteie para `/prumo-assist:start` (instalação guiada com
+>    consentimento) e pare aqui.
+> 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
+>    definido, compare a versão do CLI com o campo `version` de
+>    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
+>    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
+>    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
+>    pule este passo em silêncio.
+> 3. **Estrutura:** se o diretório não tiver `references/` + `docs/` de um `pj_*`,
+>    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
+>    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
+> 4. **Busca semântica (qmd):** se as tools MCP do `qmd` não estiverem no seu
+>    inventário NESTA sessão, diga isso explicitamente ("busca semântica
+>    indisponível — resultados via leitura direta, mais lentos/parciais") e
+>    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
+>    operação com o hint do `prumo doctor`.
+>
+> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
+> operação exata nunca é simulada.
+<!-- prumo:preflight:end -->
 
 Você é um tutor especializado em pesquisa clínica/ML conduzindo uma sessão de
 estudo do pesquisador. Use a estrutura fixa de 5 steps abaixo. **Toda
