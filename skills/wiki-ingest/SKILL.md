@@ -38,7 +38,7 @@ Opera sobre o schema canônico em `/docs/wiki-schema.md` do monorepo. Não reesc
 ## Pressupostos
 
 - cwd é um `pj_*` com scaffold padrão (`docs/_index.md`, `docs/_log.md`, `docs/{concepts,entities,findings,sources}/`, `references/`).
-- Se faltar estrutura, orientar `make new-project` (para pj_ novo) ou criar o scaffold manualmente seguindo o schema.
+- Se faltar estrutura, orientar `prumo init pj_<nome>` (via /prumo-assist:start se o CLI não existir). NUNCA criar o scaffold manualmente — o agente não simula trabalho do CLI.
 
 ## Fluxo
 

@@ -1,6 +1,6 @@
 ---
 name: paper-extract
-description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em references/notes/<citekey>/_extract.md. Pressupõe /prumo-assist:paper-manager sync executado + symlinks via make sync-pdfs."
+description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em references/notes/<citekey>/_extract.md. Pressupõe /prumo-assist:paper-manager sync executado + symlinks via prumo paper sync-pdfs."
 when_to_use: |
   Quando o usuário pedir "resuma o paper X", "extraia os principais pontos",
   "processa todos os papers novos", ou quando um pj_* acabou de sincronizar

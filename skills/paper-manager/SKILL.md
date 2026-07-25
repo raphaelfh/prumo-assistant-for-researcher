@@ -47,7 +47,7 @@ prumo:
 
 Skill para manter o acervo de papers como motor file-based: 1 `.md` por paper, 1 BibTeX central, PDFs em `pdfs/` (gitignored). Todas as operações são feitas via `WebFetch` + `Read`/`Edit`/`Write` — sem novas deps Python.
 
-Pressuposto: o diretório corrente é um `pj_*` com a estrutura padrão em `references/`. Se `references/` não existir, orientar o usuário a rodar `make new-project` ou retrofitar manualmente.
+Pressuposto: o diretório corrente é um `pj_*` com a estrutura padrão em `references/`. Se `references/` não existir, orientar `prumo init pj_<nome>` (via /prumo-assist:start se o CLI não existir) — nunca retrofit manual.
 
 ## Layout esperado
 
@@ -83,7 +83,7 @@ Regras:
 ## Operações
 
 > [!note]
-> A operação `add <doi>` (fetching CrossRef direto) foi removida. Hoje o Zotero é a fonte única de metadata e PDF. Para adicionar um paper: (1) insira no Zotero (arraste o PDF, cole o DOI, etc.); (2) o Better BibTeX regrava `_references.bib` automaticamente; (3) rode `/prumo-assist:paper-manager sync` (ou `make sync-paper PJ=pj_x`). Para os PDFs: `make sync-pdfs PJ=pj_x` (ou `make sync-pdf-paper` que faz os dois).
+> A operação `add <doi>` (fetching CrossRef direto) foi removida. Hoje o Zotero é a fonte única de metadata e PDF. Para adicionar um paper: (1) insira no Zotero (arraste o PDF, cole o DOI, etc.); (2) o Better BibTeX regrava `_references.bib` automaticamente; (3) rode `/prumo-assist:paper-manager sync` (ou `make sync-paper PJ=pj_x`). Para os PDFs: `prumo paper sync-pdfs` (ou `make sync-pdf-paper` que faz os dois).
 
 ### 1. `sync`
 

@@ -99,7 +99,7 @@ Destaques usam Markdown puro: parágrafo com **TL;DR** em negrito, blockquote `>
 
 Operações de alto nível (adicionar paper via DOI, promover para `primary`, listar, sincronizar `.bib`) estão em `/prumo-assist:paper-manager`. Preferir a skill a editar YAML à mão quando for ingestão.
 
-Para extrair conteúdo estruturado do PDF (TL;DR, PICOT, Método, Resultados, Limitações), use `/prumo-assist:paper-extract <citekey>` (single) ou `/prumo-assist:paper-extract-all` (batch). Pressuposto: `/prumo-assist:paper-manager sync` + `make sync-pdfs` já executados.
+Para extrair conteúdo estruturado do PDF (TL;DR, PICOT, Método, Resultados, Limitações), use `/prumo-assist:paper-extract <citekey>` (single) ou `/prumo-assist:paper-extract-all` (batch). Pressuposto: `/prumo-assist:paper-manager sync` + `prumo paper sync-pdfs` já executados.
 
 ## PDFs e copyright
 
