@@ -39,6 +39,7 @@ from prumo_assist import ManifestError
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
 
 VALID_DETERMINISM = frozenset({"agentic", "deterministic", "hybrid"})
+VALID_REQUIRES = frozenset({"cli", "qmd", "zotero"})
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,7 @@ class SkillManifest:
     cost_estimate: str | None = None
     guidelines_reviewed: str | None = None
     inputs: dict[str, str] = field(default_factory=dict)
+    requires: tuple[str, ...] = ()
 
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -119,6 +121,21 @@ def parse_skill_file(path: Path) -> SkillManifest:
         raise ManifestError(f"{path}: prumo.inputs deve ser um mapping.")
     inputs = {str(k): str(v) for k, v in inputs_raw.items()}
 
+    requires_raw = prumo_block.get("requires")
+    if requires_raw is None:
+        requires: tuple[str, ...] = ()
+    elif isinstance(requires_raw, str):
+        requires = (requires_raw,)
+    elif isinstance(requires_raw, list):
+        requires = tuple(str(x) for x in requires_raw)
+    else:
+        raise ManifestError(f"{path}: prumo.requires deve ser string ou lista.")
+    invalid = [r for r in requires if r not in VALID_REQUIRES]
+    if invalid:
+        raise ManifestError(
+            f"{path}: prumo.requires inválido {invalid}; use {sorted(VALID_REQUIRES)}"
+        )
+
     extra_keys = set(prumo_block) - {
         "version",
         "schema",
@@ -127,6 +144,7 @@ def parse_skill_file(path: Path) -> SkillManifest:
         "cost_estimate",
         "guidelines_reviewed",
         "inputs",
+        "requires",
     }
     extra = {k: prumo_block[k] for k in extra_keys}
 
@@ -148,6 +166,7 @@ def parse_skill_file(path: Path) -> SkillManifest:
             else None
         ),
         inputs=inputs,
+        requires=requires,
         extra=extra,
     )
 
