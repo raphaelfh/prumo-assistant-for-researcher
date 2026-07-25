@@ -175,3 +175,56 @@ class TestConnectCollection:
         monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
         with pytest.raises(connect.ZoteroOfflineError, match="abra o Zotero"):
             connect.connect_collection(pj, "Pesquisa")
+
+
+_GROUPS_SLASH = [
+    {
+        "id": 1,
+        "name": "My Library",
+        "collections": [{"key": "AAA", "name": "Foo/Bar", "parentCollection": False}],
+    },
+    {
+        "id": 7,
+        "name": "My/Library",
+        "collections": [{"key": "BBB", "name": "Pesquisa", "parentCollection": False}],
+    },
+]
+
+
+class TestUnsupportedNames:
+    def test_colecao_com_barra_recusa_sem_mutacao(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake, calls = _fake_rpc({"user.groups": {"jsonrpc": "2.0", "result": _GROUPS_SLASH}})
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.UnsupportedCollectionNameError, match="NADA foi criado"):
+            connect.find_collection("Bar")  # casa com 'Foo/Bar' pelo último segmento
+        assert all(c["method"] == "user.groups" for c in calls)
+
+    def test_library_com_barra_recusa(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake, _ = _fake_rpc({"user.groups": {"jsonrpc": "2.0", "result": _GROUPS_SLASH}})
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.UnsupportedCollectionNameError, match="My/Library"):
+            connect.find_collection("Pesquisa", library="My/Library")
+
+    def test_segments_carrega_nomes_crus(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake, _ = _fake_rpc({"user.groups": {"jsonrpc": "2.0", "result": _GROUPS}})
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        ref = connect.find_collection("Colecao do estudo piloto1")
+        assert ref.segments == ("My Library", "Pesquisa", "Colecao do estudo piloto1")
+
+
+class TestPollZero:
+    def test_poll_timeout_zero_ainda_checa_uma_vez(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
+        bib = pj / "references" / "_references.bib"
+
+        def fake(url: str, payload: dict[str, Any], timeout: float = 10.0) -> object:
+            if payload["method"] == "user.groups":
+                return {"jsonrpc": "2.0", "result": _GROUPS}
+            bib.write_text("@article{a2020,\n  title = {A},\n}\n", encoding="utf-8")
+            return {"jsonrpc": "2.0", "result": {"status": "ok"}}
+
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        result = connect.connect_collection(pj, "Pesquisa", library="Lab Group", poll_timeout=0)
+        assert result.exported is True

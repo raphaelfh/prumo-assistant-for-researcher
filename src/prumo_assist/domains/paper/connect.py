@@ -62,6 +62,7 @@ class CollectionRef:
     library: str  # ex. "My Library"
     path: str  # ex. "Pesquisa/Colecao do estudo piloto1" (cadeia de pais)
     bbt_path: str  # ex. "/My Library/Pesquisa/Colecao do estudo piloto1"
+    segments: tuple[str, ...]  # nomes CRUS: (library, pai, ..., filha)
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,10 @@ class AmbiguousCollectionError(RuntimeError):
 
 class AlreadyConnectedError(RuntimeError):
     """O bib do projeto já tem entradas reais — reconectar é perigoso."""
+
+
+class UnsupportedCollectionNameError(RuntimeError):
+    """Coleção ou biblioteca com '/' no nome — aliasaria uma cadeia fantasma no BBT."""
 
 
 def _last_segment(path: str) -> str:
@@ -157,7 +162,14 @@ def list_collections() -> list[CollectionRef]:
                 chain.insert(0, parent_name)
                 parent = parent_entry.get("parentCollection")
             path = "/".join(chain)
-            out.append(CollectionRef(library=lib_name, path=path, bbt_path=f"/{lib_name}/{path}"))
+            out.append(
+                CollectionRef(
+                    library=lib_name,
+                    path=path,
+                    bbt_path=f"/{lib_name}/{path}",
+                    segments=(lib_name, *chain),
+                )
+            )
     return out
 
 
@@ -168,6 +180,13 @@ def find_collection(name: str, *, library: str | None = None) -> CollectionRef:
     informado, filtra por ela ANTES de contar matches. 0 matches vira
     ``CollectionNotFoundError`` (com sugestões via ``difflib``); mais de 1
     match sem ``library`` vira ``AmbiguousCollectionError``.
+
+    Após selecionar o match único, se qualquer segmento cru (biblioteca ou
+    coleção da cadeia) contiver ``"/"`` levanta ``UnsupportedCollectionNameError``
+    — sem essa guarda, uma coleção real chamada ``"Foo/Bar"`` bateria com
+    ``find_collection("Bar")`` (match por último segmento) e o ``bbt_path``
+    resultante aliasaria uma cadeia ``Foo`` → ``Bar`` INEXISTENTE, que
+    ``autoexport.add`` criaria como fantasma.
     """
     refs = list_collections()
     if library is not None:
@@ -197,7 +216,17 @@ def find_collection(name: str, *, library: str | None = None) -> CollectionRef:
             f"coleção '{name}' é ambígua mesmo dentro de '{library}': {candidates}."
         )
 
-    return matches[0]
+    ref = matches[0]
+    for segment in ref.segments:
+        if "/" in segment:
+            raise UnsupportedCollectionNameError(
+                f"o nome '{segment}' contém '/' — que é o separador de caminho do Better "
+                f"BibTeX; o export apontaria para uma cadeia INEXISTENTE que o Zotero "
+                f"criaria. NADA foi criado. Renomeie a coleção/biblioteca no Zotero (ex.: "
+                f"troque '/' por '-') e rode de novo."
+            )
+
+    return ref
 
 
 def bib_is_placeholder(pj_path: Path) -> bool:
@@ -260,8 +289,10 @@ def connect_collection(
     if "error" in resp:
         raise ZoteroOfflineError(f"Better BibTeX recusou o autoexport: {resp['error']}")
 
+    # Uma checagem síncrona ANTES do loop: export instantâneo do BBT conta
+    # como `exported=True` mesmo com `poll_timeout=0` (emenda pós-review T1).
+    exported = not bib_is_placeholder(pj_path)
     elapsed = 0.0
-    exported = False
     while elapsed < poll_timeout:
         if not bib_is_placeholder(pj_path):
             exported = True
