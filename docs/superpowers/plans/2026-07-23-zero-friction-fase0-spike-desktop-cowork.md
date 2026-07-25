@@ -37,6 +37,14 @@
 | 6 Cowork + execução | PARCIAL | "Add folder" conectou a pasta `teste`; o agente LEU a pasta (detectou vazia, sem `docs/`/`references/`) e EXECUTOU comando no fluxo do write-paper (CLI ausente → falha limpa). Falta: repetir com `pj_*` REAL + registrar o modelo de consentimento numa ação de escrita | pendente |
 | 7 upload de arquivo | | | |
 
+**Matriz CLI-side no sandbox (2026-07-24, controller — `test/pj_smoke` no worktree, gitignored via info/exclude):** complemento local aos passos UI-only. Resultados:
+
+1. `prumo init pj_smoke --yes` ✓ — scaffold íntegro, ZERO placeholders (fix do PR #12 validado no mundo real), 14 skills instaladas, perfil Zettlr gerado, v0.62.1.
+2. **ACHADO CRÍTICO — drift de versão silencioso:** dentro do pj (que tem `pyproject.toml` próprio), `uv run prumo`/`prumo` bare resolvem o **global stale** da máquina (0.62.0 via uv-tool, python3.13) e NÃO a versão que o plugin espera — sintoma real capturado: `No such command 'verify-refs'` (F4 não existe no 0.62.0). Persona sofrerá o mesmo: o global que ela tiver vence sem aviso. **Fase 2 precisa de preflight de versão CLI×plugin** (doctor já versiona Zotero; falta versionar o próprio prumo contra o plugin.json).
+3. `prumo doctor` ✓ duplo: em pasta não-pj diagnosticou estrutura ausente com precisão; no pj, `ok: True` com **qmd tratado como dep opcional não-bloqueante** (fail-closed por operação — design D1 correto). Zotero 9.0.6 detectado vivo (doctor da Fase 1 ✓). Hint do qmd exige `bun install -g` — fricção real p/ clínico (= literalmente o trigger da Fase 4 do guarda-chuva). Observação: doctor exit 0 mesmo com `ok: False` (adjudicar se diagnóstico deve gate-ar em scripting).
+4. Escada fail-closed (branch 0.62.1 via `uv run --project`): `write prep` sem PICOT → exit 0 com `picot: None` + warning (CLI = dados; o ABORT é da skill — consistente com a transcrição do Desktop); `sync`/`verify-refs` com bib VAZIO (init cria `_references.bib` vazio) → exit 0, 0 verificadas (correto; candidata a mensagem mais orientadora "acervo vazio — adicione no Zotero" na Fase 2).
+5. **Golden path E2E ao vivo:** bib com Khalil 2022 real + DOI fabricado → `verify-refs` reprovou o fabricado (doi-not-found, pt-BR com comando de correção, **exit 1**) e passou o Khalil limpo (Crossref+PubMed+título+retração); `paper sync` materializou 2 notas com metadados CSL. init→bib→verify→sync→notes provado.
+
 **Evidência recebida (2026-07-24, transcrição colada pelo dono — parcial):** fluxo real Desktop/Cowork com `teste` (pasta vazia). Validações: fail-closed do D1 funcionou na prática (abort com razões, zero simulação); roteamento paper→Zotero obedecido; agente lê pasta conectada e executa comandos. Alerta metodológico registrado: a sessão Cowork OFERECEU "criar o scaffold mínimo do wiki" na mão — oferta RECUSÁVEL por contaminar o spike (agente simulando trabalho do CLI, exatamente o que o fail-closed proíbe).
 
 ## Critérios de saída
