@@ -60,6 +60,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 **Plans ativos:**
 
 - [[superpowers/plans/2026-07-22-zettlr-front]] · draft
+- [[superpowers/plans/2026-07-24-zero-friction-fase2-golden-path]] · —
 
 **Plans arquivados:** 23 em `superpowers/plans/archive/`
 
