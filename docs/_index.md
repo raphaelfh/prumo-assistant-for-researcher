@@ -11,6 +11,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 
 | Pergunta | Documento |
 |---|---|
+| Sou pesquisador sem terminal — como começo no Desktop/Cowork? | [[onboarding-pesquisador\|Trilha do pesquisador]] |
 | O que o pesquisador faz vs. o que o prumo-assist resolve? | [[journey\|Canvas de jornada]] *(abrir como canvas)* |
 | Tenho um gatilho concreto, qual comando usar? | [[actions-by-context\|Contextos → ações]] |
 | Como devo estruturar um novo `pj_*`? | [[Research Project Structure\|Estrutura de Projeto de Pesquisa]] |
@@ -61,9 +62,8 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 **Plans ativos:**
 
 - [[superpowers/plans/2026-07-22-zettlr-front]] · draft
-- [[superpowers/plans/2026-07-24-zero-friction-fase2-golden-path]] · —
 
-**Plans arquivados:** 23 em `superpowers/plans/archive/`
+**Plans arquivados:** 24 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->

@@ -1,4 +1,26 @@
+---
+status: implemented
+verified: 2026-07-25
+release: null
+spec: "[[2026-07-22-zero-friction-onboarding-design]]"
+phase: "Fase 2 do guarda-chuva zero-friction (itens 1–3; item 4 = piloto, gate externo do dono)"
+---
+
 # Zero-friction Fase 2 — Golden Path Desktop/Cowork + Modo Degradado Implementation Plan
+
+> **Nota de reconciliação (review final da fase, 2026-07-25):** review fable
+> "With fixes" → único fix pré-archive foi o z6 (linha da trilha do pesquisador
+> na tabela "Por onde começar" do vault). Tabela de integridade do contrato:
+> as 4 cicatrizes da Fase 0 têm mecanismo VIVO verificado contra o shipado
+> (R1: item 2 do preflight em 11/11 skills cli; R2: item qmd + prosa do
+> review-reconcile; R3: empty-bib info no verify-refs; R4: grep zero +
+> `prumo init`). Desvio auditado: active-learning `[cli, qmd]` (endossado,
+> codificado no ADR-0019). Backlog registrado no commit de archive: z1 unit
+> tests do render/stamp; z2 varredura de H1 inclui frontmatter; z3 wiki-query
+> branch 'sim' sem CLI + strings sem `.git` + tensão requires×Pressupostos;
+> z4 branch Windows nativo gated no piloto; z5 mensagens de runtime do CLI
+> (chip task_3a9b8daf); vocabulário `requires` não cobre MCP prumo-review
+> (extensão futura por emenda/ADR quando importar).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
