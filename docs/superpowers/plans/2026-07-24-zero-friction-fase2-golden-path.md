@@ -93,6 +93,20 @@ No `SkillManifest`, após `inputs`: `requires: tuple[str, ...] = ()`. No parser,
         raise ManifestError(
             f"{path}: prumo.requires inválido {invalid}; use {sorted(VALID_REQUIRES)}"
         )
+    # dedup preservando ordem (emenda pós-review T1: o campo dirige GERAÇÃO —
+    # duplicata silenciosa viraria bloco de preflight duplicado).
+    requires = tuple(dict.fromkeys(requires))
+```
+
+Teste da emenda (append junto dos 4 de `requires`):
+
+```python
+def test_requires_duplicata_deduplicada(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "demo" / "SKILL.md",
+        "---\nname: demo\ndescription: D.\nprumo:\n  requires: [cli, cli, qmd]\n---\n\nBody.\n",
+    )
+    assert parse_skill_file(skill).requires == ("cli", "qmd")
 ```
 
 Adicionar `"requires"` ao set de chaves conhecidas (whitelist de `extra_keys`) e `requires=requires` na construção do `SkillManifest`.
