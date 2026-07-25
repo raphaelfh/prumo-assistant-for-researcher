@@ -1,4 +1,28 @@
+---
+status: implemented
+verified: 2026-07-24
+release: null
+spec: "[[2026-07-22-zero-friction-onboarding-design]]"
+phase: "Fase 0 do guarda-chuva zero-friction (spike, sem código)"
+---
+
 # Fase 0 — Spike de validação empírica no Desktop/Cowork — Runbook manual
+
+> **Conclusão (2026-07-24):** critérios de saída atendidos — (1) marketplace
+> self-hosted SINCRONIZA in-app hoje (instalação real no Desktop do dono; 14
+> skills = `main` v0.62.1; corroborado em 2ª superfície Claude Code), com
+> limitações documentadas: MCPs do `.mcp.json` ausentes SILENCIOSAMENTE e
+> drift de versão do CLI global vence sem aviso; (2) baseline do modo
+> degradado capturada em TRÊS contextos (Desktop sem stack, CLI stale, CLI
+> branch com acervo vazio); (3) premissa da instalação guiada VALIDADA
+> (superfícies executam comandos na pasta designada); (4) material de docs
+> parcial — transcrições sim; PENDÊNCIA NÃO-BLOQUEANTE: prints dos fluxos de
+> UI (passos 1–2), consent-UI específico do Cowork e upload opcional (passo
+> 7) — consumidos pelo piloto da Fase 2 com colega real. Requisitos NOVOS
+> garimpados p/ Fase 2: preflight de versão CLI×plugin; ausência de MCP deve
+> virar diagnóstico visível; mensagem de acervo-vazio orientadora; remediação
+> por CONTEXTO (persona não tem monorepo — `prumo init`, não `make
+> new-project`).
 
 > **Execução:** MANUAL, pelo dono (exige conta Claude paga e a UI do Claude Desktop/Cowork — nenhum agente consegue executar isto). Sem código. ~15–25 min. O resultado alimenta diretamente o plano da Fase 2 (golden path + modo degradado) do spec [[2026-07-22-zero-friction-onboarding-design]].
 
@@ -31,10 +55,10 @@
 |---|---|---|---|
 | 1 marketplace in-app | (pendente detalhes) | Instalação claramente funcionou (skills rodando na sessão do dono); falta registrar ONDE fica o fluxo na UI e o que o catálogo mostra (nome/versão/nº) | pendente |
 | 2 skills visíveis | PARCIAL | Corroboração indireta: a sessão Claude Code do dono também carregou o plugin com **14 skills** (= estado do `main` v0.62.1; `review-reconcile` e `citation-support` só existem no branch do PR #11 — re-sync pós-merge é teste natural) | pendente |
-| 3 julgamento sem stack | PARCIAL | `wiki-ingest` identificou o paper via web (Khalil 2022, DOI 10.1016/j.jclinepi.2021.12.005), RECUSOU ingest direto de paper (regra Zotero-fonte-de-verdade obedecida) e roteou p/ paper-manager; `peer-review` com trecho de draft ainda não testado | pendente |
+| 3 julgamento sem stack | **SIM** | (a) Desktop: `wiki-ingest` identificou o paper via web (Khalil 2022, DOI correto), RECUSOU ingest direto (regra Zotero-fonte-de-verdade) e roteou p/ paper-manager; (b) Claude Code: `/prumo-assist:peer-review` rodou o fluxo oficial completo num draft com 7 defeitos plantados — pegou TODOS (5 claims sem evidência, incluindo os 2 que contradizem a própria fonte citada; superlativos; claim falso de "perfect accuracy" de LLM), produziu relatório estruturado + JSON `PeerReviewReport/v1` + pós-review arquivado em `docs/findings/` do pj. ZERO dependência de CLI/Zotero/qmd — hipótese do time-to-first-value (D1) validada | transcrições |
 | 4 falha sem CLI (baseline) | **SIM — capturada** | `write-paper section=intro` ABORTOU fail-closed com razões precisas: sem scaffold `pj_*` (pasta `teste` vazia), CLI `prumo` indisponível p/ `write prep`, sem `.claude/picot.toml` (regra de abort da skill), sem `references/_references.bib` (tudo viraria `[REF FALTANTE]`). Nada foi simulado. **ACHADO-CHAVE p/ Fase 2:** a remediação sugerida foi "`make new-project` no monorepo do prumo" — contexto do DONO, não da persona (colega não tem monorepo; pós-PR#12 o comando certo é `prumo init`). O preflight uniforme da Fase 2 precisa de comando de correção por CONTEXTO | transcrição colada |
-| 5 MCP qmd | | | |
-| 6 Cowork + execução | PARCIAL | "Add folder" conectou a pasta `teste`; o agente LEU a pasta (detectou vazia, sem `docs/`/`references/`) e EXECUTOU comando no fluxo do write-paper (CLI ausente → falha limpa). Falta: repetir com `pj_*` REAL + registrar o modelo de consentimento numa ação de escrita | pendente |
+| 5 MCP qmd | **SIM (capturado)** | Superfície Claude Code, sessão real: os DOIS servidores do `.mcp.json` (`qmd` e `prumo-review`) estão **ausentes do inventário de tools SILENCIOSAMENTE** — nenhum erro visível ao usuário em lugar nenhum (qmd sem binário; prumo-review nem tenta aparecer). A persona jamais saberia que deveria existir busca semântica. Baseline p/ Fase 2: a ausência de MCP precisa virar diagnóstico visível (doctor já sabe do qmd; falta a ponte para a superfície) | — |
+| 6 Cowork + execução | **SIM (com ressalva)** | (a) Cowork/Desktop: "Add folder" conectou `teste`; agente LEU a pasta (detectou vazia) e EXECUTOU comando (CLI ausente → falha limpa). (b) Claude Code no `test/pj_smoke` REAL: skills + CLI executaram leitura/escrita/rede completas (peer-review arquivou finding; verify-refs bateu Crossref; sync criou notas) sob o modelo de permissão do Claude Code. RESSALVA registrada: o consent-UI específico do Cowork (como o pedido de permissão APARECE ao clínico) segue sendo o único item que só o dono pode observar — decidido tratar como não-bloqueante: superfícies compartilham o runtime e o piloto da Fase 2 captura a UI de consentimento com colega real | transcrições |
 | 7 upload de arquivo | | | |
 
 **Matriz CLI-side no sandbox (2026-07-24, controller — `test/pj_smoke` no worktree, gitignored via info/exclude):** complemento local aos passos UI-only. Resultados:
