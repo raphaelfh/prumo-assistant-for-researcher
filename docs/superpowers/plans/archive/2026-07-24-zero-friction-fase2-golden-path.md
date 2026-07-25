@@ -427,3 +427,9 @@ BATIDO). Instalação do CLI "tranquila, rodou sozinho".
 Sugestões do dono para o grounding da F4: conector PubMed/literatura;
 zotero-mcp (github.com/54yyyu/zotero-mcp); recomendar Zettlr como editor na
 trilha do pesquisador.
+
+**Correção do registro (2026-07-25, detalhamento do dono):** a fricção
+Zotero/BBT foi especificamente **conectar a coleção do Zotero ao projeto**
+(o fio export "Keep updated" → `references/_references.bib`); e o **qmd
+TAMBÉM gerou fricção e não pôde ser utilizado** — ou seja, os DOIS triggers
+da Fase 4 dispararam (a nota de adjudicação acima subestimou o lado qmd).
