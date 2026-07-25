@@ -516,6 +516,24 @@ def verify_refs(
             "para o diagnóstico completo do pj."
         )
     entries = parse_bib(bib_path.read_text(encoding="utf-8"))
+    findings: list[Finding] = []
+    if not entries:
+        # Fase-0 (R3): bib presente mas vazio reportava "0 verificadas —
+        # nenhum problema", falso conforto pro clínico — sem isto parece que
+        # tudo foi checado quando na verdade não há nada pra checar.
+        findings.append(
+            Finding(
+                citekey="_references.bib",
+                level="info",
+                kind="empty-bib",
+                message=(
+                    "acervo vazio — adicione referências no Zotero (coleção do projeto) "
+                    "e rode `prumo paper sync` (ou /prumo-assist:paper-manager sync) "
+                    "para popular o bib antes de verificar."
+                ),
+                source="local",
+            )
+        )
     # Colisão de citekey NUNCA é silenciosa (emenda pós-review T2): o dict
     # ficaria só com a última entrada e uma duplicata retratada sumiria da
     # verificação sem rastro — a classe exata de erro que este comando existe
@@ -528,7 +546,6 @@ def verify_refs(
         else:
             by_key[e.citekey] = e
 
-    findings: list[Finding] = []
     if page is not None:
         # Emenda pós-review T4: sem esta guarda, --page inexistente vazava
         # FileNotFoundError cru do SO (inglês) — regra do repo é pt-BR com

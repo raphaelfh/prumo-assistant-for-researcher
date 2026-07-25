@@ -379,6 +379,15 @@ class TestVerifyRefs:
         with pytest.raises(FileNotFoundError, match="--page"):
             verify.verify_refs(pj, page=tmp_path / "nao-existe.md", cache_path=tmp_path / "c.json")
 
+    def test_bib_vazio_emite_info_orientadora(self, tmp_path: Path) -> None:
+        (tmp_path / "references").mkdir(parents=True)
+        (tmp_path / "references" / "_references.bib").write_text("", encoding="utf-8")
+        report = verify.verify_refs(tmp_path, cache_path=tmp_path / "c.json")
+        assert report["checked"] == 0
+        [finding] = report["findings"]
+        assert finding["kind"] == "empty-bib" and finding["level"] == "info"
+        assert "Zotero" in finding["message"] and "prumo paper sync" in finding["message"]
+
 
 class TestDuplicateCitekey:
     _DUP_BIB = """@article{guan2020clinical,
