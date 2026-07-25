@@ -83,7 +83,39 @@ de fato instalar.
 > WSL — ou os instaladores nativos de Windows documentados pelo uv e pelo bun
 > (não validados neste piloto).
 
-## 4. O que é opcional (e o que não é)
+## 4. Conectar sua biblioteca
+
+Com o projeto criado (`prumo init pj_<nome>`) e o Zotero aberto, ligar a
+bibliografia do projeto a uma coleção do Zotero é um comando — peça ao
+agente:
+
+```
+conecta minha coleção <nome da coleção>
+```
+
+Por trás, isso roda `prumo paper connect "<nome da coleção>"`. Antes desse
+comando existir, chegar ao mesmo resultado exigia configurar o "Keep
+updated" à mão dentro do Zotero (clicar com o botão direito na coleção,
+exportar, marcar a opção de manter atualizado e apontar para o
+`references/_references.bib` certo dentro do projeto) — um fio fácil de
+errar.
+
+Digitar o nome errado é seguro: o comando confere se a coleção existe
+**antes** de qualquer mudança no Zotero, então um typo só gera uma mensagem
+de erro com sugestões parecidas — nada é criado no Zotero por engano. Se o
+mesmo nome existir em mais de uma biblioteca, o agente vai pedir para você
+escolher com `--library`.
+
+Depois de conectar, o próximo passo sugerido é sincronizar:
+
+```
+prumo paper sync
+```
+
+Pular esse passo por enquanto não quebra nada — `prumo doctor` avisa depois
+se o `.bib` do projeto ainda estiver no placeholder do scaffold.
+
+## 5. O que é opcional (e o que não é)
 
 - **qmd** (busca semântica no seu wiki) é opcional — exige `bun` instalado.
   Sem ele, a busca continua funcionando por leitura direta dos arquivos, só
@@ -91,6 +123,53 @@ de fato instalar.
 - **Zotero** só é necessário para as skills de bibliografia (sincronizar
   referências, verificar citações). Escrita e revisão crítica (peer-review,
   scientific-writing) não dependem dele.
+
+## 6. Busca e conectores
+
+### Busca no seu wiki
+
+O caminho normal é o mais simples: peça ao agente e ele lê os arquivos de
+`docs/` diretamente — é o mesmo mecanismo nativo do Cowork usado em
+qualquer outra pasta, sem ferramenta extra nenhuma.
+
+O `qmd` (busca semântica indexada) é **opcional-avançado**: só compensa em
+wikis grandes, e exige `bun` + terminal — por isso não faz parte da trilha
+100% sem terminal deste guia (a seção anterior já trata `qmd` como
+opcional mesmo para quem tem o CLI).
+
+### Conectores de literatura (PubMed, ensaios clínicos)
+
+A Anthropic mantém um marketplace curado para pesquisa em ciências da
+vida, [`anthropics/life-sciences`](https://github.com/anthropics/life-sciences),
+instalável in-app (sem terminal):
+
+1. No Cowork: **Customize** → **Plugins** → **Personal plugins** → **"+"**.
+2. **Add marketplace** → **Browse Anthropic sources** → **Life Sciences**.
+
+Dois conectores desse marketplace valem destaque:
+
+- **PubMed** — MCP remoto hospedado pela própria Anthropic, sem exigir
+  chave de API.
+- **clinical-trials** — busca em registros de ensaios clínicos.
+
+> A navegação exata (nomes de menu, número de cliques) segue documentação
+> pública da Anthropic sobre plugins — não foi re-testada dentro deste
+> piloto (mesmo tratamento do aviso de Windows/WSL acima).
+
+### Busca semântica no seu acervo do Zotero, sem terminal
+
+Existe uma ponte de terceiros que embute um servidor MCP dentro do próprio
+Zotero via extensão `.xpi` (Tools → Add-ons), expondo busca semântica do
+seu acervo em `127.0.0.1:23120/mcp`:
+[cookjohn/zotero-mcp](https://github.com/cookjohn/zotero-mcp). Citamos para
+quem quiser explorar — **não validado neste piloto**.
+
+### Editando os arquivos `.md` do projeto
+
+Recomendamos o [Zettlr](https://www.zettlr.com) como editor dos arquivos
+`.md` do projeto (drafts, notas, wiki): a convenção de citação `[@key]` que
+o prumo usa é a nativa dele, com autocomplete lendo direto o
+`references/_references.bib`.
 
 ## Trilha dev (Claude Code, terminal)
 

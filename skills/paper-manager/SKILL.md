@@ -206,6 +206,34 @@ Passos:
 
 3. Se o usuário estiver claramente querendo inserir uma citação em um arquivo aberto, oferecer proativamente "quer que eu edite o arquivo `<nome>` e insira `[@<citekey>]` na linha <N>?".
 
+### 8. `connect <coleção>`
+
+Liga o `.bib` do projeto a uma coleção do Zotero via `autoexport.add` do Better BibTeX — o comando que substitui o fio manual de configurar "Keep updated" dentro do Zotero. Normalmente é rodado uma única vez, logo depois de `prumo init`.
+
+Quando o usuário pedir algo como "conecta minha coleção X" (ou "liga meu projeto na coleção X do Zotero"):
+
+Passos:
+
+1. **Pré-condição**: Zotero aberto (com Better BibTeX instalado). Se não estiver, o comando falha com mensagem clara e exit code 2 — não insista sem reabrir o Zotero.
+2. Executar via `Bash`:
+   ```bash
+   prumo paper connect "X"
+   ```
+3. Se o CLI responder que o nome é ambíguo (mesma coleção em mais de uma biblioteca), rodar de novo acrescentando `--library`:
+   ```bash
+   prumo paper connect "X" --library "<nome da biblioteca>"
+   ```
+4. Em caso de sucesso, sugerir o próximo passo ao usuário:
+   ```bash
+   prumo paper sync
+   ```
+
+Regras duras:
+
+- **NUNCA** criar ou editar `_references.bib` à mão para "ajudar" — o autoexport é responsabilidade exclusiva do Better BibTeX; a skill não simula esse trabalho.
+- Typo no nome da coleção **nunca** cria nada no Zotero: o comando valida a existência da coleção antes de qualquer chamada que altere o Zotero, e falha citando sugestões parecidas em vez de criar uma coleção fantasma.
+- Se o `_references.bib` do projeto já tiver entradas reais, o comando recusa reconectar (evita duplicar o autoexport já configurado) — oriente o usuário a conferir Preferences → Better BibTeX → Automatic export no Zotero.
+
 ## Erros comuns
 
 - **Citekey colide**: adicionar sufixo `a/b/c` automaticamente (ex.: `smith2024combinado` já existe → `smith2024combinadoa`).

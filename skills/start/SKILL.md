@@ -50,7 +50,10 @@ mostre a saída; siga só se funcionou:
    diga que é opcional e PULE (wiki-query funciona em modo degradado por leitura
    direta). Quem quiser: `bun install -g @tobilu/qmd`.
 5. **Projeto**: `prumo init pj_<nome>` na pasta que a pessoa designar.
-6. **Primeiro output em minutos**: peça um trecho de draft e rode
+6. **Conectar a biblioteca**: com o Zotero aberto, `prumo paper connect "<coleção>"`
+   liga o `.bib` do projeto à coleção do Zotero (substitui a configuração manual
+   de "Keep updated"). Não é bloqueante — pode ser feito depois.
+7. **Primeiro output em minutos**: peça um trecho de draft e rode
    `/prumo-assist:peer-review` — funciona sem NADA do stack (julgamento puro).
 
 Regras duras: nunca simule saída de comando que falhou; nunca crie scaffold
