@@ -58,6 +58,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-07-05-review-docx-criticmarkup-design]] · approved
 - [[superpowers/specs/2026-07-22-zero-friction-onboarding-design]] · approved
 - [[superpowers/specs/2026-07-22-zettlr-front-design]] · draft
+- [[superpowers/specs/2026-07-26-citacao-pandoc-cidada-primeira-classe-design]] · draft
 - [[superpowers/specs/2026-07-26-domain-errors-prumoerror-design]] · draft
 
 **Plans ativos:**
