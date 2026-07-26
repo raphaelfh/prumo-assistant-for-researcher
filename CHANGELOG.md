@@ -173,6 +173,15 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   própria descrição da skill, a referência a `make sync-pdfs` (monorepo do
   dono) por `prumo paper sync-pdfs`. Achado R4 do spike da Fase 0
   ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
+- **Erros de domínio sob `PrumoError`** — as 19 exceções de negócio de `write`
+  e `paper` (antes `RuntimeError` cru) herdam de `WriteError`/`PaperError`
+  (`domains/<X>/errors.py`), auto-capturadas por `cli_run`; as tuplas de catch
+  enumeradas das fachadas (`_EXPORT_CATCHES`, `_REVIEW_CATCHES`,
+  `_CONNECT_CATCHES`, `_VERIFY_CATCHES`) viraram builtins inlinados e `cli_run`
+  ganhou `exit_codes` declarativo (`ZoteroOfflineError` → exit 2). Comportamento
+  do CLI (mensagens e exit codes) inalterado; consumidor da API Python que
+  capturava `RuntimeError` deve capturar `PrumoError` (spec 2026-07-26;
+  follow-up do passe /simplify).
 
 ## [0.62.1] - 2026-07-22
 
