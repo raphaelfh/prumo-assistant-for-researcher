@@ -2,7 +2,7 @@
 
 > Status atual + próximas fases. Layout em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios em [`docs/constitution.md`](docs/constitution.md); histórico narrativo em [`CHANGELOG.md`](CHANGELOG.md).
 
-## Status (atualizado 2026-06-11)
+## Status (atualizado 2026-07-26)
 
 | Release | Data | Conteúdo |
 |---------|------|----------|
@@ -14,12 +14,14 @@
 | 0.61.0 | 2026-05-31 | Disclosure de IA, citações Word vivas (zotero_live_docx.lua), sync-notes/sync-all, doctor de deps externas, pj_base simplificado (módulos clinical/ml), wiki-lint determinístico, refresh de guidelines |
 | — | 2026-06-11 | Reorganização do repo (CLAUDE.md, `docs/adr/`, lifecycle, índices gerados — não-releasável) |
 | 0.62.0 | 2026-06-12 | Remoção agents ML (ADR-0012) + pdf-reader → Read (ADR-0013) + contratos de skill reconciliados (ADR-0014) |
+| 0.62.1 | 2026-07-22 | Zettlr como front humano (`write zettlr-profile`, `prumo-zettlr-export`, `core/citations.py`) — primeiro release sob ADR-0015 |
+| 0.63.0 | 2026-07-26 | **Marco: programa zero-friction inteiro (F0–F5)** — ponte docx↔CriticMarkup (`write review ingest/apply`), MCP `prumo-review`, `paper verify-refs`, `paper connect`, preflight uniforme nas skills, skill `start` como instalador guiado, `docs/onboarding-pesquisador.md`; ⚠ erros de domínio sob `PrumoError` (ADR-0016 a ADR-0020) |
 
-## Status do programa zero-friction (atualizado 2026-07-25)
+## Status do programa zero-friction (atualizado 2026-07-26)
 
-> Este programa (guarda-chuva com 6 fases, F0–F5) fica fora da tabela de
-> releases acima porque nenhuma fase saiu como versão própria ainda — tudo
-> segue acumulado em `[Não publicado]` no CHANGELOG. Spec-guarda-chuva:
+> Programa **concluído** (guarda-chuva de 6 fases, F0–F5) — publicado na
+> v0.63.0, que consolida num único release tudo que estava acumulado em
+> `[Não publicado]`. Spec-guarda-chuva:
 > [`docs/superpowers/specs/2026-07-22-zero-friction-onboarding-design.md`](docs/superpowers/specs/2026-07-22-zero-friction-onboarding-design.md).
 > A Fase 3 executa um sub-programa próprio (fases 0–4 dele) especificado em
 > [`docs/superpowers/specs/2026-07-05-review-docx-criticmarkup-design.md`](docs/superpowers/specs/2026-07-05-review-docx-criticmarkup-design.md).
@@ -29,8 +31,8 @@
 | Fase | Entrega | Status |
 |------|---------|--------|
 | F0 | Spike de validação empírica no Desktop/Cowork (sem código) | implementada, arquivada (verified 2026-07-24) |
-| F1 | Export docx confiável (validação + retry + hard-fail) + `doctor` de versões Zotero/BBT | implementada, arquivada (verified 2026-07-23); release PATCH ainda pendente |
-| F2 | Golden path Desktop/Cowork: preflight uniforme ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)), instalação guiada via skill `start`, docs em duas trilhas (`docs/onboarding-pesquisador.md`) | implementada, arquivada (verified 2026-07-25); piloto com 1 colega real **bateu o critério ≤15 min até o primeiro output**; release MINOR ainda pendente |
+| F1 | Export docx confiável (validação + retry + hard-fail) + `doctor` de versões Zotero/BBT | implementada, arquivada (verified 2026-07-23); publicada na v0.63.0 |
+| F2 | Golden path Desktop/Cowork: preflight uniforme ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)), instalação guiada via skill `start`, docs em duas trilhas (`docs/onboarding-pesquisador.md`) | implementada, arquivada (verified 2026-07-25); piloto com 1 colega real **bateu o critério ≤15 min até o primeiro output**; publicada na v0.63.0 |
 | F3 | Ponte docx↔CriticMarkup — sub-programa próprio de 5 fases (spike/adeu, substrato, review ingest/apply, MCP reconciliador, verificação de referências) | implementada, arquivada ([ADR-0016](docs/adr/adr-0016-criticmarkup-conservacao-ooxml.md), [ADR-0017](docs/adr/adr-0017-prumo-mcp-reconciliador.md), [ADR-0018](docs/adr/adr-0018-verificacao-referencias-apis-publicas.md)) |
 | F4 | Colapso de dependências, escopo A: `prumo paper connect <coleção>` liga o bib do projeto a uma coleção do Zotero via `autoexport.add` do BBT, com guardas anti-fantasma; qmd→MCPB avaliado e refutado (fallback lexical vira caminho normal documentado) | implementada e arquivada ([ADR-0020](docs/adr/adr-0020-connect-autoexport-bbt.md); plano em `docs/superpowers/plans/archive/2026-07-25-zero-friction-fase4-colapso-deps.md`) |
 | F5 | Empacotamento do CLI Python pro Desktop (que não embute Python) | **encerrada fechada** — o trigger (colega travado apesar da instalação guiada) não disparou: o piloto da F2 passou sem travar (YAGNI aplicado, sem trabalho feito) |
