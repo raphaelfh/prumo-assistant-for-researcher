@@ -322,9 +322,7 @@ def review_ingest_command(
         page_resolved = page.resolve()
         reviewed_docx_resolved = reviewed_docx.resolve()
         result = review.ingest(reviewed_docx_resolved, page_resolved, force=force)
-        pending_drops = sum(
-            1 for event in result.events.events if event.kind == review.EVENT_KIND_CITATION_DROP
-        )
+        pending_drops = review.count_pending_drops(result.events.events)
 
         console.success(f"ingerido: {result.review_md}")
         console.info(
