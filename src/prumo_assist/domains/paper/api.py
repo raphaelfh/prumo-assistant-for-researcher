@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from prumo_assist.domains.paper.callout import apply_extraction
 from prumo_assist.domains.paper.connect import connect_collection
+from prumo_assist.domains.paper.errors import PaperError
 from prumo_assist.domains.paper.find import fuzzy_search as find
 from prumo_assist.domains.paper.graph import update_graph
 from prumo_assist.domains.paper.lint import lint, set_primary
@@ -25,6 +26,7 @@ from prumo_assist.domains.paper.zotero import sync_annotations, sync_notes
 
 __all__ = [
     "ExtractPrep",
+    "PaperError",
     "apply_extraction",
     "connect_collection",
     "extract_prep",

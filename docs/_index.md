@@ -58,12 +58,13 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-07-05-review-docx-criticmarkup-design]] · approved
 - [[superpowers/specs/2026-07-22-zero-friction-onboarding-design]] · approved
 - [[superpowers/specs/2026-07-22-zettlr-front-design]] · draft
+- [[superpowers/specs/2026-07-26-domain-errors-prumoerror-design]] · draft
 
 **Plans ativos:**
 
 - [[superpowers/plans/2026-07-22-zettlr-front]] · draft
 
-**Plans arquivados:** 25 em `superpowers/plans/archive/`
+**Plans arquivados:** 26 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->

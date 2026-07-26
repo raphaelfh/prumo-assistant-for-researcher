@@ -44,7 +44,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
                                  │ citations · skills · paths ·│
                                  │ cli_op · output · deps ·    │
                                  │ note_paths · scaffold ·     │
-                                 │ config · provenance*        │
+                                 │ config · uvx · provenance*  │
                                  └─────────────────────────────┘
 ```
 
@@ -72,7 +72,8 @@ prumo-assist/
 │
 ├── src/prumo_assist/
 │   ├── _version.py            ← FONTE ÚNICA de versão (constitution VII)
-│   ├── __init__.py            ← hierarquia de exceções (PrumoError, ...)
+│   ├── __init__.py            ← hierarquia de exceções (PrumoError + cross-cutting;
+│                                 bases por domínio em domains/<X>/errors.py)
 │   ├── api.py                 ← Python API pública (SemVer)
 │   ├── cli.py                 ← Typer root: init · doctor · skills · add · mcp (+ capture)
 │   ├── mcp_server.py          ← servidor MCP local (stdio) `prumo-review`; vive no TOPO
@@ -81,7 +82,8 @@ prumo-assist/
 │   ├── _filters/              ← filtros Lua vendorados do Pandoc (zotero_live_docx.lua)
 │   ├── core/                  ← transversal; NUNCA importa domains/ (ADR-0005)
 │   ├── domains/               ← paper · wiki · capture · protocol · write
-│   │   └── <X>/               ← cli.py + api.py + <op>.py + schemas/v1.py (ADR-0006);
+│   │   └── <X>/               ← cli.py + api.py + <op>.py + schemas/v1.py
+│   │                             + errors.py (write, paper) (ADR-0006);
 │   │                             exceção: capture é mínimo (cli.py + route.py, sem api/schemas)
 │   └── integrations/          ← adapters por agent-host (claude_code)
 │

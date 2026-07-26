@@ -150,6 +150,18 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   embute referências cruas de milhares de chars); e o fingerprint de citação
   passa a resolver a entrada do `.bib` pela citekey exata do header (o match
   antigo por substring podia, em `.bib` patológico, hashear a entrada errada).
+- Tools MCP do `prumo-review` (`review_status`/`review_worklist`) unificam o
+  wording de artefato ausente com o domínio: "Sidecar de review ausente em
+  `reviews/<slug>`: `<arquivo>`" (era "Artefato de review ausente: ...",
+  variante própria da fachada — achado do agente de altitude do passe
+  /simplify). A fachada não re-implementa mais leitura/validação de
+  `review.md`/`review-comments.yaml`: leitores de domínio novos
+  `review.read_worklist` e `review.read_comments_file`, siblings de
+  `read_events_file` com o MESMO contrato de erro (fonte única de mensagem,
+  Princípio de fachadas finas). A agregação de contagens da tool
+  `review_status` também desceu pro domínio (`review.status(page)`), e a
+  contagem de drops pendentes — antes duplicada entre a tool e o comando
+  `write review ingest` — unificou em `review.count_pending_drops`.
 
 ### Mudado
 - `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par
@@ -173,6 +185,15 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   própria descrição da skill, a referência a `make sync-pdfs` (monorepo do
   dono) por `prumo paper sync-pdfs`. Achado R4 do spike da Fase 0
   ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
+- **Erros de domínio sob `PrumoError`** — as 19 exceções de negócio de `write`
+  e `paper` (antes `RuntimeError` cru) herdam de `WriteError`/`PaperError`
+  (`domains/<X>/errors.py`), auto-capturadas por `cli_run`; as tuplas de catch
+  enumeradas das fachadas (`_EXPORT_CATCHES`, `_REVIEW_CATCHES`,
+  `_CONNECT_CATCHES`, `_VERIFY_CATCHES`) viraram builtins inlinados e `cli_run`
+  ganhou `exit_codes` declarativo (`ZoteroOfflineError` → exit 2). Comportamento
+  do CLI (mensagens e exit codes) inalterado; consumidor da API Python que
+  capturava `RuntimeError` deve capturar `PrumoError` (spec 2026-07-26;
+  follow-up do passe /simplify).
 
 ## [0.62.1] - 2026-07-22
 
