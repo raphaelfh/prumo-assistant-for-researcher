@@ -901,3 +901,35 @@ def test_propose_prose_edit_rejects_kind_comment(
 
     assert "comment" in str(exc.value)
     assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 23. Guarda I1 em sintaxe Pandoc `[@key]` (projeto Zettlr-front) -------
+
+
+def test_propose_prose_edit_rejects_anchor_tangent_to_pandoc_citation_i1(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """A Guarda I1 vale nas DUAS gramáticas de citação, não só no legado.
+
+    Projeto novo é Pandoc puro (spec 2026-07-22): a citação se escreve
+    ``[@key]``, não ``[[@key]]``. Localizar o átomo só pelo span legado
+    deixaria a sintaxe-padrão do repo SEM a proteção — inversão exata do
+    invariante I1 (a forma mandatória seria a desprotegida). Espelha o
+    teste 14 (``end == cs``) na gramática Pandoc.
+    """
+    page_body = "Estudo anterior [@jones2021] confirmou o achado."
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="anterior ",  # termina exatamente onde a citação começa
+            position="after",
+            kind="ins",
+            b=" recente",
+            project_root=project_root,
+        )
+
+    assert "I1" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body

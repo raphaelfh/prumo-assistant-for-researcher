@@ -40,7 +40,7 @@ import re
 import shutil
 import zipfile
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, NoReturn, TypeVar, cast
@@ -50,7 +50,7 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from prumo_assist.core import criticmarkup
-from prumo_assist.core.citations import CITEKEY_RE
+from prumo_assist.core.citations import CITEKEY_RE, iter_marked_citation_spans
 from prumo_assist.core.obsidian import (
     SpanFragment,
     normalize_markdown,
@@ -3187,18 +3187,41 @@ def _reject_citation_payload_in_proposal(a: str, b: str) -> None:
         )
 
 
+def _citation_atom_spans(body: str) -> Iterator[tuple[int, int]]:
+    """Spans de citação protegidos pela Guarda I1, nas DUAS gramáticas.
+
+    União de duas fontes, porque nenhuma sozinha basta:
+
+    - ``_PROPOSAL_CITATION_SPAN_RE`` — legado ``[[@key]]``, span EXTERNO
+      (inclui os colchetes de fora).
+    - ``iter_marked_citation_spans`` (gramática única de ``core/citations``)
+      — cobre o Pandoc ``[@key]``/``[@a; @b]``, sintaxe-padrão de projeto
+      novo (spec 2026-07-22). Em ``[[@key]]`` ela casa só o span INTERNO,
+      1 caractere adentro — por isso NÃO substitui a primeira: sozinha,
+      moveria a fronteira e a tangência exata no colchete externo deixaria
+      de recusar.
+
+    Sobreposição entre as fontes é inofensiva: a guarda recusa no primeiro
+    span que encostar.
+    """
+    for match in _PROPOSAL_CITATION_SPAN_RE.finditer(body):
+        yield match.start(), match.end()
+    yield from iter_marked_citation_spans(body)
+
+
 def _reject_anchor_tangent_to_citation(body: str, start: int, end: int) -> None:
     """Guarda I1: âncora ``[start, end)`` que INTERSECTA ou TANGENCIA
-    (adjacência imediata, distância zero) um span ``[[@citekey]]`` no corpo
-    do worklist é recusada — citação é átomo opaco (I1, spec): qualquer
+    (adjacência imediata, distância zero) um span de citação no corpo do
+    worklist é recusada — citação é átomo opaco (I1, spec): qualquer
     edição que a encoste é decisão HUMANA, nunca aproximada por agente.
+    Vale nas duas gramáticas (``[@key]`` Pandoc e ``[[@key]]`` legado) —
+    ver :func:`_citation_atom_spans`.
     ``not (end < cs or ce < start)`` é a negação de "os dois intervalos têm
     ao menos 1 caractere de distância" — cobre interseção E adjacência
     (``end == cs`` ou ``ce == start``) com o MESMO teste, `<` estrito nos
     dois lados de propósito (o brief manda tangência recusar, não só
     sobreposição)."""
-    for match in _PROPOSAL_CITATION_SPAN_RE.finditer(body):
-        cs, ce = match.start(), match.end()
+    for cs, ce in _citation_atom_spans(body):
         if not (end < cs or ce < start):
             raise ValueError(
                 "propose_prose_edit recusado (I1 — citação é átomo): a âncora "
