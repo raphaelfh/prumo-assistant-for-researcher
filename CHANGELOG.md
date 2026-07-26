@@ -7,6 +7,13 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.63.0] - 2026-07-26
+
+> **Marco:** fecha o programa zero-friction inteiro (F0–F5) — nenhuma fase
+> tinha saído como versão própria até aqui. Ver
+> [`ROADMAP.md`](ROADMAP.md) e a spec-guarda-chuva
+> [`2026-07-22-zero-friction-onboarding-design.md`](docs/superpowers/specs/2026-07-22-zero-friction-onboarding-design.md).
+
 ### Adicionado
 
 - **`core/criticmarkup.py`** — módulo de representação de revisão com as 5 marcas
@@ -185,7 +192,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   própria descrição da skill, a referência a `make sync-pdfs` (monorepo do
   dono) por `prumo paper sync-pdfs`. Achado R4 do spike da Fase 0
   ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
-- **Erros de domínio sob `PrumoError`** — as 19 exceções de negócio de `write`
+- **⚠ Breaking — Erros de domínio sob `PrumoError`** — as 19 exceções de negócio de `write`
   e `paper` (antes `RuntimeError` cru) herdam de `WriteError`/`PaperError`
   (`domains/<X>/errors.py`), auto-capturadas por `cli_run`; as tuplas de catch
   enumeradas das fachadas (`_EXPORT_CATCHES`, `_REVIEW_CATCHES`,
@@ -457,7 +464,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.1...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.63.0...HEAD
+[0.63.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.1...v0.63.0
 [0.62.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.0...v0.62.1
 [0.62.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.61.0...v0.62.0
 [0.61.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.6.0...v0.61.0
