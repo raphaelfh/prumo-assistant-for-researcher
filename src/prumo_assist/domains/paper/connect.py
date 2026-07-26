@@ -107,8 +107,14 @@ def list_collections() -> list[CollectionRef]:
     pra raiz); a cadeia de pais é reconstruída aqui via mapa ``key -> coleção``.
 
     Pedaços malformados (biblioteca sem ``name``/``collections``, coleção
-    sem ``name``, cadeia de pai quebrada) são ignorados sem crashar — só a
-    ausência total de resposta útil do seam vira ``ZoteroOfflineError``.
+    sem ``name``) são ignorados sem crashar — só a ausência total de resposta
+    útil do seam vira ``ZoteroOfflineError``. Cadeias de pai quebradas
+    (``parentCollection`` aponta pra chave ausente), cíclicas (A → B → A) ou
+    com algum nome vazio/só espaço (na coleção, num ancestral, ou na própria
+    biblioteca) são PULADAS por inteiro — a coleção correspondente não entra
+    na lista retornada e vira ``CollectionNotFoundError`` a jusante, em vez
+    de aliasar um ``bbt_path`` truncado/duplicado/malformado que
+    ``autoexport.add`` materializaria como coleção fantasma.
     """
     payload: dict[str, Any] = {
         "jsonrpc": "2.0",
@@ -151,16 +157,26 @@ def list_collections() -> list[CollectionRef]:
             chain = [name]
             parent = c.get("parentCollection")
             seen: set[str] = set()
-            while parent and isinstance(parent, str) and parent not in seen:
+            broken = False
+            while parent and isinstance(parent, str):
+                if parent in seen:
+                    broken = True  # ciclo: A -> B -> A já visitado
+                    break
                 seen.add(parent)
                 parent_entry = key_map.get(parent)
                 if parent_entry is None:
+                    broken = True  # ancestral aponta pra chave ausente
                     break
                 parent_name = parent_entry.get("name")
                 if not isinstance(parent_name, str):
+                    broken = True
                     break
                 chain.insert(0, parent_name)
                 parent = parent_entry.get("parentCollection")
+            if broken:
+                continue  # cadeia quebrada/cíclica: PULADA por inteiro
+            if any(not seg.strip() for seg in (lib_name, *chain)):
+                continue  # nome vazio/só espaço em qualquer nível: PULADA
             path = "/".join(chain)
             out.append(
                 CollectionRef(

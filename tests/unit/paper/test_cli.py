@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from prumo_assist.cli import app
+from prumo_assist.domains.paper import connect
 
 runner = CliRunner()
 
@@ -342,3 +343,53 @@ def test_paper_connect_zotero_fechado_exit_2(
     result = runner.invoke(app, ["paper", "connect", "X", "--path", str(tmp_path)])
     assert result.exit_code == 2
     assert "abra o Zotero" in result.output
+
+
+@pytest.mark.parametrize(
+    "exception_instance,expected_exit,expected_substring",
+    [
+        (
+            connect.CollectionNotFoundError("coleção 'X' não existe no Zotero — NADA foi criado."),
+            1,
+            "NADA foi criado",
+        ),
+        (
+            connect.AmbiguousCollectionError("ambígua — use --library"),
+            1,
+            "ambígua — use --library",
+        ),
+        (
+            connect.AlreadyConnectedError("já tem entradas reais — Automatic export"),
+            1,
+            "Automatic export",
+        ),
+        (
+            connect.UnsupportedCollectionNameError("contém '/' — NADA foi criado"),
+            1,
+            "NADA foi criado",
+        ),
+        (
+            connect.ZoteroOfflineError("abra o Zotero"),
+            2,
+            "abra o Zotero",
+        ),
+    ],
+)
+def test_paper_connect_error_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    exception_instance: Exception,
+    expected_exit: int,
+    expected_substring: str,
+) -> None:
+    """Trava de regressão: cada erro de ``connect_collection`` mapeia pro exit code
+    e mensagem certos, sem traceback vazando pro usuário (review final F4, c2)."""
+
+    def fake(*args: Any, **kwargs: Any) -> Any:
+        raise exception_instance
+
+    monkeypatch.setattr("prumo_assist.domains.paper.connect.connect_collection", fake)
+    result = runner.invoke(app, ["paper", "connect", "X", "--path", str(tmp_path)])
+    assert result.exit_code == expected_exit, result.output
+    assert expected_substring in result.output
+    assert "Traceback" not in result.output

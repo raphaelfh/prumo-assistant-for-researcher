@@ -212,6 +212,53 @@ class TestUnsupportedNames:
         assert ref.segments == ("My Library", "Pesquisa", "Colecao do estudo piloto1")
 
 
+class TestHostileChains:
+    def test_parent_ausente_pula_colecao(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        groups = [
+            {
+                "id": 1,
+                "name": "My Library",
+                "collections": [
+                    {"key": "CH", "name": "Child", "parentCollection": "GHOST"},
+                    {"key": "OK", "name": "Sane", "parentCollection": False},
+                ],
+            }
+        ]
+        fake, _ = _fake_rpc({"user.groups": {"jsonrpc": "2.0", "result": groups}})
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        refs = connect.list_collections()
+        assert [r.path for r in refs] == ["Sane"]
+        with pytest.raises(connect.CollectionNotFoundError):
+            connect.find_collection("Child")
+
+    def test_ciclo_de_pais_pula_colecoes(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        groups = [
+            {
+                "id": 1,
+                "name": "My Library",
+                "collections": [
+                    {"key": "A", "name": "Alpha", "parentCollection": "B"},
+                    {"key": "B", "name": "Beta", "parentCollection": "A"},
+                ],
+            }
+        ]
+        fake, _ = _fake_rpc({"user.groups": {"jsonrpc": "2.0", "result": groups}})
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        assert connect.list_collections() == []
+
+    def test_nome_vazio_pula_colecao(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        groups = [
+            {
+                "id": 1,
+                "name": "My Library",
+                "collections": [{"key": "E", "name": "  ", "parentCollection": False}],
+            }
+        ]
+        fake, _ = _fake_rpc({"user.groups": {"jsonrpc": "2.0", "result": groups}})
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        assert connect.list_collections() == []
+
+
 class TestPollZero:
     def test_poll_timeout_zero_ainda_checa_uma_vez(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
