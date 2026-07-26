@@ -84,6 +84,30 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   sem entradas agora emite orientação explícita (adicionar referências no
   Zotero + `prumo paper sync`) em vez de reportar silenciosamente zero
   referências verificadas.
+- **`prumo paper connect <coleção>`** — liga `references/_references.bib` a
+  uma coleção do Zotero via `autoexport.add` do Better BibTeX, eliminando o
+  fio manual do "Keep updated" dentro do próprio Zotero. Guardas anti-fantasma:
+  recusa (`AlreadyConnectedError`) se o bib já tem entradas reais, antes de
+  qualquer chamada ao Zotero; `find_collection` confirma a existência da
+  coleção via `user.groups(true)` (só leitura) ANTES da única chamada MUTANTE
+  do projeto no Zotero do usuário, então um nome digitado errado nunca cria
+  coleção fantasma (`CollectionNotFoundError`/`AmbiguousCollectionError` com
+  sugestões e `--library`); nome de coleção/biblioteca com `/` é recusado
+  (`UnsupportedCollectionNameError`) para não aliasar uma cadeia inexistente
+  no Better BibTeX. GUID do translator Better BibLaTeX pinado
+  (`f895aa0d-f28e-47fe-b247-2ea77c6ed583`); poll de cortesia pós-`add` com
+  `exported=False` honesto quando o export ainda não apareceu. `prumo doctor`
+  ganha aviso não-bloqueante quando o bib ainda é o placeholder do scaffold,
+  com o comando de correção embutido; a skill `paper-manager` ganha a
+  operação `connect`; `docs/onboarding-pesquisador.md` ganha a seção "Busca e
+  conectores" (marketplace `anthropics/life-sciences`/PubMed, `cookjohn/zotero-mcp`
+  rotulado "não validado neste piloto", Zettlr como editor recomendado), e
+  registra que o fallback lexical de busca é o caminho normal da persona sem
+  terminal — `qmd` segue opcional-avançado ([ADR-0020](docs/adr/adr-0020-connect-autoexport-bbt.md)).
+  Fecha o item 1 da emenda da Fase 4 do zero-friction (escopo A); **marco:
+  Fase 4 (escopo A) implementada** — smoke real do `connect` contra um
+  Zotero vivo segue pendente, a cargo do dono (nenhum teste automatizado
+  muta o Zotero real).
 
 ### Corrigido
 - `prumo init`: os placeholders de nome do template (`pj-NOME` no

@@ -194,7 +194,12 @@ experimentando. Ela documenta o que medir ao rodar o piloto com 1 colega real
   aparece na tela antes de cada comando — é o material bruto que ainda
   faltava da Fase 0 (o spike validou que o consentimento existe, mas não
   registrou a tela).
-- **O resultado calibra as Fases 4–5** do guarda-chuva de zero-friction
-  (colapsar qmd/Zotero em instalação one-click; empacotar o CLI): elas só
-  começam se o piloto mostrar bloqueio real — sem bloqueio observado, essas
-  fases não entram (Princípio VI, YAGNI militante).
+- **O piloto já rodou (2026-07-25) e calibrou as Fases 4–5** do guarda-chuva
+  de zero-friction. A Fase 4 (colapsar qmd/Zotero em instalação one-click)
+  **disparou**: o colega relatou as duas dores reais — o fio manual
+  Zotero→bib e o `qmd` inutilizável sem terminal — e o `prumo paper connect`
+  (ADR-0020) é o resultado direto, já implementado. A Fase 5 (empacotar o
+  CLI) **encerrou fechada**: a instalação guiada da Fase 2 passou no piloto
+  sem travar, então o trigger dela (colega travado *apesar* da instalação
+  guiada) não disparou — YAGNI militante aplicado corretamente, não
+  adiamento (Princípio VI).

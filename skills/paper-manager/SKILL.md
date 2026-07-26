@@ -7,7 +7,7 @@ when_to_use: |
   papers, "encontrar paper sobre Y", "quem cita Z", auditar consistência, ou
   mencionar "bibliografia", "paper principal", "referências do projeto",
   "minhas notas do Zotero".
-argument-hint: "[sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary <citekey> | list | graph <citekey> | sync-bib | find <query>]"
+argument-hint: "[sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary <citekey> | list | graph <citekey> | sync-bib | find <query> | connect <coleção>]"
 allowed-tools: Read Write Edit Glob Grep Bash(prumo paper *) Bash(rg *)
 prumo:
   version: 1.0.0
@@ -15,7 +15,7 @@ prumo:
   agent_compat: [claude-code]
   cost_estimate: ~1-3k tokens
   inputs:
-    operation: required (sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary | list | graph | sync-bib | find)
+    operation: required (sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary | list | graph | sync-bib | find | connect)
     args: optional (operation-specific)
   requires: [cli, zotero]
 ---

@@ -27,4 +27,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0017-prumo-mcp-reconciliador]] — prumo-MCP local e reconciliador que propõe marcas · aceito
 - [[adr/adr-0018-verificacao-referencias-apis-publicas]] — Verificação de referências via APIs públicas, gate determinístico + enriquecimento opcional · aceito
 - [[adr/adr-0019-preflight-uniforme-skills]] — Preflight uniforme gerado nas skills a partir de `requires:` · aceito
+- [[adr/adr-0020-connect-autoexport-bbt]] — `prumo paper connect` via `autoexport.add` do Better BibTeX, guardas anti-fantasma · aceito
 <!-- prumo:adr-index:end -->
