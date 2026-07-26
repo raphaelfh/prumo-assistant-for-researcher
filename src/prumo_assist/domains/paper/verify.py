@@ -32,6 +32,7 @@ from urllib.parse import quote
 from prumo_assist._version import __version__
 from prumo_assist.core.bib import BibEntry, extract_field, parse_bib
 from prumo_assist.core.citations import scan_marked_citekeys
+from prumo_assist.domains.paper.errors import PaperError
 
 _USER_AGENT = f"prumo-assist/{__version__} (+https://github.com/raphaelfh/prumo-assist)"
 
@@ -425,7 +426,7 @@ _REFCHECKER_HINT = (
 )
 
 
-class RefcheckerUnavailableError(RuntimeError):
+class RefcheckerUnavailableError(PaperError):
     """Backend profundo (`uvx academic-refchecker==3.0.151`) ausente ou hostil."""
 
 
