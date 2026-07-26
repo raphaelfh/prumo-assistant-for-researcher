@@ -143,6 +143,13 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - Erro "Better BibTeX recusou o autoexport" do `paper connect` ganha o
   comando de correção embutido (conferir Automatic export no BBT e re-rodar) —
   item c3 do backlog do review final da F4.
+- Efeitos visíveis do passe /simplify (verificação adversarial dos commits):
+  `write export --to <inválido> --out-dir X` responde com o erro pt-BR de
+  formato em vez de vazar `KeyError` cru; mensagens de achado `[deep]` do
+  `verify-refs` são truncadas em 200 chars (m8 do backlog F4 — o refchecker
+  embute referências cruas de milhares de chars); e o fingerprint de citação
+  passa a resolver a entrada do `.bib` pela citekey exata do header (o match
+  antigo por substring podia, em `.bib` patológico, hashear a entrada errada).
 
 ### Mudado
 - `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par

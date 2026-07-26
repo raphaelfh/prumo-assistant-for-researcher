@@ -2914,7 +2914,9 @@ def apply_review(
     # Eventos `citation-drop` recém-confirmados NÃO persistem como pendência
     # (Fix pós-review, Crítico 2) — removidos aqui; o histórico sobrevive no
     # `citekeys`/`detail` do `applied_event` acima (nunca removido) + Git.
-    remaining_events = [event for event in events_file.events if event.kind != "citation-drop"]
+    remaining_events = [
+        event for event in events_file.events if event.kind != EVENT_KIND_CITATION_DROP
+    ]
     updated_events = ReviewEventsFile(
         page=events_file.page, events=[*remaining_events, applied_event]
     )

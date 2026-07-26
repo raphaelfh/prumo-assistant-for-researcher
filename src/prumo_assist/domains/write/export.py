@@ -769,13 +769,17 @@ def export(
     if to not in EXT_BY_FORMAT:
         raise ValueError(f"--to deve ser um de {list(EXT_BY_FORMAT)}, recebeu {to}")
 
+    # Raiz do projeto ANTES das checagens de dependência — preserva a
+    # precedência de erro da fachada antiga (que resolvia a raiz antes de
+    # chamar o domínio) e alinha com compose(): página fora de projeto
+    # reporta "Raiz do projeto não localizada" sem sondar pandoc/BBT.
+    project_root = project_root or detect_project_root(page)
+
     pandoc_bin = _check_pandoc()
     if to == "pdf":
         _check_typst()
     if to == "docx":
         _check_bbt_running()
-
-    project_root = project_root or detect_project_root(page)
     csl = resolve_csl(style)
     bib = bib or (project_root / "references" / "_references.bib")
     if not bib.is_file():

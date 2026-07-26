@@ -124,25 +124,32 @@ class RefCache:
     path: Path
     ttl: timedelta = timedelta(days=7)
 
-    def _load(self) -> dict[str, Any]:
-        """Estado do cache, lido do disco UMA vez por instância (memoizado).
+    def _read_disk(self) -> dict[str, Any]:
+        """Leitura crua do arquivo — sempre vai ao disco (usada pelo ``put``)."""
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {"version": 1, "entries": {}}
+        if not isinstance(data, dict) or not isinstance(data.get("entries"), dict):
+            return {"version": 1, "entries": {}}
+        return cast(dict[str, Any], data)
 
-        Sem o memo, cada ``get``/``put`` relia e re-parseava o arquivo
-        inteiro — O(6N) full-loads por ``verify_refs`` com payloads Crossref
-        de dezenas de KB. ``put`` muta o MESMO dict memoizado e regrava
-        (write-through), então memo e disco não divergem no processo.
+    def _load(self) -> dict[str, Any]:
+        """Estado do cache para leitura, memoizado por instância.
+
+        Sem o memo, cada ``get`` relia e re-parseava o arquivo inteiro —
+        O(N) full-loads por ``verify_refs`` com payloads Crossref de dezenas
+        de KB. O ``put`` NÃO usa o memo para escrever: relê o disco
+        (read-modify-write, mesma janela de corrida do código antigo — um
+        memo stale nunca sobrescreve entradas gravadas por outro processo)
+        e atualiza o memo com o estado gravado.
         """
         memo = getattr(self, "_data_memo", None)
         if memo is not None:
             return cast(dict[str, Any], memo)
-        try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            data = {"version": 1, "entries": {}}
-        if not isinstance(data, dict) or not isinstance(data.get("entries"), dict):
-            data = {"version": 1, "entries": {}}
+        data = self._read_disk()
         object.__setattr__(self, "_data_memo", data)
-        return cast(dict[str, Any], data)
+        return data
 
     def get(self, key: str, *, now: datetime | None = None) -> dict[str, Any] | None:
         entry = self._load()["entries"].get(key)
@@ -159,11 +166,12 @@ class RefCache:
         return cast(dict[str, Any], payload) if isinstance(payload, dict) else None
 
     def put(self, key: str, payload: dict[str, Any], *, now: datetime | None = None) -> None:
-        data = self._load()
+        data = self._read_disk()
         moment = now or datetime.now(UTC)
         data["entries"][key] = {"fetched_at": moment.isoformat(), "payload": payload}
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        object.__setattr__(self, "_data_memo", data)
 
 
 def _http_get_json(url: str, *, timeout: float = 10.0) -> dict[str, Any]:
