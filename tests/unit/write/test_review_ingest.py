@@ -1,11 +1,14 @@
 """`ingest()` — orquestração do fluxo 3a-3h (Task 8 da ponte Fase 2).
 
 Integração: sidecars (`citemap.json`/`span-map.json`) construídos à mão
-simulando a saída real de `export._emit_review_sidecars` (nunca rodando o
-export de verdade — sem Pandoc/BBT); docx revisado sintético via helpers
-LOCAIS deste arquivo (mesmo padrão de `test_review_reader.py`/
-`test_review_adeu.py`: cada arquivo de teste tem seu próprio builder, não
-importa de outro). `_run_adeu_extract` (seam do adeu) é SEMPRE mockado via
+via `write_review_artifacts`/`init_project` (fixtures compartilhadas de
+`tests/unit/conftest.py` — simulam a saída real de
+`export._emit_review_sidecars` sem rodar o export de verdade, sem
+Pandoc/BBT); docx revisado sintético via builder LOCAL deste arquivo (a
+convenção "cada arquivo tem seu próprio builder" segue valendo SÓ para os
+builders de docx-zip, genuinamente diferentes por módulo — ver
+`test_review_reader.py`/`test_review_adeu.py`). `_run_adeu_extract` (seam
+do adeu) é SEMPRE mockado via
 `monkeypatch.setattr` no módulo `review` — nunca roda `uvx` de verdade
 (regra deste repo, `.claude/rules/code.md`: dependência externa sempre
 mockada no seam).
@@ -39,14 +42,11 @@ from prumo_assist.domains.write.review import (
     ingest,
 )
 from prumo_assist.domains.write.schemas.v1 import (
-    CiteMapFile,
     CiteOccurrence,
     ReviewCommentsFile,
     ReviewEventsFile,
-    SpanMapFile,
 )
-
-_W_XMLNS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+from tests.unit.conftest import W_XMLNS, InitProject, WriteReviewArtifacts
 
 # `[Content_Types].xml` mínimo válido — mesmo formato de
 # `test_export_docx_validation.py::_CONTENT_TYPES_OK` — exigido desde que
@@ -120,7 +120,7 @@ _COMMENTS_XML = """<?xml version="1.0"?>
 
 def _write_docx(path: Path, *, paragraphs: list[str], with_comment: bool = False) -> Path:
     document = (
-        f'<?xml version="1.0"?><w:document {_W_XMLNS}><w:body>'
+        f'<?xml version="1.0"?><w:document {W_XMLNS}><w:body>'
         + "".join(paragraphs)
         + "</w:body></w:document>"
     )
@@ -132,68 +132,24 @@ def _write_docx(path: Path, *, paragraphs: list[str], with_comment: bool = False
     return path
 
 
-def _init_project(tmp_path: Path, *, body: str) -> tuple[Path, Path]:
-    """Monta `project_root` mínimo (`references/_references.bib`, exigido por
-    `export.detect_project_root` — não usado diretamente aqui pois os testes
-    passam `project_root` explícito, mas mantido para realismo) + `pagina.md`
-    com `body` (sem frontmatter)."""
-    project_root = tmp_path
-    (project_root / "references").mkdir(parents=True, exist_ok=True)
-    (project_root / "references" / "_references.bib").write_text("")
-    page = project_root / "pagina.md"
-    page.write_text(body)
-    return project_root, page
-
-
-def _write_sidecars(
-    project_root: Path,
-    page: Path,
-    *,
-    source_text: str,
-    docx_sha256: str,
-    occurrences: list[CiteOccurrence] | None = None,
-) -> Path:
-    """Grava `reviews/<slug>/{citemap,span-map}.json` à mão — simula a saída
-    de `export._emit_review_sidecars` sem rodar pandoc/BBT. `span_map.fragments`
-    fica vazio de propósito: `ingest()` recalcula `norm_text`/`span_frags` na
-    hora via `normalize_markdown_with_map(body, ...)` (mesma chamada do
-    export — decisão documentada no brief da Task 8), então o sidecar só
-    precisa do `source_sha256` para o preflight."""
-    slug = slugify(page, project_root)
-    review_dir = project_root / "reviews" / slug
-    review_dir.mkdir(parents=True, exist_ok=True)
-    citemap = CiteMapFile(
-        page=str(page.relative_to(project_root)),
-        export_git_sha="deadbee",
-        bib_sha256="ab" * 32,
-        docx_sha256=docx_sha256,
-        occurrences=occurrences or [],
-    )
-    span_map = SpanMapFile(
-        page=str(page.relative_to(project_root)),
-        source_sha256=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
-        fragments=[],
-    )
-    (review_dir / "citemap.json").write_text(citemap.model_dump_json())
-    (review_dir / "span-map.json").write_text(span_map.model_dump_json())
-    return review_dir
-
-
 # --- 1. happy path: 1 ins de prosa + 1 comentário ---------------------------
 
 
 def test_ingest_happy_path_prose_insertion_and_comment_writes_valid_sidecars(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    init_project: InitProject,
+    write_review_artifacts: WriteReviewArtifacts,
 ) -> None:
     prefix = "O paciente recebeu o tratamento"
     suffix = " conforme protocolo estabelecido pela equipe."
     body = prefix + suffix
-    project_root, page = _init_project(tmp_path, body=body)
+    project_root, page = init_project(body=body)
 
     docx = _write_docx(
         tmp_path / "revisado.docx", paragraphs=[_comment_paragraph()], with_comment=True
     )
-    _write_sidecars(project_root, page, source_text=body, docx_sha256=_UNRELATED_DOCX_SHA256)
+    write_review_artifacts(project_root, page, source_text=body, docx_sha256=_UNRELATED_DOCX_SHA256)
 
     adeu_markdown = prefix + "{++ novo++}{>>[Chg:1 insert] Coautor<<}" + suffix
     monkeypatch.setattr(review, "_run_adeu_extract", lambda _docx: adeu_markdown)
@@ -234,14 +190,19 @@ def test_ingest_happy_path_prose_insertion_and_comment_writes_valid_sidecars(
 # --- 1a. preflight 3a: uvx não disponível → fail-fast antes de sidecars ------
 
 
-def test_ingest_fails_fast_without_uvx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ingest_fails_fast_without_uvx(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    init_project: InitProject,
+    write_review_artifacts: WriteReviewArtifacts,
+) -> None:
     """Preflight 3a: `ingest()` checa uvx no PATH ANTES de carregar sidecars.
     Sem uvx, levanta `AdeuUnavailableError` mencionando o comando de
     instalação, e NÃO faz nenhuma leitura de sidecar (fail-fast: economia de
     trabalho inútil se o backend não estiver disponível)."""
     body = "Pagina de teste para preflight uvx."
-    project_root, page = _init_project(tmp_path, body=body)
-    _write_sidecars(project_root, page, source_text=body, docx_sha256=_UNRELATED_DOCX_SHA256)
+    project_root, page = init_project(body=body)
+    write_review_artifacts(project_root, page, source_text=body, docx_sha256=_UNRELATED_DOCX_SHA256)
     docx = _write_docx(tmp_path / "revisado.docx", paragraphs=[])
 
     # Monkeypatch shutil.which no módulo review para simular uvx ausente
@@ -263,9 +224,11 @@ def test_ingest_fails_fast_without_uvx(tmp_path: Path, monkeypatch: pytest.Monke
 # `zipfile.BadZipFile` vazava cru pelo CLI (fora de `_REVIEW_CATCHES`).
 
 
-def test_ingest_non_zip_docx_raises_value_error_with_actionable_hint(tmp_path: Path) -> None:
+def test_ingest_non_zip_docx_raises_value_error_with_actionable_hint(
+    tmp_path: Path, init_project: InitProject
+) -> None:
     body = "Pagina de teste para docx nao-zip."
-    project_root, page = _init_project(tmp_path, body=body)
+    project_root, page = init_project(body=body)
     docx = tmp_path / "revisado.docx"
     docx.write_text("isto claramente nao e um arquivo zip/docx")
 
@@ -281,7 +244,10 @@ def test_ingest_non_zip_docx_raises_value_error_with_actionable_hint(tmp_path: P
 
 
 def test_ingest_happy_path_preserves_frontmatter_in_review_md(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    init_project: InitProject,
+    write_review_artifacts: WriteReviewArtifacts,
 ) -> None:
     """Frontmatter da página sobrevive em `review.md` BYTE A BYTE (Fix
     pós-review, achado Crítico 1 — `_compose_page` nunca faz
@@ -299,13 +265,11 @@ def test_ingest_happy_path_preserves_frontmatter_in_review_md(
         "---\n\n"
     )
     page_text = raw_frontmatter + prose
-    project_root = tmp_path
-    (project_root / "references").mkdir(parents=True, exist_ok=True)
-    (project_root / "references" / "_references.bib").write_text("")
-    page = project_root / "pagina.md"
-    page.write_text(page_text)
+    project_root, page = init_project(body=page_text)
 
-    _write_sidecars(project_root, page, source_text=prose, docx_sha256=_UNRELATED_DOCX_SHA256)
+    write_review_artifacts(
+        project_root, page, source_text=prose, docx_sha256=_UNRELATED_DOCX_SHA256
+    )
     docx = _write_docx(tmp_path / "revisado.docx", paragraphs=[])
 
     adeu_markdown = prefix + "{++ ADICIONADO++}" + suffix
@@ -332,9 +296,11 @@ def test_ingest_happy_path_preserves_frontmatter_in_review_md(
 # --- 2. sidecars ausentes → FileNotFoundError pt-BR -------------------------
 
 
-def test_ingest_missing_sidecars_raises_file_not_found_with_export_hint(tmp_path: Path) -> None:
+def test_ingest_missing_sidecars_raises_file_not_found_with_export_hint(
+    tmp_path: Path, init_project: InitProject
+) -> None:
     body = "Pagina sem nenhum sidecar gravado ainda."
-    project_root, page = _init_project(tmp_path, body=body)
+    project_root, page = init_project(body=body)
     docx = _write_docx(tmp_path / "revisado.docx", paragraphs=[])
 
     with pytest.raises(FileNotFoundError) as exc:
@@ -352,12 +318,12 @@ def test_ingest_missing_sidecars_raises_file_not_found_with_export_hint(tmp_path
 
 
 def test_ingest_corrupted_citemap_json_raises_value_error_with_sidecar_hint(
-    tmp_path: Path,
+    tmp_path: Path, init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
     body = "Pagina com citemap.json corrompido."
-    project_root, page = _init_project(tmp_path, body=body)
+    project_root, page = init_project(body=body)
     docx = _write_docx(tmp_path / "revisado.docx", paragraphs=[])
-    review_dir = _write_sidecars(
+    review_dir = write_review_artifacts(
         project_root, page, source_text=body, docx_sha256=_UNRELATED_DOCX_SHA256
     )
     (review_dir / "citemap.json").write_text("{invalid")
@@ -374,11 +340,13 @@ def test_ingest_corrupted_citemap_json_raises_value_error_with_sidecar_hint(
 # --- 3. fonte alterada desde o export → SourceChangedError ------------------
 
 
-def test_ingest_source_changed_since_export_raises(tmp_path: Path) -> None:
+def test_ingest_source_changed_since_export_raises(
+    tmp_path: Path, init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     body = "Texto ATUAL da pagina, editado depois do export original."
-    project_root, page = _init_project(tmp_path, body=body)
+    project_root, page = init_project(body=body)
     docx = _write_docx(tmp_path / "revisado.docx", paragraphs=[])
-    _write_sidecars(
+    write_review_artifacts(
         project_root,
         page,
         source_text="Texto ANTIGO, exportado antes da edicao na fonte.",
@@ -394,12 +362,14 @@ def test_ingest_source_changed_since_export_raises(tmp_path: Path) -> None:
 # --- 4. docx revisado idêntico ao exportado → erro I8 -----------------------
 
 
-def test_ingest_docx_identical_to_exported_raises_i8(tmp_path: Path) -> None:
+def test_ingest_docx_identical_to_exported_raises_i8(
+    tmp_path: Path, init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     body = "Texto da pagina, inalterado desde o export."
-    project_root, page = _init_project(tmp_path, body=body)
+    project_root, page = init_project(body=body)
     docx = _write_docx(tmp_path / "revisado.docx", paragraphs=[])
     docx_sha256 = hashlib.sha256(docx.read_bytes()).hexdigest()
-    _write_sidecars(project_root, page, source_text=body, docx_sha256=docx_sha256)
+    write_review_artifacts(project_root, page, source_text=body, docx_sha256=docx_sha256)
 
     with pytest.raises(CitationConservationError) as exc:
         ingest(reviewed_docx=docx, page=page, project_root=project_root)
@@ -411,13 +381,16 @@ def test_ingest_docx_identical_to_exported_raises_i8(tmp_path: Path) -> None:
 
 
 def test_ingest_deleted_citation_emits_drop_event_without_duplicate_mark(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    init_project: InitProject,
+    write_review_artifacts: WriteReviewArtifacts,
 ) -> None:
     formatted = "(Jones, 2021)"
     prose_before = "Outro estudo "
     prose_after = " confirmou o achado principal."
     body = prose_before + "[[@jones2021]]" + prose_after
-    project_root, page = _init_project(tmp_path, body=body)
+    project_root, page = init_project(body=body)
 
     payload = _payload(occ_id="00000002", citekeys=["jones2021"], formatted=formatted)
     docx = _write_docx(
@@ -437,7 +410,7 @@ def test_ingest_deleted_citation_emits_drop_event_without_duplicate_mark(
         norm_start=cit_start,
         norm_end=cit_end,
     )
-    _write_sidecars(
+    write_review_artifacts(
         project_root,
         page,
         source_text=body,
@@ -481,26 +454,36 @@ def test_ingest_deleted_citation_emits_drop_event_without_duplicate_mark(
 # pelo descarte.
 
 
-def _ingest_ok_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path, Path]:
-    """Receita mínima de ingest válido (mesma do happy path, linha ~185):
+def _ingest_ok_setup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    init_project: InitProject,
+    write_review_artifacts: WriteReviewArtifacts,
+) -> tuple[Path, Path, Path]:
+    """Receita mínima de ingest válido (mesma do happy path, teste 1):
     devolve (project_root, page, docx) com adeu mockado no seam."""
     prefix = "O paciente recebeu o tratamento"
     suffix = " conforme protocolo estabelecido pela equipe."
     body = prefix + suffix
-    project_root, page = _init_project(tmp_path, body=body)
+    project_root, page = init_project(body=body)
     docx = _write_docx(
         tmp_path / "revisado.docx", paragraphs=[_comment_paragraph()], with_comment=True
     )
-    _write_sidecars(project_root, page, source_text=body, docx_sha256=_UNRELATED_DOCX_SHA256)
+    write_review_artifacts(project_root, page, source_text=body, docx_sha256=_UNRELATED_DOCX_SHA256)
     adeu_markdown = prefix + "{++ novo++}{>>[Chg:1 insert] Coautor<<}" + suffix
     monkeypatch.setattr(review, "_run_adeu_extract", lambda _docx: adeu_markdown)
     return project_root, page, docx
 
 
 def test_reingest_com_worklist_pendente_hard_fail(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    init_project: InitProject,
+    write_review_artifacts: WriteReviewArtifacts,
 ) -> None:
-    project_root, page, docx = _ingest_ok_setup(tmp_path, monkeypatch)
+    project_root, page, docx = _ingest_ok_setup(
+        tmp_path, monkeypatch, init_project, write_review_artifacts
+    )
     first = ingest(reviewed_docx=docx, page=page, project_root=project_root)
     assert first.marks_applied == 1  # worklist ficou com marca pendente
 
@@ -514,9 +497,14 @@ def test_reingest_com_worklist_pendente_hard_fail(
 
 
 def test_reingest_com_force_sobrescreve_propostas(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    init_project: InitProject,
+    write_review_artifacts: WriteReviewArtifacts,
 ) -> None:
-    project_root, page, docx = _ingest_ok_setup(tmp_path, monkeypatch)
+    project_root, page, docx = _ingest_ok_setup(
+        tmp_path, monkeypatch, init_project, write_review_artifacts
+    )
     first = ingest(reviewed_docx=docx, page=page, project_root=project_root)
     first.review_md.write_text(
         first.review_md.read_text() + "{++proposta do agente++}{>>prumo-autor: agente<<}"
@@ -527,9 +515,14 @@ def test_reingest_com_force_sobrescreve_propostas(
 
 
 def test_reingest_com_worklist_consumido_nao_exige_force(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    init_project: InitProject,
+    write_review_artifacts: WriteReviewArtifacts,
 ) -> None:
-    project_root, page, docx = _ingest_ok_setup(tmp_path, monkeypatch)
+    project_root, page, docx = _ingest_ok_setup(
+        tmp_path, monkeypatch, init_project, write_review_artifacts
+    )
     first = ingest(reviewed_docx=docx, page=page, project_root=project_root)
     # simula worklist 100% consumido pelo apply: corpo sem nenhuma marca
     first.review_md.write_text("corpo decidido, sem marcas")

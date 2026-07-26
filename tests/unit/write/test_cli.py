@@ -178,6 +178,17 @@ def _pj_with_bib(tmp_path: Path) -> tuple[Path, Path]:
     return pj, page
 
 
+def _pj_with_review_dir(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """`_pj_with_bib` + `reviews/p/` vazio — scaffold dos testes de
+    `review events` (era o mesmo bloco inline repetido 6×; /simplify).
+    O `events.yaml` fica a cargo de cada teste: cada um exercita um
+    conteúdo diferente (kinds reais, corrompido, colchetes literais)."""
+    pj, page = _pj_with_bib(tmp_path)
+    review_dir = pj / "reviews" / "p"
+    review_dir.mkdir(parents=True)
+    return pj, page, review_dir
+
+
 def test_write_export_docx_prints_first_use_note(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -474,15 +485,7 @@ def test_write_review_apply_mark_without_decision_exits_cleanly(
 
 
 def test_write_review_events_list_plain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    pj = tmp_path / "pj_demo"
-    page = pj / "docs" / "p.md"
-    page.parent.mkdir(parents=True)
-    page.write_text("Texto.\n")
-    # Create project root marker
-    (pj / "references").mkdir()
-    (pj / "references" / "_references.bib").write_text("")
-    review_dir = pj / "reviews" / "p"
-    review_dir.mkdir(parents=True)
+    _pj, page, review_dir = _pj_with_review_dir(tmp_path)
     # Kinds REAIS gravados por `review.py` (Fix pós-review, Crítico #1) —
     # NUNCA "unanchored"/"citation-touched" fabricados; ver grep `kind="` em
     # `review.py` (`unanchored-mark`, `citation-touched-prose`, etc.).
@@ -502,15 +505,7 @@ def test_write_review_events_list_plain(tmp_path: Path, monkeypatch: pytest.Monk
 
 
 def test_write_review_events_checklist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    pj = tmp_path / "pj_demo"
-    page = pj / "docs" / "p.md"
-    page.parent.mkdir(parents=True)
-    page.write_text("Texto.\n")
-    # Create project root marker
-    (pj / "references").mkdir()
-    (pj / "references" / "_references.bib").write_text("")
-    review_dir = pj / "reviews" / "p"
-    review_dir.mkdir(parents=True)
+    _pj, page, review_dir = _pj_with_review_dir(tmp_path)
     # Cobertura dos 6 kinds REAIS que `review.py` persiste (Fix pós-review,
     # Crítico #1 — grep `kind="` em `review.py`): "unanchored"/"ambiguous"/
     # "non-identity"/"citation-touched" fabricados NUNCA são gravados de
@@ -554,13 +549,7 @@ def test_write_review_events_checklist(tmp_path: Path, monkeypatch: pytest.Monke
 def test_write_review_events_missing_sidecars_exits_cleanly(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pj = tmp_path / "pj_demo"
-    page = pj / "docs" / "p.md"
-    page.parent.mkdir(parents=True)
-    page.write_text("Texto.\n")
-    # Create project root marker
-    (pj / "references").mkdir()
-    (pj / "references" / "_references.bib").write_text("")
+    _pj, page = _pj_with_bib(tmp_path)
     # No review dir created, so events.yaml is missing
     monkeypatch.setenv("COLUMNS", "300")
 
@@ -579,14 +568,7 @@ def test_write_review_events_missing_sidecars_exits_cleanly(
 def test_write_review_events_corrupt_sidecar_shows_pt_br_message(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pj = tmp_path / "pj_demo"
-    page = pj / "docs" / "p.md"
-    page.parent.mkdir(parents=True)
-    page.write_text("Texto.\n")
-    (pj / "references").mkdir()
-    (pj / "references" / "_references.bib").write_text("")
-    review_dir = pj / "reviews" / "p"
-    review_dir.mkdir(parents=True)
+    _pj, page, review_dir = _pj_with_review_dir(tmp_path)
     # `detail` é obrigatório em `ReviewEvent` (schemas/v1.py) — ausência viola
     # o schema (`pydantic.ValidationError`), simulando events.yaml corrompido
     # (editado à mão incorretamente).
@@ -614,15 +596,8 @@ def test_review_read_events_file_with_malformed_yaml_raises_value_error_pt_br(
     `pydantic.ValidationError` pra ValueError pt-BR — mesma mensagem que
     `mcp_server._corrupt_sidecar_message` compunha isoladamente antes deste
     fix; `cli.py` e `mcp_server.py` delegam aqui agora, fonte única."""
-    project_root = tmp_path
-    (project_root / "references").mkdir(parents=True)
-    (project_root / "references" / "_references.bib").write_text("")
-    page = project_root / "docs" / "p.md"
-    page.parent.mkdir(parents=True)
-    page.write_text("Texto.\n")
+    project_root, page, review_dir = _pj_with_review_dir(tmp_path)
     page_resolved = page.resolve()
-    review_dir = project_root / "reviews" / export.slugify(page_resolved, project_root)
-    review_dir.mkdir(parents=True)
     (review_dir / "events.yaml").write_text(
         "page: docs/p.md\nevents:\n  - kind: unanchored-mark\n", encoding="utf-8"
     )
@@ -647,14 +622,7 @@ def test_review_read_events_file_with_malformed_yaml_raises_value_error_pt_br(
 def test_write_review_events_preserves_citation_brackets_literal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pj = tmp_path / "pj_demo"
-    page = pj / "docs" / "p.md"
-    page.parent.mkdir(parents=True)
-    page.write_text("Texto.\n")
-    (pj / "references").mkdir()
-    (pj / "references" / "_references.bib").write_text("")
-    review_dir = pj / "reviews" / "p"
-    review_dir.mkdir(parents=True)
+    _pj, page, review_dir = _pj_with_review_dir(tmp_path)
     (review_dir / "events.yaml").write_text(
         "page: docs/p.md\n"
         "events:\n"

@@ -22,10 +22,10 @@ from prumo_assist.domains.write.review import (
     StructuralChangeError,
     assert_no_structural_changes,
 )
+from tests.unit.conftest import W_XMLNS
 
-_W_XMLNS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 _M_XMLNS = 'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"'
-_DOC_XMLNS = f"{_W_XMLNS} {_M_XMLNS}"
+_DOC_XMLNS = f"{W_XMLNS} {_M_XMLNS}"
 
 _FIX_INSTRUCTION = (
     "peça ao coautor para mover a mudança para o corpo do texto ou aplique "
@@ -58,12 +58,12 @@ def _write_docx(
         if footnotes_body is not None:
             z.writestr(
                 "word/footnotes.xml",
-                f'<?xml version="1.0"?><w:footnotes {_W_XMLNS}>{footnotes_body}</w:footnotes>',
+                f'<?xml version="1.0"?><w:footnotes {W_XMLNS}>{footnotes_body}</w:footnotes>',
             )
         if endnotes_body is not None:
             z.writestr(
                 "word/endnotes.xml",
-                f'<?xml version="1.0"?><w:endnotes {_W_XMLNS}>{endnotes_body}</w:endnotes>',
+                f'<?xml version="1.0"?><w:endnotes {W_XMLNS}>{endnotes_body}</w:endnotes>',
             )
     return path
 

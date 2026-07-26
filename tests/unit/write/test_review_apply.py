@@ -1,9 +1,10 @@
 """`apply_review()` — decisões por marca/autor, drops e write-back (Task 9).
 
-Fixtures LOCAIS (`_init_project`/`_write_review_dir`), não reusadas de
-`test_review_ingest.py` (mesma convenção documentada em
-`test_review_locate.py`: cada arquivo de teste tem seu próprio builder).
-`review.md`/`events.yaml`/`citemap.json`/`span-map.json` são escritos À MÃO
+Scaffold e sidecars via fixtures compartilhadas de `tests/unit/conftest.py`
+(`init_project`/`write_review_artifacts` — achado do /simplify; a convenção
+"cada arquivo tem seu próprio builder" segue valendo só para builders de
+docx-zip, que este arquivo nem usa).
+`review.md`/`events.yaml`/`citemap.json`/`span-map.json` são escritos à mão
 simulando a saída de `ingest()` (Task 8) — sem rodar o pipeline adeu/docx de
 verdade: o que importa aqui é o CONTRATO de `apply_review` (decisões,
 guardas, conservação, write-back), já coberto em `test_review_ingest.py` na
@@ -15,14 +16,12 @@ colisão com um comentário humano genuíno `{>>autor: ...<<}`)."""
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import pytest
 import yaml
 
 from prumo_assist.core import criticmarkup
-from prumo_assist.domains.write.export import slugify
 from prumo_assist.domains.write.review import (
     ApplyResult,
     CitationConservationError,
@@ -32,66 +31,11 @@ from prumo_assist.domains.write.review import (
     propose_prose_edit,
 )
 from prumo_assist.domains.write.schemas.v1 import (
-    CiteMapFile,
     CiteOccurrence,
     ReviewEvent,
     ReviewEventsFile,
-    SpanMapFile,
 )
-
-
-def _init_project(tmp_path: Path, *, page_body: str) -> tuple[Path, Path]:
-    """Monta `project_root` mínimo (`references/_references.bib`) + `pagina.md`
-    com `page_body` (sem frontmatter) — mesmo padrão de `test_review_ingest.py`."""
-    project_root = tmp_path
-    (project_root / "references").mkdir(parents=True, exist_ok=True)
-    (project_root / "references" / "_references.bib").write_text("")
-    page = project_root / "pagina.md"
-    page.write_text(page_body)
-    return project_root, page
-
-
-def _write_review_dir(
-    project_root: Path,
-    page: Path,
-    *,
-    review_body: str,
-    events: list[ReviewEvent] | None = None,
-    occurrences: list[CiteOccurrence] | None = None,
-) -> Path:
-    """Grava `reviews/<slug>/{review.md,events.yaml,citemap.json,span-map.json}`
-    à mão — simula a saída de `ingest()` (Task 8) sem rodar o pipeline
-    adeu/docx. `span-map.json` fica com `fragments=[]`: `apply_review` nunca
-    reinverte offsets (I5 — bibliografia é função da fonte, nada a
-    transplantar), então o sidecar só precisa existir para `_read_sidecars`
-    (reusado de Task 8) não falhar."""
-    slug = slugify(page, project_root)
-    review_dir = project_root / "reviews" / slug
-    review_dir.mkdir(parents=True, exist_ok=True)
-    (review_dir / "review.md").write_text(review_body, encoding="utf-8")
-
-    events_file = ReviewEventsFile(page=str(page.relative_to(project_root)), events=events or [])
-    (review_dir / "events.yaml").write_text(
-        yaml.safe_dump(events_file.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
-    )
-
-    citemap = CiteMapFile(
-        page=str(page.relative_to(project_root)),
-        export_git_sha="deadbee",
-        bib_sha256="ab" * 32,
-        docx_sha256="cd" * 32,
-        occurrences=occurrences or [],
-    )
-    (review_dir / "citemap.json").write_text(citemap.model_dump_json())
-
-    span_map = SpanMapFile(
-        page=str(page.relative_to(project_root)),
-        source_sha256=hashlib.sha256(b"irrelevante para apply_review").hexdigest(),
-        fragments=[],
-    )
-    (review_dir / "span-map.json").write_text(span_map.model_dump_json())
-    return review_dir
+from tests.unit.conftest import InitProject, WriteReviewArtifacts
 
 
 def _events_on_disk(review_dir: Path) -> ReviewEventsFile:
@@ -101,13 +45,15 @@ def _events_on_disk(review_dir: Path) -> ReviewEventsFile:
 # --- 1. accept-all limpa e escreve na página --------------------------------
 
 
-def test_apply_accept_all_resolves_marks_and_writes_page(tmp_path: Path) -> None:
+def test_apply_accept_all_resolves_marks_and_writes_page(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     prefix = "O paciente recebeu o tratamento"
     suffix = " conforme protocolo estabelecido pela equipe."
     page_body = prefix + suffix
-    project_root, page = _init_project(tmp_path, page_body=page_body)
+    project_root, page = init_project(body=page_body)
     review_body = prefix + "{++ novo++}{>>prumo-autor: Coautor<<}" + suffix
-    review_dir = _write_review_dir(project_root, page, review_body=review_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=review_body)
 
     result = apply_review(page=page, accept_all=True, today="2026-07-24", project_root=project_root)
 
@@ -133,12 +79,14 @@ def test_apply_accept_all_resolves_marks_and_writes_page(tmp_path: Path) -> None
 # --- 2. reject-all restaura o original byte a byte --------------------------
 
 
-def test_apply_reject_all_restores_original_bytes(tmp_path: Path) -> None:
+def test_apply_reject_all_restores_original_bytes(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     page_body = "O paciente recebeu tratamento adequado e cirurgia foi bem sucedida."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
+    project_root, page = init_project(body=page_body)
     review_body = page_body.replace("adequado ", "{--adequado --}{>>prumo-autor: Coautor<<}")
     assert review_body != page_body  # garante que a substituição de fato ocorreu
-    review_dir = _write_review_dir(project_root, page, review_body=review_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=review_body)
 
     result = apply_review(page=page, reject_all=True, today="2026-07-24", project_root=project_root)
 
@@ -153,12 +101,14 @@ def test_apply_reject_all_restores_original_bytes(tmp_path: Path) -> None:
 # --- 3. by-author aplica só as do autor -------------------------------------
 
 
-def test_apply_by_author_applies_only_that_authors_marks(tmp_path: Path) -> None:
+def test_apply_by_author_applies_only_that_authors_marks(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     prefix = "Primeira frase da secao"
     mid = " e segunda frase completando o paragrafo"
     suffix = " e concluindo o texto."
     page_body = prefix + mid + suffix
-    project_root, page = _init_project(tmp_path, page_body=page_body)
+    project_root, page = init_project(body=page_body)
     review_body = (
         prefix
         + "{++ ALICE++}{>>prumo-autor: Alice<<}"
@@ -166,7 +116,7 @@ def test_apply_by_author_applies_only_that_authors_marks(tmp_path: Path) -> None
         + "{++ BOB++}{>>prumo-autor: Bob<<}"
         + suffix
     )
-    review_dir = _write_review_dir(project_root, page, review_body=review_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=review_body)
 
     result = apply_review(
         page=page,
@@ -197,7 +147,9 @@ def test_apply_by_author_applies_only_that_authors_marks(tmp_path: Path) -> None
 #         revertem decisões anteriores -----------------------------------
 
 
-def test_apply_sequential_by_author_calls_do_not_revert_earlier_decisions(tmp_path: Path) -> None:
+def test_apply_sequential_by_author_calls_do_not_revert_earlier_decisions(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     """Repro end-to-end do reviewer (sem mocks): Alice e Bob intercalados;
     apply `by_author=Alice accept` seguido de apply `by_author=Bob accept`
     — a página final tem AMBAS resolvidas (nunca a marca crua da Alice de
@@ -211,7 +163,7 @@ def test_apply_sequential_by_author_calls_do_not_revert_earlier_decisions(tmp_pa
     mid = " e segunda frase completando o paragrafo"
     suffix = " e concluindo o texto."
     page_body = prefix + mid + suffix
-    project_root, page = _init_project(tmp_path, page_body=page_body)
+    project_root, page = init_project(body=page_body)
     review_body = (
         prefix
         + "{++ ALICE++}{>>prumo-autor: Alice<<}"
@@ -219,7 +171,7 @@ def test_apply_sequential_by_author_calls_do_not_revert_earlier_decisions(tmp_pa
         + "{++ BOB++}{>>prumo-autor: Bob<<}"
         + suffix
     )
-    review_dir = _write_review_dir(project_root, page, review_body=review_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=review_body)
 
     result1 = apply_review(
         page=page,
@@ -276,13 +228,15 @@ def _jones_drop_event() -> ReviewEvent:
     )
 
 
-def test_apply_citation_drop_without_confirmation_hard_fails(tmp_path: Path) -> None:
+def test_apply_citation_drop_without_confirmation_hard_fails(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     page_body = "Outro estudo [[@jones2021]] confirmou o achado."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    _write_review_dir(
+    project_root, page = init_project(body=page_body)
+    write_review_artifacts(
         project_root,
         page,
-        review_body=page_body,  # citação intocada em review.md — ingest nunca a transplanta
+        review_md=page_body,  # citação intocada em review.md — ingest nunca a transplanta
         events=[_jones_drop_event()],
         occurrences=[_jones_occurrence()],
     )
@@ -301,17 +255,19 @@ def test_apply_citation_drop_without_confirmation_hard_fails(tmp_path: Path) -> 
 # --- 5. com confirmação → página sem a citação e conservação ok ------------
 
 
-def test_apply_confirmed_citation_drop_removes_citation_and_conserves(tmp_path: Path) -> None:
+def test_apply_confirmed_citation_drop_removes_citation_and_conserves(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     page_body = "Outro estudo [[@jones2021]] confirmou o achado."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
+    project_root, page = init_project(body=page_body)
     # o humano já removeu a referência à citação em review.md (é o único
     # jeito de a citação de fato sair do corpo — o apply nunca transplanta
     # citação; só verifica a conservação do que está em review.md, I5).
     edited_review_body = "Outro estudo confirmou o achado."
-    review_dir = _write_review_dir(
+    review_dir = write_review_artifacts(
         project_root,
         page,
-        review_body=edited_review_body,
+        review_md=edited_review_body,
         events=[_jones_drop_event()],
         occurrences=[_jones_occurrence()],
     )
@@ -335,17 +291,17 @@ def test_apply_confirmed_citation_drop_removes_citation_and_conserves(tmp_path: 
 
 
 def test_apply_confirmed_citation_drop_without_removing_from_review_md_raises_conservation_error(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
     """Auto-review edge case: confirmar o drop não remove a citação por
     mágica — se o humano esqueceu de editar `review.md`, a citação ainda
     aparece no corpo final e a conservação pós-apply pega isso."""
     page_body = "Outro estudo [[@jones2021]] confirmou o achado."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    _write_review_dir(
+    project_root, page = init_project(body=page_body)
+    write_review_artifacts(
         project_root,
         page,
-        review_body=page_body,  # NÃO editado — citação ainda presente
+        review_md=page_body,  # NÃO editado — citação ainda presente
         events=[_jones_drop_event()],
         occurrences=[_jones_occurrence()],
     )
@@ -366,7 +322,9 @@ def test_apply_confirmed_citation_drop_without_removing_from_review_md_raises_co
 
 
 def test_apply_forged_residual_mark_raises_mark_lost_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    init_project: InitProject,
+    write_review_artifacts: WriteReviewArtifacts,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Guarda B (apply-side): monkeypatch em `criticmarkup.apply` (seam já
     usado pelo próprio módulo) simula uma decisão que não resolveu nenhuma
@@ -374,9 +332,9 @@ def test_apply_forged_residual_mark_raises_mark_lost_error(
     final) e a função aborta com `MarkLostError` ANTES de qualquer
     write-back."""
     page_body = "Frase de prosa pura para o teste da guarda B."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
+    project_root, page = init_project(body=page_body)
     review_body = "Frase de {++prosa pura++}{>>prumo-autor: Coautor<<} para o teste da guarda B."
-    _write_review_dir(project_root, page, review_body=review_body)
+    write_review_artifacts(project_root, page, review_md=review_body)
 
     monkeypatch.setattr(criticmarkup, "apply", lambda text, decisions: text)
 
@@ -392,10 +350,12 @@ def test_apply_forged_residual_mark_raises_mark_lost_error(
 # --- 7. exatamente um modo de decisão — senão ValueError pt-BR --------------
 
 
-def test_apply_requires_exactly_one_decision_mode(tmp_path: Path) -> None:
+def test_apply_requires_exactly_one_decision_mode(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     page_body = "Pagina sem nenhuma marca, só para testar validacao de modo."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    write_review_artifacts(project_root, page, review_md=page_body)
 
     with pytest.raises(ValueError):
         apply_review(page=page, today="2026-07-24", project_root=project_root)
@@ -413,7 +373,9 @@ def test_apply_requires_exactly_one_decision_mode(tmp_path: Path) -> None:
 # --- 8. modo marks={i: bool} — mistura accept/reject por índice (Important) -
 
 
-def test_apply_marks_by_index_mixed_accept_reject(tmp_path: Path) -> None:
+def test_apply_marks_by_index_mixed_accept_reject(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     """Achado Importante do review: modo `marks={i: bool}` não tinha
     cobertura própria. 2 marcas de conteúdo (um `ins`, um `del`) na MESMA
     chamada — índice 0 aceito, índice 1 rejeitado — exercitando a mistura na
@@ -423,7 +385,7 @@ def test_apply_marks_by_index_mixed_accept_reject(tmp_path: Path) -> None:
     mid = " ainda sem revisao"
     suffix = " ate aqui."
     page_body = prefix + mid + suffix
-    project_root, page = _init_project(tmp_path, page_body=page_body)
+    project_root, page = init_project(body=page_body)
     review_body = (
         prefix
         + "{++ NOVO++}{>>prumo-autor: Alice<<}"
@@ -432,7 +394,7 @@ def test_apply_marks_by_index_mixed_accept_reject(tmp_path: Path) -> None:
         + "--}{>>prumo-autor: Bob<<}"
         + suffix
     )
-    review_dir = _write_review_dir(project_root, page, review_body=review_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=review_body)
 
     result = apply_review(
         page=page,
@@ -463,7 +425,7 @@ def test_apply_marks_by_index_mixed_accept_reject(tmp_path: Path) -> None:
 
 
 def test_apply_second_call_after_confirmed_drop_needs_no_reconfirmation(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
     """Achado Crítico 2 (parte do fix de `events.yaml` consumido): depois de
     uma chamada confirmar um `citation-drop`, uma 2a chamada (mesmo sem
@@ -474,14 +436,14 @@ def test_apply_second_call_after_confirmed_drop_needs_no_reconfirmation(
     prefix = "Primeiro paragrafo. Segundo estudo "
     suffix = " confirmou."
     page_body = prefix + "[[@jones2021]]" + suffix
-    project_root, page = _init_project(tmp_path, page_body=page_body)
+    project_root, page = init_project(body=page_body)
     # humano já removeu a referência à citação em review.md, e há 1 marca de
     # prosa pendente (Alice) ao lado — mesmo padrão dos outros testes de drop.
     edited_review_body = prefix + "{++ EXTRA++}{>>prumo-autor: Alice<<}" + suffix
-    review_dir = _write_review_dir(
+    review_dir = write_review_artifacts(
         project_root,
         page,
-        review_body=edited_review_body,
+        review_md=edited_review_body,
         events=[_jones_drop_event()],
         occurrences=[_jones_occurrence()],
     )
@@ -518,7 +480,7 @@ def test_apply_second_call_after_confirmed_drop_needs_no_reconfirmation(
 # pendente no worklist (I1/I3b)
 # =============================================================================
 #
-# `_write_review_dir` (acima) é reusado tal qual — `propose_prose_edit` só
+# `write_review_artifacts` (conftest) é reusado tal qual — `propose_prose_edit` só
 # toca `review.md`; `citemap.json`/`span-map.json` continuam existindo só
 # para satisfazer o formato de `reviews/<slug>/`, nunca lidos por esta
 # função (ela nunca decide nada sobre citação, só recusa qualquer proposta
@@ -530,13 +492,13 @@ def test_apply_second_call_after_confirmed_drop_needs_no_reconfirmation(
 
 
 def test_propose_prose_edit_ins_after_unique_anchor_then_apply_by_author_agente(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
     prefix = "Frase base do paragrafo"
     suffix = " que continua depois da ancora."
     page_body = prefix + suffix
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
     result = propose_prose_edit(
         page=page,
@@ -578,10 +540,12 @@ def test_propose_prose_edit_ins_after_unique_anchor_then_apply_by_author_agente(
 # --- 11. âncora ausente (0 ocorrências) -> ValueError pt-BR -----------------
 
 
-def test_propose_prose_edit_anchor_not_found_raises(tmp_path: Path) -> None:
+def test_propose_prose_edit_anchor_not_found_raises(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     page_body = "Texto qualquer sem a ancora pedida."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    write_review_artifacts(project_root, page, review_md=page_body)
 
     with pytest.raises(ValueError) as exc:
         propose_prose_edit(
@@ -601,10 +565,12 @@ def test_propose_prose_edit_anchor_not_found_raises(tmp_path: Path) -> None:
 # --- 12. âncora ambígua (>1 ocorrência) -> ValueError pt-BR -----------------
 
 
-def test_propose_prose_edit_ambiguous_anchor_raises(tmp_path: Path) -> None:
+def test_propose_prose_edit_ambiguous_anchor_raises(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     page_body = "repete repete no mesmo texto."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
     with pytest.raises(ValueError) as exc:
         propose_prose_edit(
@@ -623,10 +589,12 @@ def test_propose_prose_edit_ambiguous_anchor_raises(tmp_path: Path) -> None:
 # --- 13. payload com citekey/sintaxe de citação -> recusa I3b ---------------
 
 
-def test_propose_prose_edit_rejects_citation_payload_i3b(tmp_path: Path) -> None:
+def test_propose_prose_edit_rejects_citation_payload_i3b(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     page_body = "Frase-alvo para a proposta aqui."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
     with pytest.raises(ValueError) as exc:
         propose_prose_edit(
@@ -645,10 +613,12 @@ def test_propose_prose_edit_rejects_citation_payload_i3b(tmp_path: Path) -> None
 # --- 14. âncora colada em `[[@key]]` -> recusa I1 ---------------------------
 
 
-def test_propose_prose_edit_rejects_anchor_tangent_to_citation_i1(tmp_path: Path) -> None:
+def test_propose_prose_edit_rejects_anchor_tangent_to_citation_i1(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     page_body = "Estudo anterior [[@jones2021]] confirmou o achado."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
     with pytest.raises(ValueError) as exc:
         propose_prose_edit(
@@ -668,11 +638,11 @@ def test_propose_prose_edit_rejects_anchor_tangent_to_citation_i1(tmp_path: Path
 
 
 def test_propose_prose_edit_replace_requires_del_or_sub_kind_and_matching_a(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
     page_body = "Frase-alvo para a proposta aqui."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
     with pytest.raises(ValueError) as exc:
         propose_prose_edit(
@@ -704,7 +674,7 @@ def test_propose_prose_edit_replace_requires_del_or_sub_kind_and_matching_a(
 
 
 def test_propose_prose_edit_identifies_inserted_mark_by_position_not_content(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
     """Achado do brief (Context): `inserted_mark_index` precisa ser calculado
     por POSIÇÃO de inserção, nunca por igualdade de conteúdo — uma busca por
@@ -713,8 +683,8 @@ def test_propose_prose_edit_identifies_inserted_mark_by_position_not_content(
     pre_existing_mark = "{++ extra++}{>>prumo-autor: agente<<}"
     page_body = "Primeiro trecho. Segundo trecho-alvo aqui."
     review_body = "Primeiro trecho." + pre_existing_mark + " Segundo trecho-alvo aqui."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=review_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=review_body)
 
     result = propose_prose_edit(
         page=page,
@@ -742,15 +712,15 @@ def test_propose_prose_edit_identifies_inserted_mark_by_position_not_content(
 
 
 def test_propose_prose_edit_rejects_anchor_immediately_after_citation_i1(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
     """Completa a cobertura da fronteira estrita da Guarda I1: o teste 14
     cobre `end == cs` (âncora termina onde a citação começa); este cobre
     `ce == start` (âncora começa onde a citação termina) — sem espaço algum
     entre a citação e a vírgula que seria a âncora."""
     page_body = "Ver [[@jones2021]], confirmando o achado."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
     with pytest.raises(ValueError) as exc:
         propose_prose_edit(
@@ -771,7 +741,7 @@ def test_propose_prose_edit_rejects_anchor_immediately_after_citation_i1(
 
 
 def test_propose_prose_edit_malformed_preexisting_body_raises_before_any_write(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
     """Achado do self-review: `inserted_mark_index` era recalculado via
     `criticmarkup.parse(new_body)` DEPOIS de `review_md_path.write_text(...)`
@@ -783,8 +753,8 @@ def test_propose_prose_edit_malformed_preexisting_body_raises_before_any_write(
     marca JÁ malformada, sem relação nenhuma com a âncora proposta."""
     malformed_review_body = "Texto com marca-alvo {++ nao fechada corretamente."
     page_body = "Texto com marca-alvo  nao fechada corretamente."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=malformed_review_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=malformed_review_body)
 
     with pytest.raises(ValueError):
         propose_prose_edit(
@@ -811,7 +781,9 @@ def test_propose_prose_edit_malformed_preexisting_body_raises_before_any_write(
 #         e deixa texto livre (inclusive citação fabricada) no worklist -----
 
 
-def test_propose_prose_edit_rejects_author_delimiter_injection(tmp_path: Path) -> None:
+def test_propose_prose_edit_rejects_author_delimiter_injection(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     """`author` é colado SEM escape em `"{>>prumo-autor: " + author + "<<}"`
     — um `author` hostil (`"agente<<} [[@injetado]] {>>x"`) fecha a âncora
     PREMATURAMENTE (`<<}`), solta `"[[@injetado]] {>>x"` como texto LIVRE
@@ -819,8 +791,8 @@ def test_propose_prose_edit_rejects_author_delimiter_injection(tmp_path: Path) -
     reabre um comentário (`{>>x`) que consumiria o resto do corpo. A
     allowlist de `author` recusa ANTES de qualquer leitura/escrita."""
     page_body = "Frase-alvo para a proposta aqui."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
     with pytest.raises(ValueError) as exc:
         propose_prose_edit(
@@ -842,7 +814,7 @@ def test_propose_prose_edit_rejects_author_delimiter_injection(tmp_path: Path) -
 
 
 def test_propose_prose_edit_rejects_composition_that_fabricates_citation(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
     """`b="[["` sozinho não bate em NENHUMA guarda de entrada: não tem `@`,
     não tem `[@`/`[[@`, e o corpo original (`"Prefixo @fake2020]] sufixo"`)
@@ -853,8 +825,8 @@ def test_propose_prose_edit_rejects_composition_that_fabricates_citation(
     citação `[[@fake2020]]` nunca cunhada por humano. O round-trip guard
     simula o aceite antes de escrever e recusa a composição."""
     page_body = "Prefixo @fake2020]] sufixo"
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
     with pytest.raises(ValueError) as exc:
         propose_prose_edit(
@@ -873,13 +845,15 @@ def test_propose_prose_edit_rejects_composition_that_fabricates_citation(
 # --- 21. author unicode legítimo (nome próprio de coautor humano) -> aceita -
 
 
-def test_propose_prose_edit_accepts_legitimate_unicode_author(tmp_path: Path) -> None:
+def test_propose_prose_edit_accepts_legitimate_unicode_author(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     """A allowlist cobre letras acentuadas (`À-ÿ`) — um `author` real de
     coautor humano (ex.: alguém rodando a skill em nome de "José da Silva")
     continua sendo aceito, não só ASCII puro."""
     page_body = "Frase-alvo para a proposta aqui."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
     result = propose_prose_edit(
         page=page,
@@ -902,7 +876,9 @@ def test_propose_prose_edit_accepts_legitimate_unicode_author(tmp_path: Path) ->
 # --- 22. Important: kind="comment" não é proponível (órfã, perde autoria) --
 
 
-def test_propose_prose_edit_rejects_kind_comment(tmp_path: Path) -> None:
+def test_propose_prose_edit_rejects_kind_comment(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     """`kind="comment"` não é pareável por `_pair_author_anchors` (Task 9):
     uma marca `comment` sem marca de CONTEÚDO associada vira âncora ÓRFÃ e
     perde a autoria. Recusado explicitamente mesmo com o tipo estático
@@ -910,8 +886,8 @@ def test_propose_prose_edit_rejects_kind_comment(tmp_path: Path) -> None:
     que bypassa o type-checker (MCP/`**kwargs`) ainda pode passar a string
     em runtime."""
     page_body = "Frase-alvo para a proposta aqui."
-    project_root, page = _init_project(tmp_path, page_body=page_body)
-    review_dir = _write_review_dir(project_root, page, review_body=page_body)
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
     with pytest.raises(ValueError) as exc:
         propose_prose_edit(
