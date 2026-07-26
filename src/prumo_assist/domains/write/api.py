@@ -13,6 +13,7 @@ from prumo_assist.domains.write.compose import (
     write_output,
 )
 from prumo_assist.domains.write.disclosure import generate_disclosure
+from prumo_assist.domains.write.errors import WriteError
 from prumo_assist.domains.write.export import compose, export, list_styles
 from prumo_assist.domains.write.review import ApplyResult, IngestResult, apply_review, ingest
 from prumo_assist.domains.write.schemas.v1 import (
@@ -30,6 +31,7 @@ __all__ = [
     "FindingSummary",
     "IngestResult",
     "PaperSummary",
+    "WriteError",
     "WriteOutput",
     "WritePrep",
     "apply_review",

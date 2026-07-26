@@ -29,29 +29,6 @@ FIRST_USE_DOCX_NOTE = (
     "'Document Preferences' não deve abrir."
 )
 
-_EXPORT_CATCHES = (
-    FileNotFoundError,
-    ValueError,
-    export.PandocFailedError,
-    export.CorruptDocxError,
-    export.MissingZoteroPrefsError,
-    export.MissingFieldLockError,
-    export.ZoteroNotRunningError,
-    export.ZoteroCitekeyNotFoundError,
-    export.MissingBibliographyPlaceholderError,
-    export.CiteMapMismatchError,
-)
-
-_REVIEW_CATCHES = (
-    FileNotFoundError,
-    ValueError,
-    review.SourceChangedError,
-    review.StructuralChangeError,
-    review.MarkLostError,
-    review.CitationConservationError,
-    review.AdeuUnavailableError,
-)
-
 
 def _truncate_detail(detail: str, limit: int = 80) -> str:
     """Trunca ``detail`` em ``limit`` caracteres pro modo lista/checklist do
@@ -90,7 +67,7 @@ def export_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Exporta uma página Markdown via Pandoc + CSL → DOCX/Typst/PDF/HTML."""
-    with cli_run(json_mode=json_mode, catches=_EXPORT_CATCHES) as console:
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError, ValueError)) as console:
         page_resolved = page.resolve()
 
         result = export.export(
@@ -129,7 +106,7 @@ def compose_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Compõe múltiplas páginas (frontmatter ``pages: [...]``) em um documento único."""
-    with cli_run(json_mode=json_mode, catches=_EXPORT_CATCHES) as console:
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError, ValueError)) as console:
         index_resolved = index.resolve()
 
         result = export.compose(
@@ -318,7 +295,7 @@ def review_ingest_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Ingere um docx revisado: guardas + transplante determinístico → ``reviews/<slug>/review.md``."""
-    with cli_run(json_mode=json_mode, catches=_REVIEW_CATCHES) as console:
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError, ValueError)) as console:
         page_resolved = page.resolve()
         reviewed_docx_resolved = reviewed_docx.resolve()
         result = review.ingest(reviewed_docx_resolved, page_resolved, force=force)
@@ -363,7 +340,7 @@ def review_events_command(
     --checklist: checklist numerado pt-BR com AÇÃO por kind.
     --json: estrutura completa em JSON.
     """
-    with cli_run(json_mode=json_mode, catches=_REVIEW_CATCHES) as console:
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError, ValueError)) as console:
         page_resolved = page.resolve()
         events_file = review.read_events_file(page_resolved)
 
@@ -438,7 +415,7 @@ def review_apply_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Aplica as decisões de ``reviews/<slug>/review.md`` de volta na página original."""
-    with cli_run(json_mode=json_mode, catches=_REVIEW_CATCHES) as console:
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError, ValueError)) as console:
         from datetime import UTC, datetime
 
         if accept and reject:
@@ -492,7 +469,7 @@ def zettlr_export_entry() -> None:
     import sys
 
     try:
-        with cli_run(json_mode=False, catches=_EXPORT_CATCHES) as console:
+        with cli_run(json_mode=False, catches=(FileNotFoundError, ValueError)) as console:
             if len(sys.argv) != 2:
                 raise PrumoError("uso: prumo-zettlr-export <arquivo.md>")
             page = Path(sys.argv[1]).resolve()

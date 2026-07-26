@@ -31,6 +31,7 @@ from typing import Any
 
 from prumo_assist.core.bib import parse_bib
 from prumo_assist.domains.paper import zotero
+from prumo_assist.domains.paper.errors import PaperError
 
 BETTER_BIBLATEX_GUID = "f895aa0d-f28e-47fe-b247-2ea77c6ed583"
 
@@ -91,23 +92,23 @@ class ConnectResult:
     exported: bool  # True se o bib deixou de ser placeholder dentro do poll
 
 
-class ZoteroOfflineError(RuntimeError):
+class ZoteroOfflineError(PaperError):
     """Zotero não respondeu (fechado, sem BBT, ou JSON hostil do seam)."""
 
 
-class CollectionNotFoundError(RuntimeError):
+class CollectionNotFoundError(PaperError):
     """Nenhuma coleção do Zotero bate com o nome pedido."""
 
 
-class AmbiguousCollectionError(RuntimeError):
+class AmbiguousCollectionError(PaperError):
     """Mais de uma coleção do Zotero bate com o nome pedido."""
 
 
-class AlreadyConnectedError(RuntimeError):
+class AlreadyConnectedError(PaperError):
     """O bib do projeto já tem entradas reais — reconectar é perigoso."""
 
 
-class UnsupportedCollectionNameError(RuntimeError):
+class UnsupportedCollectionNameError(PaperError):
     """Coleção ou biblioteca com '/' no nome — aliasaria uma cadeia fantasma no BBT."""
 
 

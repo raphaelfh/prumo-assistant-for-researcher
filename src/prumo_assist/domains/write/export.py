@@ -46,6 +46,7 @@ from prumo_assist.core.obsidian import (
     normalize_markdown_with_map,
     split_frontmatter,
 )
+from prumo_assist.domains.write.errors import WriteError
 from prumo_assist.domains.write.schemas.v1 import (
     CiteMapFile,
     CiteOccurrence,
@@ -64,31 +65,31 @@ class ToolNotFoundError(FileNotFoundError):
     """Pandoc/Typst não encontrados no PATH."""
 
 
-class ZoteroNotRunningError(RuntimeError):
+class ZoteroNotRunningError(WriteError):
     """Zotero + Better BibTeX não acessíveis localmente."""
 
 
-class PandocFailedError(RuntimeError):
+class PandocFailedError(WriteError):
     """Pandoc terminou com exit ≠ 0 — stderr embutido na mensagem."""
 
 
-class ZoteroCitekeyNotFoundError(RuntimeError):
+class ZoteroCitekeyNotFoundError(WriteError):
     """``zotero.lua`` não encontrou uma ou mais citekeys na biblioteca ativa."""
 
 
-class MissingBibliographyPlaceholderError(RuntimeError):
+class MissingBibliographyPlaceholderError(WriteError):
     """Docx tem citações vivas mas nenhum placeholder ``::: {#refs} :::``."""
 
 
-class MissingZoteroPrefsError(RuntimeError):
+class MissingZoteroPrefsError(WriteError):
     """Docx com citações vivas mas sem ZOTERO_PREF em ``docProps/custom.xml``."""
 
 
-class MissingFieldLockError(RuntimeError):
+class MissingFieldLockError(WriteError):
     """Docx com citações vivas mas sem content control travado (``sdtContentLocked``)."""
 
 
-class CiteMapMismatchError(RuntimeError):
+class CiteMapMismatchError(WriteError):
     """Pareamento citação↔ocorrência (I2/I8) falhou.
 
     Dois motivos possíveis: (1) a contagem de campos ``ZOTERO_ITEM`` no docx
@@ -293,7 +294,7 @@ def _docx_zotero_field_counts(docx_path: Path) -> tuple[int, int]:
     return xml.count("ZOTERO_ITEM"), xml.count("ZOTERO_BIBL")
 
 
-class CorruptDocxError(RuntimeError):
+class CorruptDocxError(WriteError):
     """Docx falhou na validação estrutural mesmo após um retry do pandoc."""
 
 
@@ -458,7 +459,7 @@ _ZOTERO_ITEM_CSL_MARKER = "ADDIN ZOTERO_ITEM CSL_CITATION"
 
 
 def _parse_csl_payload(
-    decoded_instr: str, field_index: int, *, error_cls: type[RuntimeError]
+    decoded_instr: str, field_index: int, *, error_cls: type[WriteError]
 ) -> dict[str, object]:
     """Isola e decodifica o JSON ``CSL_CITATION`` de um instrText já decodificado.
 

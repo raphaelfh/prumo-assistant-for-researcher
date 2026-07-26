@@ -34,15 +34,6 @@ paper_app = typer.Typer(
     no_args_is_help=True,
 )
 
-_VERIFY_CATCHES = (FileNotFoundError, verify.RefcheckerUnavailableError)
-
-_CONNECT_CATCHES = (
-    connect.CollectionNotFoundError,
-    connect.AmbiguousCollectionError,
-    connect.AlreadyConnectedError,
-    connect.UnsupportedCollectionNameError,
-)
-
 
 @paper_app.command("sync")
 def sync_command(
@@ -125,7 +116,7 @@ def verify_refs_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Verifica referências do bib: existência (Crossref), retração (Crossref/PubMed), título."""
-    with cli_run(json_mode=json_mode, catches=_VERIFY_CATCHES) as console:
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         report = verify.verify_refs(
             path.resolve(),
             page=page.resolve() if page is not None else None,
@@ -199,12 +190,8 @@ def connect_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Conecta a coleção do Zotero ao projeto: cria o export automático do BBT → references/_references.bib."""
-    with cli_run(json_mode=json_mode, catches=_CONNECT_CATCHES) as console:
-        try:
-            r = connect.connect_collection(path.resolve(), collection, library=library)
-        except connect.ZoteroOfflineError as e:
-            console.error(str(e))
-            raise typer.Exit(code=2) from e
+    with cli_run(json_mode=json_mode, exit_codes={connect.ZoteroOfflineError: 2}) as console:
+        r = connect.connect_collection(path.resolve(), collection, library=library)
         console.success(
             f"coleção '{r.collection.path}' ({r.collection.library}) conectada → {r.bib_path}"
         )

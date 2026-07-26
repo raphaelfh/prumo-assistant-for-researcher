@@ -18,7 +18,7 @@ Uso típico::
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 
 import typer
@@ -33,16 +33,26 @@ def cli_run(
     json_mode: bool = False,
     catches: tuple[type[Exception], ...] = (),
     exit_code: int = 1,
+    exit_codes: Mapping[type[Exception], int] | None = None,
 ) -> Generator[Console, None, None]:
-    """Context manager: cria ``Console`` e converte exceções em ``Exit(exit_code)``.
+    """Context manager: cria ``Console`` e converte exceções em ``Exit``.
 
-    Captura sempre ``PrumoError`` e, adicionalmente, qualquer classe listada em
-    ``catches``. Outras exceções vazam (são bugs, queremos traceback).
+    Captura sempre ``PrumoError`` (base de todo erro de domínio) e,
+    adicionalmente, qualquer classe listada em ``catches`` ou em
+    ``exit_codes``. Outras exceções vazam (são bugs, queremos traceback).
+
+    ``exit_codes`` mapeia classe → exit code (primeiro match por
+    ``isinstance`` na ordem de inserção); sem match, vale ``exit_code``
+    (default 1).
     """
     console = Console(json_mode=json_mode)
-    handled: tuple[type[Exception], ...] = (PrumoError, *catches)
+    handled: tuple[type[Exception], ...] = (PrumoError, *catches, *(exit_codes or ()))
     try:
         yield console
     except handled as e:
         console.error(str(e))
-        raise typer.Exit(code=exit_code) from e
+        code = next(
+            (mapped for cls, mapped in (exit_codes or {}).items() if isinstance(e, cls)),
+            exit_code,
+        )
+        raise typer.Exit(code=code) from e
