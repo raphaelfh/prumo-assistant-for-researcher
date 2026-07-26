@@ -24,7 +24,12 @@ import yaml
 
 from prumo_assist.domains.write import review
 from prumo_assist.domains.write.export import slugify
-from prumo_assist.domains.write.schemas.v1 import ReviewComment, ReviewCommentsFile
+from prumo_assist.domains.write.schemas.v1 import (
+    ReviewComment,
+    ReviewCommentsFile,
+    ReviewEvent,
+    ReviewEventsFile,
+)
 
 # --- builders locais ---------------------------------------------------------
 
@@ -151,4 +156,68 @@ def test_read_worklist_missing_raises_file_not_found_pt_br(tmp_path: Path) -> No
     message = str(exc.value)
     assert "Sidecar de review ausente em" in message
     assert "review.md" in message
+    assert "prumo write review ingest" in message
+
+
+# --- count_pending_drops / status -------------------------------------------
+
+
+def test_count_pending_drops_counts_only_citation_drop_events() -> None:
+    events = [
+        ReviewEvent(kind="citation-drop", detail="d1", occ_id="00000001"),
+        ReviewEvent(kind="unanchored-mark", detail="d2"),
+        ReviewEvent(kind="citation-drop", detail="d3", occ_id="00000002"),
+        ReviewEvent(kind="applied", detail="d4"),
+    ]
+
+    assert review.count_pending_drops(events) == 2
+    assert review.count_pending_drops([]) == 0
+
+
+def test_status_aggregates_counts_from_the_three_artifacts(tmp_path: Path) -> None:
+    project_root, page = _init_project(tmp_path)
+    review_dir = _review_dir(project_root, page)
+    (review_dir / "review.md").write_text(
+        "Texto {++inserido++} e outro {--removido--} trecho.", encoding="utf-8"
+    )
+    events_file = ReviewEventsFile(
+        page="pagina.md",
+        events=[
+            ReviewEvent(kind="citation-drop", detail="d1", occ_id="00000001"),
+            ReviewEvent(kind="citation-drop", detail="d2", occ_id="00000002"),
+            ReviewEvent(kind="unanchored-mark", detail="d3"),
+        ],
+    )
+    (review_dir / "events.yaml").write_text(
+        yaml.safe_dump(events_file.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    _write_comments_yaml(
+        review_dir,
+        page,
+        [
+            ReviewComment(id="0", author="Alice", text="comentario 1"),
+            ReviewComment(id="1", author="Bob", text="comentario 2"),
+        ],
+    )
+
+    result = review.status(page.resolve())
+
+    assert result == {
+        "page": "pagina.md",
+        "pending_marks": 2,
+        "events_by_kind": {"citation-drop": 2, "unanchored-mark": 1},
+        "comments": 2,
+        "pending_drops": 2,
+    }
+
+
+def test_status_without_ingest_propagates_missing_sidecar_error(tmp_path: Path) -> None:
+    _project_root, page = _init_project(tmp_path)
+
+    with pytest.raises(FileNotFoundError) as exc:
+        review.status(page.resolve())
+
+    message = str(exc.value)
+    assert "Sidecar de review ausente em" in message
     assert "prumo write review ingest" in message

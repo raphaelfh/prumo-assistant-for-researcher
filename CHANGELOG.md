@@ -158,7 +158,10 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   `review.md`/`review-comments.yaml`: leitores de domínio novos
   `review.read_worklist` e `review.read_comments_file`, siblings de
   `read_events_file` com o MESMO contrato de erro (fonte única de mensagem,
-  Princípio de fachadas finas).
+  Princípio de fachadas finas). A agregação de contagens da tool
+  `review_status` também desceu pro domínio (`review.status(page)`), e a
+  contagem de drops pendentes — antes duplicada entre a tool e o comando
+  `write review ingest` — unificou em `review.count_pending_drops`.
 
 ### Mudado
 - `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par

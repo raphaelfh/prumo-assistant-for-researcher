@@ -41,6 +41,7 @@ import shutil
 import subprocess
 import zipfile
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, NoReturn, TypeVar, cast
@@ -2660,6 +2661,39 @@ def read_worklist(page: Path, project_root: Path | None = None) -> str:
     if not worklist_path.is_file():
         raise _missing_ingest_sidecar_error(worklist_path.parent, "review.md")
     return worklist_path.read_text(encoding="utf-8")
+
+
+def count_pending_drops(events: Iterable[ReviewEvent]) -> int:
+    """Drops de citação (`kind == "citation-drop"`) ainda pendentes de
+    confirmação explícita no `apply` — contagem única compartilhada por
+    :func:`status` e pela fachada CLI (`write/cli.py`, comando `ingest`),
+    que a duplicavam (achado opcional do /simplify 2026-07-25)."""
+    return sum(1 for event in events if event.kind == EVENT_KIND_CITATION_DROP)
+
+
+def status(page: Path, project_root: Path | None = None) -> dict[str, Any]:
+    """Contagens do ciclo de revisão de `page`: marcas pendentes em
+    `review.md` (`criticmarkup.parse`), eventos por `kind`, comentários
+    extraídos do docx revisado e drops de citação pendentes
+    (:func:`count_pending_drops`).
+
+    Agrega os três leitores read-side (:func:`read_worklist`/
+    :func:`read_events_file`/:func:`read_comments_file`) — nesta ordem, que
+    define a prioridade do erro quando mais de um artefato falta — e
+    propaga o contrato de erro deles inalterado. Retorna dado plano
+    (`dict`), pronto pra fachada MCP (`review_status`) emitir sem
+    reempacotar."""
+    review_md_text = read_worklist(page, project_root)
+    events_file = read_events_file(page, project_root)
+    comments_file = read_comments_file(page, project_root)
+
+    return {
+        "page": events_file.page,
+        "pending_marks": len(criticmarkup.parse(review_md_text)),
+        "events_by_kind": dict(Counter(event.kind for event in events_file.events)),
+        "comments": len(comments_file.comments),
+        "pending_drops": count_pending_drops(events_file.events),
+    }
 
 
 def _read_review_md_and_events(review_dir: Path) -> tuple[str, str, ReviewEventsFile]:

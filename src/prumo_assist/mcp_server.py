@@ -13,9 +13,9 @@ leitores read-side e a proposta de edição), nunca o contrário; `core/`
 permanece intocado (regra deste plano — "Global Constraints").
 
 Fachada fina sobre o domínio: nenhuma lógica de revisão mora aqui. Cada
-tool delega a leitura ao leitor de domínio correspondente
-(`review.read_worklist`/`read_events_file`/`read_comments_file` — resolução
-de caminho, validação de schema e mensagens pt-BR moram lá, fonte única;
+tool delega ao leitor de domínio correspondente (`review.status`/
+`read_events_file`/`read_worklist` — resolução de caminho, validação de
+schema, agregação de contagens e mensagens pt-BR moram lá, fonte única;
 consolidação do achado do /simplify 2026-07-25, que encontrou a fachada
 re-implementando essas leituras com wording divergente) e devolve dado
 plano (`dict`/`list[dict]`/`str`) — nunca um objeto de domínio. A única
@@ -39,14 +39,12 @@ leitores de domínio, não mais aqui.
 
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal, TypeVar
 
 from mcp.server.fastmcp import FastMCP
 
-from prumo_assist.core import criticmarkup
 from prumo_assist.domains.write import review
 
 server = FastMCP("prumo-review")
@@ -55,8 +53,8 @@ _ReadT = TypeVar("_ReadT")
 
 
 def _domain_read(reader: Callable[[Path], _ReadT], page: str) -> _ReadT:
-    """Chama um leitor read-side do domínio (`review.read_worklist`/
-    `read_events_file`/`read_comments_file`) traduzindo só o tipo do erro:
+    """Chama um leitor read-side do domínio (`review.status`/
+    `read_events_file`/`read_worklist`) traduzindo só o tipo do erro:
     `FileNotFoundError` pt-BR (sidecar ausente ou raiz de projeto não
     localizada) vira `ValueError` com a MESMA mensagem — ver docstring do
     módulo. `ValueError` de sidecar corrompido já sai pronto do domínio."""
@@ -69,25 +67,10 @@ def _domain_read(reader: Callable[[Path], _ReadT], page: str) -> _ReadT:
 @server.tool()
 def review_status(page: str) -> dict[str, Any]:
     """Contagens do ciclo de revisão de `page`: marcas pendentes em
-    `review.md` (`criticmarkup.parse`), eventos por `kind`, comentários
-    extraídos do docx revisado e drops de citação (`kind ==
-    "citation-drop"`) ainda pendentes de confirmação no `apply`."""
-    review_md_text = _domain_read(review.read_worklist, page)
-    events_file = _domain_read(review.read_events_file, page)
-    comments_file = _domain_read(review.read_comments_file, page)
-
-    events_by_kind = dict(Counter(event.kind for event in events_file.events))
-    pending_drops = sum(
-        1 for event in events_file.events if event.kind == review.EVENT_KIND_CITATION_DROP
-    )
-
-    return {
-        "page": events_file.page,
-        "pending_marks": len(criticmarkup.parse(review_md_text)),
-        "events_by_kind": events_by_kind,
-        "comments": len(comments_file.comments),
-        "pending_drops": pending_drops,
-    }
+    `review.md`, eventos por `kind`, comentários extraídos do docx revisado
+    e drops de citação (`kind == "citation-drop"`) ainda pendentes de
+    confirmação no `apply` — fachada fina sobre `review.status`."""
+    return _domain_read(review.status, page)
 
 
 @server.tool()
