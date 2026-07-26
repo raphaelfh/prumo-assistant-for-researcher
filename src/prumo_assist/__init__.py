@@ -18,9 +18,11 @@ __all__ = ["ConfigError", "IntegrationError", "ManifestError", "PrumoError", "__
 class PrumoError(Exception):
     """Raiz da hierarquia de exceções de prumo-assist.
 
-    Subclasses específicas por domínio (ConfigError, ManifestError, ...) facilitam
-    handlers mais granulares. Quando um domínio crescer pra ≥3 exceções próprias,
-    extrai pra `core/errors.py` (ainda não justifica)."""
+    ``core/cli_op.cli_run`` captura qualquer ``PrumoError`` nas fachadas
+    (mensagem limpa + exit code). Aqui na raiz vivem as cross-cutting
+    (ConfigError, ManifestError, IntegrationError); domínio com exceções
+    próprias define sua base em ``domains/<X>/errors.py`` (WriteError,
+    PaperError)."""
 
 
 class ConfigError(PrumoError):

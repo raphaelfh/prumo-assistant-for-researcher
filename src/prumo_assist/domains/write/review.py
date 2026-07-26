@@ -58,6 +58,7 @@ from prumo_assist.core.obsidian import (
     split_frontmatter_raw,
 )
 from prumo_assist.domains.write.comments import extract_from_docx
+from prumo_assist.domains.write.errors import WriteError
 from prumo_assist.domains.write.export import (
     _ZOTERO_ITEM_CSL_MARKER,
     _norm_citation_spans,
@@ -128,19 +129,19 @@ class DocxCitation:
     state: Literal["live", "deleted", "touched"]
 
 
-class SourceChangedError(RuntimeError):
+class SourceChangedError(WriteError):
     """Fonte mudou desde o export — sha256 do corpo diverge do span-map (Task 8)."""
 
 
-class StructuralChangeError(RuntimeError):
+class StructuralChangeError(WriteError):
     """Guarda A: mudança rastreada/comentário dentro de tabela, nota ou equação (Task 3)."""
 
 
-class MarkLostError(RuntimeError):
+class MarkLostError(WriteError):
     """Guarda B: uma marca extraída não pousou no destino — contagem não fecha (Task 7/9)."""
 
 
-class CitationConservationError(RuntimeError):
+class CitationConservationError(WriteError):
     """Conservação de citação violada — I2/I2b/I8.
 
     Cobre, entre outros: campo `fldChar` desbalanceado ("campo colapsado",
@@ -152,7 +153,7 @@ class CitationConservationError(RuntimeError):
     """
 
 
-class AdeuUnavailableError(RuntimeError):
+class AdeuUnavailableError(WriteError):
     """Backend pinado `uvx adeu==1.29.0` ausente ou terminou com exit != 0 (Task 4)."""
 
 
