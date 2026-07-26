@@ -3,13 +3,11 @@
 Task 1 da Fase 3 da ponte
 (`docs/superpowers/plans/2026-07-24-ponte-fase3-mcp-reconciliador.md`):
 as fixtures constroem um "ciclo pós-ingest sintético" gravando
-`reviews/<slug>/{review.md,events.yaml,review-comments.yaml}` À MÃO — mesmo
-espírito de `test_review_ingest.py::_write_sidecars` (simula a saída de
-`review.ingest()` sem rodar o pipeline docx/adeu de verdade), porque as 3
-tools read-only só LEEM esses artefatos, nunca o docx original. Builders
-LOCAIS deste arquivo (convenção do repo — ver docstring de
-`test_review_ingest.py`: cada arquivo de teste tem seu próprio builder, não
-importa de outro).
+`reviews/<slug>/{review.md,events.yaml,review-comments.yaml}` à mão via
+`init_project`/`write_review_artifacts` (fixtures compartilhadas de
+`tests/unit/conftest.py` — simulam a saída de `review.ingest()` sem rodar o
+pipeline docx/adeu de verdade), porque as 3 tools read-only só LEEM esses
+artefatos, nunca o docx original.
 
 Task 2 acrescenta `propose_prose_edit` — a ÚNICA tool de ESCRITA do
 servidor (fachada fina sobre `domains.write.review.propose_prose_edit`; a
@@ -27,75 +25,25 @@ transporte MCP/validação de schema, que este módulo não testa em unidade
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 
 import pytest
-import yaml
 from typer.testing import CliRunner
 
 from prumo_assist import mcp_server
 from prumo_assist.cli import app
-from prumo_assist.domains.write.export import slugify
-from prumo_assist.domains.write.schemas.v1 import (
-    ReviewComment,
-    ReviewCommentsFile,
-    ReviewEvent,
-    ReviewEventsFile,
-)
+from prumo_assist.domains.write.schemas.v1 import ReviewComment, ReviewEvent
+from tests.unit.conftest import InitProject, WriteReviewArtifacts
 
 runner = CliRunner()
-
-
-def _init_project(tmp_path: Path, *, body: str = "Corpo da pagina de teste.") -> tuple[Path, Path]:
-    """Projeto mínimo (`references/_references.bib`, exigido por
-    `export.detect_project_root`) + página `.md` — mesmo padrão de
-    `test_review_ingest.py::_init_project`."""
-    project_root = tmp_path
-    (project_root / "references").mkdir(parents=True, exist_ok=True)
-    (project_root / "references" / "_references.bib").write_text("")
-    page = project_root / "pagina.md"
-    page.write_text(body)
-    return project_root, page
-
-
-def _write_review_artifacts(
-    project_root: Path,
-    page: Path,
-    *,
-    review_md: str,
-    events: list[ReviewEvent],
-    comments: list[ReviewComment],
-) -> Path:
-    """Grava `reviews/<slug>/{review.md,events.yaml,review-comments.yaml}` à
-    mão — simula a saída de `review.ingest()` sem rodar docx/adeu (ciclo
-    pós-ingest sintético; as 3 tools read-only só leem esses artefatos)."""
-    page_resolved = page.resolve()
-    slug = slugify(page_resolved, project_root)
-    review_dir = project_root / "reviews" / slug
-    review_dir.mkdir(parents=True, exist_ok=True)
-    rel_page = str(page_resolved.relative_to(project_root))
-
-    (review_dir / "review.md").write_text(review_md, encoding="utf-8")
-
-    events_file = ReviewEventsFile(page=rel_page, events=events)
-    (review_dir / "events.yaml").write_text(
-        yaml.safe_dump(events_file.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
-    )
-
-    comments_file = ReviewCommentsFile(page=rel_page, comments=comments)
-    (review_dir / "review-comments.yaml").write_text(
-        yaml.safe_dump(comments_file.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
-    )
-    return review_dir
 
 
 # --- 1. review_status: counts certos de um ciclo pós-ingest sintético ------
 
 
-def test_review_status_counts_from_synthetic_post_ingest_cycle(tmp_path: Path) -> None:
-    project_root, page = _init_project(tmp_path)
+def test_review_status_counts_from_synthetic_post_ingest_cycle(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    project_root, page = init_project()
     review_md = "Texto {++inserido++} e outro {--removido--} trecho."
     events = [
         ReviewEvent(kind="citation-drop", detail="d1", occ_id="00000001", citekeys=["smith2020"]),
@@ -106,7 +54,7 @@ def test_review_status_counts_from_synthetic_post_ingest_cycle(tmp_path: Path) -
         ReviewComment(id="0", author="Alice", text="comentario 1"),
         ReviewComment(id="1", author="Bob", text="comentario 2"),
     ]
-    _write_review_artifacts(
+    write_review_artifacts(
         project_root, page, review_md=review_md, events=events, comments=comments
     )
 
@@ -121,13 +69,15 @@ def test_review_status_counts_from_synthetic_post_ingest_cycle(tmp_path: Path) -
 # --- 2. review_events: lista completa, kinds na ordem do events.yaml -------
 
 
-def test_review_events_lists_kinds(tmp_path: Path) -> None:
-    project_root, page = _init_project(tmp_path)
+def test_review_events_lists_kinds(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    project_root, page = init_project()
     events = [
         ReviewEvent(kind="citation-drop", detail="d1", occ_id="00000001", citekeys=["smith2020"]),
         ReviewEvent(kind="non-identity-span", detail="d2"),
     ]
-    _write_review_artifacts(
+    write_review_artifacts(
         project_root, page, review_md="conteudo qualquer", events=events, comments=[]
     )
 
@@ -141,10 +91,12 @@ def test_review_events_lists_kinds(tmp_path: Path) -> None:
 # --- 3. review_worklist: conteúdo == review.md gravado ----------------------
 
 
-def test_review_worklist_returns_review_md_content(tmp_path: Path) -> None:
-    project_root, page = _init_project(tmp_path)
+def test_review_worklist_returns_review_md_content(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    project_root, page = init_project()
     review_md = "---\ntitle: X\n---\n\nCorpo com {++marca++} pendente."
-    _write_review_artifacts(project_root, page, review_md=review_md, events=[], comments=[])
+    write_review_artifacts(project_root, page, review_md=review_md, events=[], comments=[])
 
     assert mcp_server.review_worklist(str(page)) == review_md
 
@@ -152,12 +104,12 @@ def test_review_worklist_returns_review_md_content(tmp_path: Path) -> None:
 # --- 4. sem sidecars (ingest nunca rodou) → ValueError pt-BR ----------------
 
 
-def test_review_tools_without_ingest_raise_value_error_pt_br(tmp_path: Path) -> None:
+def test_review_tools_without_ingest_raise_value_error_pt_br(init_project: InitProject) -> None:
     """Wording UNIFICADO no domínio (consolidação do achado do /simplify
     2026-07-25): as 3 tools delegam aos leitores `review.read_*` e propagam
     a MESMA mensagem pt-BR — a fachada não compõe mais a sua própria
     variante ("Artefato de review ausente: ...", divergente)."""
-    _project_root, page = _init_project(tmp_path)
+    _project_root, page = init_project()
 
     for tool in (mcp_server.review_status, mcp_server.review_events, mcp_server.review_worklist):
         with pytest.raises(ValueError) as exc:
@@ -173,10 +125,10 @@ def test_review_tools_without_ingest_raise_value_error_pt_br(tmp_path: Path) -> 
 
 
 def test_review_events_with_malformed_events_yaml_raises_corrupt_sidecar_error(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
-    project_root, page = _init_project(tmp_path)
-    review_dir = _write_review_artifacts(
+    project_root, page = init_project()
+    review_dir = write_review_artifacts(
         project_root, page, review_md="conteudo qualquer", events=[], comments=[]
     )
     # `detail` é obrigatório em `ReviewEvent` (schemas/v1.py) — evento sem
@@ -205,10 +157,10 @@ def test_review_events_with_malformed_events_yaml_raises_corrupt_sidecar_error(
 
 
 def test_review_status_with_malformed_comments_yaml_raises_corrupt_sidecar_error(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
-    project_root, page = _init_project(tmp_path)
-    review_dir = _write_review_artifacts(
+    project_root, page = init_project()
+    review_dir = write_review_artifacts(
         project_root, page, review_md="conteudo qualquer", events=[], comments=[]
     )
     # `text` é obrigatório em `ReviewComment` (schemas/v1.py) — ausência
@@ -265,9 +217,11 @@ def test_mcp_serve_command_calls_run_stdio(monkeypatch: pytest.MonkeyPatch) -> N
 # --- 7. propose_prose_edit: fachada delega ao domínio e traduz Path/tipos --
 
 
-def test_propose_prose_edit_delegates_to_domain_and_writes_pending_mark(tmp_path: Path) -> None:
-    project_root, page = _init_project(tmp_path, body="Frase-alvo para a proposta aqui.")
-    review_dir = _write_review_artifacts(
+def test_propose_prose_edit_delegates_to_domain_and_writes_pending_mark(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    project_root, page = init_project(body="Frase-alvo para a proposta aqui.")
+    review_dir = write_review_artifacts(
         project_root,
         page,
         review_md="Frase-alvo para a proposta aqui.",
@@ -295,9 +249,11 @@ def test_propose_prose_edit_delegates_to_domain_and_writes_pending_mark(tmp_path
 #         reimplementa nada, só repassa o ValueError) ----------------------
 
 
-def test_propose_prose_edit_propagates_domain_citation_guard_error(tmp_path: Path) -> None:
-    project_root, page = _init_project(tmp_path, body="Frase-alvo para a proposta aqui.")
-    _write_review_artifacts(
+def test_propose_prose_edit_propagates_domain_citation_guard_error(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    project_root, page = init_project(body="Frase-alvo para a proposta aqui.")
+    write_review_artifacts(
         project_root,
         page,
         review_md="Frase-alvo para a proposta aqui.",
@@ -321,8 +277,10 @@ def test_propose_prose_edit_propagates_domain_citation_guard_error(tmp_path: Pat
 #        das 3 tools read-only) ---------------------------------------------
 
 
-def test_propose_prose_edit_without_ingest_raises_value_error_pt_br(tmp_path: Path) -> None:
-    _project_root, page = _init_project(tmp_path)
+def test_propose_prose_edit_without_ingest_raises_value_error_pt_br(
+    init_project: InitProject,
+) -> None:
+    _project_root, page = init_project()
 
     with pytest.raises(ValueError) as exc:
         mcp_server.propose_prose_edit(
@@ -340,14 +298,16 @@ def test_propose_prose_edit_without_ingest_raises_value_error_pt_br(tmp_path: Pa
 #         guard (injeção de delimitador via `author`) sem reescrever nada --
 
 
-def test_propose_prose_edit_propagates_author_injection_guard_error(tmp_path: Path) -> None:
+def test_propose_prose_edit_propagates_author_injection_guard_error(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
     """Mesma disciplina do teste 8 (guardas do domínio atravessam a fachada
     sem reimplementação): o repro do reviewer (`author` hostil fechando a
     âncora prematuramente e soltando `[[@injetado]]` livre no worklist)
     chega aqui como `ValueError` pt-BR ("author inválido"), e `review.md`
     permanece intocado."""
-    project_root, page = _init_project(tmp_path, body="Frase-alvo para a proposta aqui.")
-    review_dir = _write_review_artifacts(
+    project_root, page = init_project(body="Frase-alvo para a proposta aqui.")
+    review_dir = write_review_artifacts(
         project_root,
         page,
         review_md="Frase-alvo para a proposta aqui.",

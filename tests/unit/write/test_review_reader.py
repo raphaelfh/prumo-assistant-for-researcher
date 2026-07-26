@@ -23,8 +23,7 @@ from prumo_assist.domains.write.review import (
     read_docx_citations_with_state,
 )
 from prumo_assist.domains.write.schemas.v1 import CiteMapFile, CiteOccurrence
-
-_W_XMLNS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+from tests.unit.conftest import W_XMLNS
 
 
 def _payload(*, occ_id: str, citekeys: list[str], formatted: str) -> str:
@@ -94,7 +93,7 @@ def _write_docx_with_fields(path: Path, field_bodies: list[str]) -> Path:
     (ElementTree exige o binding; o leitor stateless usa regex e não precisa)."""
     paragraphs = "".join(f"<w:p>{body}</w:p>" for body in field_bodies)
     document = (
-        f'<?xml version="1.0"?><w:document {_W_XMLNS}><w:body>{paragraphs}</w:body></w:document>'
+        f'<?xml version="1.0"?><w:document {W_XMLNS}><w:body>{paragraphs}</w:body></w:document>'
     )
     with zipfile.ZipFile(path, "w") as z:
         z.writestr("word/document.xml", document)
@@ -264,7 +263,7 @@ def test_read_with_state_malformed_document_xml_raises_value_error_not_parse_err
         # cru do stdlib sem o fix deste módulo).
         z.writestr(
             "word/document.xml",
-            f'<?xml version="1.0"?><w:document {_W_XMLNS}><w:body><w:p>',
+            f'<?xml version="1.0"?><w:document {W_XMLNS}><w:body><w:p>',
         )
 
     with pytest.raises(ValueError) as exc:

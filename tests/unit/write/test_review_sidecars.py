@@ -10,65 +10,34 @@ idênticos: `FileNotFoundError` pt-BR (comando de ingest embutido) para
 artefato ausente, `ValueError` pt-BR ("sidecar corrompido") para YAML
 malformado ou fora do schema.
 
-Fixtures gravam `reviews/<slug>/` À MÃO (ciclo pós-ingest sintético, mesmo
-espírito de `test_mcp_server.py`); builders LOCAIS deste arquivo (convenção
-do repo — ver docstring de `test_review_ingest.py`).
+Fixtures gravam `reviews/<slug>/` À MÃO (ciclo pós-ingest sintético) via
+`init_project`/`write_review_artifacts`, compartilhadas de
+`tests/unit/conftest.py` — mesmo scaffold de `test_mcp_server.py`.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-import yaml
 
 from prumo_assist.domains.write import review
-from prumo_assist.domains.write.export import slugify
 from prumo_assist.domains.write.schemas.v1 import (
     ReviewComment,
     ReviewCommentsFile,
     ReviewEvent,
-    ReviewEventsFile,
 )
-
-# --- builders locais ---------------------------------------------------------
-
-
-def _init_project(tmp_path: Path) -> tuple[Path, Path]:
-    """Projeto mínimo (`references/_references.bib`, exigido por
-    `export.detect_project_root`) + página `.md`."""
-    project_root = tmp_path
-    (project_root / "references").mkdir(parents=True, exist_ok=True)
-    (project_root / "references" / "_references.bib").write_text("")
-    page = project_root / "pagina.md"
-    page.write_text("Corpo da pagina de teste.")
-    return project_root, page
-
-
-def _review_dir(project_root: Path, page: Path) -> Path:
-    review_dir = project_root / "reviews" / slugify(page.resolve(), project_root)
-    review_dir.mkdir(parents=True, exist_ok=True)
-    return review_dir
-
-
-def _write_comments_yaml(review_dir: Path, page: Path, comments: list[ReviewComment]) -> None:
-    comments_file = ReviewCommentsFile(page=page.name, comments=comments)
-    (review_dir / "review-comments.yaml").write_text(
-        yaml.safe_dump(comments_file.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
-    )
-
+from tests.unit.conftest import InitProject, WriteReviewArtifacts
 
 # --- read_comments_file ------------------------------------------------------
 
 
-def test_read_comments_file_returns_validated_model(tmp_path: Path) -> None:
-    project_root, page = _init_project(tmp_path)
-    review_dir = _review_dir(project_root, page)
-    _write_comments_yaml(
-        review_dir,
+def test_read_comments_file_returns_validated_model(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    project_root, page = init_project()
+    write_review_artifacts(
+        project_root,
         page,
-        [
+        comments=[
             ReviewComment(id="0", author="Alice", text="comentario 1"),
             ReviewComment(id="1", author="Bob", text="comentario 2"),
         ],
@@ -82,8 +51,10 @@ def test_read_comments_file_returns_validated_model(tmp_path: Path) -> None:
     assert [c.author for c in result.comments] == ["Alice", "Bob"]
 
 
-def test_read_comments_file_missing_raises_file_not_found_pt_br(tmp_path: Path) -> None:
-    _project_root, page = _init_project(tmp_path)
+def test_read_comments_file_missing_raises_file_not_found_pt_br(
+    init_project: InitProject,
+) -> None:
+    _project_root, page = init_project()
 
     with pytest.raises(FileNotFoundError) as exc:
         review.read_comments_file(page.resolve())
@@ -95,10 +66,10 @@ def test_read_comments_file_missing_raises_file_not_found_pt_br(tmp_path: Path) 
 
 
 def test_read_comments_file_out_of_schema_raises_corrupt_sidecar_value_error(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
-    project_root, page = _init_project(tmp_path)
-    review_dir = _review_dir(project_root, page)
+    project_root, page = init_project()
+    review_dir = write_review_artifacts(project_root, page)
     # `text` é obrigatório em `ReviewComment` (schemas/v1.py) — ausência viola
     # o schema (`pydantic.ValidationError`), simulando sidecar corrompido.
     (review_dir / "review-comments.yaml").write_text(
@@ -121,10 +92,10 @@ def test_read_comments_file_out_of_schema_raises_corrupt_sidecar_value_error(
 
 
 def test_read_comments_file_malformed_yaml_raises_corrupt_sidecar_value_error(
-    tmp_path: Path,
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
-    project_root, page = _init_project(tmp_path)
-    review_dir = _review_dir(project_root, page)
+    project_root, page = init_project()
+    review_dir = write_review_artifacts(project_root, page)
     (review_dir / "review-comments.yaml").write_text("{invalid: yaml: [", encoding="utf-8")
 
     with pytest.raises(ValueError) as exc:
@@ -138,17 +109,18 @@ def test_read_comments_file_malformed_yaml_raises_corrupt_sidecar_value_error(
 # --- read_worklist -----------------------------------------------------------
 
 
-def test_read_worklist_returns_raw_review_md(tmp_path: Path) -> None:
-    project_root, page = _init_project(tmp_path)
-    review_dir = _review_dir(project_root, page)
+def test_read_worklist_returns_raw_review_md(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    project_root, page = init_project()
     review_md = "---\ntitle: X\n---\n\nCorpo com {++marca++} pendente."
-    (review_dir / "review.md").write_text(review_md, encoding="utf-8")
+    write_review_artifacts(project_root, page, review_md=review_md)
 
     assert review.read_worklist(page.resolve()) == review_md
 
 
-def test_read_worklist_missing_raises_file_not_found_pt_br(tmp_path: Path) -> None:
-    _project_root, page = _init_project(tmp_path)
+def test_read_worklist_missing_raises_file_not_found_pt_br(init_project: InitProject) -> None:
+    _project_root, page = init_project()
 
     with pytest.raises(FileNotFoundError) as exc:
         review.read_worklist(page.resolve())
@@ -174,28 +146,20 @@ def test_count_pending_drops_counts_only_citation_drop_events() -> None:
     assert review.count_pending_drops([]) == 0
 
 
-def test_status_aggregates_counts_from_the_three_artifacts(tmp_path: Path) -> None:
-    project_root, page = _init_project(tmp_path)
-    review_dir = _review_dir(project_root, page)
-    (review_dir / "review.md").write_text(
-        "Texto {++inserido++} e outro {--removido--} trecho.", encoding="utf-8"
-    )
-    events_file = ReviewEventsFile(
-        page="pagina.md",
+def test_status_aggregates_counts_from_the_three_artifacts(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    project_root, page = init_project()
+    write_review_artifacts(
+        project_root,
+        page,
+        review_md="Texto {++inserido++} e outro {--removido--} trecho.",
         events=[
             ReviewEvent(kind="citation-drop", detail="d1", occ_id="00000001"),
             ReviewEvent(kind="citation-drop", detail="d2", occ_id="00000002"),
             ReviewEvent(kind="unanchored-mark", detail="d3"),
         ],
-    )
-    (review_dir / "events.yaml").write_text(
-        yaml.safe_dump(events_file.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
-    )
-    _write_comments_yaml(
-        review_dir,
-        page,
-        [
+        comments=[
             ReviewComment(id="0", author="Alice", text="comentario 1"),
             ReviewComment(id="1", author="Bob", text="comentario 2"),
         ],
@@ -212,8 +176,10 @@ def test_status_aggregates_counts_from_the_three_artifacts(tmp_path: Path) -> No
     }
 
 
-def test_status_without_ingest_propagates_missing_sidecar_error(tmp_path: Path) -> None:
-    _project_root, page = _init_project(tmp_path)
+def test_status_without_ingest_propagates_missing_sidecar_error(
+    init_project: InitProject,
+) -> None:
+    _project_root, page = init_project()
 
     with pytest.raises(FileNotFoundError) as exc:
         review.status(page.resolve())
