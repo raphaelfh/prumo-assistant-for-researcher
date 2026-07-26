@@ -3,7 +3,7 @@
 
 `_run_adeu_extract` roda `uvx adeu==1.29.0 extract --json <docx> -o -`;
 subprocess SEMPRE mockado aqui (regra deste repo — `.claude/rules/code.md`)
-via `patch("prumo_assist.domains.write.review.subprocess.run")`.
+via `patch("prumo_assist.core.uvx.subprocess.run")`.
 `parse_adeu_markdown` é parse puro de string sobre o markdown já devolvido
 pelo seam — não precisa mockar nada.
 
@@ -170,7 +170,7 @@ def test_run_adeu_extract_invokes_pinned_uvx_command(tmp_path: Path) -> None:
     docx = tmp_path / "revisado.docx"
 
     with patch(
-        "prumo_assist.domains.write.review.subprocess.run",
+        "prumo_assist.core.uvx.subprocess.run",
         return_value=_completed(returncode=0, stdout='{"markdown": "ok"}'),
     ) as mock_run:
         _run_adeu_extract(docx)
@@ -188,7 +188,7 @@ def test_run_adeu_extract_parses_markdown_field_from_stdout_json(tmp_path: Path)
     stdout = json.dumps({"markdown": "# titulo\n\ncorpo com {++marca++}", "other": 123})
 
     with patch(
-        "prumo_assist.domains.write.review.subprocess.run",
+        "prumo_assist.core.uvx.subprocess.run",
         return_value=_completed(returncode=0, stdout=stdout),
     ):
         markdown = _run_adeu_extract(docx)
@@ -205,7 +205,7 @@ def test_run_adeu_extract_invalid_json_stdout_raises_adeu_unavailable(tmp_path: 
 
     with (
         patch(
-            "prumo_assist.domains.write.review.subprocess.run",
+            "prumo_assist.core.uvx.subprocess.run",
             return_value=_completed(returncode=0, stdout="isto nao e json valido"),
         ),
         pytest.raises(AdeuUnavailableError) as exc,
@@ -228,7 +228,7 @@ def test_run_adeu_extract_json_without_markdown_field_raises_adeu_unavailable(
 
     with (
         patch(
-            "prumo_assist.domains.write.review.subprocess.run",
+            "prumo_assist.core.uvx.subprocess.run",
             return_value=_completed(returncode=0, stdout=stdout),
         ),
         pytest.raises(AdeuUnavailableError) as exc,
@@ -245,7 +245,7 @@ def test_run_adeu_extract_nonzero_exit_raises_adeu_unavailable(tmp_path: Path) -
 
     with (
         patch(
-            "prumo_assist.domains.write.review.subprocess.run",
+            "prumo_assist.core.uvx.subprocess.run",
             return_value=_completed(returncode=1, stderr="erro fatal do adeu"),
         ),
         pytest.raises(AdeuUnavailableError) as exc,
@@ -263,7 +263,7 @@ def test_run_adeu_extract_uvx_not_found_raises_adeu_unavailable(tmp_path: Path) 
 
     with (
         patch(
-            "prumo_assist.domains.write.review.subprocess.run",
+            "prumo_assist.core.uvx.subprocess.run",
             side_effect=FileNotFoundError("uvx não encontrado"),
         ),
         pytest.raises(AdeuUnavailableError) as exc,
@@ -284,7 +284,7 @@ def test_run_adeu_extract_non_object_json_raises_adeu_unavailable(tmp_path: Path
 
     with (
         patch(
-            "prumo_assist.domains.write.review.subprocess.run",
+            "prumo_assist.core.uvx.subprocess.run",
             return_value=_completed(returncode=0, stdout=stdout),
         ),
         pytest.raises(AdeuUnavailableError) as exc,
@@ -420,7 +420,7 @@ def test_run_adeu_extract_passa_timeout(monkeypatch: pytest.MonkeyPatch) -> None
         captured.update(kwargs)
         return subprocess.CompletedProcess(cmd, 0, stdout='{"markdown": "ok"}', stderr="")
 
-    monkeypatch.setattr("prumo_assist.domains.write.review.subprocess.run", fake_run)
+    monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
     assert review._run_adeu_extract(Path("x.docx")) == "ok"
     assert captured["timeout"] == 120
 
@@ -431,6 +431,6 @@ def test_run_adeu_extract_timeout_vira_adeu_unavailable(
     def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         raise subprocess.TimeoutExpired(cmd="uvx", timeout=120)
 
-    monkeypatch.setattr("prumo_assist.domains.write.review.subprocess.run", fake_run)
+    monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
     with pytest.raises(review.AdeuUnavailableError, match="120"):
         review._run_adeu_extract(Path("x.docx"))

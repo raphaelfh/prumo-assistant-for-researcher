@@ -18,7 +18,6 @@ import difflib
 import json
 import os
 import re
-import subprocess
 import tempfile
 import urllib.error
 import urllib.request
@@ -32,6 +31,7 @@ from urllib.parse import quote
 from prumo_assist._version import __version__
 from prumo_assist.core.bib import BibEntry, extract_field, parse_bib
 from prumo_assist.core.citations import scan_marked_citekeys
+from prumo_assist.core.uvx import PinnedTool, run_pinned
 
 _USER_AGENT = f"prumo-assist/{__version__} (+https://github.com/raphaelfh/prumo-assist)"
 
@@ -429,6 +429,22 @@ class RefcheckerUnavailableError(RuntimeError):
     """Backend profundo (`uvx academic-refchecker==3.0.151`) ausente ou hostil."""
 
 
+# Identidade de erro do refchecker para o motor comum de ferramenta pinada
+# (`core/uvx.run_pinned`) — rótulos byte-idênticos ao wording que este
+# módulo emitia antes da extração (travados pelos testes do seam).
+_REFCHECKER_TOOL = PinnedTool(
+    error_cls=RefcheckerUnavailableError,
+    hint=_REFCHECKER_HINT,
+    missing_label=f"o backend profundo (`uvx {REFCHECKER_PIN}`)",
+    timeout_label="refchecker",
+    timeout_detail=(
+        "sem chave de API o pool público é lento; reduza o escopo (--page) "
+        "ou rode de novo mais tarde."
+    ),
+    exit_label=f"refchecker (`uvx {REFCHECKER_PIN}`)",
+)
+
+
 def _bib_subset_text(entries: Sequence[BibEntry]) -> str:
     """Reconstrói um .bib só com as entradas em escopo (privacidade: o bib
     inteiro nunca sai da máquina; ver Global Constraints)."""
@@ -447,36 +463,18 @@ def _run_refchecker(bib_text: str, *, timeout: float = 600.0) -> dict[str, Any]:
         bib_path = Path(tmp) / "scope.bib"
         report_path = Path(tmp) / "report.json"
         bib_path.write_text(bib_text, encoding="utf-8")
-        try:
-            proc = subprocess.run(
-                [
-                    "uvx",
-                    REFCHECKER_PIN,
-                    "--paper",
-                    str(bib_path),
-                    "--report-file",
-                    str(report_path),
-                ],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
-        except FileNotFoundError as exc:
-            raise RefcheckerUnavailableError(
-                "uv/uvx não encontrado no PATH — o backend profundo "
-                f"(`uvx {REFCHECKER_PIN}`) não pode ser invocado. {_REFCHECKER_HINT}"
-            ) from exc
-        except subprocess.TimeoutExpired as exc:
-            raise RefcheckerUnavailableError(
-                f"refchecker excedeu {timeout:.0f}s — sem chave de API o pool público "
-                "é lento; reduza o escopo (--page) ou rode de novo mais tarde. "
-                f"{_REFCHECKER_HINT}"
-            ) from exc
-        if proc.returncode != 0:
-            raise RefcheckerUnavailableError(
-                f"refchecker (`uvx {REFCHECKER_PIN}`) terminou com exit "
-                f"{proc.returncode}. stderr:\n{proc.stderr.strip()[-2000:]}\n{_REFCHECKER_HINT}"
-            )
+        run_pinned(
+            _REFCHECKER_TOOL,
+            [
+                "uvx",
+                REFCHECKER_PIN,
+                "--paper",
+                str(bib_path),
+                "--report-file",
+                str(report_path),
+            ],
+            timeout=timeout,
+        )
         try:
             payload = json.loads(report_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
