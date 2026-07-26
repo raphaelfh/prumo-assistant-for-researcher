@@ -108,6 +108,10 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   Fase 4 (escopo A) implementada** — smoke real do `connect` contra um
   Zotero vivo segue pendente, a cargo do dono (nenhum teste automatizado
   muta o Zotero real).
+- `prumo paper lint` detecta **citekey duplicada no `.bib`** (`duplicate_citekey`,
+  severidade `error`) — mesmo blind spot corrigido no `verify-refs` (F4):
+  duas entradas homônimas faziam uma esconder a outra em silêncio (inclusive
+  uma retratada); uma issue por citekey, com o comando de correção embutido.
 
 ### Corrigido
 - `prumo init`: os placeholders de nome do template (`pj-NOME` no
@@ -130,6 +134,15 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   ingest` ganha timeout de 120s — evita travar indefinidamente numa rede lenta
   no primeiro download do `uvx`; erro acionável (`AdeuUnavailableError`) em vez
   de pendurar o comando (fila herdada F2+F3).
+- Mensagens de RUNTIME do CLI não citam mais alvos `make` do monorepo do
+  autor: o pré-requisito de PDF em `paper extract` aponta
+  `prumo paper sync-pdfs` (era `make sync-pdfs`), e o erro de citekey ausente
+  no export docx orienta o fluxo pós-connect — adicionar o paper à coleção
+  conectada no Zotero (BBT regrava o `.bib`) — em vez de `make sync-paper`
+  (follow-up conhecido da Fase 2 do zero-friction).
+- Erro "Better BibTeX recusou o autoexport" do `paper connect` ganha o
+  comando de correção embutido (conferir Automatic export no BBT e re-rodar) —
+  item c3 do backlog do review final da F4.
 
 ### Mudado
 - `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par

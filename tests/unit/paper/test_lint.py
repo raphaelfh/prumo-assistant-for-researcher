@@ -135,6 +135,40 @@ def test_lint_flags_duplicate_item_key(tmp_path: Path) -> None:
     assert "ABCD1234" in dup[0]["message"]
 
 
+def test_lint_flags_duplicate_citekey_as_error(tmp_path: Path) -> None:
+    """Blind spot herdado do verify-refs (F4 T2): citekey duplicada no .bib
+    fazia o set de citekeys engolir a segunda entrada em silêncio — uma
+    entrada retratada podia sumir sem rastro. Duplicata é `error`."""
+    pj = _setup_project(
+        tmp_path,
+        "@article{smith2024, title={Primeira}}\n\n"
+        "@article{smith2024, title={Segunda — sombra}}\n\n"
+        "@article{unico2020, title={Ok}}\n",
+    )
+    notes = pj / "references" / "notes"
+    for key in ("smith2024", "unico2020"):
+        (notes / key).mkdir(parents=True, exist_ok=True)
+        (notes / key / "_meta.md").write_text(f"---\nid: {key}\n---\n\n")
+    report = lint(pj)
+    dup = [i for i in report["issues"] if i["code"] == "duplicate_citekey"]
+    assert len(dup) == 1  # uma issue por citekey duplicada, não por ocorrência
+    assert dup[0]["severity"] == "error"
+    assert dup[0]["citekey"] == "smith2024"
+    assert "2x" in dup[0]["message"]
+    assert not report["ok"]
+
+
+def test_lint_no_duplicate_citekey_when_keys_distinct(tmp_path: Path) -> None:
+    pj = _setup_project(tmp_path, "@article{a,title={x}}\n@article{b,title={y}}\n")
+    notes = pj / "references" / "notes"
+    for key in ("a", "b"):
+        (notes / key).mkdir(parents=True, exist_ok=True)
+        (notes / key / "_meta.md").write_text(f"---\nid: {key}\n---\n\n")
+    report = lint(pj)
+    assert not [i for i in report["issues"] if i["code"] == "duplicate_citekey"]
+    assert report["ok"]
+
+
 def test_lint_no_duplicate_when_item_keys_distinct(tmp_path: Path) -> None:
     refs = tmp_path / "references"
     notes = refs / "notes" / "smith2024"
