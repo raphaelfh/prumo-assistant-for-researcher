@@ -150,6 +150,15 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   embute referências cruas de milhares de chars); e o fingerprint de citação
   passa a resolver a entrada do `.bib` pela citekey exata do header (o match
   antigo por substring podia, em `.bib` patológico, hashear a entrada errada).
+- Tools MCP do `prumo-review` (`review_status`/`review_worklist`) unificam o
+  wording de artefato ausente com o domínio: "Sidecar de review ausente em
+  `reviews/<slug>`: `<arquivo>`" (era "Artefato de review ausente: ...",
+  variante própria da fachada — achado do agente de altitude do passe
+  /simplify). A fachada não re-implementa mais leitura/validação de
+  `review.md`/`review-comments.yaml`: leitores de domínio novos
+  `review.read_worklist` e `review.read_comments_file`, siblings de
+  `read_events_file` com o MESMO contrato de erro (fonte única de mensagem,
+  Princípio de fachadas finas).
 
 ### Mudado
 - `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par

@@ -153,12 +153,17 @@ def test_review_worklist_returns_review_md_content(tmp_path: Path) -> None:
 
 
 def test_review_tools_without_ingest_raise_value_error_pt_br(tmp_path: Path) -> None:
+    """Wording UNIFICADO no domínio (consolidação do achado do /simplify
+    2026-07-25): as 3 tools delegam aos leitores `review.read_*` e propagam
+    a MESMA mensagem pt-BR — a fachada não compõe mais a sua própria
+    variante ("Artefato de review ausente: ...", divergente)."""
     _project_root, page = _init_project(tmp_path)
 
     for tool in (mcp_server.review_status, mcp_server.review_events, mcp_server.review_worklist):
         with pytest.raises(ValueError) as exc:
             tool(str(page))
         message = str(exc.value)
+        assert "Sidecar de review ausente em" in message
         assert "prumo write review ingest" in message
 
 
@@ -191,6 +196,38 @@ def test_review_events_with_malformed_events_yaml_raises_corrupt_sidecar_error(
     message = str(exc.value)
     assert "sidecar corrompido" in message
     assert "events.yaml" in message
+    assert "prumo write review ingest" in message
+
+
+# --- 4c. review-comments.yaml fora do schema → mesma disciplina do 4b ------
+#         (guarda de regressão da consolidação: a leitura+validação agora
+#         mora em `review.read_comments_file`, não mais na fachada) ---------
+
+
+def test_review_status_with_malformed_comments_yaml_raises_corrupt_sidecar_error(
+    tmp_path: Path,
+) -> None:
+    project_root, page = _init_project(tmp_path)
+    review_dir = _write_review_artifacts(
+        project_root, page, review_md="conteudo qualquer", events=[], comments=[]
+    )
+    # `text` é obrigatório em `ReviewComment` (schemas/v1.py) — ausência
+    # viola o schema, simulando sidecar corrompido/editado à mão.
+    (review_dir / "review-comments.yaml").write_text(
+        "schema_version: ReviewCommentsFile/v1\n"
+        "page: pagina.md\n"
+        "comments:\n"
+        "  - id: '0'\n"
+        "    author: Alice\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError) as exc:
+        mcp_server.review_status(str(page))
+
+    message = str(exc.value)
+    assert "sidecar corrompido" in message
+    assert "review-comments.yaml" in message
     assert "prumo write review ingest" in message
 
 

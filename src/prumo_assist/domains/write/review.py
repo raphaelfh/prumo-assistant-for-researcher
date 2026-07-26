@@ -43,11 +43,11 @@ import zipfile
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, NoReturn, cast
+from typing import Any, Literal, NoReturn, TypeVar, cast
 from xml.etree import ElementTree as ET
 
 import yaml
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from prumo_assist.core import criticmarkup
 from prumo_assist.core.citations import CITEKEY_RE
@@ -2565,59 +2565,101 @@ def _citekey_multiset(text: str) -> Counter[str]:
     return counter
 
 
-def _corrupt_events_message(path: Path) -> str:
-    """Mensagem pt-BR única para `events.yaml` corrompido/fora do schema —
-    MESMA mensagem que `mcp_server._corrupt_sidecar_message` compunha
-    isoladamente (achado Important #3 do review da Fase 3: a tradução de
+def _corrupt_ingest_sidecar_message(path: Path) -> str:
+    """Mensagem pt-BR única para sidecar de INGEST (`events.yaml`/
+    `review-comments.yaml`) corrompido/fora do schema — o comando de
+    correção é re-INGERIR (diferente de :func:`_corrupt_sidecar_message`,
+    dos sidecars de EXPORT citemap/span-map, cujo comando é re-exportar).
+    MESMA mensagem que `mcp_server` compunha isoladamente (achado
+    Important #3 do review da Fase 3: a tradução de
     `pydantic.ValidationError`/erro de YAML pra `ValueError` pt-BR estava
     duplicada, e DIVERGENTE, entre `mcp_server.py` (traduzia) e `cli.py`
     (não traduzia — `pydantic.ValidationError` cru vazava pelo comando
-    `prumo write review events`). Consolidada aqui, junto de
-    :func:`read_events_file`, pra nunca mais divergir."""
+    `prumo write review events`). Consolidada aqui, junto dos leitores
+    read-side, pra nunca mais divergir."""
     return (
         f"sidecar corrompido ({path}): re-rode `prumo write review ingest "
         "<reviewed.docx> --page <page>` para regenerá-lo."
     )
 
 
+def _review_dir_for(page: Path, project_root: Path | None) -> Path:
+    """`reviews/<slug>/` de `page` — resolução compartilhada pelos leitores
+    read-side (:func:`read_events_file`/:func:`read_comments_file`/
+    :func:`read_worklist`), MESMO padrão de `ingest()`/`apply_review()`:
+    `export.detect_project_root` se `project_root` não for fornecido,
+    `export.slugify`."""
+    project_root = project_root or detect_project_root(page)
+    return project_root / "reviews" / slugify(page, project_root)
+
+
+def _missing_ingest_sidecar_error(review_dir: Path, name: str) -> FileNotFoundError:
+    """`FileNotFoundError` pt-BR (comando de ingest embutido) para artefato
+    de `reviews/<slug>/` ausente — a página nunca foi ingerida, ou os
+    artefatos de `reviews/` foram apagados."""
+    return FileNotFoundError(
+        f"Sidecar de review ausente em {review_dir}: {name}. Rode "
+        "`prumo write review ingest <reviewed.docx> --page <page.md>` antes."
+    )
+
+
+_SidecarT = TypeVar("_SidecarT", bound=BaseModel)
+
+
+def _read_ingest_sidecar_yaml(path: Path, model: type[_SidecarT]) -> _SidecarT:
+    """Carrega+valida um sidecar YAML de ingest. YAML malformado
+    (`yaml.YAMLError`) ou fora do schema (`pydantic.ValidationError`) vira
+    `ValueError` pt-BR via :func:`_corrupt_ingest_sidecar_message` — nunca o
+    traceback cru de pydantic/PyYAML vazando pro CLI ou pro agente MCP."""
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise ValueError(_corrupt_ingest_sidecar_message(path)) from exc
+
+    try:
+        return model.model_validate(raw or {})
+    except ValidationError as exc:
+        raise ValueError(_corrupt_ingest_sidecar_message(path)) from exc
+
+
 def read_events_file(page: Path, project_root: Path | None = None) -> ReviewEventsFile:
     """Lê e valida `events.yaml` de `reviews/<slug>/` para `page` — ÚNICO
     ponto de leitura de `events.yaml` usado por `cli.py` (comando `prumo
     write review events`) e por `mcp_server` (`review_status`/
-    `review_events`, via wrapper fino `_read_events`); achado Important #3
-    do review da Fase 3, ver :func:`_corrupt_events_message`.
+    `review_events`); achado Important #3 do review da Fase 3, ver
+    :func:`_corrupt_ingest_sidecar_message`.
 
-    Resolve `project_root`/`slug` (MESMO padrão de `ingest()`/
-    `apply_review()`: `export.detect_project_root` se `project_root` não
-    for fornecido, `export.slugify`) e computa `reviews/<slug>/`.
-
-    Levanta `FileNotFoundError` pt-BR (comando de ingest embutido) se
-    `events.yaml` ainda não existir — a página nunca foi ingerida, ou os
-    artefatos de `reviews/` foram apagados. `events.yaml` presente mas com
-    YAML malformado (`yaml.YAMLError`) ou fora do schema
-    (`pydantic.ValidationError`) vira `ValueError` pt-BR via
-    :func:`_corrupt_events_message` — nunca o traceback cru de
-    pydantic/PyYAML vazando pro CLI ou pro agente MCP."""
-    project_root = project_root or detect_project_root(page)
-    slug = slugify(page, project_root)
-    review_dir = project_root / "reviews" / slug
-    events_path = review_dir / "events.yaml"
-
+    Contrato de erro compartilhado com os siblings
+    (:func:`read_comments_file`/:func:`read_worklist`): `FileNotFoundError`
+    pt-BR (comando de ingest embutido) se o artefato ainda não existir;
+    `ValueError` pt-BR ("sidecar corrompido") se existir mas for YAML
+    malformado ou fora do schema."""
+    events_path = _review_dir_for(page, project_root) / "events.yaml"
     if not events_path.is_file():
-        raise FileNotFoundError(
-            f"Sidecar de review ausente em {review_dir}: events.yaml. Rode "
-            "`prumo write review ingest <reviewed.docx> --page <page.md>` antes."
-        )
+        raise _missing_ingest_sidecar_error(events_path.parent, "events.yaml")
+    return _read_ingest_sidecar_yaml(events_path, ReviewEventsFile)
 
-    try:
-        raw = yaml.safe_load(events_path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
-        raise ValueError(_corrupt_events_message(events_path)) from exc
 
-    try:
-        return ReviewEventsFile.model_validate(raw or {})
-    except ValidationError as exc:
-        raise ValueError(_corrupt_events_message(events_path)) from exc
+def read_comments_file(page: Path, project_root: Path | None = None) -> ReviewCommentsFile:
+    """Lê e valida `review-comments.yaml` de `reviews/<slug>/` para `page` —
+    sibling de :func:`read_events_file`, MESMO contrato de erro (consolidação
+    do achado do /simplify 2026-07-25: `mcp_server._read_comments` duplicava
+    esta leitura com wording divergente)."""
+    comments_path = _review_dir_for(page, project_root) / "review-comments.yaml"
+    if not comments_path.is_file():
+        raise _missing_ingest_sidecar_error(comments_path.parent, "review-comments.yaml")
+    return _read_ingest_sidecar_yaml(comments_path, ReviewCommentsFile)
+
+
+def read_worklist(page: Path, project_root: Path | None = None) -> str:
+    """Conteúdo cru de `review.md` (o worklist vivo do ciclo de revisão) de
+    `reviews/<slug>/` para `page` — sibling de :func:`read_events_file`,
+    MESMO contrato de `FileNotFoundError` (não há schema a validar: o
+    worklist é Markdown livre, frontmatter + marcas CriticMarkup)."""
+    worklist_path = _review_dir_for(page, project_root) / "review.md"
+    if not worklist_path.is_file():
+        raise _missing_ingest_sidecar_error(worklist_path.parent, "review.md")
+    return worklist_path.read_text(encoding="utf-8")
 
 
 def _read_review_md_and_events(review_dir: Path) -> tuple[str, str, ReviewEventsFile]:
