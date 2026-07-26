@@ -35,6 +35,7 @@ from typing import Any
 import yaml
 
 from prumo_assist import ManifestError
+from prumo_assist.core.config import WRITING_LANGUAGES
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
 
@@ -62,6 +63,8 @@ class SkillManifest:
     guidelines_reviewed: str | None = None
     inputs: dict[str, str] = field(default_factory=dict)
     requires: tuple[str, ...] = ()
+    prose: bool = False
+    locale_lock: str | None = None
 
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -139,6 +142,26 @@ def parse_skill_file(path: Path) -> SkillManifest:
     # duplicata silenciosa viraria bloco de preflight duplicado).
     requires = tuple(dict.fromkeys(requires))
 
+    prose_raw = prumo_block.get("prose", False)
+    if not isinstance(prose_raw, bool):
+        raise ManifestError(f"{path}: prumo.prose deve ser booleano (true/false).")
+    prose = prose_raw
+
+    locale_lock_raw = prumo_block.get("locale_lock")
+    locale_lock: str | None = None
+    if locale_lock_raw is not None:
+        locale_lock = str(locale_lock_raw)
+        if locale_lock not in WRITING_LANGUAGES:
+            raise ManifestError(
+                f"{path}: prumo.locale_lock='{locale_lock}' inválido; "
+                f"use um de {sorted(WRITING_LANGUAGES)}"
+            )
+        if not prose:
+            raise ManifestError(
+                f"{path}: prumo.locale_lock só faz sentido com prumo.prose: true "
+                "(a trava dirige o bloco de prosa gerado)."
+            )
+
     extra_keys = set(prumo_block) - {
         "version",
         "schema",
@@ -148,6 +171,8 @@ def parse_skill_file(path: Path) -> SkillManifest:
         "guidelines_reviewed",
         "inputs",
         "requires",
+        "prose",
+        "locale_lock",
     }
     extra = {k: prumo_block[k] for k in extra_keys}
 
@@ -170,6 +195,8 @@ def parse_skill_file(path: Path) -> SkillManifest:
         ),
         inputs=inputs,
         requires=requires,
+        prose=prose,
+        locale_lock=locale_lock,
         extra=extra,
     )
 

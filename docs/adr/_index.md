@@ -28,4 +28,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0018-verificacao-referencias-apis-publicas]] — Verificação de referências via APIs públicas, gate determinístico + enriquecimento opcional · aceito
 - [[adr/adr-0019-preflight-uniforme-skills]] — Preflight uniforme gerado nas skills a partir de `requires:` · aceito
 - [[adr/adr-0020-connect-autoexport-bbt]] — `prumo paper connect` via `autoexport.add` do Better BibTeX, guardas anti-fantasma · aceito
+- [[adr/adr-0021-idioma-de-escrita-cascata-e-default]] — Idioma de escrita por cascata, default `en-US`, e contrato de prosa gerado · aceito
 <!-- prumo:adr-index:end -->

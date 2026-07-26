@@ -38,3 +38,38 @@ def test_invalid_language_raises(tmp_path: Path) -> None:
     with pytest.raises(ConfigError) as ei:
         load_project_config(tmp_path)
     assert "klingon" in str(ei.value)
+
+
+def test_writing_language_default_is_en_us(tmp_path: Path) -> None:
+    cfg = load_project_config(tmp_path)
+    assert cfg["writing"]["language"] == "en-US"
+
+
+def test_writing_language_override(tmp_path: Path) -> None:
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "pj_config.toml").write_text(
+        '[writing]\nlanguage = "pt-BR"\n', encoding="utf-8"
+    )
+    cfg = load_project_config(tmp_path)
+    assert cfg["writing"]["language"] == "pt-BR"
+    assert cfg["paper_extract"]["language"] == "pt-BR"
+
+
+def test_legacy_config_without_writing_section_falls_back(tmp_path: Path) -> None:
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "pj_config.toml").write_text(
+        '[paper_extract]\nlanguage = "es"\n', encoding="utf-8"
+    )
+    cfg = load_project_config(tmp_path)
+    assert cfg["writing"]["language"] == "en-US"
+
+
+def test_invalid_writing_language_raises(tmp_path: Path) -> None:
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "pj_config.toml").write_text(
+        '[writing]\nlanguage = "en"\n', encoding="utf-8"
+    )
+    with pytest.raises(ConfigError) as ei:
+        load_project_config(tmp_path)
+    assert "writing.language" in str(ei.value)
+    assert "en-US" in str(ei.value)

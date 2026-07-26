@@ -19,6 +19,13 @@ default_limit = 20
 # Subagents despachados em paralelo em cada onda de batch.
 subagents_per_wave = 8
 
+[writing]
+# Idioma das skills de prosa (scientific-writing, write-*, peer-review).
+# Vale para o texto gerado e para as convenções aplicadas — nenhuma skill traduz
+# texto existente. Documento de CEP/CONEP é sempre pt-BR, independente desta chave.
+# Valores aceitos: "en-US" | "pt-BR"
+language = "en-US"
+
 [wiki]
 # Reservado para futuras configs das skills wiki-* (ingest/query/lint).
 

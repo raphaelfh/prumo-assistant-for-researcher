@@ -11,7 +11,7 @@ tags: [scientific-writing, skills, idioma, citacao, gen-indexes, machine-owned-b
 
 Duas convenções de escrita científica do prumo estão erradas hoje. O idioma é implicitamente pt-BR e não há como escolher outro, o que exclui o alvo real do pesquisador (submissão a periódico anglo). E a regra de posição de citação, embora exista (C1), tem exceção aberta para autor-sujeito e uma heurística de audit que erra muito — o resultado é citação no meio de frase sobrevivendo ao passe editorial.
 
-A correção introduz um **contrato de prosa** único: um bloco Markdown machine-owned (`<!-- prumo:prose:begin/end -->`) estampado por `gen_indexes.py` nas seis skills que produzem ou fiscalizam prosa, a partir de uma fonte única em `templates/writing/conventions.md`. O idioma passa a ser resolvido por cascata explícita com default `en-US` e trava por gênero (CEP/CONEP é sempre pt-BR). A regra de citação vira estrita, sem exceção. E a convenção de superlativo deixa de "atenuar" para **remover** — em escrita científica o intensificador sem número não existe.
+A correção introduz um **contrato de prosa** único: um bloco Markdown machine-owned (`<!-- prumo:prose:begin/end -->`) estampado por `gen_indexes.py` nas seis skills que produzem ou fiscalizam prosa, a partir de uma fonte única em `.github/scripts/prose_conventions.md`. O idioma passa a ser resolvido por cascata explícita com default `en-US` e trava por gênero (CEP/CONEP é sempre pt-BR). A regra de citação vira estrita, sem exceção. E a convenção de superlativo deixa de "atenuar" para **remover** — em escrita científica o intensificador sem número não existe.
 
 Precedente direto: ADR-0009 (blocos delimitados machine-owned) e ADR-0019 (bloco de preflight gerado a partir do frontmatter). Este spec reusa exatamente o mesmo mecanismo, com um campo novo de manifesto.
 
@@ -50,7 +50,7 @@ A C4 atual manda substituir `crítica/vital/essencial` por `relevante/necessári
 
 | # | Decisão | Alternativas descartadas |
 |---|---|---|
-| D1 | Convenção compartilhada como **bloco estampado** `prumo:prose`, fonte única em `templates/writing/conventions.md` | (a) ponteiro + `prumo write conventions --lang` resolvendo a cascata em código: quebraria `requires: []` de `scientific-writing`/`peer-review`, regredindo ADR-0019; (b) cada skill referenciando `/prumo-assist:scientific-writing`: convenção duplicada à mão em 6 arquivos |
+| D1 | Convenção compartilhada como **bloco estampado** `prumo:prose`, fonte única em `.github/scripts/prose_conventions.md` | (a) ponteiro + `prumo write conventions --lang` resolvendo a cascata em código: quebraria `requires: []` de `scientific-writing`/`peer-review`, regredindo ADR-0019; (b) cada skill referenciando `/prumo-assist:scientific-writing`: convenção duplicada à mão em 6 arquivos |
 | D2 | **Dois níveis de detalhe.** O bloco estampado é o contrato compacto (7 itens); o detalhamento completo (C1–C8, tabelas por idioma, greps de audit, fluxo) vive só em `scientific-writing/SKILL.md` | Estampar tudo em todas: infla 6 arquivos com material que só a skill fiscalizadora executa |
 | D3 | **Cascata de idioma** com default `en-US` e trava por gênero | Default pt-BR (status quo, não serve o caso paper); perguntar sempre (interação a mais em todo uso) |
 | D4 | **C1 estrita, sem exceção** de autor-sujeito; contraste entre fontes no mesmo período é sinalizado, não editado | Manter narrative citation; só sinalizar sem nunca mover |
@@ -62,13 +62,13 @@ A C4 atual manda substituir `crítica/vital/essencial` por `relevante/necessári
 ### Fonte única e estampagem
 
 ```text
-templates/writing/conventions.md      ← fonte canônica (3 fragmentos delimitados)
+.github/scripts/prose_conventions.md  ← fonte canônica (3 fragmentos delimitados)
         │
         ├── prose:lang-free   ─┐
         ├── prose:lang-locked ─┤ render_prose(manifest) escolhe 1 dos 2 + core
         └── prose:core        ─┘
                 │
-      .github/scripts/gen_indexes.py  ← render_prose() + stamp_prose()
+      .github/scripts/gen_indexes.py  ← render_prose() + stamp_block()
                 │
                 ▼
    <!-- prumo:prose:begin --> … <!-- prumo:prose:end -->
@@ -89,7 +89,7 @@ prumo:
 
 Skills que optam: `scientific-writing`, `write-paper`, `write-scientific`, `write-statistics`, `write-projeto-cep` (locked pt-BR), `peer-review`.
 
-`stamp_prose` insere o bloco após `<!-- prumo:preflight:end -->` quando existe, senão após o H1 — idempotente, delegando a `replace_block` quando os marcadores já estão lá, exatamente como `stamp_preflight`. Em `main()`, as duas estampagens compõem sobre o mesmo texto antes do único `_sync`.
+A estampagem é genérica: `stamp_block(text, tag, body, *, where, after)` serve preflight e prosa — `after` é como a ordem entre blocos é declarada (o de prosa passa o fim do preflight para nascer embaixo dele), com fallback no H1 e abort sem âncora. `render_skill_blocks(manifest)` devolve `(tag, body, after)` por bloco, e corpo vazio significa "este bloco não deve existir", que `strip_block` remove — assim uma skill que deixa de declarar `prose:` não fica com bloco órfão que o `--check` chamaria de "em dia". Em `main()`, os blocos compõem sobre o mesmo texto antes do único `_sync`.
 
 O enforcement é `gen_indexes.py --check` no CI, que já roda.
 
@@ -220,8 +220,8 @@ O relatório final separa **removidos** (contagem por convenção) de **sinaliza
 
 | Arquivo | Mudança |
 |---|---|
-| `templates/writing/conventions.md` | **novo** — fonte do bloco, 3 fragmentos delimitados |
-| `.github/scripts/gen_indexes.py` | `render_prose()`, `stamp_prose()`, composição no loop de skills |
+| `.github/scripts/prose_conventions.md` | **novo** — fonte do bloco, 3 fragmentos delimitados |
+| `.github/scripts/gen_indexes.py` | `render_prose()`, `stamp_block()`/`strip_block()` genéricos (absorvem `stamp_preflight`), `render_skill_blocks()` no loop de skills |
 | `src/prumo_assist/core/skills.py` | campos `prose: bool` e `locale_lock: str \| None` + validação |
 | `src/prumo_assist/core/config.py` | `WRITING_LANGUAGES`, `DEFAULTS["writing"]`, validação |
 | `skills/scientific-writing/SKILL.md` | C1 estrita, C4 reescrita, C7 e C8 novos, C3/C5/C6 por idioma, audit novo, `prose: true`, `--lang` |
@@ -238,14 +238,14 @@ O relatório final separa **removidos** (contagem por convenção) de **sinaliza
 
 - `tests/unit/core/test_config.py` — default `writing.language == "en-US"`; override válido; valor inválido levanta `ConfigError` citando os válidos; `[writing]` ausente em config legado cai no default.
 - `tests/unit/core/test_skills.py` — `prose` booleano parseado; tipo errado levanta; `locale_lock` válido parseado; valor fora de `WRITING_LANGUAGES` levanta; `locale_lock` sem `prose: true` levanta; skill sem os campos mantém defaults (`False`, `None`).
-- `tests/unit/test_gen_indexes.py` — `render_prose` produz variante livre vs travada (com o locale interpolado); `stamp_prose` insere após o preflight, é idempotente, e falha sem âncora; toda skill com `prose: true` carrega o bloco no `SKILL.md` (guarda de repo, no molde de `test_guidelines_present.py`).
+- `tests/unit/test_gen_indexes.py` — `render_prose` produz variante livre vs travada (com o locale interpolado); `stamp_block` insere após a âncora, cai no H1 sem ela, é idempotente e falha sem âncora nenhuma; `strip_block` remove bloco órfão e é no-op quando não há bloco; toda skill com `prose: true` carrega o bloco no `SKILL.md` e nenhuma outra carrega (guarda de repo, no molde de `test_guidelines_present.py`).
 - `tests/unit/write/` — `list-templates` reporta o caminho que `resolve_template` de fato usa.
 
 ## Riscos e migração
 
 **Projetos `pj_*` existentes não têm `[writing]`** e caem no default `en-US`. O passo 4 da cascata (detecção) cobre o caso comum — passe editorial sobre draft pt-BR continua pt-BR, e a regra de não-tradução é hard. O caso descoberto é geração do zero em projeto antigo sem a chave, que sairá em inglês. Mitigações: `pj_base` nasce com a chave explícita; a skill sempre declara o idioma resolvido antes de escrever; CHANGELOG marca a mudança de comportamento.
 
-**Divergência entre bloco e detalhamento.** O bloco compacto e o C1–C8 completo podem divergir com o tempo. O `--check` do CI garante bloco↔fonte, não bloco↔`scientific-writing`. Aceito: `scientific-writing` é a skill que fiscaliza, e a nota de manutenção dela passa a apontar `templates/writing/conventions.md` como fonte do contrato.
+**Divergência entre bloco e detalhamento.** O bloco compacto e o C1–C8 completo podem divergir com o tempo. O `--check` do CI garante bloco↔fonte, não bloco↔`scientific-writing`. Aceito: `scientific-writing` é a skill que fiscaliza, e a nota de manutenção dela passa a apontar `.github/scripts/prose_conventions.md` como fonte do contrato.
 
 ## Release
 

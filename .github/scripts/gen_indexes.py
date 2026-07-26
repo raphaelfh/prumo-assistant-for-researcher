@@ -4,6 +4,7 @@ Fontes (constitution, princípio VII):
 - skills/<nome>/SKILL.md  → tabela do README + catálogo do router `start`
 - docs/superpowers/{specs,plans,plans/archive}/*.md (frontmatter) → docs/_index.md
 - docs/adr/adr-*.md → docs/adr/_index.md
+- .github/scripts/prose_conventions.md → bloco `prumo:prose` das skills de prosa (ADR-0021)
 
 Uso:
     uv run python .github/scripts/gen_indexes.py          # reescreve os blocos
@@ -14,6 +15,7 @@ from __future__ import annotations
 
 import re
 import sys
+from functools import cache
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -189,22 +191,98 @@ def render_preflight(manifest: SkillManifest) -> str:
     return "\n".join(parts)
 
 
-def stamp_preflight(text: str, body: str, *, where: str) -> str:
-    """Insere/atualiza o bloco ``prumo:preflight`` no corpo (após frontmatter) de um SKILL.md.
+CONVENTIONS = REPO / ".github" / "scripts" / "prose_conventions.md"
+
+_PROSE_HEADER = (
+    "> **Contrato de prosa (gerado de `.github/scripts/prose_conventions.md` — "
+    "não edite este bloco).**"
+)
+
+
+@cache
+def _fragment(name: str) -> str:
+    """Extrai o fragmento ``<!-- prose:<name>:begin/end -->`` de ``prose_conventions.md``."""
+    text = CONVENTIONS.read_text(encoding="utf-8")
+    pattern = re.compile(
+        re.escape(f"<!-- prose:{name}:begin -->")
+        + r"\n(.*?)\n"
+        + re.escape(f"<!-- prose:{name}:end -->"),
+        re.DOTALL,
+    )
+    match = pattern.search(text)
+    if not match:
+        raise SystemExit(
+            f"gen_indexes: fragmento 'prose:{name}' ausente em {CONVENTIONS.relative_to(REPO)}."
+        )
+    return match.group(1).strip()
+
+
+def render_prose(manifest: SkillManifest) -> str:
+    """Compõe o bloco de prosa (ADR-0021) a partir de ``prose_conventions.md``.
+
+    Corpo = cabeçalho + item de idioma + ``core``. O item de idioma é a variante
+    travada (``lang-locked``, com ``{locale}`` interpolado) quando a skill declara
+    ``prumo.locale_lock``, senão a cascata livre (``lang-free``).
+    """
+    if manifest.locale_lock:
+        lang = _fragment("lang-locked").replace("{locale}", manifest.locale_lock)
+    else:
+        lang = _fragment("lang-free")
+    return "\n".join([_PROSE_HEADER, lang, _fragment("core")])
+
+
+def stamp_block(text: str, tag: str, body: str, *, where: str, after: str = "") -> str:
+    """Insere/atualiza o bloco ``prumo:<tag>`` no corpo (após frontmatter) de um SKILL.md.
 
     Idempotente: se os marcadores já existem, delega a ``replace_block``. Na
-    primeira estampagem (marcadores ausentes), insere logo após a primeira
-    linha ``# `` (H1) do corpo. Sem H1, aborta — não há onde ancorar o bloco.
+    primeira estampagem, ancora logo após ``after`` (quando presente no texto) e,
+    na falta dele, após a primeira linha ``# `` (H1). Sem âncora, aborta.
+
+    ``after`` é como a ordem entre blocos machine-owned é declarada: o de prosa
+    passa o fim do preflight pra nascer embaixo dele.
     """
-    begin = "<!-- prumo:preflight:begin -->"
+    begin = f"<!-- prumo:{tag}:begin -->"
     if begin in text:
-        return replace_block(text, "preflight", body, where=where)
+        return replace_block(text, tag, body, where=where)
+    block = f"\n{begin}\n{body.strip()}\n<!-- prumo:{tag}:end -->\n"
+    if after:
+        idx = text.find(after)
+        if idx != -1:
+            cut = idx + len(after)
+            return text[:cut] + block + text[cut:]
     lines = text.splitlines(keepends=True)
     for i, ln in enumerate(lines):
         if ln.startswith("# "):
-            block = f"\n{begin}\n{body.strip()}\n<!-- prumo:preflight:end -->\n"
             return "".join(lines[: i + 1]) + block + "".join(lines[i + 1 :])
-    raise SystemExit(f"gen_indexes: {where} sem H1 — não sei onde inserir o preflight")
+    raise SystemExit(f"gen_indexes: {where} sem âncora — não sei onde inserir o bloco '{tag}'")
+
+
+def strip_block(text: str, tag: str) -> str:
+    """Remove o bloco ``prumo:<tag>`` (e a linha em branco que o precede), se existir.
+
+    Contrapartida de ``stamp_block``: uma skill que deixa de declarar ``prose:``
+    não pode ficar com o bloco órfão — sem isto o ``--check`` diria "em dia" pra
+    um contrato que a skill não declara mais.
+    """
+    pattern = re.compile(
+        r"\n?" + re.escape(f"<!-- prumo:{tag}:begin -->") + r".*?"
+        f"{re.escape(f'<!-- prumo:{tag}:end -->')}" + r"\n",
+        re.DOTALL,
+    )
+    return pattern.sub("", text)
+
+
+def render_skill_blocks(manifest: SkillManifest) -> list[tuple[str, str, str]]:
+    """Blocos machine-owned de um ``SKILL.md``, em ordem: ``(tag, body, after)``.
+
+    ``body`` vazio significa "este bloco NÃO deve existir nesta skill" — é assim
+    que a remoção fica simétrica à estampagem.
+    """
+    preflight_end = "<!-- prumo:preflight:end -->\n"
+    return [
+        ("preflight", render_preflight(manifest), ""),
+        ("prose", render_prose(manifest) if manifest.prose else "", preflight_end),
+    ]
 
 
 def _targets(registry: SkillRegistry) -> list[tuple[Path, str, str]]:
@@ -220,7 +298,7 @@ def main() -> int:
     check = "--check" in sys.argv
     stale: list[str] = []
     # Registry carregado UMA vez — tabela do README, catálogo do start e
-    # estampagem de preflight consomem a mesma leitura.
+    # estampagem dos blocos machine-owned consomem a mesma leitura.
     registry, _ = load_skill_registry(REPO / "skills", strict=True)
 
     def _sync(path: Path, rel: str, old: str, new: str) -> None:
@@ -244,7 +322,15 @@ def main() -> int:
         manifest = registry.get(name)
         rel = str(manifest.path.relative_to(REPO))
         old = manifest.path.read_text(encoding="utf-8")
-        _sync(manifest.path, rel, old, stamp_preflight(old, render_preflight(manifest), where=rel))
+        # Os blocos compõem sobre o mesmo texto — um único _sync por skill.
+        new = old
+        for tag, body, after in render_skill_blocks(manifest):
+            new = (
+                stamp_block(new, tag, body, where=rel, after=after)
+                if body
+                else strip_block(new, tag)
+            )
+        _sync(manifest.path, rel, old, new)
 
     if check and stale:
         print("gen_indexes --check: índices dessincronizados:", ", ".join(stale))

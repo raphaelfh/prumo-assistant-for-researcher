@@ -142,6 +142,21 @@ def _strip_frontmatter(text: str) -> str:
 _VALID_KINDS = ("paper", "projeto-cep", "statistics", "scientific")
 
 
+def template_candidates(*, pj_path: Path, kind: WriteKind) -> dict[str, Path | None]:
+    """Candidatos a template de ``kind``, na ordem da chain (override > plugin).
+
+    Fonte única dos caminhos: ``resolve_template`` escolhe o primeiro que existe e
+    ``write list-templates`` reporta os dois. Sem isto, o relatório do CLI diverge
+    da resolução real — foi o que aconteceu quando os templates migraram para
+    ``skills/write-<kind>/template.md``.
+    """
+    skills_root = find_resource("skills")
+    return {
+        "project_override": pj_path / ".claude" / "writing_templates" / f"{kind}.md",
+        "plugin_default": (skills_root / f"write-{kind}" / "template.md" if skills_root else None),
+    }
+
+
 def resolve_template(
     *,
     pj_path: Path,
@@ -155,14 +170,9 @@ def resolve_template(
         if not explicit.exists():
             raise FileNotFoundError(f"--template {explicit} não existe.")
         return explicit
-    project_override = pj_path / ".claude" / "writing_templates" / f"{kind}.md"
-    if project_override.exists():
-        return project_override
-    skills_root = find_resource("skills")
-    if skills_root is not None:
-        skill_template = skills_root / f"write-{kind}" / "template.md"
-        if skill_template.exists():
-            return skill_template
+    for candidate in template_candidates(pj_path=pj_path, kind=kind).values():
+        if candidate is not None and candidate.exists():
+            return candidate
     raise FileNotFoundError(
         f"Nenhum template '{kind}' encontrado. Crie "
         f".claude/writing_templates/{kind}.md ou passe --template."

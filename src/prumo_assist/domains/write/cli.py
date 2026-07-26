@@ -192,20 +192,15 @@ def list_templates_command(
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Lista templates resolvíveis (project overrides + plugin defaults)."""
-    from prumo_assist.core.paths import find_resource
-
     with cli_run(json_mode=json_mode) as console:
-        kinds = ("paper", "projeto-cep", "statistics", "scientific")
         result: dict[str, dict[str, str | None]] = {}
-        plugin_root = find_resource("templates")
-        for kind in kinds:
-            project_path = path.resolve() / ".claude" / "writing_templates" / f"{kind}.md"
-            plugin_path = plugin_root / "writing" / f"{kind}.md" if plugin_root else None
+        for kind in _WRITE_KINDS:
+            candidates = compose.template_candidates(
+                pj_path=path.resolve(), kind=cast(WriteKind, kind)
+            )
             result[kind] = {
-                "project_override": str(project_path) if project_path.exists() else None,
-                "plugin_default": (
-                    str(plugin_path) if plugin_path and plugin_path.exists() else None
-                ),
+                label: str(p) if p is not None and p.exists() else None
+                for label, p in candidates.items()
             }
         console.emit(result)
 

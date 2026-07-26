@@ -60,6 +60,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-07-22-zettlr-front-design]] · draft
 - [[superpowers/specs/2026-07-26-citacao-pandoc-cidada-primeira-classe-design]] · draft
 - [[superpowers/specs/2026-07-26-domain-errors-prumoerror-design]] · draft
+- [[superpowers/specs/2026-07-26-prosa-idioma-citacao-design]] · approved
 
 **Plans ativos:**
 
