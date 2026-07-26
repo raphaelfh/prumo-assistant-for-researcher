@@ -7,6 +7,173 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **`core/criticmarkup.py`** — módulo de representação de revisão com as 5 marcas
+  de CriticMarkup padrão (`{++...++}`, `{--...--}`, `{~~...~>...~~}`, `{==...==}`,
+  `{>>...<<}`), parsing canônico, e operações determinísticas accept/reject/apply.
+  Substrato da ponte docx ↔ CriticMarkup (spec 2026-07-05, [ADR-0016](docs/adr/adr-0016-criticmarkup-conservacao-ooxml.md)).
+- **`normalize_markdown_with_map`** em `core/obsidian.py` — o normalizador virou
+  motor de edits de passada única e emite um mapa lossless de fragmentos
+  source↔norm (base do transplante da ponte: inverte-se o mapa, nunca a função).
+- **Sidecars `reviews/<slug>/{citemap,span-map}.json`** no export docx — versionáveis
+  em Git; o citemap registra (occ_id, citekeys, fingerprint, formattedCitation,
+  span no texto normalizado) com pareamento hard-fail contra os campos OOXML do
+  docx gerado (`CiteMapMismatchError`; invariantes I2/I8).
+- **Campos de citação travados** (`<w:lock w:val="sdtContentLocked"/>`, invariante I4) —
+  cada campo Zotero sai como content control travado: o coautor não redigita a
+  citação no Word; deleta o campo inteiro ou comenta. Guarda pós-build
+  (`MissingFieldLockError`).
+- **`prumoOcc`/`prumoFingerprint`** no payload OOXML — ocorrência estável por campo
+  e impressão digital por chave (cadeia de prioridade: `doi:<valor>` quando o `.bib`
+  tem DOI; senão `sha256:` de `itemID|uri` do BBT; senão `bib:` sha256 do entry cru).
+- **`prumo write review ingest`/`apply`** — fecham o round-trip docx↔CriticMarkup do
+  coautor: guardas A/B e conservação de citação (I2) na entrada, `review.md` como
+  worklist viva (decisões por marca, autor ou lote) e confirmação humana explícita
+  para cada drop de citação antes do write-back na página (spec 2026-07-05,
+  [ADR-0016](docs/adr/adr-0016-criticmarkup-conservacao-ooxml.md)).
+- **Servidor MCP `prumo-review`** (`prumo mcp serve`, stdio, registrado em `.mcp.json`) —
+  expõe o ciclo de revisão a agentes (Claude Code/Desktop) com 3 tools read-only
+  (`review_status`/`review_events`/`review_worklist`) e `propose_prose_edit`, a única
+  escrita permitida a um agente: insere marca CriticMarkup pendente no worklist
+  `review.md` com âncora `{>>prumo-autor: <autor><<}`, decidida pelo `apply_review`
+  humano; guardas hard-fail (âncora única, payload sem citação I3b, tangência de
+  citação recusada I1, allowlist de autor, round-trip guard pós-composição) recusam
+  qualquer proposta que fabrique ou aproxime citação. A skill `review-reconcile`
+  consome essas tools para reconciliar eventos ambíguos do transplante sem nunca
+  decidir; modo degradado sem MCP via `prumo write review events --checklist`
+  (spec 2026-07-05, [ADR-0017](docs/adr/adr-0017-prumo-mcp-reconciliador.md)).
+- **`prumo paper verify-refs`** — verificação determinística de referências do
+  `.bib`: existência e título via Crossref, retração via Crossref/PubMed, com
+  cache local (TTL 7 dias). `--page` restringe o escopo às citekeys marcadas na
+  página (recomendado); `--deep` liga o backend opcional `uvx
+  academic-refchecker==3.0.151` (pinado; achados viram `warning`, nunca gate);
+  `--refresh` ignora o cache. Só achado `error` deriva exit 1 (spec 2026-07-05,
+  [ADR-0018](docs/adr/adr-0018-verificacao-referencias-apis-publicas.md)).
+- **Skill `citation-support`** — classifica se cada citação de uma página
+  sustenta a frase que a cita (Fully/Partially/Unsubstantiated) a partir dos
+  extracts do acervo; sinaliza no chat, nunca edita nem bloqueia — camada LLM
+  da Fase 4 ([ADR-0018](docs/adr/adr-0018-verificacao-referencias-apis-publicas.md)).
+- **Contrato de preflight uniforme (ADR-0019)** — bloco machine-owned
+  (`<!-- prumo:preflight:begin/end -->`) gerado por `gen_indexes.py` e estampado
+  nas 16 skills do plugin, a partir do campo novo `requires:`
+  (`cli`/`qmd`/`zotero`, canônico em `core/skills.py`/`VALID_REQUIRES`) no
+  frontmatter `prumo:` de cada `SKILL.md`. Recusa fail-closed com roteamento
+  para `/prumo-assist:start` quando o CLI falta, checa drift de versão
+  CLI×plugin via `$CLAUDE_PLUGIN_ROOT` (fallback silencioso sem a variável),
+  avisa sobre MCP `qmd` ausente do inventário da sessão e sobre Zotero
+  fechado/ausente; skills de julgamento puro (`start`, `peer-review`,
+  `scientific-writing`) declaram `requires: []`. Enforcement:
+  `gen_indexes.py --check` no CI
+  ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)). Fecha os itens
+  1–3 da Fase 2 do guarda-chuva zero-friction — item 4 (piloto com 1 colega
+  real) segue pendente, a cargo do dono.
+- **Skill `start` reescrita como instalador guiado** — além de rotear pelas
+  capacidades do plugin, conduz a instalação do stack (uv, CLI `prumo`,
+  Zotero, qmd opcional, `prumo init pj_<nome>`) dentro da própria conversa,
+  com consentimento explícito por comando e sem simular saída de comando que
+  falhou; é o destino único para onde as demais skills roteiam quando o CLI
+  falta ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
+- **`docs/onboarding-pesquisador.md`** — trilha sem terminal (Desktop/Cowork)
+  para quem não programa, com o kit de medição do piloto da Fase 2 (cronômetro
+  até o primeiro output, meta ≤15 min; o que observar no consentimento da UI);
+  a trilha dev do README passa a documentar a instalação do CLI (`uv tool
+  install git+https://github.com/raphaelfh/prumo-assist.git`), que antes não
+  aparecia em nenhum lugar do repo.
+- **Finding `empty-bib`** (nível info) em `prumo paper verify-refs` — `.bib`
+  sem entradas agora emite orientação explícita (adicionar referências no
+  Zotero + `prumo paper sync`) em vez de reportar silenciosamente zero
+  referências verificadas.
+- **`prumo paper connect <coleção>`** — liga `references/_references.bib` a
+  uma coleção do Zotero via `autoexport.add` do Better BibTeX, eliminando o
+  fio manual do "Keep updated" dentro do próprio Zotero. Guardas anti-fantasma:
+  recusa (`AlreadyConnectedError`) se o bib já tem entradas reais, antes de
+  qualquer chamada ao Zotero; `find_collection` confirma a existência da
+  coleção via `user.groups(true)` (só leitura) ANTES da única chamada MUTANTE
+  do projeto no Zotero do usuário, então um nome digitado errado nunca cria
+  coleção fantasma (`CollectionNotFoundError`/`AmbiguousCollectionError` com
+  sugestões e `--library`); nome de coleção/biblioteca com `/` é recusado
+  (`UnsupportedCollectionNameError`) para não aliasar uma cadeia inexistente
+  no Better BibTeX. GUID do translator Better BibLaTeX pinado
+  (`f895aa0d-f28e-47fe-b247-2ea77c6ed583`); poll de cortesia pós-`add` com
+  `exported=False` honesto quando o export ainda não apareceu. `prumo doctor`
+  ganha aviso não-bloqueante quando o bib ainda é o placeholder do scaffold,
+  com o comando de correção embutido; a skill `paper-manager` ganha a
+  operação `connect`; `docs/onboarding-pesquisador.md` ganha a seção "Busca e
+  conectores" (marketplace `anthropics/life-sciences`/PubMed, `cookjohn/zotero-mcp`
+  rotulado "não validado neste piloto", Zettlr como editor recomendado), e
+  registra que o fallback lexical de busca é o caminho normal da persona sem
+  terminal — `qmd` segue opcional-avançado ([ADR-0020](docs/adr/adr-0020-connect-autoexport-bbt.md)).
+  Fecha o item 1 da emenda da Fase 4 do zero-friction (escopo A); **marco:
+  Fase 4 (escopo A) implementada** — smoke real do `connect` contra um
+  Zotero vivo segue pendente, a cargo do dono (nenhum teste automatizado
+  muta o Zotero real).
+- `prumo paper lint` detecta **citekey duplicada no `.bib`** (`duplicate_citekey`,
+  severidade `error`) — mesmo blind spot corrigido no `verify-refs` (F4):
+  duas entradas homônimas faziam uma esconder a outra em silêncio (inclusive
+  uma retratada); uma issue por citekey, com o comando de correção embutido.
+
+### Corrigido
+- `prumo init`: os placeholders de nome do template (`pj-NOME` no
+  `pyproject.toml`, `pj_<NOME>` nos títulos de README/docs) agora são
+  substituídos pelo nome real do projeto nos arquivos copiados — o projeto
+  novo não aparece mais como `pj-NOME` no PyCharm/uv. Em `--merge`,
+  arquivos preservados do usuário seguem intocados.
+- `prumo write export/compose --to docx`: o docx gerado passa por validação
+  estrutural (zip, partes obrigatórias, `[Content_Types].xml`) com um retry
+  automático do pandoc — absorve o defeito intermitente de "arquivo
+  corrompido" documentado no pipeline BBT/pandoc; se persistir, falha alto
+  (`CorruptDocxError`) em vez de entregar arquivo suspeito. Guarda de
+  regressão das `ZOTERO_PREF` embutidas (`MissingZoteroPrefsError`).
+  Fase 1 do spec zero-friction onboarding.
+- Filtro `zotero_live_docx.lua`: `item.id` do campo `CSL_CITATION` agora carrega
+  SEMPRE o citekey (o id numérico do Zotero migra para `zoteroItemID`) —
+  pré-condição do átomo de citação da ponte docx↔CriticMarkup (spec 2026-07-05,
+  invariantes I1/I2b).
+- Seam do `adeu` (backend de prosa pinado, `uvx adeu==1.29.0`) no `review
+  ingest` ganha timeout de 120s — evita travar indefinidamente numa rede lenta
+  no primeiro download do `uvx`; erro acionável (`AdeuUnavailableError`) em vez
+  de pendurar o comando (fila herdada F2+F3).
+- Mensagens de RUNTIME do CLI não citam mais alvos `make` do monorepo do
+  autor: o pré-requisito de PDF em `paper extract` aponta
+  `prumo paper sync-pdfs` (era `make sync-pdfs`), e o erro de citekey ausente
+  no export docx orienta o fluxo pós-connect — adicionar o paper à coleção
+  conectada no Zotero (BBT regrava o `.bib`) — em vez de `make sync-paper`
+  (follow-up conhecido da Fase 2 do zero-friction).
+- Erro "Better BibTeX recusou o autoexport" do `paper connect` ganha o
+  comando de correção embutido (conferir Automatic export no BBT e re-rodar) —
+  item c3 do backlog do review final da F4.
+- Efeitos visíveis do passe /simplify (verificação adversarial dos commits):
+  `write export --to <inválido> --out-dir X` responde com o erro pt-BR de
+  formato em vez de vazar `KeyError` cru; mensagens de achado `[deep]` do
+  `verify-refs` são truncadas em 200 chars (m8 do backlog F4 — o refchecker
+  embute referências cruas de milhares de chars); e o fingerprint de citação
+  passa a resolver a entrada do `.bib` pela citekey exata do header (o match
+  antigo por substring podia, em `.bib` patológico, hashear a entrada errada).
+
+### Mudado
+- `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par
+  fora do suportado (Zotero 9+) com o comando de correção na mensagem;
+  o payload JSON de `external_deps` ganha o campo `version`.
+- Export docx imprime nota de primeiro uso no Word (Zotero → Refresh;
+  prefs já embutidas).
+- Fachadas de `write export`/`write compose` (e o `prumo-zettlr-export`) capturam
+  a família enumerada `_EXPORT_CATCHES` — incluindo a nova `PandocFailedError`
+  (pandoc exit ≠ 0 com stderr embutido) — em vez do `RuntimeError` amplo
+  introduzido em 0.62.1: erro acionável continua saindo limpo no CLI, e erro
+  inesperado volta a vazar traceback (filosofia do `cli_run`: bug é bug).
+- `prumo write review ingest` agora exige `--force` para re-ingerir uma página
+  que já tem `review.md` com marca(s) pendente(s) — protege propostas do
+  agente (`propose_prose_edit`) de sobrescrita silenciosa; sem `--force`, falha
+  com o comando de correção embutido (fila herdada F2+F3).
+- Remediação de estrutura ausente por CONTEXTO em `wiki-ingest` e
+  `paper-manager`: as duas skills agora orientam `prumo init pj_<nome>` (via
+  `/prumo-assist:start` se o CLI não existir) — nunca tooling do monorepo do
+  autor (`make new-project`) nem scaffold manual. `paper-extract` troca, na
+  própria descrição da skill, a referência a `make sync-pdfs` (monorepo do
+  dono) por `prumo paper sync-pdfs`. Achado R4 do spike da Fase 0
+  ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
+
 ## [0.62.1] - 2026-07-22
 
 ### Adicionado

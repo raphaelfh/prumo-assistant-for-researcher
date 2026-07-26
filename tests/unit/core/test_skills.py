@@ -198,3 +198,44 @@ def test_stale_guideline_warnings_flags_malformed_date(tmp_path: Path) -> None:
     reg, _ = load_skill_registry(tmp_path)
     warns = stale_guideline_warnings(reg, today=date(2026, 6, 1))
     assert any("bad" in w and "inválid" in w for w in warns)
+
+
+def test_requires_lista_canonica(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "demo" / "SKILL.md",
+        "---\nname: demo\ndescription: D.\nprumo:\n  requires: [cli, qmd]\n---\n\nBody.\n",
+    )
+    assert parse_skill_file(skill).requires == ("cli", "qmd")
+
+
+def test_requires_string_unica(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "demo" / "SKILL.md",
+        "---\nname: demo\ndescription: D.\nprumo:\n  requires: zotero\n---\n\nBody.\n",
+    )
+    assert parse_skill_file(skill).requires == ("zotero",)
+
+
+def test_requires_ausente_eh_vazio(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "demo" / "SKILL.md",
+        "---\nname: demo\ndescription: D.\n---\n\nBody.\n",
+    )
+    assert parse_skill_file(skill).requires == ()
+
+
+def test_requires_valor_invalido_manifest_error(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "demo" / "SKILL.md",
+        "---\nname: demo\ndescription: D.\nprumo:\n  requires: [terminal]\n---\n\nBody.\n",
+    )
+    with pytest.raises(ManifestError, match="requires"):
+        parse_skill_file(skill)
+
+
+def test_requires_duplicata_deduplicada(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "demo" / "SKILL.md",
+        "---\nname: demo\ndescription: D.\nprumo:\n  requires: [cli, cli, qmd]\n---\n\nBody.\n",
+    )
+    assert parse_skill_file(skill).requires == ("cli", "qmd")

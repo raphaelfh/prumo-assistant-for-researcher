@@ -61,6 +61,48 @@ class WriteOutput(BaseModel):
     words_generated: int
 
 
+class SpanFragmentModel(BaseModel):
+    """Um fragmento de mapeamento de intervalo (source → normalized)."""
+
+    source_start: int
+    source_end: int
+    norm_start: int
+    norm_end: int
+    kind: str
+
+
+class SpanMapFile(BaseModel):
+    """Arquivo sidecar que mapeia spans de texto-fonte para texto normalizado."""
+
+    schema_version: Literal["SpanMapFile/v1"] = "SpanMapFile/v1"
+    page: str
+    source_sha256: str
+    fragments: list[SpanFragmentModel]
+
+
+class CiteOccurrence(BaseModel):
+    """Uma ocorrência de citação com identidade, citekeys e metadados de formatação."""
+
+    occ_id: str
+    citation_id: str
+    citekeys: list[str]
+    fingerprints: dict[str, str]
+    formatted: str
+    norm_start: int
+    norm_end: int
+
+
+class CiteMapFile(BaseModel):
+    """Arquivo sidecar que mapeia ocorrências de citações com suas posições normalizadas."""
+
+    schema_version: Literal["CiteMapFile/v1"] = "CiteMapFile/v1"
+    page: str
+    export_git_sha: str
+    bib_sha256: str
+    docx_sha256: str
+    occurrences: list[CiteOccurrence]
+
+
 class AIToolUse(BaseModel):
     """Um uso agregado de ferramenta de IA (uma skill + um modelo)."""
 
@@ -81,3 +123,41 @@ class AIDisclosure(BaseModel):
     tools: list[AIToolUse] = Field(default_factory=list)
     statement_pt: str
     statement_en: str
+
+
+class ReviewComment(BaseModel):
+    """Comentário extraído de um docx revisado."""
+
+    id: str
+    author: str
+    date: str | None = None
+    text: str
+    anchor_text: str | None = None
+    reply_of: str | None = None
+
+
+class ReviewCommentsFile(BaseModel):
+    """Arquivo sidecar que mapeia comentários extraídos de um docx revisado."""
+
+    schema_version: Literal["ReviewCommentsFile/v1"] = "ReviewCommentsFile/v1"
+    page: str
+    comments: list[ReviewComment] = []
+
+
+class ReviewEvent(BaseModel):
+    """Um evento de revisão capturado durante ingest/apply."""
+
+    kind: str
+    detail: str
+    occ_id: str | None = None
+    citekeys: list[str] = []
+    author: str | None = None
+    mark_excerpt: str | None = None
+
+
+class ReviewEventsFile(BaseModel):
+    """Arquivo sidecar que mapeia eventos de revisão durante processamento."""
+
+    schema_version: Literal["ReviewEventsFile/v1"] = "ReviewEventsFile/v1"
+    page: str
+    events: list[ReviewEvent] = []

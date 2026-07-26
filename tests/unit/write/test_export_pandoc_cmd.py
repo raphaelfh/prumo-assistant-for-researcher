@@ -24,6 +24,7 @@ from prumo_assist.domains.write.export import (
     _assert_bibliography_present,
     _assert_no_citeproc_missing,
     _build_pandoc_cmd,
+    _docx_texts,
     _docx_zotero_field_counts,
     _zotero_bibliography_docx_filter,
     _zotero_live_docx_filter,
@@ -155,7 +156,10 @@ def test_citeproc_missing_raises_with_keys_and_fix() -> None:
         _assert_no_citeproc_missing(stderr)
     msg = str(exc.value)
     assert "smith2024" in msg and "ghost2020" in msg
-    assert "sync-paper" in msg
+    # Hint de correção pós-F4: coleção conectada no Zotero (BBT regrava o
+    # .bib) — nunca mais `make sync-paper` (alvo exterminado).
+    assert "prumo paper connect" in msg
+    assert "make sync-paper" not in msg
 
 
 # ---------- _assert_bibliography_present (post-build) ----------
@@ -191,12 +195,12 @@ def test_field_counts_full_pipeline(tmp_path: Path) -> None:
 def test_assert_bibliography_passes_when_no_citations(tmp_path: Path) -> None:
     """Página sem citações nem placeholder — nada a verificar, segue o jogo."""
     docx = _fake_docx(tmp_path, "<w:document>texto sem citações</w:document>")
-    _assert_bibliography_present(docx)
+    _assert_bibliography_present(_docx_texts(docx)[0])
 
 
 def test_assert_bibliography_passes_when_both_present(tmp_path: Path) -> None:
     xml = "ADDIN ZOTERO_ITEM CSL_CITATION ADDIN ZOTERO_BIBL CSL_BIBLIOGRAPHY"
-    _assert_bibliography_present(_fake_docx(tmp_path, xml))
+    _assert_bibliography_present(_docx_texts(_fake_docx(tmp_path, xml))[0])
 
 
 def test_assert_bibliography_raises_when_citations_without_bib(tmp_path: Path) -> None:
@@ -205,7 +209,7 @@ def test_assert_bibliography_raises_when_citations_without_bib(tmp_path: Path) -
     xml = "ADDIN ZOTERO_ITEM CSL_CITATION foo ADDIN ZOTERO_ITEM CSL_CITATION bar"
     docx = _fake_docx(tmp_path, xml)
     with pytest.raises(MissingBibliographyPlaceholderError) as exc:
-        _assert_bibliography_present(docx)
+        _assert_bibliography_present(_docx_texts(docx)[0])
     msg = str(exc.value)
     assert "2 citação" in msg
     assert "{#refs}" in msg  # mensagem aponta o fix

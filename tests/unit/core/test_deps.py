@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 from unittest.mock import patch
 
 import pytest
@@ -62,6 +63,7 @@ def test_dep_status_is_serializable() -> None:
         "required_by": ["foo"],
         "detail": "d",
         "hint": "h",
+        "version": None,
     }
 
 
@@ -78,6 +80,72 @@ def test_zotero_check_honors_env_override(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr("prumo_assist.core.deps._binary_on_path", lambda name: None)
     check_external_deps()
     assert captured == {"host": "example.test", "port": 1234}
+
+
+def test_zotero_supported_version_stays_present() -> None:
+    with (
+        patch("prumo_assist.core.deps._binary_on_path", return_value=None),
+        patch("prumo_assist.core.deps._port_open", return_value=True),
+        patch("prumo_assist.core.deps._zotero_version_header", return_value="9.0.6"),
+    ):
+        zot = _by_name(check_external_deps(), "zotero")
+    assert zot.present is True
+    assert zot.version == "9.0.6"
+    assert "9.0.6" in zot.detail
+
+
+def test_zotero_below_floor_flags_unsupported() -> None:
+    with (
+        patch("prumo_assist.core.deps._binary_on_path", return_value=None),
+        patch("prumo_assist.core.deps._port_open", return_value=True),
+        patch("prumo_assist.core.deps._zotero_version_header", return_value="8.0.2"),
+    ):
+        zot = _by_name(check_external_deps(), "zotero")
+    assert zot.present is False
+    assert zot.version == "8.0.2"
+    assert "Zotero 9+" in zot.detail
+    assert "zotero.org/download" in zot.hint
+
+
+def test_zotero_undetectable_version_is_fail_safe() -> None:
+    with (
+        patch("prumo_assist.core.deps._binary_on_path", return_value=None),
+        patch("prumo_assist.core.deps._port_open", return_value=True),
+        patch("prumo_assist.core.deps._zotero_version_header", return_value=None),
+    ):
+        zot = _by_name(check_external_deps(), "zotero")
+    assert zot.present is True
+    assert zot.version is None
+    assert "versão não detectada" in zot.detail
+
+
+def test_zotero_version_probe_skipped_when_port_closed() -> None:
+    def _explode(host: str, port: int, timeout: float = 2.0) -> str | None:
+        raise AssertionError("probe de versão não deveria rodar com porta fechada")
+
+    with (
+        patch("prumo_assist.core.deps._binary_on_path", return_value=None),
+        patch("prumo_assist.core.deps._port_open", return_value=False),
+        patch("prumo_assist.core.deps._zotero_version_header", new=_explode),
+    ):
+        zot = _by_name(check_external_deps(), "zotero")
+    assert zot.present is False
+    assert zot.version is None
+
+
+def test_zotero_version_probe_never_raises_on_non_http_service() -> None:
+    def _bad_status(*args: object, **kwargs: object) -> object:
+        raise http.client.BadStatusLine("lixo nao-http")
+
+    with (
+        patch("prumo_assist.core.deps._binary_on_path", return_value=None),
+        patch("prumo_assist.core.deps._port_open", return_value=True),
+        patch("prumo_assist.core.deps.urllib.request.urlopen", _bad_status),
+    ):
+        zot = _by_name(check_external_deps(), "zotero")
+    assert zot.present is True
+    assert zot.version is None
+    assert "versão não detectada" in zot.detail
 
 
 def _by_name(statuses: list[DepStatus], name: str) -> DepStatus:

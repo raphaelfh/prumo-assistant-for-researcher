@@ -11,6 +11,7 @@ sem boilerplate de wrappers passthrough::
 from __future__ import annotations
 
 from prumo_assist.domains.paper.callout import apply_extraction
+from prumo_assist.domains.paper.connect import connect_collection
 from prumo_assist.domains.paper.find import fuzzy_search as find
 from prumo_assist.domains.paper.graph import update_graph
 from prumo_assist.domains.paper.lint import lint, set_primary
@@ -19,11 +20,13 @@ from prumo_assist.domains.paper.pdfs import sync_pdfs
 from prumo_assist.domains.paper.prep import ExtractPrep, extract_prep
 from prumo_assist.domains.paper.sync import sync
 from prumo_assist.domains.paper.sync_all import sync_all
+from prumo_assist.domains.paper.verify import verify_refs
 from prumo_assist.domains.paper.zotero import sync_annotations, sync_notes
 
 __all__ = [
     "ExtractPrep",
     "apply_extraction",
+    "connect_collection",
     "extract_prep",
     "find",
     "lint",
@@ -35,4 +38,5 @@ __all__ = [
     "sync_notes",
     "sync_pdfs",
     "update_graph",
+    "verify_refs",
 ]

@@ -1,0 +1,81 @@
+---
+status: implemented
+verified: 2026-07-24
+release: null
+spec: "[[2026-07-22-zero-friction-onboarding-design]]"
+phase: "Fase 0 do guarda-chuva zero-friction (spike, sem código)"
+---
+
+# Fase 0 — Spike de validação empírica no Desktop/Cowork — Runbook manual
+
+> **Conclusão (2026-07-24):** critérios de saída atendidos — (1) marketplace
+> self-hosted SINCRONIZA in-app hoje (instalação real no Desktop do dono; 14
+> skills = `main` v0.62.1; corroborado em 2ª superfície Claude Code), com
+> limitações documentadas: MCPs do `.mcp.json` ausentes SILENCIOSAMENTE e
+> drift de versão do CLI global vence sem aviso; (2) baseline do modo
+> degradado capturada em TRÊS contextos (Desktop sem stack, CLI stale, CLI
+> branch com acervo vazio); (3) premissa da instalação guiada VALIDADA
+> (superfícies executam comandos na pasta designada); (4) material de docs
+> parcial — transcrições sim; PENDÊNCIA NÃO-BLOQUEANTE: prints dos fluxos de
+> UI (passos 1–2), consent-UI específico do Cowork e upload opcional (passo
+> 7) — consumidos pelo piloto da Fase 2 com colega real. Requisitos NOVOS
+> garimpados p/ Fase 2: preflight de versão CLI×plugin; ausência de MCP deve
+> virar diagnóstico visível; mensagem de acervo-vazio orientadora; remediação
+> por CONTEXTO (persona não tem monorepo — `prumo init`, não `make
+> new-project`).
+
+> **Execução:** MANUAL, pelo dono (exige conta Claude paga e a UI do Claude Desktop/Cowork — nenhum agente consegue executar isto). Sem código. ~15–25 min. O resultado alimenta diretamente o plano da Fase 2 (golden path + modo degradado) do spec [[2026-07-22-zero-friction-onboarding-design]].
+
+**Goal:** Responder empiricamente: o `marketplace.json` atual do prumo-assist sincroniza in-app nas superfícies Claude (web/Desktop/Cowork)? O que carrega e o que quebra sem o CLI/Zotero/qmd instalados? Como as falhas aparecem para um usuário não-programador?
+
+**Por que primeiro:** é a fase mais barata do programa e falsifica premissas antes de qualquer código da Fase 2 (se a sincronização in-app não funcionar como documentado em mai/2026, o golden path muda de forma). Sensibilidade temporal: as superfícies estão em research preview — se a UI divergir do roteiro, registre a discrepância como achado (não como erro seu).
+
+**Pré-flight automatizado (2026-07-23, controller):** `validate_manifests.py` ✓ (`plugin.json`, `marketplace.json`, coerência cruzada) e `sync_manifest_version.py --check` ✓ (v0.62.0) — o spike não falhará por manifesto inválido.
+
+**Tentativa de execução agentiva (2026-07-23):** o dono autorizou executar o spike via Claude in Chrome (sessão logada), mas a extensão **bloqueia `claude.ai` e `claude.com` por política de permissões de site** ("This site is blocked by your site permissions") — anti-recursão. Caminhos: (a) execução manual pelo dono (este runbook), ou (b) o dono liberar os domínios nas permissões da extensão e pedir a retomada agentiva. Registrado como evidência: superfícies Claude não são automatizáveis por agente-no-Chrome na configuração default.
+
+**Pré-requisitos:** plano Claude pago (Pro/Max); Claude Desktop instalado (aba Chat) e acesso ao Cowork; um diretório `pj_*` real disponível para o passo 6. Para maximizar o sinal do modo degradado, execute os passos 3–5 numa máquina/contexto SEM `prumo` CLI no PATH — ou anote que a sua máquina tem o stack completo e o degradado ficará sub-testado (aceitável; o piloto da Fase 2 cobre).
+
+---
+
+## Roteiro (marque e anote em cada item)
+
+- [ ] **1. Adicionar o marketplace por URL, in-app.** No chat do claude.ai (web) OU no Claude Desktop: fluxo de plugins → "Add from a repository" → `raphaelfh/prumo-assist` (ou URL git completa). Registrar: onde o fluxo fica na UI atual, se a sincronização funciona, mensagens de erro, e o que o catálogo mostra do plugin (nome, versão, nº de skills).
+- [ ] **2. Instalar o plugin e inventariar as skills visíveis.** Registrar: quantas das 14 skills aparecem, como aparecem (prefixo `/prumo-assist:`?), e se hooks/sub-agents aparecem desabilitados fora do Cowork (esperado, segundo a doc de mai/2026).
+- [ ] **3. Testar uma skill de julgamento puro SEM stack.** Colar um trecho de draft qualquer e invocar `/prumo-assist:peer-review`. Registrar: roda? pede algo do CLI indevidamente? qualidade subjetiva ok? (Esta é a hipótese do gancho de time-to-first-value da Fase 2 — D1.)
+- [ ] **4. Testar uma skill dependente do CLI e capturar a falha.** Invocar `/prumo-assist:paper-manager` (listar bibliografia) ou `/prumo-assist:wiki-query` sem `prumo`/Zotero/qmd disponíveis. Registrar A MENSAGEM EXATA que o usuário vê — é a linha de base que o preflight fail-closed da Fase 2 vai substituir.
+- [ ] **5. Observar o MCP `qmd` declarado.** O plugin distribui `.mcp.json` com o servidor `qmd`. Registrar: a superfície tenta subir o servidor? Que erro aparece sem o binário? O erro é compreensível para um clínico?
+- [ ] **6. Cowork com pasta `pj_*` real.** Designar a pasta de um projeto real; repetir os passos 3–4; testar se o agente consegue EXECUTAR um comando simples na pasta com consentimento (ex.: pedir para rodar `ls`/criar um arquivo de teste). Registrar: o modelo de permissão/consentimento como aparece — isso valida (ou não) a premissa da instalação guiada da Fase 2 (D1: "o Cowork executa comandos").
+- [ ] **7. (Opcional) Upload direto de arquivo de plugin** (fluxo "recebido de um colega"): exportar/enviar o plugin como arquivo e instalar via upload. Registrar viabilidade.
+- [ ] **8. Capturar screenshots** dos passos 1, 2, 4 e 6 (material bruto da doc em duas trilhas da Fase 2).
+
+## Registro de evidência (preencher ao executar)
+
+| Passo | Funcionou? | Mensagem/observação | Screenshot |
+|---|---|---|---|
+| 1 marketplace in-app | (pendente detalhes) | Instalação claramente funcionou (skills rodando na sessão do dono); falta registrar ONDE fica o fluxo na UI e o que o catálogo mostra (nome/versão/nº) | pendente |
+| 2 skills visíveis | PARCIAL | Corroboração indireta: a sessão Claude Code do dono também carregou o plugin com **14 skills** (= estado do `main` v0.62.1; `review-reconcile` e `citation-support` só existem no branch do PR #11 — re-sync pós-merge é teste natural) | pendente |
+| 3 julgamento sem stack | **SIM** | (a) Desktop: `wiki-ingest` identificou o paper via web (Khalil 2022, DOI correto), RECUSOU ingest direto (regra Zotero-fonte-de-verdade) e roteou p/ paper-manager; (b) Claude Code: `/prumo-assist:peer-review` rodou o fluxo oficial completo num draft com 7 defeitos plantados — pegou TODOS (5 claims sem evidência, incluindo os 2 que contradizem a própria fonte citada; superlativos; claim falso de "perfect accuracy" de LLM), produziu relatório estruturado + JSON `PeerReviewReport/v1` + pós-review arquivado em `docs/findings/` do pj. ZERO dependência de CLI/Zotero/qmd — hipótese do time-to-first-value (D1) validada | transcrições |
+| 4 falha sem CLI (baseline) | **SIM — capturada** | `write-paper section=intro` ABORTOU fail-closed com razões precisas: sem scaffold `pj_*` (pasta `teste` vazia), CLI `prumo` indisponível p/ `write prep`, sem `.claude/picot.toml` (regra de abort da skill), sem `references/_references.bib` (tudo viraria `[REF FALTANTE]`). Nada foi simulado. **ACHADO-CHAVE p/ Fase 2:** a remediação sugerida foi "`make new-project` no monorepo do prumo" — contexto do DONO, não da persona (colega não tem monorepo; pós-PR#12 o comando certo é `prumo init`). O preflight uniforme da Fase 2 precisa de comando de correção por CONTEXTO | transcrição colada |
+| 5 MCP qmd | **SIM (capturado)** | Superfície Claude Code, sessão real: os DOIS servidores do `.mcp.json` (`qmd` e `prumo-review`) estão **ausentes do inventário de tools SILENCIOSAMENTE** — nenhum erro visível ao usuário em lugar nenhum (qmd sem binário; prumo-review nem tenta aparecer). A persona jamais saberia que deveria existir busca semântica. Baseline p/ Fase 2: a ausência de MCP precisa virar diagnóstico visível (doctor já sabe do qmd; falta a ponte para a superfície) | — |
+| 6 Cowork + execução | **SIM (com ressalva)** | (a) Cowork/Desktop: "Add folder" conectou `teste`; agente LEU a pasta (detectou vazia) e EXECUTOU comando (CLI ausente → falha limpa). (b) Claude Code no `test/pj_smoke` REAL: skills + CLI executaram leitura/escrita/rede completas (peer-review arquivou finding; verify-refs bateu Crossref; sync criou notas) sob o modelo de permissão do Claude Code. RESSALVA registrada: o consent-UI específico do Cowork (como o pedido de permissão APARECE ao clínico) segue sendo o único item que só o dono pode observar — decidido tratar como não-bloqueante: superfícies compartilham o runtime e o piloto da Fase 2 captura a UI de consentimento com colega real | transcrições |
+| 7 upload de arquivo | | | |
+
+**Matriz CLI-side no sandbox (2026-07-24, controller — `test/pj_smoke` no worktree, gitignored via info/exclude):** complemento local aos passos UI-only. Resultados:
+
+1. `prumo init pj_smoke --yes` ✓ — scaffold íntegro, ZERO placeholders (fix do PR #12 validado no mundo real), 14 skills instaladas, perfil Zettlr gerado, v0.62.1.
+2. **ACHADO CRÍTICO — drift de versão silencioso:** dentro do pj (que tem `pyproject.toml` próprio), `uv run prumo`/`prumo` bare resolvem o **global stale** da máquina (0.62.0 via uv-tool, python3.13) e NÃO a versão que o plugin espera — sintoma real capturado: `No such command 'verify-refs'` (F4 não existe no 0.62.0). Persona sofrerá o mesmo: o global que ela tiver vence sem aviso. **Fase 2 precisa de preflight de versão CLI×plugin** (doctor já versiona Zotero; falta versionar o próprio prumo contra o plugin.json).
+3. `prumo doctor` ✓ duplo: em pasta não-pj diagnosticou estrutura ausente com precisão; no pj, `ok: True` com **qmd tratado como dep opcional não-bloqueante** (fail-closed por operação — design D1 correto). Zotero 9.0.6 detectado vivo (doctor da Fase 1 ✓). Hint do qmd exige `bun install -g` — fricção real p/ clínico (= literalmente o trigger da Fase 4 do guarda-chuva). Observação: doctor exit 0 mesmo com `ok: False` (adjudicar se diagnóstico deve gate-ar em scripting).
+4. Escada fail-closed (branch 0.62.1 via `uv run --project`): `write prep` sem PICOT → exit 0 com `picot: None` + warning (CLI = dados; o ABORT é da skill — consistente com a transcrição do Desktop); `sync`/`verify-refs` com bib VAZIO (init cria `_references.bib` vazio) → exit 0, 0 verificadas (correto; candidata a mensagem mais orientadora "acervo vazio — adicione no Zotero" na Fase 2).
+5. **Golden path E2E ao vivo:** bib com Khalil 2022 real + DOI fabricado → `verify-refs` reprovou o fabricado (doi-not-found, pt-BR com comando de correção, **exit 1**) e passou o Khalil limpo (Crossref+PubMed+título+retração); `paper sync` materializou 2 notas com metadados CSL. init→bib→verify→sync→notes provado.
+
+**Evidência recebida (2026-07-24, transcrição colada pelo dono — parcial):** fluxo real Desktop/Cowork com `teste` (pasta vazia). Validações: fail-closed do D1 funcionou na prática (abort com razões, zero simulação); roteamento paper→Zotero obedecido; agente lê pasta conectada e executa comandos. Alerta metodológico registrado: a sessão Cowork OFERECEU "criar o scaffold mínimo do wiki" na mão — oferta RECUSÁVEL por contaminar o spike (agente simulando trabalho do CLI, exatamente o que o fail-closed proíbe).
+
+## Critérios de saída
+
+1. Pergunta aberta nº 1 do spec respondida ("o marketplace self-hosted sincroniza in-app hoje, com quais limitações?").
+2. Baseline do modo degradado registrada (mensagens exatas dos passos 4–5).
+3. Premissa da instalação guiada validada ou refutada (passo 6).
+4. Material de docs coletado (passo 8).
+
+Ao concluir: preencher a tabela acima neste arquivo, adicionar frontmatter `status: implemented` + `verified: <data>` e mover para `archive/` (lifecycle da casa). O plano da Fase 2 nasce citando este registro.

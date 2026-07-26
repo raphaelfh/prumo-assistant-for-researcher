@@ -2,6 +2,7 @@
 
 Detecta problemas que quebram o pipeline de pesquisa:
 
+- duplicate_citekey — a mesma citekey em 2+ entradas do `.bib` (uma esconde a outra).
 - Citekeys no `.bib` sem nota correspondente em ``references/notes/``.
 - Notas em ``references/notes/`` sem entrada no `.bib` (órfãs).
 - Symlinks PDF quebrados (apontam pra arquivo inexistente).
@@ -47,9 +48,29 @@ def lint(pj_path: Path) -> dict[str, Any]:
         )
         return _report(issues)
 
-    bib_keys = {e.citekey for e in parse_bib(bib_path.read_text())}
+    bib_entries = parse_bib(bib_path.read_text())
+    bib_keys = {e.citekey for e in bib_entries}
     note_files = iter_note_meta_files(pj_path)
     note_keys = {citekey_from_meta_path(p) for p in note_files}
+
+    # 0. Citekey duplicada no .bib (mesmo blind spot corrigido no verify-refs,
+    # F4 T2): o set acima engole a segunda entrada em silêncio — uma entrada
+    # retratada pode sumir atrás da homônima. Uma issue por citekey, não por
+    # ocorrência.
+    counts: dict[str, int] = {}
+    for entry in bib_entries:
+        counts[entry.citekey] = counts.get(entry.citekey, 0) + 1
+    for ck in sorted(key for key, n in counts.items() if n > 1):
+        issues.append(
+            LintIssue(
+                "error",
+                "duplicate_citekey",
+                f"citekey aparece {counts[ck]}x no .bib — uma entrada esconde a "
+                "outra (e `prumo paper verify-refs` pula os checks dela); "
+                "renomeie a duplicata no Zotero e deixe o BBT regravar o .bib",
+                citekey=ck,
+            )
+        )
 
     # 1. Bib sem nota
     for ck in sorted(bib_keys - note_keys):

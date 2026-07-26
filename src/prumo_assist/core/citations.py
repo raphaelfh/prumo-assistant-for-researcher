@@ -66,6 +66,21 @@ def scan_citekeys(markdown_text: str) -> list[str]:
     return sorted(iter_citekeys(markdown_text))
 
 
+def iter_marked_citation_spans(text: str) -> Iterator[tuple[int, int]]:
+    """Spans ``(start, end)`` dos GRUPOS de citação marcada em ``text``, em ordem.
+
+    Um span por bloco ``[...]`` sem colchetes internos que contenha ao menos
+    um citekey — ``[@a]`` e ``[@a; @b, p. 3]`` cada um conta como UM span
+    (também casa o miolo interno de ``[[@key]]`` legado). É o nível-span da
+    mesma gramática de :func:`scan_marked_citekeys`; NÃO filtra code blocks —
+    responsabilidade do chamador (linha a linha via :func:`_body_lines`, ou
+    por span-map no export).
+    """
+    for match in _BRACKET_SPAN_RE.finditer(text):
+        if CITEKEY_RE.search(match.group(0)):
+            yield match.span()
+
+
 def scan_marked_citekeys(markdown_text: str) -> list[str]:
     """Citekeys em formas MARCADAS, ordenadas: ``[[@key]]`` legado ou
     dentro de colchetes ``[@key]``/``[@a; @b, p. 3]``.
@@ -75,7 +90,7 @@ def scan_marked_citekeys(markdown_text: str) -> list[str]:
     """
     keys: set[str] = set()
     for line in _body_lines(markdown_text):
-        for span in _BRACKET_SPAN_RE.finditer(line):
-            for match in CITEKEY_RE.finditer(span.group(0)):
+        for start, end in iter_marked_citation_spans(line):
+            for match in CITEKEY_RE.finditer(line[start:end]):
                 keys.add(match.group(1))
     return sorted(keys)

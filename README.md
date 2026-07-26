@@ -10,6 +10,21 @@ protocolos e escrever/revisar documentos.
 
 Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de design em [`docs/constitution.md`](docs/constitution.md); decisões registradas em [`docs/adr/`](docs/adr/); status atual e próximas fases em [`ROADMAP.md`](ROADMAP.md).
 
+## Para pesquisadores (Desktop/Cowork, sem terminal)
+
+Você não precisa de terminal para usar o prumo-assist. Direto no Claude
+Desktop ou no Cowork: menu de plugins → **"Add from a repository"** →
+`raphaelfh/prumo-assist` (exige plano Claude pago — Pro ou Max).
+
+Depois de instalado, cole um trecho de draft e peça `/prumo-assist:peer-review`
+— funciona sem instalar mais nada (julgamento puro; testado no spike da Fase 0
+sem CLI/Zotero/qmd). Quando quiser ir além (bibliografia, projeto no disco), a
+própria conversa guia a instalação do resto — `/prumo-assist:start` pede seu
+consentimento a cada comando.
+
+Guia completo, passo a passo, em linguagem simples:
+[`docs/onboarding-pesquisador.md`](docs/onboarding-pesquisador.md).
+
 ## Conteúdo
 
 ### Skills
@@ -18,10 +33,12 @@ Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de
 | Skill | Uso |
 |---|---|
 | `/prumo-assist:active-learning` | Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/wiki/study-sessions/. No Reflect, oferece arquivar insight como finding. |
+| `/prumo-assist:citation-support` | Classifica se cada citação de uma página sustenta a frase que a cita (Fully/Partially/Unsubstantiated) usando os extracts do acervo — SINALIZA apenas, nunca edita nem bloqueia. Roda `prumo paper verify-refs` antes (base determinística: existência/retração/título). |
 | `/prumo-assist:formulate-picot` | Formaliza, propaga e versiona a PICOT do projeto em 3 destinos (.claude/picot.toml canônico, docs/protocol.md operacional, docs/project_guide.md acadêmico) + ADR append-only quando muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado. |
-| `/prumo-assist:paper-extract` | Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em references/notes/<citekey>/_extract.md. Pressupõe /prumo-assist:paper-manager sync executado + symlinks via make sync-pdfs. |
+| `/prumo-assist:paper-extract` | Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em references/notes/<citekey>/_extract.md. Pressupõe /prumo-assist:paper-manager sync executado + symlinks via prumo paper sync-pdfs. |
 | `/prumo-assist:paper-manager` | Gerencia o acervo bibliográfico do pj_* (references/): sincroniza .bib do Zotero/BBT, atualiza grafo de citação passivo, marca paper principal, lista bibliografia, busca por palavra-chave, vê quem cita quem, audita consistência .bib↔notas. |
 | `/prumo-assist:peer-review` | Simula revisão crítica de draft acadêmico (paper, capítulo, grant, proposta) produzindo feedback estruturado por seção com forças, fraquezas, claims sem evidência e sugestões acionáveis. Aplica mental model adequado (TRIPOD+AI / TRIPOD-LLM / DECIDE-AI / CLAIM / CONSORT 2025 / PRISMA / STROBE). |
+| `/prumo-assist:review-reconcile` | Reconcilia eventos ambíguos do round-trip de revisão (unanchored/ambiguous/non-identity) propondo marcas CriticMarkup pendentes no worklist via prumo — o humano decide com `prumo write review apply`. NUNCA propõe/move/cunha citação (I1/I3b: eventos de citação são decisão humana). |
 | `/prumo-assist:scientific-writing` | Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc — pontuação (sem travessão / dois-pontos / ponto-e-vírgula em texto corrido), posição de citação (antes do ponto), agrupamento de múltiplas citações num único colchete separadas por ponto-e-vírgula ([@a; @b]), atenuação de superlativos, coesão entre períodos. Preserva conteúdo (forma, não substância). |
 | `/prumo-assist:start` | Porta de entrada do prumo-assist. Use quando o pesquisador não sabe por onde começar; lista as capacidades e roteia para a skill certa (paper-manager, paper-extract, wiki-ingest, wiki-query, write-*). |
 | `/prumo-assist:wiki-ingest` | Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria docs/sources/<slug>.md, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /prumo-assist:paper-manager. |
@@ -46,6 +63,20 @@ Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de
 ```
 
 Após a instalação, as skills aparecem com o prefixo `/prumo-assist:...`.
+
+Para usar as skills que dependem do CLI Python (bibliografia, escrita, wiki),
+instale também o `prumo`:
+
+```bash
+uv tool install git+https://github.com/raphaelfh/prumo-assist.git
+```
+
+Atualizar depois: `uv tool upgrade prumo-assist`.
+
+Guia sem terminal para quem prefere não usar o CLI/Claude Code: [Para
+pesquisadores](#para-pesquisadores-desktopcowork-sem-terminal) acima, ou o
+passo a passo completo em
+[`docs/onboarding-pesquisador.md`](docs/onboarding-pesquisador.md).
 
 ## Pré-requisitos externos
 

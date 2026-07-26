@@ -7,7 +7,7 @@ when_to_use: |
   papers, "encontrar paper sobre Y", "quem cita Z", auditar consistência, ou
   mencionar "bibliografia", "paper principal", "referências do projeto",
   "minhas notas do Zotero".
-argument-hint: "[sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary <citekey> | list | graph <citekey> | sync-bib | find <query>]"
+argument-hint: "[sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary <citekey> | list | graph <citekey> | sync-bib | find <query> | connect <coleção>]"
 allowed-tools: Read Write Edit Glob Grep Bash(prumo paper *) Bash(rg *)
 prumo:
   version: 1.0.0
@@ -15,15 +15,39 @@ prumo:
   agent_compat: [claude-code]
   cost_estimate: ~1-3k tokens
   inputs:
-    operation: required (sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary | list | graph | sync-bib | find)
+    operation: required (sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary | list | graph | sync-bib | find | connect)
     args: optional (operation-specific)
+  requires: [cli, zotero]
 ---
 
 # Paper Manager — acervo bibliográfico de `pj_*/references/`
 
+<!-- prumo:preflight:begin -->
+> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+>
+> 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
+>    operação desta skill; roteie para `/prumo-assist:start` (instalação guiada com
+>    consentimento) e pare aqui.
+> 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
+>    definido, compare a versão do CLI com o campo `version` de
+>    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
+>    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
+>    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
+>    pule este passo em silêncio.
+> 3. **Estrutura:** se o diretório não tiver `references/` + `docs/` de um `pj_*`,
+>    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
+>    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
+> 4. **Zotero:** confira `prumo doctor --json` → `external_deps[name=zotero].present`;
+>    ausente/fechado → recuse operações que dependem dele citando o hint do doctor
+>    (abrir o Zotero; instalar Better BibTeX).
+>
+> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
+> operação exata nunca é simulada.
+<!-- prumo:preflight:end -->
+
 Skill para manter o acervo de papers como motor file-based: 1 `.md` por paper, 1 BibTeX central, PDFs em `pdfs/` (gitignored). Todas as operações são feitas via `WebFetch` + `Read`/`Edit`/`Write` — sem novas deps Python.
 
-Pressuposto: o diretório corrente é um `pj_*` com a estrutura padrão em `references/`. Se `references/` não existir, orientar o usuário a rodar `make new-project` ou retrofitar manualmente.
+Pressuposto: o diretório corrente é um `pj_*` com a estrutura padrão em `references/`. Se `references/` não existir, orientar `prumo init pj_<nome>` (via /prumo-assist:start se o CLI não existir) — nunca retrofit manual.
 
 ## Layout esperado
 
@@ -59,7 +83,7 @@ Regras:
 ## Operações
 
 > [!note]
-> A operação `add <doi>` (fetching CrossRef direto) foi removida. Hoje o Zotero é a fonte única de metadata e PDF. Para adicionar um paper: (1) insira no Zotero (arraste o PDF, cole o DOI, etc.); (2) o Better BibTeX regrava `_references.bib` automaticamente; (3) rode `/prumo-assist:paper-manager sync` (ou `make sync-paper PJ=pj_x`). Para os PDFs: `make sync-pdfs PJ=pj_x` (ou `make sync-pdf-paper` que faz os dois).
+> A operação `add <doi>` (fetching CrossRef direto) foi removida. Hoje o Zotero é a fonte única de metadata e PDF. Para adicionar um paper: (1) insira no Zotero (arraste o PDF, cole o DOI, etc.); (2) o Better BibTeX regrava `_references.bib` automaticamente; (3) rode `/prumo-assist:paper-manager sync` (ou `make sync-paper`). Para os PDFs: `prumo paper sync-pdfs` (ou `make sync-pdf-paper` que faz os dois).
 
 ### 1. `sync`
 
@@ -81,7 +105,7 @@ Passos:
    ```
    ✓ N notas novas, M atualizadas, K órfãs.
    ✓ Grafo: +X arestas, -Y removidas.
-   Para extrair conteúdo dos PDFs: /prumo-assist:paper-extract-all (ou make extract-paper-all PJ=pj_<nome>)
+   Para extrair conteúdo dos PDFs: /prumo-assist:paper-extract-all (ou make extract-paper-all)
    ```
 
 4. **Órfãs** (citekey em `notes/` mas ausente do `.bib`) **não são deletadas** automaticamente — é aviso para o usuário renomear no Zotero ou deletar a nota à mão.
@@ -181,6 +205,34 @@ Passos:
 2. Mostrar o output integral (já vem formatado: citekey, role, status, author, title, year, tldr).
 
 3. Se o usuário estiver claramente querendo inserir uma citação em um arquivo aberto, oferecer proativamente "quer que eu edite o arquivo `<nome>` e insira `[@<citekey>]` na linha <N>?".
+
+### 8. `connect <coleção>`
+
+Liga o `.bib` do projeto a uma coleção do Zotero via `autoexport.add` do Better BibTeX — o comando que substitui o fio manual de configurar "Keep updated" dentro do Zotero. Normalmente é rodado uma única vez, logo depois de `prumo init`.
+
+Quando o usuário pedir algo como "conecta minha coleção X" (ou "liga meu projeto na coleção X do Zotero"):
+
+Passos:
+
+1. **Pré-condição**: Zotero aberto (com Better BibTeX instalado). Se não estiver, o comando falha com mensagem clara e exit code 2 — não insista sem reabrir o Zotero.
+2. Executar via `Bash`:
+   ```bash
+   prumo paper connect "X"
+   ```
+3. Se o CLI responder que o nome é ambíguo (mesma coleção em mais de uma biblioteca), rodar de novo acrescentando `--library`:
+   ```bash
+   prumo paper connect "X" --library "<nome da biblioteca>"
+   ```
+4. Em caso de sucesso, sugerir o próximo passo ao usuário:
+   ```bash
+   prumo paper sync
+   ```
+
+Regras duras:
+
+- **NUNCA** criar ou editar `_references.bib` à mão para "ajudar" — o autoexport é responsabilidade exclusiva do Better BibTeX; a skill não simula esse trabalho.
+- Typo no nome da coleção **nunca** cria nada no Zotero: o comando valida a existência da coleção antes de qualquer chamada que altere o Zotero, e falha citando sugestões parecidas em vez de criar uma coleção fantasma.
+- Se o `_references.bib` do projeto já tiver entradas reais, o comando recusa reconectar (evita duplicar o autoexport já configurado) — oriente o usuário a conferir Preferences → Better BibTeX → Automatic export no Zotero.
 
 ## Erros comuns
 

@@ -11,6 +11,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 
 | Pergunta | Documento |
 |---|---|
+| Sou pesquisador sem terminal — como começo no Desktop/Cowork? | [[onboarding-pesquisador\|Trilha do pesquisador]] |
 | O que o pesquisador faz vs. o que o prumo-assist resolve? | [[journey\|Canvas de jornada]] *(abrir como canvas)* |
 | Tenho um gatilho concreto, qual comando usar? | [[actions-by-context\|Contextos → ações]] |
 | Como devo estruturar um novo `pj_*`? | [[Research Project Structure\|Estrutura de Projeto de Pesquisa]] |
@@ -33,6 +34,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 - `superpowers/specs/` — specs vivas de design (não-perecíveis; `status: approved | superseded`).
 - `superpowers/plans/` — planos ativos; implementados movem pra `plans/archive/` com `status/verified/release`.
 - `adr/` — decisões registradas (MADR minimal, imutáveis). Índice: [[adr/_index]].
+- `onboarding-pesquisador.md` — trilha do pesquisador sem terminal (Desktop/Cowork) + kit do piloto da Fase 2.
 
 ## Convenções
 
@@ -53,14 +55,15 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-05-30-pj-base-simplification-design]] · approved
 - [[superpowers/specs/2026-06-11-repo-organization-redesign-design]] · approved
 - [[superpowers/specs/2026-06-13-researcher-pipeline-design]] · approved
-- [[superpowers/specs/2026-07-05-review-docx-criticmarkup-design]] · draft
+- [[superpowers/specs/2026-07-05-review-docx-criticmarkup-design]] · approved
+- [[superpowers/specs/2026-07-22-zero-friction-onboarding-design]] · approved
 - [[superpowers/specs/2026-07-22-zettlr-front-design]] · draft
 
 **Plans ativos:**
 
 - [[superpowers/plans/2026-07-22-zettlr-front]] · draft
 
-**Plans arquivados:** 16 em `superpowers/plans/archive/`
+**Plans arquivados:** 25 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->

@@ -1,7 +1,7 @@
 ---
 title: Round-trip de revisão docx ↔ CriticMarkup com garantia de integridade de citações (write review)
 date: 2026-07-05
-status: draft
+status: approved
 tags: [write, review, criticmarkup, citations, zotero, docx, roundtrip, integrity, conservation, mcp, agents]
 ---
 
@@ -23,7 +23,7 @@ Decidido após 7 workflows de investigação nesta sessão (2026-07-04/05): mapa
 
 O dono descreveu (2026-07-04): *"como organizar citações e manter mapeado para poder editar como humano e com agentes de forma dinâmica sem precisar ficar regerando o docx"*, com refinamento posterior: *"o must é sair do Zotero para evitar erro de citação errada"*. O diagnóstico separou dois loops:
 
-- **Loop interno (autor):** falta preview vivo — resolvido por `prumo write preview` (entregável paralelo, fora do núcleo desta spec).
+- **Loop interno (autor):** falta preview vivo — **superado** (emenda 2026-07-23): resolvido fora deste repo via front Zettlr com Pandoc puro (ADR-0015 externo, 2026-07-22). Nenhum entregável de preview neste programa.
 - **Loop externo (coautores):** comentam + tracked-changes no Word; o docx volta e hoje é beco sem saída. **Esta spec resolve o loop externo.**
 
 ### O que já existe no prumo (grounding verificado no código)
@@ -74,7 +74,7 @@ Deep-research verificado (2026-07-05), números-âncora:
 
 ### Componentes e papéis
 
-- **Zotero / Better BibTeX** — origem única de toda referência (`references/_references.bib` + BBT JSON-RPC em `127.0.0.1:23119`). Keys sempre pinadas (Zotero 8).
+- **Zotero / Better BibTeX** — origem única de toda referência (`references/_references.bib` + BBT JSON-RPC em `127.0.0.1:23119`). Keys sempre pinadas (Zotero 9+ — par suportado detectado por `prumo doctor` desde a Fase 1 do zero-friction; emenda 2026-07-23).
 - **prumo (guardião + leitor)** — a única coisa que escreve citação na fonte; parseia OOXML diretamente; impõe as invariantes I1–I8 em código determinístico.
 - **Agente reconciliador** — resolve o resíduo ambíguo propondo eventos estruturados; invocado via prumo-MCP local (stdio, Claude Code/Desktop — Fase 3). Propõe; nunca cunha.
 - **Fonte `.md` em Git** — verdade do manuscrito; CriticMarkup como camada de revisão inline; sidecars versionados.
@@ -169,7 +169,7 @@ Determinística-primeiro, LLM só sinaliza:
 - `prumo write export --docx` — existente; passa a emitir sidecars e campos instrumentados.
 - `prumo write review ingest <reviewed.docx>` — extração + guardas + transplante + cópia de revisão em branch.
 - `prumo write review apply [--accept-all | --by-author <a> | --mark <id> --accept/--reject]` — aplica, recheca mark-count, regenera bib.
-- `prumo write preview` — **entregável paralelo** (loop interno; HTML via `--citeproc` e/ou Typst watch); plano próprio, fora do núcleo desta spec.
+- `prumo write preview` — **superado** (emenda 2026-07-23): loop interno resolvido via front Zettlr (ADR-0015 externo); sem plano próprio.
 
 ## Fases e fronteiras de release
 
@@ -180,7 +180,7 @@ Determinística-primeiro, LLM só sinaliza:
 | **2 — ponte docx (MVP)** | `review ingest` + guardas A/B/C + conservação + transplante determinístico + portão humano + `review apply` | MINOR (comandos novos) |
 | **3 — agente** | prumo-MCP local (stdio) + reconciliador para o resíduo | MINOR |
 | **4 — verificação** | RefChecker + retração + DOI + citação-suporte | MINOR |
-| paralelo | `prumo write preview` | plano próprio |
+| ~~paralelo~~ | ~~`prumo write preview`~~ — superado (Zettlr/ADR-0015 externo; emenda 2026-07-23) | — |
 
 Cada fase segue brainstorm → spec (esta) → plan → TDD; plano implementado arquiva com `status: implemented`.
 
@@ -233,3 +233,4 @@ Cada fase segue brainstorm → spec (esta) → plan → TDD; plano implementado 
 - **ADR novo** (decisão estrutural, MADR minimal, próximo número livre): "CriticMarkup como representação de revisão + conservação de citações contada no OOXML" — escrito na Fase 1, referenciando ADR-0009 (blocos delimitados) como precedente do padrão máquina-possui-região.
 - Layering respeitado: `core/criticmarkup.py` sem imports de domínio; `write/review.py` importa core; schemas versionados forward-only em `domains/write/schemas/`.
 - Versionamento conforme RELEASING.md: fases 1–4 são MINOR (invocável novo); esta spec em `docs/` não bumpa versão.
+- **Revisão do dono:** 2026-07-23 — aprovado com 2 emendas editoriais (preview superado via Zettlr/ADR-0015 externo; Zotero 8→9+). Abre o gate da Fase 3 do guarda-chuva zero-friction ([[2026-07-22-zero-friction-onboarding-design]]).

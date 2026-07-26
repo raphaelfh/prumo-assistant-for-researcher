@@ -20,7 +20,10 @@ def capture_command(
     """Classifica o input e imprime sugestão de próximo passo."""
     with cli_run(json_mode=json_mode) as console:
         route = classify(input_value)
-        console.info(f"[bold]{route.kind.upper()}[/bold]: {route.canonical}")
+        # Sem marcação Rich embutida na string (Fix pós-review, Crítico #2 do
+        # Console): `route.canonical` ecoa o input do usuário quase cru — um
+        # citekey/URL com colchetes literais não pode ser reinterpretado.
+        console.info(f"{route.kind.upper()}: {route.canonical}")
         console.info(f"→ {route.suggestion}")
         if route.next_command:
             console.info(f"   `{route.next_command}`")

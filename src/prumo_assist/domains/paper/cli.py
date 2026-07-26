@@ -13,7 +13,17 @@ import typer
 
 from prumo_assist.core.cli_io import read_stdin_json
 from prumo_assist.core.cli_op import cli_run
-from prumo_assist.domains.paper import find, graph, lint, migrate, pdfs, sync, zotero
+from prumo_assist.domains.paper import (
+    connect,
+    find,
+    graph,
+    lint,
+    migrate,
+    pdfs,
+    sync,
+    verify,
+    zotero,
+)
 from prumo_assist.domains.paper import prep as paper_prep
 from prumo_assist.domains.paper.callout import apply_extraction
 from prumo_assist.domains.paper.sync_all import sync_all as _sync_all
@@ -22,6 +32,15 @@ paper_app = typer.Typer(
     name="paper",
     help="Bibliografia: sync com Zotero/BBT, grafo, find, lint.",
     no_args_is_help=True,
+)
+
+_VERIFY_CATCHES = (FileNotFoundError, verify.RefcheckerUnavailableError)
+
+_CONNECT_CATCHES = (
+    connect.CollectionNotFoundError,
+    connect.AmbiguousCollectionError,
+    connect.AlreadyConnectedError,
+    connect.UnsupportedCollectionNameError,
 )
 
 
@@ -86,6 +105,57 @@ def lint_command(
             raise typer.Exit(code=1)
 
 
+@paper_app.command("verify-refs")
+def verify_refs_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    page: Annotated[
+        Path | None,
+        typer.Option("--page", help="Escopo: só citekeys marcadas nesta página .md (recomendado)."),
+    ] = None,
+    deep: Annotated[
+        bool,
+        typer.Option(
+            "--deep",
+            help=f"Verificação profunda via `uvx {verify.REFCHECKER_PIN}` (lento sem chave).",
+        ),
+    ] = False,
+    refresh: Annotated[
+        bool, typer.Option("--refresh", help="Ignora o cache local (TTL 7 dias).")
+    ] = False,
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Verifica referências do bib: existência (Crossref), retração (Crossref/PubMed), título."""
+    with cli_run(json_mode=json_mode, catches=_VERIFY_CATCHES) as console:
+        report = verify.verify_refs(
+            path.resolve(),
+            page=page.resolve() if page is not None else None,
+            deep=deep,
+            refresh=refresh,
+        )
+        for finding in report["findings"]:
+            line = f"[{finding['level']}] {finding['citekey']}: {finding['kind']} — {finding['message']}"
+            if finding["level"] == "error":
+                console.error(line)
+            elif finding["level"] == "warning":
+                console.warn(line)
+            else:
+                console.info(line)
+        summary = report["summary"]
+        if summary["errors"]:
+            console.error(
+                f"{report['checked']} referência(s) verificada(s): {summary['errors']} erro(s), "
+                f"{summary['warnings']} warning(s)."
+            )
+        else:
+            console.success(
+                f"{report['checked']} referência(s) verificada(s) — "
+                f"{summary['warnings']} warning(s), {summary['infos']} info(s)."
+            )
+        console.emit(report)
+        if summary["errors"]:
+            raise typer.Exit(code=1)
+
+
 @paper_app.command("set-primary")
 def set_primary_command(
     citekey: Annotated[str, typer.Argument(help="Citekey alvo.")],
@@ -114,6 +184,45 @@ def sync_pdfs_command(
             f"{report['ok']} já ok, {len(report['missing'])} sem PDF no Zotero."
         )
         console.emit(report)
+
+
+@paper_app.command("connect")
+def connect_command(
+    collection: Annotated[
+        str, typer.Argument(help="Nome da coleção no Zotero (case-insensitive).")
+    ],
+    library: Annotated[
+        str | None,
+        typer.Option("--library", help="Desambigua quando o nome existe em mais de uma library."),
+    ] = None,
+    path: Annotated[Path, typer.Option("--path", help="pj_* (default cwd).")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Conecta a coleção do Zotero ao projeto: cria o export automático do BBT → references/_references.bib."""
+    with cli_run(json_mode=json_mode, catches=_CONNECT_CATCHES) as console:
+        try:
+            r = connect.connect_collection(path.resolve(), collection, library=library)
+        except connect.ZoteroOfflineError as e:
+            console.error(str(e))
+            raise typer.Exit(code=2) from e
+        console.success(
+            f"coleção '{r.collection.path}' ({r.collection.library}) conectada → {r.bib_path}"
+        )
+        if not r.exported:
+            console.info(
+                "export agendado no BBT — o arquivo aparece em instantes; confira com "
+                "`prumo paper sync` em seguida."
+            )
+        console.emit(
+            {
+                "library": r.collection.library,
+                "path": r.collection.path,
+                "bbt_path": r.collection.bbt_path,
+                "bib_path": str(r.bib_path),
+                "exported": r.exported,
+                "next": "prumo paper sync",
+            }
+        )
 
 
 @paper_app.command("sync-annotations")

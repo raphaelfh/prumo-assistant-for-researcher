@@ -31,6 +31,28 @@ def test_init_creates_project_structure(tmp_path: Path) -> None:
     assert (target / ".claude" / "pj_config.toml").is_file()
 
 
+def test_init_substitutes_name_placeholders(tmp_path: Path) -> None:
+    """Projeto novo carrega o nome real — nada de ``pj-NOME`` residual.
+
+    Bug: o pyproject ficava ``name = "pj-NOME"`` e o PyCharm/uv exibia o
+    placeholder em vez do nome do projeto.
+    """
+    target = tmp_path / "pj_demo"
+    result = runner.invoke(app, ["init", str(target), "--json"])
+    assert result.exit_code == 0, result.output
+
+    assert 'name = "pj_demo"' in (target / "pyproject.toml").read_text(encoding="utf-8")
+    assert (target / "README.md").read_text(encoding="utf-8").startswith("# pj_demo")
+    leftovers = [
+        str(p.relative_to(target))
+        for p in target.rglob("*")
+        if p.is_file()
+        and ".git" not in p.parts
+        and "NOME" in p.read_text(encoding="utf-8", errors="ignore")
+    ]
+    assert leftovers == []
+
+
 def test_init_refuses_existing_dir_with_content_without_flag(tmp_path: Path) -> None:
     target = tmp_path / "pj_existing"
     target.mkdir()

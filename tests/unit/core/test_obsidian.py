@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.core.obsidian import normalize_markdown, split_frontmatter
+from prumo_assist.core.obsidian import (
+    normalize_markdown,
+    split_frontmatter,
+    split_frontmatter_raw,
+)
 
 
 def test_split_frontmatter_extracts_yaml() -> None:
@@ -18,6 +22,24 @@ def test_split_frontmatter_returns_empty_when_absent() -> None:
     text = "no frontmatter here"
     meta, body = split_frontmatter(text)
     assert meta == {}
+    assert body == text
+
+
+def test_split_frontmatter_raw_preserves_yaml_comments_byte_for_byte() -> None:
+    """Fix pós-review (Fase 2/Task 9, Crítico 1): `split_frontmatter` faz
+    `yaml.safe_load`, que descarta comentários — `split_frontmatter_raw`
+    devolve o bloco tal-qual, comentário e espaçamento incomum inclusos."""
+    text = "---\ntitle: Pagina  # comentario que nao pode sumir\ntags:   [a, b]\n---\n\nbody here\n"
+    raw_fm, body = split_frontmatter_raw(text)
+    assert raw_fm + body == text  # round-trip exato
+    assert raw_fm == "---\ntitle: Pagina  # comentario que nao pode sumir\ntags:   [a, b]\n---\n\n"
+    assert body == "body here\n"
+
+
+def test_split_frontmatter_raw_returns_empty_when_absent() -> None:
+    text = "no frontmatter here"
+    raw_fm, body = split_frontmatter_raw(text)
+    assert raw_fm == ""
     assert body == text
 
 

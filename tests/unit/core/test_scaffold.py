@@ -54,6 +54,40 @@ def test_overlay_is_idempotent(tmp_path: Path) -> None:
     assert skipped == ["x.txt"]
 
 
+def test_apply_project_name_replaces_placeholders(tmp_path: Path) -> None:
+    target = tmp_path / "pj_demo"
+    (target / "docs").mkdir(parents=True)
+    (target / "pyproject.toml").write_text('[project]\nname = "pj-NOME"\n', encoding="utf-8")
+    (target / "docs" / "_index.md").write_text("# Wiki do projeto — pj_<NOME>\n", encoding="utf-8")
+    (target / "notes.md").write_text("sem placeholder\n", encoding="utf-8")
+    # Fora da lista de copiados (arquivo do usuário em --merge): intocável.
+    (target / "user.md").write_text("meu pj-NOME literal\n", encoding="utf-8")
+
+    changed = scaffold.apply_project_name(
+        target, "pj_demo", ["pyproject.toml", "docs/_index.md", "notes.md"]
+    )
+
+    assert sorted(changed) == ["docs/_index.md", "pyproject.toml"]
+    assert 'name = "pj_demo"' in (target / "pyproject.toml").read_text(encoding="utf-8")
+    index = (target / "docs" / "_index.md").read_text(encoding="utf-8")
+    assert "pj_demo" in index
+    assert "NOME" not in index
+    assert (target / "notes.md").read_text(encoding="utf-8") == "sem placeholder\n"
+    assert (target / "user.md").read_text(encoding="utf-8") == "meu pj-NOME literal\n"
+
+
+def test_apply_project_name_tolerates_binary_files(tmp_path: Path) -> None:
+    target = tmp_path / "pj_demo"
+    target.mkdir()
+    payload = b"\x89PNG\xff\xfe\x00bin"
+    (target / "img.png").write_bytes(payload)
+
+    changed = scaffold.apply_project_name(target, "pj_demo", ["img.png"])
+
+    assert changed == []
+    assert (target / "img.png").read_bytes() == payload
+
+
 @pytest.fixture
 def fake_modules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Cria templates/modules/<m>/_module.toml fake e aponta scaffold para ele."""

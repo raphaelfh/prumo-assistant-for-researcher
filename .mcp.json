@@ -3,6 +3,10 @@
     "qmd": {
       "command": "qmd",
       "args": ["mcp"]
+    },
+    "prumo-review": {
+      "command": "prumo",
+      "args": ["mcp", "serve"]
     }
   }
 }

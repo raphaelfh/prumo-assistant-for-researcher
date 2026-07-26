@@ -15,9 +15,23 @@ prumo:
   cost_estimate: ~5-15k tokens (depende da cobertura)
   inputs:
     question: required
+  requires: [qmd]
 ---
 
 # Wiki Query — responder com citações e arquivar
+
+<!-- prumo:preflight:begin -->
+> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+>
+> 1. **Busca semântica (qmd):** se as tools MCP do `qmd` não estiverem no seu
+>    inventário NESTA sessão, diga isso explicitamente ("busca semântica
+>    indisponível — resultados via leitura direta, mais lentos/parciais") e
+>    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
+>    operação com o hint do `prumo doctor`. Se precisar do stack completo, roteie para `/prumo-assist:start`.
+>
+> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
+> operação exata nunca é simulada.
+<!-- prumo:preflight:end -->
 
 Opera sobre o wiki estruturado em `/docs/wiki-schema.md` (monorepo). Usa `qmd` (via MCP `mcp__qmd__*` se disponível; senão via `Bash("qmd …")`) para busca híbrida.
 

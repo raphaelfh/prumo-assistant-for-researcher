@@ -37,11 +37,11 @@ def extract_prep(pj_path: Path, citekey: str) -> ExtractPrep:
     checks: list[tuple[str, Path, str]] = [
         ("template .claude/paper_extraction.md", template_path, "rode o scaffold do pj_*"),
         ("references/_references.bib", bib_path, "exporte pelo BBT"),
-        (f"PDF references/pdfs/{citekey}.pdf", pdf_path, "rode `make sync-pdfs`"),
+        (f"PDF references/pdfs/{citekey}.pdf", pdf_path, "rode `prumo paper sync-pdfs`"),
         (f"_meta.md de {citekey}", meta_path, "rode `prumo paper sync`"),
     ]
     # `.exists()` é False para symlink quebrado — intencional: as dicas de
-    # correção (ex.: `make sync-pdfs`) recriam o link, então tratamos como ausente.
+    # correção (ex.: `prumo paper sync-pdfs`) recriam o link, então tratamos como ausente.
     for label, p, fix in checks:
         if not p.exists():
             raise FileNotFoundError(f"pré-requisito ausente: {label} ({p}); {fix}.")

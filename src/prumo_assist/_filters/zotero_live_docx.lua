@@ -23,10 +23,10 @@ Pré-requisitos:
 - Pandoc 3.0+ (para `pandoc.json`).
 - O comando do pandoc precisa ter `--citeproc --bibliography=refs.bib
   --csl=<style>.csl` ANTES de `--lua-filter=zotero_live_docx.lua`.
-- `meta.zotero_lookup_file` aponta para JSON `{citekey: {itemID, uri}}`
-  fornecido pelo export.py após query no BBT JSON-RPC. Sem isso, os
-  campos ainda funcionam mas sem URI para o plugin Word relinkar com
-  a biblioteca do Zotero.
+- `meta.zotero_lookup_file` aponta para JSON `{citekey: {itemID, uri,
+  fingerprint}}` fornecido pelo export.py após query no BBT JSON-RPC. Sem
+  isso, os campos ainda funcionam mas sem URI para o plugin Word relinkar
+  com a biblioteca do Zotero (e sem `prumoFingerprint` no item).
 - `meta.zotero_csl_style` carrega o nome curto do estilo (ex. "apa").
 
 Limitação conhecida: o display text de cada citação é texto puro
@@ -39,6 +39,7 @@ local json = pandoc.json
 local zotero_lookup = {}
 local csl_style_id = 'apa'
 local citation_counter = 0
+local occ_counter = 0
 local references_by_key = {}
 
 local function xmlescape(s)
@@ -91,8 +92,12 @@ local function build_csl_citation(cite)
   for _, c in ipairs(cite.citations) do
     local key = c.id
     local lookup = zotero_lookup[key] or {}
-    local item = { id = lookup.itemID or key }
+    -- I1/I2b (spec da ponte): id SEMPRE = citekey (átomo opaco chaveado);
+    -- o id numérico do Zotero viaja em zoteroItemID.
+    local item = { id = key }
+    if lookup.itemID then item.zoteroItemID = lookup.itemID end
     if lookup.uri then item.uris = { lookup.uri } end
+    if lookup.fingerprint then item.prumoFingerprint = lookup.fingerprint end
     if references_by_key[key] then
       item.itemData = references_by_key[key]
     end
@@ -107,8 +112,15 @@ local function build_csl_citation(cite)
     end
     table.insert(items, item)
   end
+  -- I2b (spec da ponte): prumoOcc é um contador PRÓPRIO do prumo, distinto
+  -- de citationID (que o plugin Word/Zotero pode reescrever no Refresh) —
+  -- o citemap usa esse contador pra parear ocorrências 1:1 com o texto
+  -- normalizado; melhor-esforço (se o Refresh descartar chaves custom, a
+  -- conservação degrada pro multiconjunto de citekeys, sem quebrar).
+  occ_counter = occ_counter + 1
   return {
     citationID = next_citation_id(),
+    prumoOcc = string.format('%08d', occ_counter),
     properties = {
       formattedCitation = plain_text,
       plainCitation = plain_text,
@@ -133,7 +145,18 @@ local function wrap_cite_in_field(cite)
     '</w:t></w:r>',
     '<w:r><w:fldChar w:fldCharType="end"/></w:r>',
   })
-  return pandoc.RawInline('openxml', field)
+  -- I4 (spec da ponte): campo travado por content control — o coautor não
+  -- redigita a citação; só pode deletar o campo inteiro (evento drop limpo)
+  -- ou comentar. sdtContentLocked bloqueia edição do CONTEÚDO do sdt no
+  -- Word (bookmark não travaria nada). Bibliografia (wrap_bibliography)
+  -- NÃO é travada nesta fase.
+  local locked_field = table.concat({
+    '<w:sdt><w:sdtPr><w:alias w:val="prumo-citation"/>',
+    '<w:lock w:val="sdtContentLocked"/></w:sdtPr><w:sdtContent>',
+    field,
+    '</w:sdtContent></w:sdt>',
+  })
+  return pandoc.RawInline('openxml', locked_field)
 end
 
 local function wrap_bibliography(div)

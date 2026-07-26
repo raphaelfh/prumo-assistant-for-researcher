@@ -94,3 +94,28 @@ def test_doctor_silent_when_no_zettlr_profile(tmp_path: Path) -> None:
     with patch("prumo_assist.cli.check_external_deps", return_value=[]):
         result = runner.invoke(app, ["doctor", str(pj)])
     assert result.exit_code == 0, result.output
+
+
+def test_doctor_avisa_bib_placeholder(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    (pj / "references" / "_references.bib").write_text(
+        "% Bibliografia do projeto — formato Better BibTeX (BBT).\n%\n% Fluxo...\n",
+        encoding="utf-8",
+    )
+    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+        result = runner.invoke(app, ["doctor", str(pj), "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert any("prumo paper connect" in w for w in payload["warnings"])
+
+
+def test_doctor_sem_aviso_com_bib_real(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    (pj / "references" / "_references.bib").write_text(
+        "@article{x2020,\n  title = {T},\n}\n", encoding="utf-8"
+    )
+    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+        result = runner.invoke(app, ["doctor", str(pj), "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["warnings"] == []

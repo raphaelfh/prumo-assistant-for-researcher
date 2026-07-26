@@ -35,11 +35,13 @@ from prumo_assist import (
     PrumoError,
     __version__,
 )
+from prumo_assist.core.cli_op import cli_run
 from prumo_assist.core.deps import check_external_deps
 from prumo_assist.core.output import Console
 from prumo_assist.core.paths import find_resource, resolve_resource
 from prumo_assist.core.scaffold import (
     ModuleInfo,
+    apply_project_name,
     discover_modules,
     get_module,
     is_applied,
@@ -48,6 +50,7 @@ from prumo_assist.core.scaffold import overlay as _overlay
 from prumo_assist.core.skills import load_skill_registry
 from prumo_assist.domains.capture.cli import capture_command
 from prumo_assist.domains.paper.cli import paper_app
+from prumo_assist.domains.paper.connect import bib_is_placeholder
 from prumo_assist.domains.protocol.cli import protocol_app
 from prumo_assist.domains.wiki.cli import wiki_app
 from prumo_assist.domains.write.cli import write_app
@@ -449,6 +452,8 @@ def init_command(
             shutil.copytree(template, target)
             copied = [str(p.relative_to(template)) for p in template.rglob("*") if p.is_file()]
 
+        apply_project_name(target, target.name, copied)
+
         # git init (somente em MODE_NEW por default; merge não toca git existente).
         git_initialized = False
         if mode == MODE_NEW and init_git_flag:
@@ -528,8 +533,11 @@ def init_command(
         verb = {MODE_NEW: "criado", MODE_MERGE: "mesclado", MODE_FORCE: "recriado"}[mode]
         console.success(f"Projeto {verb} em {target}")
         if mode == MODE_MERGE and not json_mode:
+            # Sem marcação Rich embutida (Fix pós-review, Crítico #2 do
+            # Console: `info()` agora sempre `markup=False`) — a tag `[dim]`
+            # apareceria literal na saída em vez de ser interpretada.
             console.info(
-                f"  [dim]{len(copied)} arquivo(s) novo(s), {len(skipped)} já existiam (preservados).[/dim]"
+                f"  {len(copied)} arquivo(s) novo(s), {len(skipped)} já existiam (preservados)."
             )
         console.emit(payload)
         _render_next_steps(console, target, mode)
@@ -585,10 +593,20 @@ def doctor_command(
 
     deps = check_external_deps()
 
+    # Warnings fecham ANTES do payload — nada de popular a lista por
+    # aliasing depois que o dict já foi montado.
+    warnings: list[str] = []
+    if not issues and bib_is_placeholder(target):
+        warnings.append(
+            "references/_references.bib ainda é o placeholder do scaffold — "
+            'conecte sua coleção do Zotero: prumo paper connect "<nome da coleção>"'
+        )
+
     payload = {
         "project": str(target),
         "ok": not issues,
         "issues": issues,
+        "warnings": warnings,
         "external_deps": [d.as_dict() for d in deps],
         "version": __version__,
     }
@@ -598,6 +616,8 @@ def doctor_command(
             console.info(f"  • {i}")
     else:
         console.success("Estrutura do projeto OK.")
+        for bib_warning in warnings:
+            console.warn(bib_warning)
 
     console.info("")
     console.info("Dependências externas:")
@@ -698,7 +718,8 @@ def add_command(
     }
     console.success(f"Módulo '{module}' aplicado em {target}")
     if not json_mode and skipped:
-        console.info(f"  [dim]{len(skipped)} arquivo(s) já existiam (preservados).[/dim]")
+        # Sem marcação Rich embutida — mesmo motivo do fix acima em `_do_init`.
+        console.info(f"  {len(skipped)} arquivo(s) já existiam (preservados).")
     console.emit(payload)
 
 
@@ -742,6 +763,35 @@ def _pick_module_interactive(
     if 0 <= idx < len(modules):
         return modules[idx].name
     return None
+
+
+# ---------------------------------------------------------------------------
+# prumo mcp (servidor MCP local, stdio — expõe o ciclo de revisão a agentes)
+# ---------------------------------------------------------------------------
+
+mcp_app = typer.Typer(
+    name="mcp",
+    help="Servidor MCP local (stdio) do prumo — expõe o ciclo de revisão para agentes.",
+    no_args_is_help=True,
+)
+app.add_typer(mcp_app)
+
+
+@mcp_app.command("serve")
+def mcp_serve_command() -> None:
+    """Inicia o servidor MCP ``prumo-review`` via stdio.
+
+    Usado por agent-hosts (Claude Code/Desktop) via ``.mcp.json``. Bloqueia
+    a chamada: o transporte stdio consome stdin/stdout inteiros para o
+    protocolo MCP (JSON-RPC) até o cliente encerrar a conexão — por isso
+    nenhuma mensagem é emitida via ``Console`` aqui (qualquer texto solto em
+    stdout corromperia o protocolo). Erros de inicialização, se houver,
+    ainda viram ``typer.Exit`` via ``cli_run``.
+    """
+    with cli_run():
+        from prumo_assist import mcp_server
+
+        mcp_server.run_stdio()
 
 
 def _entry() -> None:
