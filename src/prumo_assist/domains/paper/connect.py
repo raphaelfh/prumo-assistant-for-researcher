@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import difflib
 import time
-import urllib.error
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -53,6 +52,24 @@ def _http_post_json(url: str, payload: dict[str, Any], timeout: float = 10.0) ->
     lógica HTTP, que continua vivendo em ``zotero._http_post_json``.
     """
     return zotero._http_post_json(url, payload, timeout)
+
+
+def _rpc(method: str, params: list[Any]) -> dict[str, Any]:
+    """Chamada JSON-RPC ao BBT: envelope + transporte + tradução de erro.
+
+    Caminho ÚNICO de transporte deste módulo (era duplicado nos dois call
+    sites): rede fora (``URLError``/``OSError`` — ``URLError`` é subclasse
+    de ``OSError``) e resposta hostil (top-level não-dict) viram
+    ``ZoteroOfflineError`` — nunca vaza ``AttributeError`` de shape.
+    """
+    payload: dict[str, Any] = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
+    try:
+        resp = _http_post_json(zotero._bbt_rpc(), payload)
+    except OSError as exc:
+        raise ZoteroOfflineError(_OFFLINE_MSG) from exc
+    if not isinstance(resp, dict):
+        raise ZoteroOfflineError(_OFFLINE_MSG)
+    return resp
 
 
 @dataclass(frozen=True)
@@ -116,20 +133,7 @@ def list_collections() -> list[CollectionRef]:
     de aliasar um ``bbt_path`` truncado/duplicado/malformado que
     ``autoexport.add`` materializaria como coleção fantasma.
     """
-    payload: dict[str, Any] = {
-        "jsonrpc": "2.0",
-        "method": "user.groups",
-        "params": [True],
-        "id": 1,
-    }
-    try:
-        resp = _http_post_json(zotero._bbt_rpc(), payload)
-    except (urllib.error.URLError, OSError) as exc:
-        raise ZoteroOfflineError(_OFFLINE_MSG) from exc
-
-    if not isinstance(resp, dict):
-        raise ZoteroOfflineError(_OFFLINE_MSG)
-
+    resp = _rpc("user.groups", [True])
     groups = resp.get("result")
     if not isinstance(groups, list):
         return []
@@ -289,21 +293,13 @@ def connect_collection(
     ref = find_collection(name, library=library)
 
     bib = pj_path / "references" / "_references.bib"
-    payload: dict[str, Any] = {
-        "jsonrpc": "2.0",
-        "method": "autoexport.add",
-        "params": [ref.bbt_path, BETTER_BIBLATEX_GUID, str(bib.resolve())],
-        "id": 1,
-    }
-    try:
-        resp = _http_post_json(zotero._bbt_rpc(), payload)
-    except (urllib.error.URLError, OSError) as exc:
-        raise ZoteroOfflineError(_OFFLINE_MSG) from exc
-
-    if not isinstance(resp, dict):
-        raise ZoteroOfflineError(_OFFLINE_MSG)
+    resp = _rpc("autoexport.add", [ref.bbt_path, BETTER_BIBLATEX_GUID, str(bib.resolve())])
     if "error" in resp:
-        raise ZoteroOfflineError(f"Better BibTeX recusou o autoexport: {resp['error']}")
+        raise ZoteroOfflineError(
+            f"Better BibTeX recusou o autoexport: {resp['error']}. Confira no Zotero: "
+            "Preferences → Better BibTeX → Automatic export; corrija e rode "
+            "`prumo paper connect` de novo."
+        )
 
     # Uma checagem síncrona ANTES do loop: export instantâneo do BBT conta
     # como `exported=True` mesmo com `poll_timeout=0` (emenda pós-review T1).

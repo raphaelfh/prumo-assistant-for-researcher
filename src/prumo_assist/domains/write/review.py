@@ -59,11 +59,12 @@ from prumo_assist.core.obsidian import (
 )
 from prumo_assist.domains.write.comments import extract_from_docx
 from prumo_assist.domains.write.export import (
+    _ZOTERO_ITEM_CSL_MARKER,
     _norm_citation_spans,
     _parse_csl_payload,
-    _slugify,
     _validate_docx_structure,
     detect_project_root,
+    slugify,
 )
 from prumo_assist.domains.write.schemas.v1 import (
     CiteMapFile,
@@ -85,19 +86,28 @@ W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 # equação).
 M_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/math}"
 
-# Mesma marca de campo que `export._read_docx_citations` (MÉTODO I2)
-# reconhece via regex — usada aqui só para decidir se um campo fechado é
-# uma citação Zotero (antes de chamar `_parse_csl_payload`). O decode do
-# payload em si (slice + json.loads + erro com índice) NÃO é mais
-# duplicado: foi extraído para `export._parse_csl_payload` e importado
-# (achado do review da Fase 2/Task 1 — Finding 2), porque os dois leitores
-# tinham decodes que divergiam sutilmente (`review.py` aplicava
-# `html.unescape` sobre texto do ElementTree já resolvido, corrompendo
-# entidades como `&para=`). Cada leitor mantém só o SEU estágio de
-# unescape (aqui, nenhum); a marca continua duplicada como constante local
-# porque é trivial e cada laço de detecção de campo precisa dela
-# independentemente.
-_ZOTERO_ITEM_CSL_MARKER = "ADDIN ZOTERO_ITEM CSL_CITATION"
+# A marca de campo (`_ZOTERO_ITEM_CSL_MARKER`) vem de `export` — mesma
+# constante que `_read_docx_citations` (MÉTODO I2) reconhece via regex —
+# usada aqui só para decidir se um campo fechado é uma citação Zotero
+# (antes de chamar `_parse_csl_payload`). O decode do payload em si
+# (slice + json.loads + erro com índice) também é compartilhado via
+# `export._parse_csl_payload` (achado do review da Fase 2/Task 1 —
+# Finding 2), porque os dois leitores tinham decodes que divergiam
+# sutilmente (`review.py` aplicava `html.unescape` sobre texto do
+# ElementTree já resolvido, corrompendo entidades como `&para=`). Cada
+# leitor mantém só o SEU estágio de unescape (aqui, nenhum).
+
+# Vocabulário FECHADO dos kinds de evento gravados em `events.yaml`.
+# Fonte única — as fachadas (`write/cli.py`, `mcp_server.py`) consomem
+# estas constantes em vez de re-hardcodear as strings (a variante
+# hardcoded já gerou drift real: o checklist do `review events` shipou
+# comparando kinds que nunca são gravados — fix pós-review da Fase 3).
+EVENT_KIND_APPLIED = "applied"
+EVENT_KIND_CITATION_DROP = "citation-drop"
+EVENT_KIND_CITATION_TOUCHED_PROSE = "citation-touched-prose"
+EVENT_KIND_UNANCHORED_MARK = "unanchored-mark"
+EVENT_KIND_AMBIGUOUS_ANCHOR = "ambiguous-anchor"
+EVENT_KIND_NON_IDENTITY_SPAN = "non-identity-span"
 
 
 @dataclass(frozen=True)
@@ -1257,10 +1267,13 @@ def _map_offset(offset: int, segments: list[_OffsetSegment], *, to_sentinel: boo
             if offset == hi:
                 return to_hi
             return to_lo + (offset - lo)
-    if not segments:
-        return offset
-    last = segments[-1]
-    return last.sent_end if to_sentinel else last.orig_end
+    # Inalcançável em contrato: os dois produtores (`_substitute_spans`,
+    # `_collapse_whitespace_with_segments`) SEMPRE emitem um segmento de
+    # cauda cobrindo até len(text), então os segments tilham [0, len] e
+    # qualquer offset em-range cai no loop acima.
+    raise AssertionError(
+        f"offset {offset} fora dos segmentos — violação de contrato do chamador de _map_offset"
+    )
 
 
 def _collapse_whitespace(text: str) -> str:
@@ -1416,6 +1429,31 @@ def _classify_target_citation(
     return "touched", None
 
 
+def _anchor_context(
+    plain_text_sentinel: str,
+    plain_segments: list[_OffsetSegment],
+    target_start: int,
+    target_end: int,
+) -> tuple[str, str, int, int]:
+    """Receita ÚNICA da âncora de busca: mapeia o alvo (offsets ORIGINAIS de
+    `plain_text`) para o espaço sentinela e colapsa+trunca os contextos
+    before/after (48 chars, sem partir token). Compartilhada pela busca
+    geral (`locate_marks_in_norm`) e pela defesa (b)
+    (`_confirm_citation_identity_in_norm`) — a equivalência das duas
+    receitas, de que a defesa (b) depende para ser um cross-check válido, é
+    por construção (antes era por copy-paste). Retorna
+    `(before_ctx, after_ctx, sent_target_start, sent_target_end)`."""
+    sent_target_start = _map_offset(target_start, plain_segments, to_sentinel=True)
+    sent_target_end = _map_offset(target_end, plain_segments, to_sentinel=True)
+    before_ctx = _truncate_tail(
+        _collapse_whitespace(plain_text_sentinel[:sent_target_start]), _CONTEXT_CHARS
+    )
+    after_ctx = _truncate_head(
+        _collapse_whitespace(plain_text_sentinel[sent_target_end:]), _CONTEXT_CHARS
+    )
+    return before_ctx, after_ctx, sent_target_start, sent_target_end
+
+
 def _confirm_citation_identity_in_norm(
     target_start: int,
     target_end: int,
@@ -1455,16 +1493,10 @@ def _confirm_citation_identity_in_norm(
     `target_start`/`target_end` nunca caem estritamente dentro de um token
     (só na fronteira do span de citação, ou dentro do passthrough da sobra
     de espaço)."""
-    sent_target_start = _map_offset(target_start, plain_segments, to_sentinel=True)
-    sent_target_end = _map_offset(target_end, plain_segments, to_sentinel=True)
+    before_ctx, after_ctx, sent_target_start, sent_target_end = _anchor_context(
+        plain_text_sentinel, plain_segments, target_start, target_end
+    )
     target_sentinel_str = plain_text_sentinel[sent_target_start:sent_target_end]
-
-    before_ctx = _truncate_tail(
-        _collapse_whitespace(plain_text_sentinel[:sent_target_start]), _CONTEXT_CHARS
-    )
-    after_ctx = _truncate_head(
-        _collapse_whitespace(plain_text_sentinel[sent_target_end:]), _CONTEXT_CHARS
-    )
     search_str = before_ctx + target_sentinel_str + after_ctx
     positions = _find_all(norm_text_collapsed, search_str)
     return len(positions) == 1
@@ -1483,7 +1515,7 @@ def _mark_excerpt(mark: ReviewMark, limit: int = 80) -> str:
 def _unanchored_event(mark: ReviewMark) -> ReviewEvent:
     excerpt = _mark_excerpt(mark)
     return ReviewEvent(
-        kind="unanchored-mark",
+        kind=EVENT_KIND_UNANCHORED_MARK,
         detail=(
             f"Marca {mark.kind} de {mark.author} não foi localizada no texto "
             f'normalizado (0 ocorrências do contexto de âncora): trecho "{excerpt}". '
@@ -1502,7 +1534,7 @@ def _ambiguous_event(mark: ReviewMark, count: int | None = None) -> ReviewEvent:
     else:
         contagem = f"{count} ocorrências do mesmo contexto"
     return ReviewEvent(
-        kind="ambiguous-anchor",
+        kind=EVENT_KIND_AMBIGUOUS_ANCHOR,
         detail=(
             f"Marca {mark.kind} de {mark.author} tem âncora ambígua no texto "
             f'normalizado ({contagem}): trecho "{excerpt}". Amplie o contexto '
@@ -1544,7 +1576,7 @@ def _citation_touched_event(
             f'trecho "{excerpt}".'
         )
     return ReviewEvent(
-        kind="citation-touched-prose",
+        kind=EVENT_KIND_CITATION_TOUCHED_PROSE,
         detail=detail,
         occ_id=occurrences[0].occ_id if occurrences else None,
         citekeys=citekeys,
@@ -1579,7 +1611,7 @@ def _citation_identity_unconfirmed_event(mark: ReviewMark, occ: CiteOccurrence) 
         "re-ingira."
     )
     return ReviewEvent(
-        kind="citation-touched-prose",
+        kind=EVENT_KIND_CITATION_TOUCHED_PROSE,
         detail=detail,
         occ_id=occ.occ_id,
         citekeys=list(occ.citekeys),
@@ -1689,15 +1721,9 @@ def locate_marks_in_norm(
             events.append(_citation_touched_event(mark, overlapping_occs, confirmed_by_ooxml=True))
             continue
 
-        sent_target_start = _map_offset(target_start, plain_segments, to_sentinel=True)
-        sent_target_end = _map_offset(target_end, plain_segments, to_sentinel=True)
         target_str = mark.a if mark.kind in ("del", "sub", "highlight") else ""
-
-        before_ctx = _truncate_tail(
-            _collapse_whitespace(plain_text_sentinel[:sent_target_start]), _CONTEXT_CHARS
-        )
-        after_ctx = _truncate_head(
-            _collapse_whitespace(plain_text_sentinel[sent_target_end:]), _CONTEXT_CHARS
+        before_ctx, after_ctx, _sent_start, _sent_end = _anchor_context(
+            plain_text_sentinel, plain_segments, target_start, target_end
         )
         search_str = before_ctx + target_str + after_ctx
 
@@ -1858,7 +1884,7 @@ def _non_identity_span_event(mark: ReviewMark) -> ReviewEvent:
     Transplante determinístico não suportado; decisão humana necessária."""
     excerpt = _mark_excerpt(mark)
     return ReviewEvent(
-        kind="non-identity-span",
+        kind=EVENT_KIND_NON_IDENTITY_SPAN,
         detail=(
             f"Marca {mark.kind} de {mark.author} não cai inteiramente numa "
             f'região de prosa pura da fonte (trecho: "{excerpt}"). O '
@@ -2006,7 +2032,9 @@ def transplant_to_source(
     ):
         source_with_marks = source_with_marks[:src_start] + marker + source_with_marks[src_end:]
 
-    if len(placements) + len(events) != len(located):
+    # Guarda B: cada `loc` cai em exatamente um de events/lost/placements —
+    # marca perdida ⟺ `lost` não-vazio (as contagens vivem na mensagem).
+    if lost:
         raise MarkLostError(_mark_lost_message(lost, len(located), len(placements), len(events)))
 
     return source_with_marks, events
@@ -2028,7 +2056,7 @@ def transplant_to_source(
 #       corrompido). Sem isso, `BadZipFile`/`KeyError` cru vazava pelo CLI,
 #       fora de `_REVIEW_CATCHES` (que só reconhece `ValueError`).
 #   3a. resolve `project_root` (`export.detect_project_root`, se não
-#       fornecido) e o `slug` (`export._slugify`) — juntos apontam
+#       fornecido) e o `slug` (`export.slugify`) — juntos apontam
 #       `reviews/<slug>/`, onde tanto os sidecars do export (entrada) quanto
 #       os desta fase (saída) moram.
 #   3b. carrega `citemap.json`/`span-map.json` — ausência de QUALQUER um dos
@@ -2162,7 +2190,7 @@ def _citation_drop_event(citation: DocxCitation) -> ReviewEvent:
     `w:del` do frame)."""
     citekeys = ", ".join(citation.citekeys)
     return ReviewEvent(
-        kind="citation-drop",
+        kind=EVENT_KIND_CITATION_DROP,
         detail=(
             f"citação (occ {citation.occ_id}, citekeys {citekeys}) deletada "
             "no Word — confirme no apply."
@@ -2241,7 +2269,7 @@ def ingest(
         )
 
     project_root = project_root or detect_project_root(page)
-    slug = _slugify(page, project_root)
+    slug = slugify(page, project_root)
     review_dir = project_root / "reviews" / slug
 
     # Guarda herdada da fila F2+F3 (archive da F3, 711c0c0): re-ingest
@@ -2414,7 +2442,7 @@ def ingest(
 # `criticmarkup.apply`: "marca sem decisão permanece intacta") — sem Guarda
 # B, documentado, não é bug.
 
-_NON_BLOCKING_EVENT_KINDS = frozenset({"citation-drop", "applied"})
+_NON_BLOCKING_EVENT_KINDS = frozenset({EVENT_KIND_CITATION_DROP, EVENT_KIND_APPLIED})
 
 _AUTHOR_ANCHOR_RE = re.compile(r"^prumo-autor: (?P<author>.*)$")
 
@@ -2561,7 +2589,7 @@ def read_events_file(page: Path, project_root: Path | None = None) -> ReviewEven
 
     Resolve `project_root`/`slug` (MESMO padrão de `ingest()`/
     `apply_review()`: `export.detect_project_root` se `project_root` não
-    for fornecido, `export._slugify`) e computa `reviews/<slug>/`.
+    for fornecido, `export.slugify`) e computa `reviews/<slug>/`.
 
     Levanta `FileNotFoundError` pt-BR (comando de ingest embutido) se
     `events.yaml` ainda não existir — a página nunca foi ingerida, ou os
@@ -2571,7 +2599,7 @@ def read_events_file(page: Path, project_root: Path | None = None) -> ReviewEven
     :func:`_corrupt_events_message` — nunca o traceback cru de
     pydantic/PyYAML vazando pro CLI ou pro agente MCP."""
     project_root = project_root or detect_project_root(page)
-    slug = _slugify(page, project_root)
+    slug = slugify(page, project_root)
     review_dir = project_root / "reviews" / slug
     events_path = review_dir / "events.yaml"
 
@@ -2718,13 +2746,13 @@ def apply_review(
     )
 
     project_root = project_root or detect_project_root(page)
-    slug = _slugify(page, project_root)
+    slug = slugify(page, project_root)
     review_dir = project_root / "reviews" / slug
 
     raw_fm, review_body, events_file = _read_review_md_and_events(review_dir)
     citemap, _span_map = _read_sidecars(review_dir)
 
-    drop_events = [event for event in events_file.events if event.kind == "citation-drop"]
+    drop_events = [event for event in events_file.events if event.kind == EVENT_KIND_CITATION_DROP]
     drop_occ_ids = {event.occ_id for event in drop_events if event.occ_id}
     confirm_set = set(confirm_citation_drops or [])
 
@@ -2777,17 +2805,13 @@ def apply_review(
             )
 
     flat_decisions: dict[int, bool] = {}
-    applied_count = 0
-    rejected_count = 0
 
     if accept_all:
         for i in content_flat_indices:
             flat_decisions[i] = True
-        applied_count = len(content_flat_indices)
     elif reject_all:
         for i in content_flat_indices:
             flat_decisions[i] = False
-        rejected_count = len(content_flat_indices)
     elif by_author is not None:
         assert author_decision is not None  # _validate_apply_mode já garantiu
         for content_idx in content_flat_indices:
@@ -2796,21 +2820,16 @@ def apply_review(
             if author != by_author:
                 continue
             flat_decisions[content_idx] = author_decision
-            if author_decision:
-                applied_count += 1
-            else:
-                rejected_count += 1
     else:
         assert marks is not None  # _validate_apply_mode já garantiu
         for content_position, content_idx in enumerate(content_flat_indices):
-            if content_position not in marks:
-                continue
-            decision = marks[content_position]
-            flat_decisions[content_idx] = decision
-            if decision:
-                applied_count += 1
-            else:
-                rejected_count += 1
+            if content_position in marks:
+                flat_decisions[content_idx] = marks[content_position]
+
+    # Contagens DERIVADAS de `flat_decisions` — neste ponto ele só contém
+    # marcas de conteúdo (âncoras entram depois, em cópias por destino).
+    applied_count = sum(1 for accepted in flat_decisions.values() if accepted)
+    rejected_count = len(flat_decisions) - applied_count
 
     # Marcas de conteúdo NÃO decididas nesta chamada continuam pendentes — a
     # âncora que as anota precisa sobreviver em `review.md` (worklist viva,
@@ -2847,7 +2866,7 @@ def apply_review(
     # positivo de `CitationConservationError` (Fix pós-review, Crítico 2).
     historical_drop_multiset: Counter[str] = Counter()
     for event in events_file.events:
-        if event.kind == "applied":
+        if event.kind == EVENT_KIND_APPLIED:
             historical_drop_multiset.update(event.citekeys)
     newly_confirmed_multiset: Counter[str] = Counter(
         key for event in drop_events for key in event.citekeys
@@ -2884,7 +2903,7 @@ def apply_review(
 
     drops_confirmed = sorted(drop_occ_ids)
     applied_event = ReviewEvent(
-        kind="applied",
+        kind=EVENT_KIND_APPLIED,
         detail=(
             f"apply em {today}: {applied_count} marca(s) aceita(s), "
             f"{rejected_count} marca(s) rejeitada(s), {len(drops_confirmed)} "
@@ -3187,7 +3206,7 @@ def propose_prose_edit(
         )
 
     project_root = project_root or detect_project_root(page)
-    slug = _slugify(page, project_root)
+    slug = slugify(page, project_root)
     review_dir = project_root / "reviews" / slug
 
     raw_fm, body, _events_file = _read_review_md_and_events(review_dir)

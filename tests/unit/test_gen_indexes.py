@@ -52,7 +52,8 @@ def test_replace_block_nao_interpreta_template_de_regex(gen: ModuleType) -> None
 
 
 def test_skills_table_cobre_o_registry_inteiro(gen: ModuleType) -> None:
-    table = gen.render_skills_table()
+    registry, _ = gen.load_skill_registry(gen.REPO / "skills", strict=True)
+    table = gen.render_skills_table(registry)
     assert "`/prumo-assist:start`" in table
     assert "`/prumo-assist:paper-extract`" in table
     # uma linha por skill + 2 de cabeçalho

@@ -92,24 +92,15 @@ def export_command(
     """Exporta uma página Markdown via Pandoc + CSL → DOCX/Typst/PDF/HTML."""
     with cli_run(json_mode=json_mode, catches=_EXPORT_CATCHES) as console:
         page_resolved = page.resolve()
-        project_root = export.detect_project_root(page_resolved)
-
-        out: Path | None = None
-        if out_dir is not None:
-            out = (
-                out_dir.resolve()
-                / f"{export._slugify(page_resolved, project_root)}.{export.EXT_BY_FORMAT[to]}"
-            )
 
         result = export.export(
             page=page_resolved,
             style=style,
             to=to,
-            out=out,
+            out_dir=out_dir.resolve() if out_dir else None,
             bib=bib.resolve() if bib else None,
             template=template.resolve() if template else None,
             reference_doc=reference_doc.resolve() if reference_doc else None,
-            project_root=project_root,
         )
         console.success(f"exportado: {result}")
         if to == "docx":
@@ -140,22 +131,15 @@ def compose_command(
     """Compõe múltiplas páginas (frontmatter ``pages: [...]``) em um documento único."""
     with cli_run(json_mode=json_mode, catches=_EXPORT_CATCHES) as console:
         index_resolved = index.resolve()
-        project_root = export.detect_project_root(index_resolved)
-
-        out: Path | None = None
-        if out_dir is not None:
-            slug = index_resolved.stem.removesuffix(".idx")
-            out = out_dir.resolve() / f"{slug}.{export.EXT_BY_FORMAT[to]}"
 
         result = export.compose(
             index=index_resolved,
             to=to,
             style=style,
-            out=out,
+            out_dir=out_dir.resolve() if out_dir else None,
             bib=bib.resolve() if bib else None,
             template=template.resolve() if template else None,
             reference_doc=reference_doc.resolve() if reference_doc else None,
-            project_root=project_root,
         )
         console.success(f"composto: {result}")
         if to == "docx":
@@ -338,7 +322,9 @@ def review_ingest_command(
         page_resolved = page.resolve()
         reviewed_docx_resolved = reviewed_docx.resolve()
         result = review.ingest(reviewed_docx_resolved, page_resolved, force=force)
-        pending_drops = sum(1 for event in result.events.events if event.kind == "citation-drop")
+        pending_drops = sum(
+            1 for event in result.events.events if event.kind == review.EVENT_KIND_CITATION_DROP
+        )
 
         console.success(f"ingerido: {result.review_md}")
         console.info(
@@ -386,28 +372,29 @@ def review_events_command(
         if json_mode:
             console.emit(events_file.model_dump(mode="json"))
         elif checklist:
-            # Checklist numerado pt-BR com AÇÃO por kind — kinds REAIS
-            # persistidos por `review.py` (Fix pós-review, Crítico #1: o
-            # mapeamento antigo comparava contra "unanchored"/"ambiguous"/
-            # "non-identity"/"citation-touched", strings que NUNCA são
-            # gravadas de verdade em `events.yaml` — os kinds reais são
-            # "unanchored-mark", "ambiguous-anchor", "non-identity-span",
-            # "citation-touched-prose", "citation-drop" e "applied").
+            # Checklist numerado pt-BR com AÇÃO por kind — as constantes
+            # EVENT_KIND_* de `review.py` são a fonte única do vocabulário
+            # (o mapeamento hardcoded antigo shipou comparando kinds que
+            # nunca são gravados — Fix pós-review da Fase 3, Crítico #1).
             lines = []
             for i, event in enumerate(events_file.events, start=1):
                 lines.append(f"{i}. {event.kind}: {_truncate_detail(event.detail)}")
-                if event.kind == "citation-drop":
+                if event.kind == review.EVENT_KIND_CITATION_DROP:
                     action = f"   AÇÃO: confirme com --confirm-citation-drops {event.occ_id}"
-                elif event.kind in ("unanchored-mark", "ambiguous-anchor", "non-identity-span"):
+                elif event.kind in (
+                    review.EVENT_KIND_UNANCHORED_MARK,
+                    review.EVENT_KIND_AMBIGUOUS_ANCHOR,
+                    review.EVENT_KIND_NON_IDENTITY_SPAN,
+                ):
                     action = (
                         "   AÇÃO: edite review.md inserindo a mudança manualmente "
                         "no ponto certo, ou rode a skill /prumo-assist:review-reconcile; "
                         "após resolver (manualmente ou por proposta da skill), remova "
                         "o evento de events.yaml"
                     )
-                elif event.kind == "citation-touched-prose":
+                elif event.kind == review.EVENT_KIND_CITATION_TOUCHED_PROSE:
                     action = "   AÇÃO: decisão humana: rejeite no Word ou edite a fonte"
-                elif event.kind == "applied":
+                elif event.kind == review.EVENT_KIND_APPLIED:
                     action = "   AÇÃO: nenhuma ação — histórico"
                 else:
                     action = f"   AÇÃO: revise este evento (kind desconhecido: {event.kind})"

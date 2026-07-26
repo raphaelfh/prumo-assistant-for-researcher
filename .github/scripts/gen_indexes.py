@@ -19,7 +19,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
-from prumo_assist.core.skills import SkillManifest, load_skill_registry  # noqa: E402
+from prumo_assist.core.skills import SkillManifest, SkillRegistry, load_skill_registry  # noqa: E402
 
 _FRONT_RE = re.compile(r"\A---\n(.*?)\n---", re.DOTALL)
 
@@ -47,8 +47,7 @@ def _front_field(path: Path, field: str) -> str:
     return found.group(1).strip().strip('"') if found else "—"
 
 
-def render_skills_table() -> str:
-    registry, _ = load_skill_registry(REPO / "skills", strict=True)
+def render_skills_table(registry: SkillRegistry) -> str:
     lines = ["| Skill | Uso |", "|---|---|"]
     for name in registry.names():
         desc = " ".join(registry.get(name).description.split())
@@ -56,8 +55,7 @@ def render_skills_table() -> str:
     return "\n".join(lines)
 
 
-def render_skills_catalog() -> str:
-    registry, _ = load_skill_registry(REPO / "skills", strict=True)
+def render_skills_catalog(registry: SkillRegistry) -> str:
     lines = []
     for name in registry.names():
         desc = " ".join(registry.get(name).description.split())
@@ -209,10 +207,10 @@ def stamp_preflight(text: str, body: str, *, where: str) -> str:
     raise SystemExit(f"gen_indexes: {where} sem H1 — não sei onde inserir o preflight")
 
 
-def _targets() -> list[tuple[Path, str, str]]:
+def _targets(registry: SkillRegistry) -> list[tuple[Path, str, str]]:
     return [
-        (REPO / "README.md", "skills-table", render_skills_table()),
-        (REPO / "skills" / "start" / "SKILL.md", "skills-catalog", render_skills_catalog()),
+        (REPO / "README.md", "skills-table", render_skills_table(registry)),
+        (REPO / "skills" / "start" / "SKILL.md", "skills-catalog", render_skills_catalog(registry)),
         (REPO / "docs" / "_index.md", "kb-index", render_kb_index()),
         (REPO / "docs" / "adr" / "_index.md", "adr-index", render_adr_index()),
     ]
@@ -221,31 +219,32 @@ def _targets() -> list[tuple[Path, str, str]]:
 def main() -> int:
     check = "--check" in sys.argv
     stale: list[str] = []
-    for path, tag, body in _targets():
+    # Registry carregado UMA vez — tabela do README, catálogo do start e
+    # estampagem de preflight consomem a mesma leitura.
+    registry, _ = load_skill_registry(REPO / "skills", strict=True)
+
+    def _sync(path: Path, rel: str, old: str, new: str) -> None:
+        """Semântica única de --check/write — compartilhada pelos dois loops."""
+        if new == old:
+            return
+        if check:
+            stale.append(rel)
+        else:
+            path.write_text(new, encoding="utf-8")
+            print(f"gen_indexes: atualizado {rel}")
+
+    for path, tag, body in _targets(registry):
         rel = str(path.relative_to(REPO))
         if not path.exists():
             raise SystemExit(f"gen_indexes: alvo ausente: {rel}")
         old = path.read_text(encoding="utf-8")
-        new = replace_block(old, tag, body, where=rel)
-        if new != old:
-            if check:
-                stale.append(rel)
-            else:
-                path.write_text(new, encoding="utf-8")
-                print(f"gen_indexes: atualizado {rel}")
+        _sync(path, rel, old, replace_block(old, tag, body, where=rel))
 
-    registry, _ = load_skill_registry(REPO / "skills", strict=True)
     for name in registry.names():
         manifest = registry.get(name)
         rel = str(manifest.path.relative_to(REPO))
         old = manifest.path.read_text(encoding="utf-8")
-        new = stamp_preflight(old, render_preflight(manifest), where=rel)
-        if new != old:
-            if check:
-                stale.append(rel)
-            else:
-                manifest.path.write_text(new, encoding="utf-8")
-                print(f"gen_indexes: atualizado {rel}")
+        _sync(manifest.path, rel, old, stamp_preflight(old, render_preflight(manifest), where=rel))
 
     if check and stale:
         print("gen_indexes --check: índices dessincronizados:", ", ".join(stale))

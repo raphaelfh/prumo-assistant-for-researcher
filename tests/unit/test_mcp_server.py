@@ -35,7 +35,7 @@ from typer.testing import CliRunner
 
 from prumo_assist import mcp_server
 from prumo_assist.cli import app
-from prumo_assist.domains.write.export import _slugify
+from prumo_assist.domains.write.export import slugify
 from prumo_assist.domains.write.schemas.v1 import (
     ReviewComment,
     ReviewCommentsFile,
@@ -70,7 +70,7 @@ def _write_review_artifacts(
     mão — simula a saída de `review.ingest()` sem rodar docx/adeu (ciclo
     pós-ingest sintético; as 3 tools read-only só leem esses artefatos)."""
     page_resolved = page.resolve()
-    slug = _slugify(page_resolved, project_root)
+    slug = slugify(page_resolved, project_root)
     review_dir = project_root / "reviews" / slug
     review_dir.mkdir(parents=True, exist_ok=True)
     rel_page = str(page_resolved.relative_to(project_root))

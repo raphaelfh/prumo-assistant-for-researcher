@@ -125,12 +125,23 @@ class RefCache:
     ttl: timedelta = timedelta(days=7)
 
     def _load(self) -> dict[str, Any]:
+        """Estado do cache, lido do disco UMA vez por instância (memoizado).
+
+        Sem o memo, cada ``get``/``put`` relia e re-parseava o arquivo
+        inteiro — O(6N) full-loads por ``verify_refs`` com payloads Crossref
+        de dezenas de KB. ``put`` muta o MESMO dict memoizado e regrava
+        (write-through), então memo e disco não divergem no processo.
+        """
+        memo = getattr(self, "_data_memo", None)
+        if memo is not None:
+            return cast(dict[str, Any], memo)
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            return {"version": 1, "entries": {}}
+            data = {"version": 1, "entries": {}}
         if not isinstance(data, dict) or not isinstance(data.get("entries"), dict):
-            return {"version": 1, "entries": {}}
+            data = {"version": 1, "entries": {}}
+        object.__setattr__(self, "_data_memo", data)
         return cast(dict[str, Any], data)
 
     def get(self, key: str, *, now: datetime | None = None) -> dict[str, Any] | None:
@@ -183,7 +194,9 @@ _PUBMED_ESUMMARY_URL = (
 
 _TITLE_SIMILARITY_FLOOR = 0.6
 
-_NETWORK_ERRORS = (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError)
+# `URLError` e `TimeoutError` são subclasses de `OSError` — a tupla mínima
+# equivale à enumeração antiga (URLError, TimeoutError, OSError, JSONDecodeError).
+_NETWORK_ERRORS = (OSError, json.JSONDecodeError)
 
 
 @dataclass(frozen=True)
@@ -289,7 +302,9 @@ def _check_crossref(
             _CROSSREF_UPDATES_URL.format(doi=quoted),
             refresh=refresh,
         )
-    except (urllib.error.HTTPError, *_NETWORK_ERRORS) as exc:
+    except _NETWORK_ERRORS as exc:
+        # HTTPError (⊂ OSError) cai aqui de propósito — sem 404 especial
+        # como no works acima: updates ausentes não são erro de DOI.
         findings.append(_network_finding(citekey, "crossref", "Crossref updates (retração)", exc))
         return findings
 
@@ -322,7 +337,9 @@ def _check_pubmed(citekey: str, pmid: str, *, cache: RefCache, refresh: bool) ->
             _PUBMED_ESUMMARY_URL.format(pmid=pmid),
             refresh=refresh,
         )
-    except (urllib.error.HTTPError, *_NETWORK_ERRORS) as exc:
+    except _NETWORK_ERRORS as exc:
+        # HTTPError (⊂ OSError) cai aqui de propósito — PMID sem registro é
+        # tratado adiante pelo shape da resposta, não pelo status HTTP.
         return [_network_finding(citekey, "pubmed", "PubMed esummary", exc)]
 
     result = summary.get("result") if isinstance(summary.get("result"), dict) else {}
@@ -484,6 +501,11 @@ def _findings_from_report(report: dict[str, Any], scope: set[str]) -> list[Findi
             continue
         details = str(record.get("error_details") or "").strip()
         first_line = details.splitlines()[0] if details else "achado sem detalhes"
+        # Cap defensivo: o refchecker embute referências cruas no
+        # error_details — uma linha de milhares de chars não pode fluir
+        # inteira pro Finding.message/CLI.
+        if len(first_line) > 200:
+            first_line = first_line[:200] + "…"
         findings.append(
             Finding(
                 citekey=citekey,

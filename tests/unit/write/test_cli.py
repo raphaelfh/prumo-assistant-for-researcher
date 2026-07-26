@@ -200,16 +200,43 @@ def test_write_export_html_omits_first_use_note(
     assert "Primeiro uso no Word" not in result.output
 
 
-def test_write_export_corrupt_docx_shows_clean_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("command", "exc"),
+    [
+        ("export", export.CorruptDocxError),
+        ("compose", export.CorruptDocxError),
+        ("export", export.ZoteroNotRunningError),
+        ("compose", export.MissingBibliographyPlaceholderError),
+    ],
+    ids=[
+        "export-corrupt-docx",
+        "compose-corrupt-docx",
+        "export-zotero-down",
+        "compose-missing-refs-placeholder",
+    ],
+)
+def test_write_error_paths_show_clean_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+    exc: type[RuntimeError],
 ) -> None:
-    _, page = _pj_with_bib(tmp_path)
+    """Contrato de erro dos comandos docx: exceção de domínio em `_EXPORT_CATCHES`
+    vira exit 1 + mensagem pt-BR limpa, nunca traceback (era um quarteto de
+    testes quase idênticos — parametrizado no /simplify)."""
+    pj, page = _pj_with_bib(tmp_path)
+    if command == "compose":
+        index = pj / "docs" / "index.md"
+        index.write_text("---\npages: [docs/p.md]\n---\n")
+        args = ["write", "compose", "--index", str(index), "--to", "docx"]
+    else:
+        args = ["write", "export", str(page), "--to", "docx"]
 
     def _boom(**kw: object) -> Path:
-        raise export.CorruptDocxError("docx inválido após retry — mensagem teste")
+        raise exc("mensagem teste")
 
-    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", _boom)
-    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
+    monkeypatch.setattr(f"prumo_assist.domains.write.cli.export.{command}", _boom)
+    result = runner.invoke(app, args)
     assert result.exit_code == 1
     assert "mensagem teste" in result.output
     assert "Traceback" not in result.output
@@ -226,54 +253,6 @@ def test_write_compose_docx_prints_first_use_note(
     result = runner.invoke(app, ["write", "compose", "--index", str(index), "--to", "docx"])
     assert result.exit_code == 0, result.output
     assert "Primeiro uso no Word" in result.output
-
-
-def test_write_compose_corrupt_docx_shows_clean_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    pj, _page = _pj_with_bib(tmp_path)
-    index = pj / "docs" / "index.md"
-    index.write_text("---\npages: [docs/p.md]\n---\n")
-
-    def _boom(**kw: object) -> Path:
-        raise export.CorruptDocxError("compose docx inválido — mensagem teste")
-
-    monkeypatch.setattr("prumo_assist.domains.write.cli.export.compose", _boom)
-    result = runner.invoke(app, ["write", "compose", "--index", str(index), "--to", "docx"])
-    assert result.exit_code == 1
-    assert "mensagem teste" in result.output
-    assert "Traceback" not in result.output
-
-
-def test_write_export_zotero_down_shows_clean_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _, page = _pj_with_bib(tmp_path)
-
-    def _boom(**kw: object) -> Path:
-        raise export.ZoteroNotRunningError("Zotero fora do ar — mensagem teste")
-
-    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", _boom)
-    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
-    assert result.exit_code == 1
-    assert "mensagem teste" in result.output
-    assert "Traceback" not in result.output
-
-
-def test_write_compose_missing_refs_placeholder_shows_clean_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    pj, _page = _pj_with_bib(tmp_path)
-    index = pj / "docs" / "index.md"
-    index.write_text("---\npages: [docs/p.md]\n---\n")
-
-    def _boom(**kw: object) -> Path:
-        raise export.MissingBibliographyPlaceholderError("sem placeholder — mensagem teste")
-
-    monkeypatch.setattr("prumo_assist.domains.write.cli.export.compose", _boom)
-    result = runner.invoke(app, ["write", "compose", "--index", str(index), "--to", "docx"])
-    assert result.exit_code == 1
-    assert "mensagem teste" in result.output
 
 
 def test_zettlr_entry_calls_canonical_docx_export(
@@ -333,7 +312,7 @@ def test_export_command_reports_citekey_error_cleanly(
 
     def fake_export(**kwargs: object) -> Path:
         raise ZoteroCitekeyNotFoundError(
-            "1 citekey(s) não existem no .bib: ghost2020. Rode `make sync-paper`."
+            "1 citekey(s) não existem no .bib: ghost2020. Confira a grafia."
         )
 
     monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", fake_export)
@@ -642,7 +621,7 @@ def test_review_read_events_file_with_malformed_yaml_raises_value_error_pt_br(
     page.parent.mkdir(parents=True)
     page.write_text("Texto.\n")
     page_resolved = page.resolve()
-    review_dir = project_root / "reviews" / export._slugify(page_resolved, project_root)
+    review_dir = project_root / "reviews" / export.slugify(page_resolved, project_root)
     review_dir.mkdir(parents=True)
     (review_dir / "events.yaml").write_text(
         "page: docs/p.md\nevents:\n  - kind: unanchored-mark\n", encoding="utf-8"

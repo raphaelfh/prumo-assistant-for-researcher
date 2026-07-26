@@ -19,7 +19,6 @@ import os
 import re
 import shutil
 import socket
-import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -88,6 +87,7 @@ def _zotero_version_header(host: str, port: int, timeout: float = 2.0) -> str | 
 
 
 def _zotero_major(version: str | None) -> int | None:
+    """Major numérico de ``version`` (ex. ``"9.0.3"`` → 9), ou ``None``."""
     if not version:
         return None
     m = re.match(r"(\d+)", version)
@@ -121,19 +121,20 @@ def check_external_deps() -> list[DepStatus]:
     if not zotero_up:
         detail = f"nada escutando em {host}:{port}"
         hint = (
-            f"Abra o Zotero 9 (com Better BibTeX instalado) — ele expõe a API "
-            f"local em {host}:{port}. Só é necessário pros comandos "
+            f"Abra o Zotero {_SUPPORTED_ZOTERO_MAJOR} (com Better BibTeX instalado) — "
+            f"ele expõe a API local em {host}:{port}. Só é necessário pros comandos "
             f"que leem anotações/notas; o resto do prumo funciona sem ele."
         )
     elif not supported:
         detail = (
             f"Zotero {version} rodando em {host}:{port} — abaixo do par "
-            f"suportado (Zotero 9+ com Better BibTeX)"
+            f"suportado (Zotero {_SUPPORTED_ZOTERO_MAJOR}+ com Better BibTeX)"
         )
         hint = (
-            "Atualize para o Zotero 9+: baixe em https://www.zotero.org/download, "
-            "instale e reabra o app. Depois atualize o Better BibTeX em "
-            "Tools → Plugins se ele avisar (o BBT acompanha o major do Zotero)."
+            f"Atualize para o Zotero {_SUPPORTED_ZOTERO_MAJOR}+: baixe em "
+            f"https://www.zotero.org/download, instale e reabra o app. Depois "
+            f"atualize o Better BibTeX em Tools → Plugins se ele avisar "
+            f"(o BBT acompanha o major do Zotero)."
         )
     elif version is None:
         detail = f"API local respondendo em {host}:{port} (versão não detectada)"

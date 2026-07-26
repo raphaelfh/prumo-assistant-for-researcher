@@ -21,8 +21,9 @@ from prumo_assist.domains.write.export import (
     MissingZoteroPrefsError,
     _assert_fields_locked,
     _assert_zotero_prefs_present,
+    _bib_entries_by_key,
+    _docx_texts,
     _fingerprint_for,
-    _raw_bib_entry,
     _run_and_validate_docx,
     _validate_docx_structure,
 )
@@ -147,13 +148,13 @@ def test_run_and_validate_raises_after_second_failure(
 
 def test_prefs_present_with_citations_ok(tmp_path: Path) -> None:
     docx = _write_minimal_docx(tmp_path / "com_prefs.docx", items=2, prefs=True)
-    _assert_zotero_prefs_present(docx)  # não levanta
+    _assert_zotero_prefs_present(*_docx_texts(docx))  # não levanta
 
 
 def test_prefs_missing_custom_xml_raises(tmp_path: Path) -> None:
     docx = _write_minimal_docx(tmp_path / "sem_custom.docx", items=2, prefs=False)
     with pytest.raises(MissingZoteroPrefsError) as exc:
-        _assert_zotero_prefs_present(docx)
+        _assert_zotero_prefs_present(*_docx_texts(docx))
     assert "ZOTERO_PREF_1" in str(exc.value)
     assert "Document Preferences" in str(exc.value)
 
@@ -165,12 +166,12 @@ def test_prefs_custom_xml_without_pref_raises(tmp_path: Path) -> None:
         z.writestr("word/document.xml", "<w:document>ZOTERO_ITEM CSL_CITATION</w:document>")
         z.writestr("docProps/custom.xml", "<Properties/>")
     with pytest.raises(MissingZoteroPrefsError):
-        _assert_zotero_prefs_present(docx)
+        _assert_zotero_prefs_present(*_docx_texts(docx))
 
 
 def test_prefs_not_required_without_citations(tmp_path: Path) -> None:
     docx = _write_minimal_docx(tmp_path / "sem_citacao.docx", items=0, prefs=False)
-    _assert_zotero_prefs_present(docx)  # não levanta
+    _assert_zotero_prefs_present(*_docx_texts(docx))  # não levanta
 
 
 def _fake_project(tmp_path: Path) -> tuple[Path, Path]:
@@ -270,25 +271,25 @@ def test_compose_docx_goes_through_validation(
 
 def test_fingerprint_prefers_doi() -> None:
     entry = "@article{k, title={T}, doi={10.1000/xyz}}"
-    assert _fingerprint_for("k", entry, {"itemID": 1, "uri": "u"}) == "doi:10.1000/xyz"
+    assert _fingerprint_for(entry, {"itemID": 1, "uri": "u"}) == "doi:10.1000/xyz"
 
 
 def test_fingerprint_falls_back_to_lookup_hash() -> None:
-    fp = _fingerprint_for("k", "@article{k, title={T}}", {"itemID": 7, "uri": "http://z/7"})
+    fp = _fingerprint_for("@article{k, title={T}}", {"itemID": 7, "uri": "http://z/7"})
     assert fp.startswith("sha256:") and len(fp) == len("sha256:") + 64
 
 
 def test_fingerprint_offline_uses_bib_entry() -> None:
-    fp = _fingerprint_for("k", "@article{k, title={T}}", None)
+    fp = _fingerprint_for("@article{k, title={T}}", None)
     assert fp.startswith("bib:")
 
 
-def test_raw_bib_entry_present_and_absent() -> None:
+def test_bib_entries_by_key_present_and_absent() -> None:
     bib_text = "@article{k, title={T}, doi={10.1000/xyz}}\n\n@book{other, title={O}}\n"
-    entry = _raw_bib_entry(bib_text, "k")
-    assert entry is not None
-    assert "doi={10.1000/xyz}" in entry
-    assert _raw_bib_entry(bib_text, "nao_existe") is None
+    entries = _bib_entries_by_key(bib_text)
+    assert "doi={10.1000/xyz}" in entries["k"]
+    assert set(entries) == {"k", "other"}
+    assert entries.get("nao_existe") is None
 
 
 # --- Task 7: sidecars citemap/span-map (reviews/<slug>/, I2/I8) -----------------
@@ -544,7 +545,7 @@ def test_export_docx_emits_review_sidecars(tmp_path: Path, monkeypatch: pytest.M
 
     result = export_mod.export(page=page, to="docx", project_root=root)
 
-    out_dir = root / "reviews" / export_mod._slugify(page, root)
+    out_dir = root / "reviews" / export_mod.slugify(page, root)
     assert (out_dir / "citemap.json").is_file()
     assert (out_dir / "span-map.json").is_file()
     citemap = CiteMapFile.model_validate_json((out_dir / "citemap.json").read_text())
@@ -584,7 +585,7 @@ def test_fields_locked_with_two_payloads_ok(tmp_path: Path) -> None:
         tmp_path / "locked.docx",
         [payload, payload],  # locked=True (default)
     )
-    _assert_fields_locked(docx)  # não levanta
+    _assert_fields_locked(_docx_texts(docx)[0])  # não levanta
 
 
 def test_fields_locked_missing_lock_raises(tmp_path: Path) -> None:
@@ -593,7 +594,7 @@ def test_fields_locked_missing_lock_raises(tmp_path: Path) -> None:
         tmp_path / "unlocked.docx", [payload, payload], locked=False
     )
     with pytest.raises(MissingFieldLockError) as exc:
-        _assert_fields_locked(docx)
+        _assert_fields_locked(_docx_texts(docx)[0])
     assert "2" in str(exc.value)  # 2 campos vivos
     assert "0" in str(exc.value)  # 0 locks encontrados
     assert "zotero_live_docx.lua" in str(exc.value)
@@ -602,4 +603,4 @@ def test_fields_locked_missing_lock_raises(tmp_path: Path) -> None:
 
 def test_fields_locked_not_required_without_citations(tmp_path: Path) -> None:
     docx = _write_minimal_docx_with_payloads(tmp_path / "sem_campo.docx", [], locked=False)
-    _assert_fields_locked(docx)  # não levanta (0 citações, lock irrelevante)
+    _assert_fields_locked(_docx_texts(docx)[0])  # não levanta (0 citações, lock irrelevante)

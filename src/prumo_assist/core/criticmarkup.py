@@ -118,20 +118,8 @@ def _resolve(mark: Mark, accepted: bool) -> str:
     return ""  # comment: some nos dois casos; conteúdo vive no sidecar
 
 
-def apply(text: str, decisions: dict[int, bool]) -> str:
-    """Aplica decisões por marca (índice na ordem de :func:`parse`).
-
-    Marca sem decisão permanece intacta no texto de saída.
-
-    Args:
-        text: Texto com marcas CriticMarkup.
-        decisions: Dict {índice_marca: True_aceitar_False_rejeitar}.
-                   Marcas ausentes permanecem intactas.
-
-    Returns:
-        Texto com marcas resolvidas/intactas conforme decisões.
-    """
-    marks = parse(text)
+def _apply_marks(text: str, marks: list[Mark], decisions: dict[int, bool]) -> str:
+    """Resolve ``marks`` (já parseadas de ``text``) conforme ``decisions``."""
     out: list[str] = []
     cursor = 0
     for i, mark in enumerate(marks):
@@ -145,12 +133,29 @@ def apply(text: str, decisions: dict[int, bool]) -> str:
     return "".join(out)
 
 
+def apply(text: str, decisions: dict[int, bool]) -> str:
+    """Aplica decisões por marca (índice na ordem de :func:`parse`).
+
+    Marca sem decisão permanece intacta no texto de saída.
+
+    Args:
+        text: Texto com marcas CriticMarkup.
+        decisions: Dict {índice_marca: True_aceitar_False_rejeitar}.
+                   Marcas ausentes permanecem intactas.
+
+    Returns:
+        Texto com marcas resolvidas/intactas conforme decisões.
+    """
+    return _apply_marks(text, parse(text), decisions)
+
+
 def accept(text: str) -> str:
     """Aceita todas as marcas no texto.
 
     Semântica: ins→b, del→"", sub→b, highlight→a, comment→""
     """
-    return apply(text, dict.fromkeys(range(len(parse(text))), True))
+    marks = parse(text)
+    return _apply_marks(text, marks, dict.fromkeys(range(len(marks)), True))
 
 
 def reject(text: str) -> str:
@@ -158,4 +163,5 @@ def reject(text: str) -> str:
 
     Semântica: ins→"", del→a, sub→a, highlight→a, comment→""
     """
-    return apply(text, dict.fromkeys(range(len(parse(text))), False))
+    marks = parse(text)
+    return _apply_marks(text, marks, dict.fromkeys(range(len(marks)), False))

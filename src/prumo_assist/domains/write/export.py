@@ -38,7 +38,7 @@ from typing import Any, cast
 
 import yaml
 
-from prumo_assist.core.citations import CITEKEY_RE, scan_citekeys
+from prumo_assist.core.citations import iter_marked_citation_spans, scan_citekeys
 from prumo_assist.core.csl import list_zotero_styles, resolve_csl
 from prumo_assist.core.obsidian import (
     SpanFragment,
@@ -183,25 +183,30 @@ def fetch_bbt_zotero_metadata(
 _DOI_FIELD_RE = re.compile(r"doi\s*=\s*[{\"]([^}\"]+)", re.I)
 
 
-def _raw_bib_entry(bib_text: str, citekey: str) -> str | None:
-    """Bloco cru do ``.bib`` correspondente a ``citekey`` (ou ``None`` se ausente).
+def _bib_entries_by_key(bib_text: str) -> dict[str, str]:
+    """Bloco cru do ``.bib`` por citekey, num único split por ``@``.
 
-    Split simples por ``@`` — não é um parser BibTeX completo. Serve só de
-    material para o fingerprint: extrair o campo ``doi`` quando presente e,
-    no fallback offline, hashear o entry inteiro.
+    Não é um parser BibTeX completo — a chave é o trecho entre o primeiro
+    ``{`` e a primeira ``,`` do header (``@article{key,``), primeira
+    ocorrência vence. Serve só de material para o fingerprint: extrair o
+    campo ``doi`` quando presente e, no fallback offline, hashear o entry
+    inteiro.
     """
-    marker = "{" + citekey + ","
+    entries: dict[str, str] = {}
     for chunk in bib_text.split("@")[1:]:
         header = chunk.split("\n", 1)[0]
-        if marker in header:
-            return "@" + chunk
-    return None
+        brace = header.find("{")
+        comma = header.find(",", brace)
+        if brace == -1 or comma == -1:
+            continue
+        key = header[brace + 1 : comma]
+        if key and key not in entries:
+            entries[key] = "@" + chunk
+    return entries
 
 
-def _fingerprint_for(
-    citekey: str, bib_entry_raw: str | None, lookup: dict[str, object] | None
-) -> str:
-    """Impressão digital estável da referência ``citekey`` para o campo do Word.
+def _fingerprint_for(bib_entry_raw: str | None, lookup: dict[str, object] | None) -> str:
+    """Impressão digital estável de uma referência para o campo do Word.
 
     Prioridade: ``doi:<valor>`` quando o entry cru do ``.bib`` tem campo
     ``doi``; senão ``sha256:<hex>`` de ``itemID|uri`` quando há lookup do
@@ -221,6 +226,28 @@ def _fingerprint_for(
     return "none"
 
 
+def _write_zotero_lookup(td_path: Path, meta: dict[str, Any], text: str, bib: Path) -> Path | None:
+    """Resolve citekeys→{itemID, uri, fingerprint} via BBT e grava o lookup file.
+
+    Bloco único compartilhado por :func:`export` e :func:`compose` (era
+    duplicado byte a byte): extrai a library do frontmatter, consulta o BBT
+    (:func:`fetch_bbt_zotero_metadata`) e anexa o fingerprint de cada entry
+    (``.bib`` splitado UMA vez). Retorna o caminho do ``zotero_lookup.json``
+    em ``td_path``, ou ``None`` quando o BBT não devolveu nada (o filtro Lua
+    cai no fallback só-CSL).
+    """
+    library = (meta.get("zotero") or {}).get("library") if isinstance(meta, dict) else None
+    lookup = fetch_bbt_zotero_metadata(scan_citekeys(text), library)
+    if not lookup:
+        return None
+    entries_raw = _bib_entries_by_key(bib.read_text())
+    for key, entry in lookup.items():
+        entry["fingerprint"] = _fingerprint_for(entries_raw.get(key), entry)
+    lookup_file = td_path / "zotero_lookup.json"
+    lookup_file.write_text(json.dumps(lookup))
+    return lookup_file
+
+
 _CITEPROC_MISSING_RE = re.compile(r"\[WARNING\] Citeproc: citation (\S+) not found")
 
 
@@ -235,21 +262,34 @@ def _assert_no_citeproc_missing(stderr: str) -> None:
         raise ZoteroCitekeyNotFoundError(
             f"{len(missing)} citekey(s) não existem no .bib: "
             + ", ".join(missing)
-            + ". Confira a grafia ou rode `make sync-paper` para atualizar o .bib."
+            + ". Confira a grafia da citekey; se o paper é novo, adicione-o à coleção "
+            "conectada no Zotero — o Better BibTeX regrava o .bib automaticamente "
+            "(`prumo paper connect` liga a coleção, se ainda não ligou)."
         )
+
+
+def _docx_texts(docx_path: Path) -> tuple[str, str]:
+    """``word/document.xml`` e ``docProps/custom.xml`` decodificados, zip aberto UMA vez.
+
+    ``custom.xml`` ausente vira ``""`` — as guardas pós-build tratam ausência
+    e conteúdo-sem-pref do mesmo jeito.
+    """
+    with zipfile.ZipFile(docx_path) as z:
+        document_xml = z.read("word/document.xml").decode("utf-8", errors="replace")
+        try:
+            custom_xml = z.read("docProps/custom.xml").decode("utf-8", errors="replace")
+        except KeyError:
+            custom_xml = ""
+    return document_xml, custom_xml
 
 
 def _docx_zotero_field_counts(docx_path: Path) -> tuple[int, int]:
     """Conta ocorrências de ``ZOTERO_ITEM`` e ``ZOTERO_BIBL`` em ``word/document.xml``.
 
-    Usado pela validação pós-build para flagrar o caso em que a página tem
-    citações ``[@key]`` mas esqueceu o placeholder ``::: {#refs} :::`` —
-    o docx fica com campos vivos de citação porém sem campo de
-    bibliografia, e o Refresh do plugin Word do Zotero não tem onde
-    materializar as referências.
+    Conveniência por caminho sobre :func:`_docx_texts` — as guardas pós-build
+    contam direto nas strings (uma leitura do zip para a cadeia inteira).
     """
-    with zipfile.ZipFile(docx_path) as z:
-        xml = z.read("word/document.xml").decode("utf-8", errors="replace")
+    xml = _docx_texts(docx_path)[0]
     return xml.count("ZOTERO_ITEM"), xml.count("ZOTERO_BIBL")
 
 
@@ -335,8 +375,9 @@ def _run_and_validate_docx(cmd: list[str], out: Path) -> subprocess.CompletedPro
     return proc
 
 
-def _assert_bibliography_present(docx_path: Path) -> None:
-    items, bibl = _docx_zotero_field_counts(docx_path)
+def _assert_bibliography_present(document_xml: str) -> None:
+    items = document_xml.count("ZOTERO_ITEM")
+    bibl = document_xml.count("ZOTERO_BIBL")
     if items > 0 and bibl == 0:
         raise MissingBibliographyPlaceholderError(
             f"O docx contém {items} citação(ões) vivas do Zotero mas nenhum "
@@ -350,7 +391,7 @@ def _assert_bibliography_present(docx_path: Path) -> None:
         )
 
 
-def _assert_zotero_prefs_present(docx_path: Path) -> None:
+def _assert_zotero_prefs_present(document_xml: str, custom_xml: str) -> None:
     """Guarda de regressão do ``zotero_live_docx.lua``.
 
     O filtro embute ``ZOTERO_PREF_1``/``ZOTERO_PREF_2`` para o plugin Word
@@ -358,15 +399,10 @@ def _assert_zotero_prefs_present(docx_path: Path) -> None:
     primeiro Refresh. Se as prefs sumirem (regressão no filtro), o coautor
     Word-cêntrico é exatamente quem paga o pato — falha alto aqui.
     """
-    items, _bibl = _docx_zotero_field_counts(docx_path)
+    items = document_xml.count("ZOTERO_ITEM")
     if items == 0:
         return
-    with zipfile.ZipFile(docx_path) as z:
-        try:
-            custom = z.read("docProps/custom.xml").decode("utf-8", errors="replace")
-        except KeyError:
-            custom = ""
-    if "ZOTERO_PREF_1" not in custom:
+    if "ZOTERO_PREF_1" not in custom_xml:
         raise MissingZoteroPrefsError(
             f"O docx tem {items} citação(ões) vivas mas docProps/custom.xml não "
             "carrega ZOTERO_PREF_1 — regressão do filtro zotero_live_docx.lua "
@@ -377,7 +413,7 @@ def _assert_zotero_prefs_present(docx_path: Path) -> None:
         )
 
 
-def _assert_fields_locked(docx_path: Path) -> None:
+def _assert_fields_locked(document_xml: str) -> None:
     """Guarda de regressão do content control travado (I4).
 
     O filtro ``zotero_live_docx.lua`` embrulha cada campo ``ZOTERO_ITEM`` num
@@ -387,12 +423,10 @@ def _assert_fields_locked(docx_path: Path) -> None:
     ``word/document.xml`` ficar abaixo da contagem de campos, é regressão do
     filtro — falha alto aqui.
     """
-    items, _bibl = _docx_zotero_field_counts(docx_path)
+    items = document_xml.count("ZOTERO_ITEM")
     if items == 0:
         return
-    with zipfile.ZipFile(docx_path) as z:
-        xml = z.read("word/document.xml").decode("utf-8", errors="replace")
-    locks = xml.count("sdtContentLocked")
+    locks = document_xml.count("sdtContentLocked")
     if locks < items:
         raise MissingFieldLockError(
             f"O docx tem {items} citação(ões) vivas mas só {locks} campo(s) "
@@ -401,6 +435,22 @@ def _assert_fields_locked(docx_path: Path) -> None:
             "`prumo write export --to docx`; se persistir, abra uma issue: "
             "https://github.com/raphaelfh/prumo-assist/issues"
         )
+
+
+def _finalize_docx(cmd: list[str], out: Path) -> None:
+    """Roda o pandoc para docx e aplica a cadeia completa de guardas pós-build.
+
+    Cadeia única compartilhada por :func:`export` e :func:`compose` (era
+    duplicada nos dois): validação estrutural com retry, citekey ausente do
+    citeproc, e as três guardas de regressão do filtro (bibliografia, prefs,
+    locks) — com o zip lido UMA vez via :func:`_docx_texts`.
+    """
+    proc = _run_and_validate_docx(cmd, out)
+    _assert_no_citeproc_missing(proc.stderr)
+    document_xml, custom_xml = _docx_texts(out)
+    _assert_bibliography_present(document_xml)
+    _assert_zotero_prefs_present(document_xml, custom_xml)
+    _assert_fields_locked(document_xml)
 
 
 _INSTR_TEXT_RE = re.compile(r"<w:instrText[^>]*>(.*?)</w:instrText>", re.DOTALL)
@@ -490,16 +540,13 @@ def _read_docx_citations(docx_path: Path) -> list[dict[str, object]]:
     return occurrences
 
 
-_CITATION_GROUP_RE = re.compile(r"\[[^\[\]]*\]")
-
-
 def _norm_citation_spans(norm_text: str) -> list[tuple[int, int]]:
     """Spans dos GRUPOS de citação ``[@a]``/``[@a; @b]`` em ``norm_text``, em ordem.
 
-    Um span por bloco ``[...]`` sem colchetes internos que contenha ao menos
-    um citekey (gramática única de ``core/citations``) — ``[@a]`` e
-    ``[@a; @b]`` cada um conta como UM span, casando 1:1 com um campo
-    Zotero do docx.
+    Delegado à gramática única de ``core/citations``
+    (:func:`iter_marked_citation_spans` — invariante I7): um span por bloco
+    ``[...]`` contendo ao menos um citekey, casando 1:1 com um campo Zotero
+    do docx.
 
     LIMITAÇÃO conhecida: citação narrativa ``@key`` fora de colchetes não é
     contada (o pipeline docx do prumo usa exclusivamente a forma com
@@ -508,11 +555,7 @@ def _norm_citation_spans(norm_text: str) -> list[tuple[int, int]]:
     (:func:`_emit_review_sidecars`), via os fragments ``kind="code"`` do
     span-map.
     """
-    return [
-        match.span()
-        for match in _CITATION_GROUP_RE.finditer(norm_text)
-        if CITEKEY_RE.search(match.group(0))
-    ]
+    return list(iter_marked_citation_spans(norm_text))
 
 
 def _export_git_sha(project_root: Path) -> str:
@@ -606,7 +649,7 @@ def _emit_review_sidecars(
         ],
     )
 
-    out_dir = project_root / "reviews" / _slugify(page, project_root)
+    out_dir = project_root / "reviews" / slugify(page, project_root)
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "citemap.json").write_text(citemap.model_dump_json(indent=2))
     (out_dir / "span-map.json").write_text(span_map.model_dump_json(indent=2))
@@ -629,7 +672,7 @@ def _check_bbt_running(timeout: float = 2.0) -> None:
         ) from exc
 
 
-def _slugify(path: Path, project_root: Path) -> str:
+def slugify(path: Path, project_root: Path) -> str:
     """``docs/findings/foo.md`` → ``findings__foo``."""
     rel = path.relative_to(project_root) if path.is_absolute() else path
     parts = list(rel.with_suffix("").parts)
@@ -711,12 +754,18 @@ def export(
     style: str = "apa",
     to: str = "docx",
     out: Path | None = None,
+    out_dir: Path | None = None,
     bib: Path | None = None,
     template: Path | None = None,
     reference_doc: Path | None = None,
     project_root: Path | None = None,
 ) -> Path:
-    """Exporta uma página `.md` para o formato escolhido. Retorna caminho do output."""
+    """Exporta uma página `.md` para o formato escolhido. Retorna caminho do output.
+
+    ``out`` fixa o caminho completo; ``out_dir`` troca só o diretório,
+    mantendo a regra de nome default (``slugify(page)`` + extensão) — a
+    regra vive AQUI, nunca recomputada pela fachada.
+    """
     if to not in EXT_BY_FORMAT:
         raise ValueError(f"--to deve ser um de {list(EXT_BY_FORMAT)}, recebeu {to}")
 
@@ -737,7 +786,8 @@ def export(
     body_norm, span_frags = normalize_markdown_with_map(body, page_dir=page.parent)
 
     out = out or (
-        project_root / "build" / "exports" / f"{_slugify(page, project_root)}.{EXT_BY_FORMAT[to]}"
+        (out_dir or project_root / "build" / "exports")
+        / f"{slugify(page, project_root)}.{EXT_BY_FORMAT[to]}"
     )
     out.parent.mkdir(parents=True, exist_ok=True)
 
@@ -753,17 +803,7 @@ def export(
 
         zotero_lookup_file: Path | None = None
         if to == "docx":
-            library = (meta.get("zotero") or {}).get("library") if isinstance(meta, dict) else None
-            citekeys = scan_citekeys(body_norm)
-            lookup = fetch_bbt_zotero_metadata(citekeys, library)
-            if lookup:
-                bib_text = bib.read_text()
-                for key, entry in lookup.items():
-                    entry["fingerprint"] = _fingerprint_for(
-                        key, _raw_bib_entry(bib_text, key), entry
-                    )
-                zotero_lookup_file = td_path / "zotero_lookup.json"
-                zotero_lookup_file.write_text(json.dumps(lookup))
+            zotero_lookup_file = _write_zotero_lookup(td_path, meta, body_norm, bib)
 
         target = out if to != "pdf" else td_path / f"{out.stem}.typ"
         cmd = _build_pandoc_cmd(
@@ -781,11 +821,7 @@ def export(
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
         if to == "docx":
-            proc = _run_and_validate_docx(cmd, out)
-            _assert_no_citeproc_missing(proc.stderr)
-            _assert_bibliography_present(out)
-            _assert_zotero_prefs_present(out)
-            _assert_fields_locked(out)
+            _finalize_docx(cmd, out)
             _emit_review_sidecars(
                 page=page,
                 project_root=project_root,
@@ -811,6 +847,7 @@ def compose(
     to: str = "docx",
     style: str | None = None,
     out: Path | None = None,
+    out_dir: Path | None = None,
     bib: Path | None = None,
     template: Path | None = None,
     reference_doc: Path | None = None,
@@ -820,7 +857,9 @@ def compose(
 
     O frontmatter aceita: ``title``, ``author``, ``date``, ``style``, ``toc``,
     ``abstract``, ``pages: [list]``. O body do index é prepended ao conteúdo
-    das páginas (serve de introdução/abstract).
+    das páginas (serve de introdução/abstract). ``out`` fixa o caminho
+    completo; ``out_dir`` troca só o diretório, mantendo a regra de nome
+    default (stem do index sem ``.idx``).
     """
     project_root = project_root or detect_project_root(index)
     text = index.read_text()
@@ -844,9 +883,7 @@ def compose(
     combined = "\n\n".join(parts)
 
     out = out or (
-        project_root
-        / "build"
-        / "exports"
+        (out_dir or project_root / "build" / "exports")
         / f"{index.stem.removesuffix('.idx')}.{EXT_BY_FORMAT[to]}"
     )
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -874,17 +911,7 @@ def compose(
 
         zotero_lookup_file: Path | None = None
         if to == "docx":
-            library = (meta.get("zotero") or {}).get("library") if isinstance(meta, dict) else None
-            citekeys = scan_citekeys(combined)
-            lookup = fetch_bbt_zotero_metadata(citekeys, library)
-            if lookup:
-                bib_text = bib.read_text()
-                for key, entry in lookup.items():
-                    entry["fingerprint"] = _fingerprint_for(
-                        key, _raw_bib_entry(bib_text, key), entry
-                    )
-                zotero_lookup_file = td_path / "zotero_lookup.json"
-                zotero_lookup_file.write_text(json.dumps(lookup))
+            zotero_lookup_file = _write_zotero_lookup(td_path, meta, combined, bib)
 
         target = out if to != "pdf" else td_path / f"{out.stem}.typ"
         cmd = _build_pandoc_cmd(
@@ -903,11 +930,7 @@ def compose(
         if meta.get("toc"):
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]
         if to == "docx":
-            proc = _run_and_validate_docx(cmd, out)
-            _assert_no_citeproc_missing(proc.stderr)
-            _assert_bibliography_present(out)
-            _assert_zotero_prefs_present(out)
-            _assert_fields_locked(out)
+            _finalize_docx(cmd, out)
         else:
             _run_pandoc_checked(cmd)
 

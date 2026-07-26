@@ -593,7 +593,14 @@ def doctor_command(
 
     deps = check_external_deps()
 
+    # Warnings fecham ANTES do payload — nada de popular a lista por
+    # aliasing depois que o dict já foi montado.
     warnings: list[str] = []
+    if not issues and bib_is_placeholder(target):
+        warnings.append(
+            "references/_references.bib ainda é o placeholder do scaffold — "
+            'conecte sua coleção do Zotero: prumo paper connect "<nome da coleção>"'
+        )
 
     payload = {
         "project": str(target),
@@ -609,13 +616,8 @@ def doctor_command(
             console.info(f"  • {i}")
     else:
         console.success("Estrutura do projeto OK.")
-        if bib_is_placeholder(target):
-            bib_warning = (
-                "references/_references.bib ainda é o placeholder do scaffold — "
-                'conecte sua coleção do Zotero: prumo paper connect "<nome da coleção>"'
-            )
+        for bib_warning in warnings:
             console.warn(bib_warning)
-            warnings.append(bib_warning)
 
     console.info("")
     console.info("Dependências externas:")

@@ -22,7 +22,7 @@ import pytest
 import yaml
 
 from prumo_assist.core import criticmarkup
-from prumo_assist.domains.write.export import _slugify
+from prumo_assist.domains.write.export import slugify
 from prumo_assist.domains.write.review import (
     ApplyResult,
     CitationConservationError,
@@ -65,7 +65,7 @@ def _write_review_dir(
     reinverte offsets (I5 — bibliografia é função da fonte, nada a
     transplantar), então o sidecar só precisa existir para `_read_sidecars`
     (reusado de Task 8) não falhar."""
-    slug = _slugify(page, project_root)
+    slug = slugify(page, project_root)
     review_dir = project_root / "reviews" / slug
     review_dir.mkdir(parents=True, exist_ok=True)
     (review_dir / "review.md").write_text(review_body, encoding="utf-8")

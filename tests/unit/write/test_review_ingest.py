@@ -30,7 +30,7 @@ import yaml
 
 from prumo_assist.core.obsidian import normalize_markdown_with_map
 from prumo_assist.domains.write import review
-from prumo_assist.domains.write.export import _slugify
+from prumo_assist.domains.write.export import slugify
 from prumo_assist.domains.write.review import (
     AdeuUnavailableError,
     CitationConservationError,
@@ -159,7 +159,7 @@ def _write_sidecars(
     hora via `normalize_markdown_with_map(body, ...)` (mesma chamada do
     export — decisão documentada no brief da Task 8), então o sidecar só
     precisa do `source_sha256` para o preflight."""
-    slug = _slugify(page, project_root)
+    slug = slugify(page, project_root)
     review_dir = project_root / "reviews" / slug
     review_dir.mkdir(parents=True, exist_ok=True)
     citemap = CiteMapFile(
@@ -216,7 +216,7 @@ def test_ingest_happy_path_prose_insertion_and_comment_writes_valid_sidecars(
     assert result.review_md.read_text() == prefix + "{++ novo++}{>>prumo-autor: Coautor<<}" + suffix
 
     # comments.yaml e events.yaml são YAML válido conforme os schemas.
-    slug = _slugify(page, project_root)
+    slug = slugify(page, project_root)
     review_dir = project_root / "reviews" / slug
     comments_on_disk = ReviewCommentsFile.model_validate(
         yaml.safe_load((review_dir / "review-comments.yaml").read_text())

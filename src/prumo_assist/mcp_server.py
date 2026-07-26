@@ -14,7 +14,7 @@ o contrário; `core/` permanece intocado (regra deste plano — "Global
 Constraints").
 
 Fachada fina sobre o domínio: nenhuma lógica de revisão mora aqui. Cada
-tool resolve o caminho (`export.detect_project_root` + `export._slugify`,
+tool resolve o caminho (`export.detect_project_root` + `export.slugify`,
 MESMO padrão de path resolution de `review.ingest()`), lê o(s) artefato(s)
 certo(s) de `reviews/<slug>/` e devolve dado plano (`dict`/`list[dict]`/
 `str`) — nunca um objeto de domínio. Falha de resolução ou leitura (sidecars
@@ -49,7 +49,7 @@ from pydantic import ValidationError
 
 from prumo_assist.core import criticmarkup
 from prumo_assist.domains.write import review
-from prumo_assist.domains.write.export import _slugify, detect_project_root
+from prumo_assist.domains.write.export import detect_project_root, slugify
 from prumo_assist.domains.write.schemas.v1 import ReviewCommentsFile, ReviewEventsFile
 
 server = FastMCP("prumo-review")
@@ -64,12 +64,12 @@ def _resolve_review_dir(page: str) -> Path:
     """`reviews/<slug>/` a partir de `page` — MESMO padrão de path
     resolution de `review.ingest()`: resolve o caminho absoluto, sobe até a
     raiz do projeto (`export.detect_project_root`) e computa o slug
-    (`export._slugify`). Propaga o `FileNotFoundError` pt-BR de
+    (`export.slugify`). Propaga o `FileNotFoundError` pt-BR de
     `detect_project_root` (sem raiz encontrada) — cada tool traduz para
     `ValueError` no `except` do próprio corpo."""
     page_path = Path(page).resolve()
     project_root = detect_project_root(page_path)
-    slug = _slugify(page_path, project_root)
+    slug = slugify(page_path, project_root)
     return project_root / "reviews" / slug
 
 
@@ -136,7 +136,9 @@ def review_status(page: str) -> dict[str, Any]:
         raise ValueError(str(exc)) from exc
 
     events_by_kind = dict(Counter(event.kind for event in events_file.events))
-    pending_drops = sum(1 for event in events_file.events if event.kind == "citation-drop")
+    pending_drops = sum(
+        1 for event in events_file.events if event.kind == review.EVENT_KIND_CITATION_DROP
+    )
 
     return {
         "page": events_file.page,

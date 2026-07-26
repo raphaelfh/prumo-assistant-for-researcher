@@ -331,20 +331,6 @@ def test_paper_connect_export_pendente_avisa(
     assert "instantes" in result.output  # aviso honesto de export agendado
 
 
-def test_paper_connect_zotero_fechado_exit_2(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from prumo_assist.domains.paper.connect import ZoteroOfflineError
-
-    def fake(*args: Any, **kwargs: Any) -> Any:
-        raise ZoteroOfflineError("Zotero não respondeu em 127.0.0.1:23119 — abra o Zotero.")
-
-    monkeypatch.setattr("prumo_assist.domains.paper.connect.connect_collection", fake)
-    result = runner.invoke(app, ["paper", "connect", "X", "--path", str(tmp_path)])
-    assert result.exit_code == 2
-    assert "abra o Zotero" in result.output
-
-
 @pytest.mark.parametrize(
     "exception_instance,expected_exit,expected_substring",
     [
