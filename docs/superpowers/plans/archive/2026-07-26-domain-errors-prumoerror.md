@@ -1,5 +1,7 @@
 ---
-status: draft
+status: implemented
+verified: 2026-07-26
+release: null
 spec: "[[2026-07-26-domain-errors-prumoerror-design]]"
 ---
 
@@ -34,7 +36,7 @@ spec: "[[2026-07-26-domain-errors-prumoerror-design]]"
 **Interfaces:**
 - Produces: `cli_run(*, json_mode: bool = False, catches: tuple[type[Exception], ...] = (), exit_code: int = 1, exit_codes: Mapping[type[Exception], int] | None = None)` — Tasks 3 e 5 dependem de `exit_codes`.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 Criar `tests/unit/core/test_cli_op.py`:
 
@@ -102,12 +104,12 @@ def test_unrelated_exception_leaks() -> None:
             raise KeyError("bug real")
 ```
 
-- [ ] **Step 2: Rodar e ver falhar**
+- [x] **Step 2: Rodar e ver falhar**
 
 Run: `uv run pytest tests/unit/core/test_cli_op.py -v`
 Expected: FAIL — `TypeError: cli_run() got an unexpected keyword argument 'exit_codes'` nos 4 testes que passam `exit_codes`; os 2 restantes PASSAM (contrato atual).
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 Em `src/prumo_assist/core/cli_op.py`, trocar o import de `contextlib` e a função inteira:
 
@@ -152,17 +154,17 @@ def cli_run(
         raise typer.Exit(code=code) from e
 ```
 
-- [ ] **Step 4: Rodar e ver passar**
+- [x] **Step 4: Rodar e ver passar**
 
 Run: `uv run pytest tests/unit/core/test_cli_op.py -v`
 Expected: 6 PASS.
 
-- [ ] **Step 5: Bateria completa**
+- [x] **Step 5: Bateria completa**
 
 Run: `uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run python .github/scripts/gen_indexes.py --check`
 Expected: tudo verde.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/prumo_assist/core/cli_op.py tests/unit/core/test_cli_op.py
@@ -184,7 +186,7 @@ git commit -m "feat(core): cli_run aceita exit_codes por classe de exceção"
 **Interfaces:**
 - Produces: `prumo_assist.domains.write.errors.WriteError` (subclasse de `PrumoError`); as 13 folhas de write passam a ser `WriteError`. Task 3 depende disso pra encolher as tuplas.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 Criar `tests/unit/write/test_errors.py`:
 
@@ -229,12 +231,12 @@ def test_tool_not_found_stays_builtin() -> None:
     assert not issubclass(export.ToolNotFoundError, PrumoError)
 ```
 
-- [ ] **Step 2: Rodar e ver falhar**
+- [x] **Step 2: Rodar e ver falhar**
 
 Run: `uv run pytest tests/unit/write/test_errors.py -v`
 Expected: FAIL no import — `ModuleNotFoundError: No module named 'prumo_assist.domains.write.errors'`.
 
-- [ ] **Step 3: Criar `errors.py` e re-basear as folhas**
+- [x] **Step 3: Criar `errors.py` e re-basear as folhas**
 
 Criar `src/prumo_assist/domains/write/errors.py`:
 
@@ -312,17 +314,17 @@ class PrumoError(Exception):
     PaperError)."""
 ```
 
-- [ ] **Step 4: Rodar e ver passar**
+- [x] **Step 4: Rodar e ver passar**
 
 Run: `uv run pytest tests/unit/write/test_errors.py -v`
 Expected: 14 PASS (13 parametrizados + builtin).
 
-- [ ] **Step 5: Bateria completa**
+- [x] **Step 5: Bateria completa**
 
 Run: `uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run python .github/scripts/gen_indexes.py --check`
 Expected: tudo verde (a suíte inteira prova que o rebase não muda comportamento).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/prumo_assist/domains/write/errors.py src/prumo_assist/domains/write/export.py src/prumo_assist/domains/write/review.py src/prumo_assist/domains/write/api.py src/prumo_assist/__init__.py tests/unit/write/test_errors.py
@@ -340,7 +342,7 @@ git commit -m "refactor(write): erros de export/review herdam de WriteError(Prum
 - Consumes: as 13 folhas de write já são `PrumoError` (Task 2) — auto-capturadas por `cli_run`.
 - Produces: nada novo; `_EXPORT_CATCHES` e `_REVIEW_CATCHES` deixam de existir.
 
-- [ ] **Step 1: Encolher**
+- [x] **Step 1: Encolher**
 
 Em `src/prumo_assist/domains/write/cli.py`:
 
@@ -355,17 +357,17 @@ Em `src/prumo_assist/domains/write/cli.py`:
    - `review_apply_command`: idem
    - `zettlr_export_entry`: `catches=_EXPORT_CATCHES` → `catches=(FileNotFoundError, ValueError)`
 
-- [ ] **Step 2: Rodar os locks de comportamento**
+- [x] **Step 2: Rodar os locks de comportamento**
 
 Run: `uv run pytest tests/unit/write/ -v`
 Expected: tudo PASS sem editar nenhum teste — mensagens e exit codes idênticos.
 
-- [ ] **Step 3: Bateria completa**
+- [x] **Step 3: Bateria completa**
 
 Run: `uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run python .github/scripts/gen_indexes.py --check`
 Expected: tudo verde (ruff acusaria import não usado se sobrasse).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/prumo_assist/domains/write/cli.py
@@ -386,7 +388,7 @@ git commit -m "refactor(write): fachada dispensa tuplas enumeradas de catch"
 **Interfaces:**
 - Produces: `prumo_assist.domains.paper.errors.PaperError` (subclasse de `PrumoError`); as 6 folhas de paper passam a ser `PaperError`. Task 5 depende disso.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 Criar `tests/unit/paper/test_errors.py`:
 
@@ -417,12 +419,12 @@ def test_leaf_is_paper_error_and_prumo_error(leaf: type[Exception]) -> None:
     assert issubclass(leaf, PrumoError)
 ```
 
-- [ ] **Step 2: Rodar e ver falhar**
+- [x] **Step 2: Rodar e ver falhar**
 
 Run: `uv run pytest tests/unit/paper/test_errors.py -v`
 Expected: FAIL no import — `ModuleNotFoundError: No module named 'prumo_assist.domains.paper.errors'`.
 
-- [ ] **Step 3: Criar `errors.py` e re-basear as folhas**
+- [x] **Step 3: Criar `errors.py` e re-basear as folhas**
 
 Criar `src/prumo_assist/domains/paper/errors.py`:
 
@@ -472,17 +474,17 @@ from prumo_assist.domains.paper.errors import PaperError
 
 e `"PaperError",` no `__all__` (ASCII: depois de `"ExtractPrep"`, antes das minúsculas).
 
-- [ ] **Step 4: Rodar e ver passar**
+- [x] **Step 4: Rodar e ver passar**
 
 Run: `uv run pytest tests/unit/paper/test_errors.py -v`
 Expected: 6 PASS.
 
-- [ ] **Step 5: Bateria completa**
+- [x] **Step 5: Bateria completa**
 
 Run: `uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run python .github/scripts/gen_indexes.py --check`
 Expected: tudo verde — em particular `test_paper_connect_error_contract` intacto.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/prumo_assist/domains/paper/errors.py src/prumo_assist/domains/paper/connect.py src/prumo_assist/domains/paper/verify.py src/prumo_assist/domains/paper/api.py tests/unit/paper/test_errors.py
@@ -500,7 +502,7 @@ git commit -m "refactor(paper): erros de connect/verify herdam de PaperError(Pru
 - Consumes: `exit_codes` de `cli_run` (Task 1); folhas de paper como `PrumoError` (Task 4).
 - Produces: nada novo; `_CONNECT_CATCHES` e `_VERIFY_CATCHES` deixam de existir.
 
-- [ ] **Step 1: Encolher**
+- [x] **Step 1: Encolher**
 
 Em `src/prumo_assist/domains/paper/cli.py`:
 
@@ -537,18 +539,18 @@ Em `src/prumo_assist/domains/paper/cli.py`:
 (`sync_annotations_command` e `sync_notes_command` NÃO mudam — `exit_code=2`
 por comando continua sendo o mecanismo certo pra elas.)
 
-- [ ] **Step 2: Rodar os locks de comportamento**
+- [x] **Step 2: Rodar os locks de comportamento**
 
 Run: `uv run pytest tests/unit/paper/ -v`
 Expected: tudo PASS sem editar nenhum teste — em particular
 `test_paper_connect_error_contract`: 4 erros → exit 1, offline → exit 2, sem traceback.
 
-- [ ] **Step 3: Bateria completa**
+- [x] **Step 3: Bateria completa**
 
 Run: `uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run python .github/scripts/gen_indexes.py --check`
 Expected: tudo verde.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/prumo_assist/domains/paper/cli.py
@@ -566,7 +568,7 @@ git commit -m "refactor(paper): fachada usa exit_codes declarativo; tuplas somem
 **Interfaces:**
 - Consumes: tudo implementado (Tasks 1–5).
 
-- [ ] **Step 1: CHANGELOG**
+- [x] **Step 1: CHANGELOG**
 
 Em `CHANGELOG.md`, sob `## [Não publicado]`: se não existir `### Alterado`,
 criar a seção após o bloco `### Adicionado`; acrescentar:
@@ -581,7 +583,7 @@ criar a seção após o bloco `### Adicionado`; acrescentar:
   `RuntimeError` deve capturar `PrumoError` (spec 2026-07-26).
 ```
 
-- [ ] **Step 2: ARCHITECTURE.md**
+- [x] **Step 2: ARCHITECTURE.md**
 
 No mapa de `src/prumo_assist/`:
 
@@ -590,12 +592,12 @@ No mapa de `src/prumo_assist/`:
 - linha do `domains/<X>/`:
   `│   └── <X>/               ← cli.py + api.py + <op>.py + schemas/v1.py + errors.py (ADR-0006);`
 
-- [ ] **Step 3: Bateria completa**
+- [x] **Step 3: Bateria completa**
 
 Run: `uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run python .github/scripts/gen_indexes.py --check && uv run mypy`
 Expected: tudo verde.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add CHANGELOG.md ARCHITECTURE.md
