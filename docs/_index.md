@@ -63,6 +63,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 **Plans ativos:**
 
 - [[superpowers/plans/2026-07-22-zettlr-front]] · draft
+- [[superpowers/plans/2026-07-26-domain-errors-prumoerror]] · draft
 
 **Plans arquivados:** 25 em `superpowers/plans/archive/`
 
