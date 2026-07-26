@@ -82,6 +82,8 @@ def _last_json(stdout: str) -> dict[str, object]:
 def test_paper_sync_notes_cli_writes_files(tmp_path: Path) -> None:
     from unittest.mock import patch
 
+    from prumo_assist.domains.paper.zotero import ZoteroRef
+
     pj = tmp_path / "pj_x"
     refs = pj / "references"
     (refs / "notes" / "smith2024").mkdir(parents=True)
@@ -98,7 +100,10 @@ def test_paper_sync_notes_cli_writes_files(tmp_path: Path) -> None:
     }
     with (
         patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
-        patch("prumo_assist.domains.paper.zotero.resolve_citekey", return_value=(1, "P1")),
+        patch(
+            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            return_value=ZoteroRef("users/13049353", "P1"),
+        ),
         patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=[note]),
     ):
         result = runner.invoke(app, ["paper", "sync-notes", str(pj), "--json"])

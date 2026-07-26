@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import email.message
 import http.client
+import urllib.error
 from unittest.mock import patch
 
 import pytest
 
-from prumo_assist.core.deps import DepStatus, check_external_deps
+from prumo_assist.core.deps import DepStatus, check_external_deps, zotero_local_api_up
 
 
 def test_qmd_present_when_on_path() -> None:
@@ -146,6 +148,85 @@ def test_zotero_version_probe_never_raises_on_non_http_service() -> None:
     assert zot.present is True
     assert zot.version is None
     assert "versão não detectada" in zot.detail
+
+
+# ---------------------------------------------------------------------------
+# Sonda "Zotero de pé" — shapes REAIS medidos contra Zotero 9.0.6 + BBT:
+# GET /                → 404 (HTTPError, subclasse de URLError/OSError)
+# GET /connector/ping  → 200 com header X-Zotero-Version: 9.0.6
+# ---------------------------------------------------------------------------
+
+
+class _FakePingResponse:
+    """Resposta mínima do ``urlopen``: context manager com ``headers``."""
+
+    def __init__(self, headers: dict[str, str]) -> None:
+        self.headers = headers
+
+    def __enter__(self) -> _FakePingResponse:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+
+def _zotero_running_urlopen(url: str, timeout: float = 0.0) -> _FakePingResponse:
+    """Zotero 9.0.6 rodando: só ``/connector/ping`` responde 200; o resto é 404."""
+    if url.endswith("/connector/ping"):
+        return _FakePingResponse({"X-Zotero-Version": "9.0.6"})
+    raise urllib.error.HTTPError(url, 404, "Not Found", email.message.Message(), None)
+
+
+def test_zotero_local_api_up_probes_connector_ping(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PRUMO_ZOTERO_BASE", raising=False)
+    seen: list[str] = []
+
+    def _spy(url: str, timeout: float = 0.0) -> _FakePingResponse:
+        seen.append(url)
+        return _zotero_running_urlopen(url, timeout)
+
+    with patch("prumo_assist.core.deps.urllib.request.urlopen", _spy):
+        assert zotero_local_api_up() is True
+    assert seen == ["http://127.0.0.1:23119/connector/ping"]
+
+
+def test_zotero_local_api_up_false_when_connection_refused() -> None:
+    def _refused(*args: object, **kwargs: object) -> object:
+        raise urllib.error.URLError(ConnectionRefusedError(61, "Connection refused"))
+
+    with patch("prumo_assist.core.deps.urllib.request.urlopen", _refused):
+        assert zotero_local_api_up() is False
+
+
+def test_zotero_local_api_up_false_on_timeout() -> None:
+    def _timeout(*args: object, **kwargs: object) -> object:
+        raise TimeoutError
+
+    with patch("prumo_assist.core.deps.urllib.request.urlopen", _timeout):
+        assert zotero_local_api_up() is False
+
+
+def test_zotero_local_api_up_true_on_http_error_status() -> None:
+    """Status HTTP de erro ainda é servidor de pé — só há HTTP nessa porta com o app aberto."""
+
+    def _forbidden(url: str, timeout: float = 0.0) -> object:
+        raise urllib.error.HTTPError(url, 403, "Forbidden", email.message.Message(), None)
+
+    with patch("prumo_assist.core.deps.urllib.request.urlopen", _forbidden):
+        assert zotero_local_api_up() is True
+
+
+def test_zotero_local_api_up_honors_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://example.test:1234")
+    seen: list[str] = []
+
+    def _spy(url: str, timeout: float = 0.0) -> _FakePingResponse:
+        seen.append(url)
+        return _FakePingResponse({"X-Zotero-Version": "9.0.6"})
+
+    with patch("prumo_assist.core.deps.urllib.request.urlopen", _spy):
+        assert zotero_local_api_up() is True
+    assert seen == ["http://example.test:1234/connector/ping"]
 
 
 def _by_name(statuses: list[DepStatus], name: str) -> DepStatus:

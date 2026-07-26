@@ -14,12 +14,16 @@ import os
 import re
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
+from dataclasses import dataclass
 from html import unescape
 from pathlib import Path
 from typing import Any
 
 from prumo_assist.core.bib import parse_bib
+from prumo_assist.core.deps import zotero_local_api_up
 from prumo_assist.core.note_paths import annotations_path, meta_path
+from prumo_assist.domains.paper.errors import ZoteroApiError
 
 _DEFAULT_ZOTERO_BASE = "http://127.0.0.1:23119"
 
@@ -84,48 +88,119 @@ def _http_post_json(url: str, payload: dict[str, Any], timeout: float = 10.0) ->
 
 
 def check_zotero_running() -> bool:
-    """``True`` se Zotero 9 está expondo a API local em ``localhost:23119``."""
-    try:
-        urllib.request.urlopen(_zotero_base(), timeout=2)
-        return True
-    except (urllib.error.URLError, TimeoutError):
-        return False
+    """``True`` se Zotero 9 está expondo a API local em ``localhost:23119``.
+
+    Delega pro seam único de ``core.deps`` — doctor e paper têm de concordar
+    sobre "o Zotero está de pé". A raiz (``/``) responde 404 com o Zotero
+    rodando, então sondá-la aqui produzia falso-negativo.
+    """
+    return zotero_local_api_up()
 
 
 # ---------------------------------------------------------------------------
-# Resolução citekey → (libraryID, itemKey) via BBT JSON-RPC
+# Resolução citekey → (library_path, itemKey) via BBT JSON-RPC
 # ---------------------------------------------------------------------------
 
 
-def resolve_citekey(citekey: str) -> tuple[int, str] | None:
-    """Devolve ``(libraryID, itemKey)`` ou ``None`` se BBT não achar."""
-    payload: dict[str, Any] = {
-        "jsonrpc": "2.0",
-        "method": "item.search",
-        "params": [citekey],
-        "id": 1,
-    }
+@dataclass(frozen=True)
+class ZoteroRef:
+    """Identidade de um item na API local do Zotero.
+
+    ``library_path`` é o segmento de caminho da API (``users/13049353`` ou
+    ``groups/5772858``), não o ``libraryID`` do Better BibTeX: o BBT numera
+    My Library como ``1`` e ``/api/users/1/...`` responde HTTP 400. Os dois
+    campos saem da ``uri`` que o BBT devolve
+    (``http://zotero.org/users/13049353/items/UGJ7VBQ8``).
+    """
+
+    library_path: str
+    item_key: str
+
+
+_ZOTERO_URI_RE = re.compile(r"^https?://zotero\.org/(users|groups)/(\d+)/items/([A-Za-z0-9]+)$")
+
+
+def _bbt_rpc_call(method: str, params: list[Any]) -> object | None:
+    """Chama um método do JSON-RPC do BBT e devolve ``result`` (``None`` em falha).
+
+    O BBT sinaliza erro de aplicação com **HTTP 200 + ``error`` no corpo**
+    (ex.: ``-32603 library.get ... not found`` quando a library é vazia);
+    olhar só exceção de rede não basta.
+    """
+    payload: dict[str, Any] = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
     try:
         resp = _http_post_json(_bbt_rpc(), payload)
-    except urllib.error.URLError:
+    except (urllib.error.URLError, TimeoutError):
         return None
-    if not isinstance(resp, dict):
+    if not isinstance(resp, dict) or resp.get("error") is not None:
         return None
-    items = resp.get("result") or []
+    return resp.get("result")
+
+
+def _search_library_name(citekey: str) -> str | None:
+    """Nome da biblioteca que contém ``citekey``, via ``item.search``.
+
+    O BBT devolve ``library`` como **string** (``'My Library'``) e não expõe
+    ``itemKey`` — daí só o nome sair daqui; ele é o parâmetro que
+    ``item.pandoc_filter`` exige para devolver a ``uri``.
+    """
+    result = _bbt_rpc_call("item.search", [citekey])
+    if not isinstance(result, list):
+        return None
+    items = [it for it in result if isinstance(it, dict)]
     for it in items:
-        ck = it.get("citationKey") or it.get("citekey")
-        if ck == citekey:
-            lib = (it.get("library") or {}).get("id", 1)
-            key = it.get("itemKey") or it.get("key")
-            if key:
-                return (int(lib), str(key))
-    if items:
-        first = items[0]
-        lib = (first.get("library") or {}).get("id", 1)
-        key = first.get("itemKey") or first.get("key")
-        if key:
-            return (int(lib), str(key))
+        ck = it.get("citekey") or it.get("citation-key") or it.get("citationKey")
+        lib = it.get("library")
+        if ck == citekey and isinstance(lib, str) and lib:
+            return lib
+    for it in items:
+        lib = it.get("library")
+        if isinstance(lib, str) and lib:
+            return lib
     return None
+
+
+def _pandoc_filter_uri(citekey: str, library: str) -> str | None:
+    """URI Zotero do item (``http://zotero.org/users/<id>/items/<KEY>``).
+
+    Usa ``item.pandoc_filter`` — a mesma API que o ``zotero.lua`` chama — e lê
+    ``result.items[<citekey>].custom.uri``.
+    """
+    result = _bbt_rpc_call("item.pandoc_filter", [[citekey], True, library])
+    if not isinstance(result, dict):
+        return None
+    items = result.get("items")
+    if not isinstance(items, dict):
+        return None
+    data = items.get(citekey)
+    custom = data.get("custom") if isinstance(data, dict) else None
+    uri = custom.get("uri") if isinstance(custom, dict) else None
+    return str(uri) if uri else None
+
+
+def _ref_from_uri(uri: str) -> ZoteroRef | None:
+    """Converte a ``uri`` do BBT em :class:`ZoteroRef` (``None`` se não casar)."""
+    m = _ZOTERO_URI_RE.match(uri.strip())
+    if m is None:
+        return None
+    return ZoteroRef(library_path=f"{m.group(1)}/{m.group(2)}", item_key=m.group(3))
+
+
+def resolve_citekey(citekey: str) -> ZoteroRef | None:
+    """Resolve ``citekey`` → :class:`ZoteroRef`, ou ``None`` se o BBT não achar.
+
+    Dois passos, ambos no JSON-RPC do BBT: ``item.search`` dá o **nome** da
+    biblioteca e ``item.pandoc_filter`` dá a ``uri``, de onde saem o caminho de
+    library da API e o itemKey. O ``libraryID`` numérico do BBT não serve —
+    ``/api/users/1/...`` responde HTTP 400.
+    """
+    library = _search_library_name(citekey)
+    if library is None:
+        return None
+    uri = _pandoc_filter_uri(citekey, library)
+    if uri is None:
+        return None
+    return _ref_from_uri(uri)
 
 
 # ---------------------------------------------------------------------------
@@ -133,13 +208,37 @@ def resolve_citekey(citekey: str) -> tuple[int, str] | None:
 # ---------------------------------------------------------------------------
 
 
-def fetch_children(library_id: int, item_key: str) -> list[dict[str, Any]]:
-    """Lista bruta de child items (data dict por item)."""
-    url = f"{_zotero_api()}/users/{library_id}/items/{item_key}/children?format=json&limit=200"
+_ANNOTATIONS_PAGE_SIZE = 100
+_ANNOTATIONS_MAX_PAGES = 200
+
+
+def _zotero_http_error(exc: urllib.error.HTTPError, url: str) -> ZoteroApiError:
+    """Traduz ``HTTPError`` da API local em erro de domínio acionável (pt-BR)."""
+    if exc.code == 403:
+        return ZoteroApiError(
+            f"A API local do Zotero está desligada (HTTP 403 em {url}). "
+            "Ligue em Zotero → Settings → Advanced → marque "
+            '"Allow other applications on this computer to communicate with Zotero" '
+            "e rode `prumo paper sync-annotations <pj>` de novo."
+        )
+    return ZoteroApiError(
+        f"A API local do Zotero recusou {url} (HTTP {exc.code} {exc.reason}). "
+        "Confirme que o Zotero 9 está aberto e que o item ainda existe na "
+        "biblioteca; rode `prumo doctor` para diagnosticar."
+    )
+
+
+def _fetch_item_data(url: str) -> list[dict[str, Any]]:
+    """GET numa coleção de items da API local → lista dos dicts ``data``.
+
+    ``HTTPError`` (403/400/404) vira :class:`ZoteroApiError`: engoli-lo produzia
+    "0 anotações" indistinguível de "sem anotações". ``URLError`` puro (rede
+    fora) continua vazando pro chamador decidir.
+    """
     try:
         resp = _http_get_json(url)
-    except urllib.error.URLError:
-        return []
+    except urllib.error.HTTPError as exc:
+        raise _zotero_http_error(exc, url) from exc
     if not isinstance(resp, list):
         return []
     out: list[dict[str, Any]] = []
@@ -147,6 +246,82 @@ def fetch_children(library_id: int, item_key: str) -> list[dict[str, Any]]:
         data = entry.get("data") if isinstance(entry, dict) else None
         if isinstance(data, dict):
             out.append(data)
+    return out
+
+
+def fetch_children(ref: ZoteroRef) -> list[dict[str, Any]]:
+    """Filhos DIRETOS do item ``ref`` (attachments e child notes).
+
+    ``/children`` **nunca** devolve annotation — elas penduram no anexo, não no
+    item top-level (medido: o anexo ``9JUI5P4Q`` tem 8 annotations e
+    ``/items/9JUI5P4Q/children`` responde n=0). Para as annotations use
+    :func:`fetch_annotations_index` + :func:`annotations_for_item`.
+    """
+    url = f"{_zotero_api()}/{ref.library_path}/items/{ref.item_key}/children?format=json&limit=200"
+    try:
+        return _fetch_item_data(url)
+    except urllib.error.URLError:  # HTTPError já virou ZoteroApiError acima
+        return []
+
+
+def fetch_annotations_index(library_path: str) -> dict[str, list[dict[str, Any]]]:
+    """Todas as annotations da biblioteca, indexadas por ``parentItem``.
+
+    Uma varredura resolve a biblioteca inteira — não faça uma chamada por paper.
+    ``/items/<key>/annotations`` responde 404 e o filtro ``?parentItem=<key>`` é
+    **ignorado** pela API local (devolve tudo), então indexar no cliente é a
+    única via.
+
+    A paginação usa ``start`` mas não confia nele: annotations já vistas são
+    descartadas e a varredura para quando uma página não traz nada novo. Se a
+    API ignorasse ``start`` (como ignora ``parentItem``), repetiríamos a
+    primeira página em vez de duplicar anotações.
+    """
+    index: dict[str, list[dict[str, Any]]] = {}
+    seen: set[str] = set()
+    start = 0
+    for _ in range(_ANNOTATIONS_MAX_PAGES):
+        url = (
+            f"{_zotero_api()}/{library_path}/items?itemType=annotation"
+            f"&format=json&limit={_ANNOTATIONS_PAGE_SIZE}&start={start}"
+        )
+        page = _fetch_item_data(url)
+        fresh = 0
+        for data in page:
+            key = data.get("key")
+            if isinstance(key, str) and key:
+                if key in seen:
+                    continue
+                seen.add(key)
+            parent = data.get("parentItem")
+            if isinstance(parent, str) and parent:
+                index.setdefault(parent, []).append(data)
+                fresh += 1
+        if len(page) < _ANNOTATIONS_PAGE_SIZE or fresh == 0:
+            break
+        start += len(page)
+    return index
+
+
+def annotations_for_item(
+    children: list[dict[str, Any]],
+    index: Mapping[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    """Annotations de um item top-level: netas via ``top → attachment → annotation``.
+
+    Casa a ``key`` de cada attachment vindo de :func:`fetch_children` com o
+    ``parentItem`` das annotations de :func:`fetch_annotations_index`.
+    """
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for d in children:
+        if d.get("itemType") != "attachment":
+            continue
+        key = str(d.get("key") or "")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.extend(index.get(key, []))
     return out
 
 
@@ -351,24 +526,29 @@ def sync_annotations(pj_path: Path) -> dict[str, Any]:
     no_resolve: list[str] = []
     no_children: list[str] = []
     errors: list[tuple[str, str]] = []
+    indexes: dict[str, dict[str, list[dict[str, Any]]]] = {}
 
     for citekey in citekeys:
         meta = meta_path(pj_path, citekey)
         if not meta.exists():
             no_meta.append(citekey)
             continue
-        resolved = resolve_citekey(citekey)
-        if not resolved:
+        ref = resolve_citekey(citekey)
+        if ref is None:
             no_resolve.append(citekey)
             continue
-        lib_id, item_key = resolved
         try:
-            children = fetch_children(lib_id, item_key)
+            children = fetch_children(ref)
+            index = indexes.get(ref.library_path)
+            if index is None:
+                index = fetch_annotations_index(ref.library_path)
+                indexes[ref.library_path] = index
         except (urllib.error.URLError, TimeoutError, ValueError) as exc:
             errors.append((citekey, str(exc)))
             continue
 
         annots, notes_lst = split_children(children)
+        annots.extend(annotations_for_item(children, index))
         if not annots and not notes_lst:
             no_children.append(citekey)
             continue
@@ -446,13 +626,12 @@ def sync_notes(pj_path: Path) -> dict[str, Any]:
         if not meta_path(pj_path, citekey).exists():
             no_meta.append(citekey)
             continue
-        resolved = resolve_citekey(citekey)
-        if not resolved:
+        ref = resolve_citekey(citekey)
+        if ref is None:
             no_resolve.append(citekey)
             continue
-        lib_id, item_key = resolved
         try:
-            children = fetch_children(lib_id, item_key)
+            children = fetch_children(ref)
         except (urllib.error.URLError, TimeoutError, ValueError) as exc:
             errors.append((citekey, str(exc)))
             continue

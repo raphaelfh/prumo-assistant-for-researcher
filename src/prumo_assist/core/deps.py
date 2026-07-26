@@ -19,6 +19,7 @@ import os
 import re
 import shutil
 import socket
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -84,6 +85,26 @@ def _zotero_version_header(host: str, port: int, timeout: float = 2.0) -> str | 
             return str(value) if value else None
     except (OSError, http.client.HTTPException):
         return None
+
+
+def zotero_local_api_up(timeout: float = 2.0) -> bool:
+    """``True`` se a API local do Zotero responde em ``/connector/ping``.
+
+    Sonda o mesmo endpoint que ``check_external_deps`` (o ``doctor``) para que
+    doctor e domínios nunca discordem sobre "o Zotero está rodando". Qualquer
+    resposta HTTP conta como de pé — inclusive status de erro: só existe
+    servidor HTTP nessa porta com o app aberto. Sondar a raiz (``/``) daria
+    falso-negativo, porque ela responde 404 com o Zotero rodando.
+    """
+    host, port = _zotero_host_port()
+    url = f"http://{host}:{port}/connector/ping"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout):
+            return True
+    except urllib.error.HTTPError:
+        return True
+    except (OSError, http.client.HTTPException):
+        return False
 
 
 def _zotero_major(version: str | None) -> int | None:
