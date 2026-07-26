@@ -1,4 +1,29 @@
+---
+status: implemented
+verified: 2026-07-25
+release: null
+spec: "[[2026-07-22-zero-friction-onboarding-design]]"
+phase: "Fase 4 do guarda-chuva zero-friction (escopo A da emenda 2026-07-25; F5 encerrada FECHADA pelo piloto)"
+---
+
 # Zero-friction Fase 4 — Colapso de Dependências (escopo A) Implementation Plan
+
+> **Nota de reconciliação (review final da fase, 2026-07-25):** review fable
+> "With fixes" → c1 (cadeia de pais quebrada/cíclica/nome-vazio agora é PULADA
+> no `list_collections` — fecha os 3 BREAKS hostile-server; código alinhado à
+> própria docstring), c2 (trava de regressão parametrizada do contrato de erro
+> do CLI: 4 exceções→exit 1 limpo, offline→exit 2) e c4 (ROADMAP ganhou o
+> status do programa 2026-07) aplicados em 7275490+e813be4. Invariante central
+> ("typo nunca cria nada no Zotero") verificado sob 10 ataques + sonda LIVE
+> read-only no Zotero real do dono (connect com coleção inexistente falhou
+> seguro; 17 coleções antes/depois, zero fantasma). Emendas pós-review
+> incorporadas nos blocos: guarda de nome com "/" (Critical do T1),
+> `segments` no CollectionRef, poll pré-loop. BACKLOG (commit de archive):
+> c3 mensagem de BBT-recusou sem comando de correção; c5 wordings de
+> placeholder/bib-ausente; hint `--library` é beco em ambiguidade
+> intra-library (endereçamento por path completo, gated como o `--replace`);
+> follow-up gated de reconexão (`autoexport.remove/list` não confirmados).
+> Smoke real POSITIVO do connect = manual do dono (ADR-0020).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
