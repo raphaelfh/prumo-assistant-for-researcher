@@ -44,7 +44,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
                                  │ citations · skills · paths ·│
                                  │ cli_op · output · deps ·    │
                                  │ note_paths · scaffold ·     │
-                                 │ config · provenance*        │
+                                 │ config · uvx · provenance*  │
                                  └─────────────────────────────┘
 ```
 

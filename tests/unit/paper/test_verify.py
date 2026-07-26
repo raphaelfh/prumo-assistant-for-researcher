@@ -507,7 +507,7 @@ class TestDeepLayer:
         def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise FileNotFoundError("uvx")
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify.subprocess.run", fake_run)
+        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
         with pytest.raises(verify.RefcheckerUnavailableError, match="uvx"):
             verify._run_refchecker("@article{a,}")
 
@@ -515,7 +515,7 @@ class TestDeepLayer:
         def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise subprocess.TimeoutExpired(cmd="uvx", timeout=1)
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify.subprocess.run", fake_run)
+        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
         with pytest.raises(verify.RefcheckerUnavailableError, match="excedeu"):
             verify._run_refchecker("@article{a,}", timeout=1)
 
@@ -525,7 +525,7 @@ class TestDeepLayer:
             report_path.write_text(json.dumps(_REPORT_FIXTURE), encoding="utf-8")
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify.subprocess.run", fake_run)
+        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
         report = verify._run_refchecker("@article{a,}")
         assert report["summary"]["total_errors_found"] == 2
 
@@ -533,7 +533,7 @@ class TestDeepLayer:
         def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")  # exit 0, sem report!
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify.subprocess.run", fake_run)
+        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
         with pytest.raises(verify.RefcheckerUnavailableError, match="report"):
             verify._run_refchecker("@article{a,}")
 
@@ -542,7 +542,7 @@ class TestDeepLayer:
             report_path.write_text("[1, 2]", encoding="utf-8")  # JSON válido mas não-dict
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify.subprocess.run", fake_run_list)
+        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run_list)
         with pytest.raises(verify.RefcheckerUnavailableError):
             verify._run_refchecker("@article{a,}")
 
@@ -568,7 +568,7 @@ class TestDeepLayer:
             report_path.write_text(json.dumps(_REPORT_FIXTURE), encoding="utf-8")
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify.subprocess.run", fake_run)
+        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
         report = verify.verify_refs(tmp_path, deep=True, cache_path=tmp_path / "c.json")
         assert report["deep"] is True
         deep_findings = [f for f in report["findings"] if f["source"] == "refchecker"]
@@ -593,7 +593,7 @@ class TestDeepLayer:
         def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise AssertionError("subprocess não deveria rodar sem --deep")
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify.subprocess.run", fake_run)
+        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
         report = verify.verify_refs(tmp_path, cache_path=tmp_path / "c.json")
         assert report["deep"] is False
 
@@ -611,7 +611,7 @@ class TestDeepLayer:
         def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise AssertionError("subprocess não deveria rodar com escopo só de duplicatas")
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify.subprocess.run", fake_run)
+        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
         report = verify.verify_refs(tmp_path, deep=True, cache_path=tmp_path / "c.json")
         assert report["deep"] is True
         assert [f["kind"] for f in report["findings"]] == ["duplicate-citekey"]

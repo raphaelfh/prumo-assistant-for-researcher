@@ -38,16 +38,16 @@ import json
 import logging
 import re
 import shutil
-import subprocess
 import zipfile
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, NoReturn, cast
+from typing import Any, Literal, NoReturn, TypeVar, cast
 from xml.etree import ElementTree as ET
 
 import yaml
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from prumo_assist.core import criticmarkup
 from prumo_assist.core.citations import CITEKEY_RE
@@ -57,6 +57,7 @@ from prumo_assist.core.obsidian import (
     normalize_markdown_with_map,
     split_frontmatter_raw,
 )
+from prumo_assist.core.uvx import PinnedTool, run_pinned
 from prumo_assist.domains.write.comments import extract_from_docx
 from prumo_assist.domains.write.errors import WriteError
 from prumo_assist.domains.write.export import (
@@ -705,6 +706,18 @@ _ADEU_INSTALL_HINT = (
     "pinada do backend de PROSA."
 )
 
+# Identidade de erro do adeu para o motor comum de ferramenta pinada
+# (`core/uvx.run_pinned`) — rótulos byte-idênticos ao wording que este
+# módulo emitia antes da extração (travados pelos testes do seam).
+_ADEU_TOOL = PinnedTool(
+    error_cls=AdeuUnavailableError,
+    hint=_ADEU_INSTALL_HINT,
+    missing_label="adeu (backend de PROSA pinado, `uvx adeu==1.29.0`)",
+    timeout_label="adeu (backend de PROSA pinado, `uvx adeu==1.29.0`)",
+    timeout_detail="rede lenta no primeiro download do uvx? Re-rode.",
+    exit_label="adeu (backend de PROSA pinado, `uvx adeu==1.29.0`)",
+)
+
 
 def _check_uvx_on_path() -> None:
     """Preflight 3a: o backend de prosa (adeu via uvx) precisa existir antes de começar."""
@@ -732,41 +745,23 @@ def _run_adeu_extract(docx_path: Path) -> str:
     Versão PINADA (``adeu==1.29.0``, nunca flutuante) pelo motivo descrito no
     comentário da seção acima.
 
-    ``uvx`` ausente no PATH (``FileNotFoundError`` do próprio
-    ``subprocess.run``) e exit != 0 (adeu resolvido mas falhou — docx
-    incompatível, versão incorreta, etc.) viram a MESMA
-    :class:`AdeuUnavailableError`: o chamador (Task 8, ``ingest``) só
-    precisa tratar um único tipo de falha do backend de prosa. O mesmo vale
-    para stdout que não é o JSON esperado (:class:`json.JSONDecodeError`) ou
-    JSON válido sem o campo ``markdown`` (:class:`KeyError`) — achado do
-    review da Task 4, endossado como MUST-DO para a Task 8: sem este catch,
-    as duas exceções vazavam cruas (tipo Python interno, sem o comando de
-    correção pt-BR que este módulo garante em todo outro hard-fail).
+    ``uvx`` ausente no PATH, timeout e exit != 0 (adeu resolvido mas falhou
+    — docx incompatível, versão incorreta, etc.) viram a MESMA
+    :class:`AdeuUnavailableError`, via o motor comum
+    :func:`prumo_assist.core.uvx.run_pinned` (rótulos em ``_ADEU_TOOL``): o
+    chamador (Task 8, ``ingest``) só precisa tratar um único tipo de falha
+    do backend de prosa. O mesmo vale para stdout que não é o JSON esperado
+    (:class:`json.JSONDecodeError`) ou JSON válido sem o campo ``markdown``
+    (:class:`KeyError`) — achado do review da Task 4, endossado como
+    MUST-DO para a Task 8: sem este catch, as duas exceções vazavam cruas
+    (tipo Python interno, sem o comando de correção pt-BR que este módulo
+    garante em todo outro hard-fail).
     """
-    try:
-        proc = subprocess.run(
-            ["uvx", "adeu==1.29.0", "extract", "--json", str(docx_path), "-o", "-"],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-    except FileNotFoundError as exc:
-        raise AdeuUnavailableError(
-            "uv/uvx não encontrado no PATH — adeu (backend de PROSA pinado, "
-            f"`uvx adeu==1.29.0`) não pode ser invocado. {_ADEU_INSTALL_HINT}"
-        ) from exc
-    except subprocess.TimeoutExpired as exc:
-        raise AdeuUnavailableError(
-            "adeu (backend de PROSA pinado, `uvx adeu==1.29.0`) excedeu 120s — "
-            f"rede lenta no primeiro download do uvx? Re-rode. {_ADEU_INSTALL_HINT}"
-        ) from exc
-
-    if proc.returncode != 0:
-        raise AdeuUnavailableError(
-            "adeu (backend de PROSA pinado, `uvx adeu==1.29.0`) terminou com "
-            f"exit {proc.returncode}. stderr:\n{proc.stderr.strip()[-2000:]}\n"
-            f"{_ADEU_INSTALL_HINT}"
-        )
+    proc = run_pinned(
+        _ADEU_TOOL,
+        ["uvx", "adeu==1.29.0", "extract", "--json", str(docx_path), "-o", "-"],
+        timeout=120,
+    )
 
     try:
         payload = cast(dict[str, Any], json.loads(proc.stdout))
@@ -2566,59 +2561,134 @@ def _citekey_multiset(text: str) -> Counter[str]:
     return counter
 
 
-def _corrupt_events_message(path: Path) -> str:
-    """Mensagem pt-BR única para `events.yaml` corrompido/fora do schema —
-    MESMA mensagem que `mcp_server._corrupt_sidecar_message` compunha
-    isoladamente (achado Important #3 do review da Fase 3: a tradução de
+def _corrupt_ingest_sidecar_message(path: Path) -> str:
+    """Mensagem pt-BR única para sidecar de INGEST (`events.yaml`/
+    `review-comments.yaml`) corrompido/fora do schema — o comando de
+    correção é re-INGERIR (diferente de :func:`_corrupt_sidecar_message`,
+    dos sidecars de EXPORT citemap/span-map, cujo comando é re-exportar).
+    MESMA mensagem que `mcp_server` compunha isoladamente (achado
+    Important #3 do review da Fase 3: a tradução de
     `pydantic.ValidationError`/erro de YAML pra `ValueError` pt-BR estava
     duplicada, e DIVERGENTE, entre `mcp_server.py` (traduzia) e `cli.py`
     (não traduzia — `pydantic.ValidationError` cru vazava pelo comando
-    `prumo write review events`). Consolidada aqui, junto de
-    :func:`read_events_file`, pra nunca mais divergir."""
+    `prumo write review events`). Consolidada aqui, junto dos leitores
+    read-side, pra nunca mais divergir."""
     return (
         f"sidecar corrompido ({path}): re-rode `prumo write review ingest "
         "<reviewed.docx> --page <page>` para regenerá-lo."
     )
 
 
+def _review_dir_for(page: Path, project_root: Path | None) -> Path:
+    """`reviews/<slug>/` de `page` — resolução compartilhada pelos leitores
+    read-side (:func:`read_events_file`/:func:`read_comments_file`/
+    :func:`read_worklist`), MESMO padrão de `ingest()`/`apply_review()`:
+    `export.detect_project_root` se `project_root` não for fornecido,
+    `export.slugify`."""
+    project_root = project_root or detect_project_root(page)
+    return project_root / "reviews" / slugify(page, project_root)
+
+
+def _missing_ingest_sidecar_error(review_dir: Path, name: str) -> FileNotFoundError:
+    """`FileNotFoundError` pt-BR (comando de ingest embutido) para artefato
+    de `reviews/<slug>/` ausente — a página nunca foi ingerida, ou os
+    artefatos de `reviews/` foram apagados."""
+    return FileNotFoundError(
+        f"Sidecar de review ausente em {review_dir}: {name}. Rode "
+        "`prumo write review ingest <reviewed.docx> --page <page.md>` antes."
+    )
+
+
+_SidecarT = TypeVar("_SidecarT", bound=BaseModel)
+
+
+def _read_ingest_sidecar_yaml(path: Path, model: type[_SidecarT]) -> _SidecarT:
+    """Carrega+valida um sidecar YAML de ingest. YAML malformado
+    (`yaml.YAMLError`) ou fora do schema (`pydantic.ValidationError`) vira
+    `ValueError` pt-BR via :func:`_corrupt_ingest_sidecar_message` — nunca o
+    traceback cru de pydantic/PyYAML vazando pro CLI ou pro agente MCP."""
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise ValueError(_corrupt_ingest_sidecar_message(path)) from exc
+
+    try:
+        return model.model_validate(raw or {})
+    except ValidationError as exc:
+        raise ValueError(_corrupt_ingest_sidecar_message(path)) from exc
+
+
 def read_events_file(page: Path, project_root: Path | None = None) -> ReviewEventsFile:
     """Lê e valida `events.yaml` de `reviews/<slug>/` para `page` — ÚNICO
     ponto de leitura de `events.yaml` usado por `cli.py` (comando `prumo
     write review events`) e por `mcp_server` (`review_status`/
-    `review_events`, via wrapper fino `_read_events`); achado Important #3
-    do review da Fase 3, ver :func:`_corrupt_events_message`.
+    `review_events`); achado Important #3 do review da Fase 3, ver
+    :func:`_corrupt_ingest_sidecar_message`.
 
-    Resolve `project_root`/`slug` (MESMO padrão de `ingest()`/
-    `apply_review()`: `export.detect_project_root` se `project_root` não
-    for fornecido, `export.slugify`) e computa `reviews/<slug>/`.
-
-    Levanta `FileNotFoundError` pt-BR (comando de ingest embutido) se
-    `events.yaml` ainda não existir — a página nunca foi ingerida, ou os
-    artefatos de `reviews/` foram apagados. `events.yaml` presente mas com
-    YAML malformado (`yaml.YAMLError`) ou fora do schema
-    (`pydantic.ValidationError`) vira `ValueError` pt-BR via
-    :func:`_corrupt_events_message` — nunca o traceback cru de
-    pydantic/PyYAML vazando pro CLI ou pro agente MCP."""
-    project_root = project_root or detect_project_root(page)
-    slug = slugify(page, project_root)
-    review_dir = project_root / "reviews" / slug
-    events_path = review_dir / "events.yaml"
-
+    Contrato de erro compartilhado com os siblings
+    (:func:`read_comments_file`/:func:`read_worklist`): `FileNotFoundError`
+    pt-BR (comando de ingest embutido) se o artefato ainda não existir;
+    `ValueError` pt-BR ("sidecar corrompido") se existir mas for YAML
+    malformado ou fora do schema."""
+    events_path = _review_dir_for(page, project_root) / "events.yaml"
     if not events_path.is_file():
-        raise FileNotFoundError(
-            f"Sidecar de review ausente em {review_dir}: events.yaml. Rode "
-            "`prumo write review ingest <reviewed.docx> --page <page.md>` antes."
-        )
+        raise _missing_ingest_sidecar_error(events_path.parent, "events.yaml")
+    return _read_ingest_sidecar_yaml(events_path, ReviewEventsFile)
 
-    try:
-        raw = yaml.safe_load(events_path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
-        raise ValueError(_corrupt_events_message(events_path)) from exc
 
-    try:
-        return ReviewEventsFile.model_validate(raw or {})
-    except ValidationError as exc:
-        raise ValueError(_corrupt_events_message(events_path)) from exc
+def read_comments_file(page: Path, project_root: Path | None = None) -> ReviewCommentsFile:
+    """Lê e valida `review-comments.yaml` de `reviews/<slug>/` para `page` —
+    sibling de :func:`read_events_file`, MESMO contrato de erro (consolidação
+    do achado do /simplify 2026-07-25: `mcp_server._read_comments` duplicava
+    esta leitura com wording divergente)."""
+    comments_path = _review_dir_for(page, project_root) / "review-comments.yaml"
+    if not comments_path.is_file():
+        raise _missing_ingest_sidecar_error(comments_path.parent, "review-comments.yaml")
+    return _read_ingest_sidecar_yaml(comments_path, ReviewCommentsFile)
+
+
+def read_worklist(page: Path, project_root: Path | None = None) -> str:
+    """Conteúdo cru de `review.md` (o worklist vivo do ciclo de revisão) de
+    `reviews/<slug>/` para `page` — sibling de :func:`read_events_file`,
+    MESMO contrato de `FileNotFoundError` (não há schema a validar: o
+    worklist é Markdown livre, frontmatter + marcas CriticMarkup)."""
+    worklist_path = _review_dir_for(page, project_root) / "review.md"
+    if not worklist_path.is_file():
+        raise _missing_ingest_sidecar_error(worklist_path.parent, "review.md")
+    return worklist_path.read_text(encoding="utf-8")
+
+
+def count_pending_drops(events: Iterable[ReviewEvent]) -> int:
+    """Drops de citação (`kind == "citation-drop"`) ainda pendentes de
+    confirmação explícita no `apply` — contagem única compartilhada por
+    :func:`status` e pela fachada CLI (`write/cli.py`, comando `ingest`),
+    que a duplicavam (achado opcional do /simplify 2026-07-25)."""
+    return sum(1 for event in events if event.kind == EVENT_KIND_CITATION_DROP)
+
+
+def status(page: Path, project_root: Path | None = None) -> dict[str, Any]:
+    """Contagens do ciclo de revisão de `page`: marcas pendentes em
+    `review.md` (`criticmarkup.parse`), eventos por `kind`, comentários
+    extraídos do docx revisado e drops de citação pendentes
+    (:func:`count_pending_drops`).
+
+    Agrega os três leitores read-side (:func:`read_worklist`/
+    :func:`read_events_file`/:func:`read_comments_file`) — nesta ordem, que
+    define a prioridade do erro quando mais de um artefato falta — e
+    propaga o contrato de erro deles inalterado. Retorna dado plano
+    (`dict`), pronto pra fachada MCP (`review_status`) emitir sem
+    reempacotar."""
+    review_md_text = read_worklist(page, project_root)
+    events_file = read_events_file(page, project_root)
+    comments_file = read_comments_file(page, project_root)
+
+    return {
+        "page": events_file.page,
+        "pending_marks": len(criticmarkup.parse(review_md_text)),
+        "events_by_kind": dict(Counter(event.kind for event in events_file.events)),
+        "comments": len(comments_file.comments),
+        "pending_drops": count_pending_drops(events_file.events),
+    }
 
 
 def _read_review_md_and_events(review_dir: Path) -> tuple[str, str, ReviewEventsFile]:
