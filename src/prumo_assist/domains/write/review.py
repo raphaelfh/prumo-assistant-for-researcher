@@ -38,7 +38,6 @@ import json
 import logging
 import re
 import shutil
-import subprocess
 import zipfile
 from collections import Counter
 from dataclasses import dataclass
@@ -57,6 +56,7 @@ from prumo_assist.core.obsidian import (
     normalize_markdown_with_map,
     split_frontmatter_raw,
 )
+from prumo_assist.core.uvx import PinnedTool, run_pinned
 from prumo_assist.domains.write.comments import extract_from_docx
 from prumo_assist.domains.write.export import (
     _ZOTERO_ITEM_CSL_MARKER,
@@ -704,6 +704,18 @@ _ADEU_INSTALL_HINT = (
     "pinada do backend de PROSA."
 )
 
+# Identidade de erro do adeu para o motor comum de ferramenta pinada
+# (`core/uvx.run_pinned`) — rótulos byte-idênticos ao wording que este
+# módulo emitia antes da extração (travados pelos testes do seam).
+_ADEU_TOOL = PinnedTool(
+    error_cls=AdeuUnavailableError,
+    hint=_ADEU_INSTALL_HINT,
+    missing_label="adeu (backend de PROSA pinado, `uvx adeu==1.29.0`)",
+    timeout_label="adeu (backend de PROSA pinado, `uvx adeu==1.29.0`)",
+    timeout_detail="rede lenta no primeiro download do uvx? Re-rode.",
+    exit_label="adeu (backend de PROSA pinado, `uvx adeu==1.29.0`)",
+)
+
 
 def _check_uvx_on_path() -> None:
     """Preflight 3a: o backend de prosa (adeu via uvx) precisa existir antes de começar."""
@@ -731,41 +743,23 @@ def _run_adeu_extract(docx_path: Path) -> str:
     Versão PINADA (``adeu==1.29.0``, nunca flutuante) pelo motivo descrito no
     comentário da seção acima.
 
-    ``uvx`` ausente no PATH (``FileNotFoundError`` do próprio
-    ``subprocess.run``) e exit != 0 (adeu resolvido mas falhou — docx
-    incompatível, versão incorreta, etc.) viram a MESMA
-    :class:`AdeuUnavailableError`: o chamador (Task 8, ``ingest``) só
-    precisa tratar um único tipo de falha do backend de prosa. O mesmo vale
-    para stdout que não é o JSON esperado (:class:`json.JSONDecodeError`) ou
-    JSON válido sem o campo ``markdown`` (:class:`KeyError`) — achado do
-    review da Task 4, endossado como MUST-DO para a Task 8: sem este catch,
-    as duas exceções vazavam cruas (tipo Python interno, sem o comando de
-    correção pt-BR que este módulo garante em todo outro hard-fail).
+    ``uvx`` ausente no PATH, timeout e exit != 0 (adeu resolvido mas falhou
+    — docx incompatível, versão incorreta, etc.) viram a MESMA
+    :class:`AdeuUnavailableError`, via o motor comum
+    :func:`prumo_assist.core.uvx.run_pinned` (rótulos em ``_ADEU_TOOL``): o
+    chamador (Task 8, ``ingest``) só precisa tratar um único tipo de falha
+    do backend de prosa. O mesmo vale para stdout que não é o JSON esperado
+    (:class:`json.JSONDecodeError`) ou JSON válido sem o campo ``markdown``
+    (:class:`KeyError`) — achado do review da Task 4, endossado como
+    MUST-DO para a Task 8: sem este catch, as duas exceções vazavam cruas
+    (tipo Python interno, sem o comando de correção pt-BR que este módulo
+    garante em todo outro hard-fail).
     """
-    try:
-        proc = subprocess.run(
-            ["uvx", "adeu==1.29.0", "extract", "--json", str(docx_path), "-o", "-"],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-    except FileNotFoundError as exc:
-        raise AdeuUnavailableError(
-            "uv/uvx não encontrado no PATH — adeu (backend de PROSA pinado, "
-            f"`uvx adeu==1.29.0`) não pode ser invocado. {_ADEU_INSTALL_HINT}"
-        ) from exc
-    except subprocess.TimeoutExpired as exc:
-        raise AdeuUnavailableError(
-            "adeu (backend de PROSA pinado, `uvx adeu==1.29.0`) excedeu 120s — "
-            f"rede lenta no primeiro download do uvx? Re-rode. {_ADEU_INSTALL_HINT}"
-        ) from exc
-
-    if proc.returncode != 0:
-        raise AdeuUnavailableError(
-            "adeu (backend de PROSA pinado, `uvx adeu==1.29.0`) terminou com "
-            f"exit {proc.returncode}. stderr:\n{proc.stderr.strip()[-2000:]}\n"
-            f"{_ADEU_INSTALL_HINT}"
-        )
+    proc = run_pinned(
+        _ADEU_TOOL,
+        ["uvx", "adeu==1.29.0", "extract", "--json", str(docx_path), "-o", "-"],
+        timeout=120,
+    )
 
     try:
         payload = cast(dict[str, Any], json.loads(proc.stdout))
