@@ -102,7 +102,7 @@ def lint(pj_path: Path) -> dict[str, Any]:
 
         for md_target in MD_LINK_RE.findall(text):
             target = md_target.split("#")[0].strip()
-            if target.startswith(("http://", "https://", "mailto:")):
+            if _is_external_link(target):
                 continue
             stem = Path(target).stem
             if stem in incoming:
@@ -126,6 +126,17 @@ def _link_stem(match: str | tuple[str, ...]) -> str:
     """Normaliza um match de ``PAGE_LINK_RE`` para o stem do alvo (sem âncora)."""
     target = match if isinstance(match, str) else match[0]
     return target.strip().split("#")[0]
+
+
+def _is_external_link(target: str) -> bool:
+    """Alvo de link markdown que NÃO aponta para página do wiki.
+
+    Única fonte para os dois caminhos que precisam disso (corpo e
+    frontmatter): enquanto divergiam, o do frontmatter pulava só ``"://"`` e
+    um ``[contato](mailto:x@y.br)`` em ``sources`` virava ``dead_link``
+    falso.
+    """
+    return "://" in target or target.startswith("mailto:")
 
 
 def _report(issues: list[WikiIssue]) -> dict[str, Any]:
@@ -200,13 +211,16 @@ def _frontmatter_page_targets(value: str) -> Iterator[str]:
     Alvo NU não entra de propósito: ``sources`` recebe string livre (título
     de paper, URL, nome de dataset) e qualquer não-stem viraria
     ``dead_link``, inundando o relatório. Citekey já não casa aqui —
-    ``_WIKILINK_TARGET_RE`` exclui ``@`` do próprio charset.
+    ``_WIKILINK_TARGET_RE`` exclui ``@`` do próprio charset. Alvo externo
+    sai por :func:`_is_external_link`, a MESMA checagem do corpo — enquanto
+    este caminho pulava só ``"://"``, um ``[contato](mailto:x@y.br)`` em
+    ``sources`` virava ``dead_link`` falso.
     """
     for match in _WIKILINK_TARGET_RE.finditer(value):
         yield _link_stem(match.group(1))
     for match in MD_LINK_RE.finditer(value):
         alvo = match.group(1).strip()
-        if "://" in alvo:
+        if _is_external_link(alvo):
             continue
         yield Path(_link_stem(alvo)).stem
 

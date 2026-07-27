@@ -168,6 +168,25 @@ def test_lint_nao_acusa_texto_livre_em_sources(tmp_path: Path) -> None:
     assert dead == []
 
 
+def test_lint_nao_acusa_mailto_em_frontmatter(tmp_path: Path) -> None:
+    """Achado M8: o caminho do frontmatter pulava só ``"://"``, enquanto o
+    do corpo já pulava ``mailto:`` — um `[contato](mailto:x@y.br)` em
+    `sources:` virava `dead_link` falso. As duas pontas passam pela MESMA
+    checagem agora (`_is_external_link`)."""
+    pj = _setup_wiki(tmp_path)
+    (pj / "docs" / "concepts" / "alpha.md").write_text(
+        "---\ntype: concept\n---\n\nbody\n", encoding="utf-8"
+    )
+    (pj / "docs" / "concepts" / "beta.md").write_text(
+        "---\ntype: concept\nsources:\n  - '[contato](mailto:fulano@usp.br)'\n---\n\n"
+        "Links to [[alpha]] so beta is not orphan.\n",
+        encoding="utf-8",
+    )
+    report = lint(pj)
+    dead = [i["message"] for i in report["issues"] if i["code"] == "dead_link"]
+    assert dead == []
+
+
 def test_lint_frontmatter_citekey_is_broken_citekey_not_dead_link(tmp_path: Path) -> None:
     """`_WIKILINK_TARGET_RE` deixou de aceitar `@` (só alvo de página) —
     citekey em `sources:`/`related:`/`links_to:` não vira mais `dead_link`;
