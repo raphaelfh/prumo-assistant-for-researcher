@@ -3114,15 +3114,18 @@ def _reject_citation_divergence(before_text: str, after_text: str) -> None:
     cru com marcas ainda pendentes: o payload `b="[["` do repro do reviewer
     nunca aparece adjacente ao texto pré-existente no `new_body` CRU (fica
     preso dentro do `{++...++}` da própria marca) — só se torna
-    `"[[@fake2020]]"` depois que a marca é resolvida/aceita. Duas checagens
+    `"[[@fake2020]]"` depois que a marca é resolvida/aceita. Três checagens
     independentes, sobre o corpo INTEIRO (sem restringir a spans de citação
     — pega até citação narrativa `@key` solta, fora de colchetes):
-    (i) `[[@chave]]` marcadas (`_PROPOSAL_CITATION_SPAN_RE`); (ii) citekeys
-    crus (`CITEKEY_RE`, a mesma gramática de `core.citations`). QUALQUER
-    divergência entre antes/depois — em qualquer uma das duas — recusa: não
-    importa COMO a fabricação aconteceria (inserção, deleção, substituição),
-    só importa que o multiconjunto de citações do resultado seja idêntico ao
-    de antes."""
+    (i) ``[[@chave]]`` marcadas (``_PROPOSAL_CITATION_SPAN_RE``, span externo
+    do legado); (ii) citekeys crus (``CITEKEY_RE``); (iii) GRUPOS de citação
+    nas duas gramáticas (``_citation_atom_spans``). A (iii) existe porque as
+    duas primeiras são cegas à composição em sintaxe Pandoc: embrulhar
+    ``@key`` em ``[@key]`` não muda span legado nem multiconjunto de chave —
+    só o conjunto de grupos marcados. QUALQUER divergência entre antes/depois
+    — em qualquer uma das três — recusa: não importa COMO a fabricação
+    aconteceria (inserção, deleção, substituição), só importa que o
+    multiconjunto de citações do resultado seja idêntico ao de antes."""
     before_marked = Counter(_PROPOSAL_CITATION_SPAN_RE.findall(before_text))
     after_marked = Counter(_PROPOSAL_CITATION_SPAN_RE.findall(after_text))
     if before_marked != after_marked:
@@ -3139,6 +3142,15 @@ def _reject_citation_divergence(before_text: str, after_text: str) -> None:
             "o multiconjunto de citekeys (`CITEKEY_RE`, corpo inteiro, "
             "simulando aceite da proposta) mudou entre antes e depois da "
             f"composição — antes: {dict(before_keys)}, depois: {dict(after_keys)}"
+        )
+
+    before_spans = Counter(before_text[s:e] for s, e in _citation_atom_spans(before_text))
+    after_spans = Counter(after_text[s:e] for s, e in _citation_atom_spans(after_text))
+    if before_spans != after_spans:
+        _reject_composed_result(
+            "o multiconjunto de GRUPOS de citação (gramática única de "
+            "`core.citations`, as duas sintaxes) mudou entre antes e depois "
+            f"da composição — antes: {dict(before_spans)}, depois: {dict(after_spans)}"
         )
 
 

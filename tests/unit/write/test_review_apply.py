@@ -933,3 +933,56 @@ def test_propose_prose_edit_rejects_anchor_tangent_to_pandoc_citation_i1(
 
     assert "I1" in str(exc.value)
     assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 24. composição de citação em sintaxe Pandoc -> recusa (D1) -------------
+
+
+def test_propose_prose_edit_rejects_pandoc_composition_that_fabricates_citation(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """Par Pandoc de `test_..._rejects_composition_that_fabricates_citation`.
+
+    O agente insere só `[` para embrulhar a narrativa `@fake2020` num grupo
+    `[@fake2020]` — citação que humano nenhum cunhou. As duas sub-checagens
+    antigas passam (spans legados `[]`→`[]`; multiconjunto `CITEKEY_RE`
+    `{fake2020:1}`→`{fake2020:1}`), então só a terceira recusa.
+    """
+    page_body = "Prefixo @fake2020] sufixo."
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Prefixo ",
+            position="after",
+            kind="ins",
+            b="[",
+            project_root=project_root,
+        )
+
+    assert "citaç" in str(exc.value).lower()
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 25. colchete legítimo longe de citação NÃO é "citação fabricada" ------
+
+
+def test_propose_prose_edit_allows_bracket_far_from_citation(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """Guarda D1 compara grupos de citação, não colchetes: `[sic]` num
+    parágrafo que tem `[@k2020]` noutro ponto é edição legítima de prosa."""
+    page_body = "Primeira frase com [@k2020] aqui. Segunda frase separada."
+    project_root, page = init_project(body=page_body)
+    write_review_artifacts(project_root, page, review_md=page_body)
+
+    propose_prose_edit(
+        page=page,
+        anchor_excerpt="Segunda frase",
+        position="after",
+        kind="ins",
+        b=" [sic]",
+        project_root=project_root,
+    )
