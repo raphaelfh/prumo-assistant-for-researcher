@@ -23,7 +23,7 @@ Estrutura em **duas camadas** (ver [[decisions/<ADR>]] para o racional):
 > achatar tudo numa lista confunde dois leitores diferentes (TI vs
 > analista) e empurra decisões clínicas implícitas para o ETL sem
 > rastreabilidade. Cada feature derivada deve ter âncora em
-> paper/guideline rastreável via `[[citekey]]`.
+> paper/guideline rastreável via `[@citekey]`.
 
 ## 0. Padrões do dataset final
 
@@ -94,7 +94,7 @@ Uma linha por paciente. Datas-chave derivadas a partir das tabelas long.
 | `FU_STATUS` | `E` se ocorreu desfecho hard ou óbito; `L` se `LAST_SEEN − IDX_DT > Nm` sem contato; `C` censura administrativa em `YYYY-MM-DD` |
 
 > [!info] Definição operacional do critério temporal
-> _(Cite o guideline e a regra implementada — ex.: [[<citekey>]] p.X,
+> _(Cite o guideline e a regra implementada — ex.: [@<citekey>] p.X,
 > "doença X = condição Y por ≥6 meses".)_
 
 ### 1.2 Demográficas e antropométricas → `master_patient`
@@ -123,7 +123,7 @@ Cada observação no schema padrão `(ID, VAR, RESULT_N, RESULT_RAW, UNIT, DATE,
 | Qualitativo positivo ("Reagente", "Detectado") | `STATUS = P`, `RESULT_N = NULL` |
 | Qualitativo negativo | `STATUS = N` |
 | Indeterminado / inconclusivo / borderline | `STATUS = I` |
-| Unidades não-padrão | _(documentar fator de conversão e padrão de referência — ex.: WHO International Standard [[<citekey>]]; flagar `UNIT_CONV_SUSPECT = 1` quando assay desconhecido)_ |
+| Unidades não-padrão | _(documentar fator de conversão e padrão de referência — ex.: WHO International Standard [@<citekey>]; flagar `UNIT_CONV_SUSPECT = 1` quando assay desconhecido)_ |
 | _(outros casos do domínio)_ | _(tratamento)_ |
 
 **Critérios de qualidade (rejeitar/flagar):**
@@ -210,7 +210,7 @@ Cada dispensação é uma linha. Regimes (`TX_REGIMEN`), datas agregadas (`TX_ST
 
 Construídas em pós-extração no pipeline ETL (planejar em spec separado).
 Cada feature traz: **(a)** fórmula/regra, **(b)** fonte da regra
-(`[[citekey]]`), **(c)** objetivo do SAP que serve.
+(`[@citekey]`), **(c)** objetivo do SAP que serve.
 
 Janela baseline padrão: `[IDX_DT − Nd, IDX_DT + Nd]` _(definir N)_.
 
@@ -219,38 +219,38 @@ Janela baseline padrão: `[IDX_DT − Nd, IDX_DT + Nd]` _(definir N)_.
 | Feature | Cálculo | Fonte |
 |---|---|---|
 | `<FEAT_BL>` | _(ex.: Mediana de `RESULT_N` onde `VAR=<X>, STATUS=NUM` na janela baseline)_ | SAP §X |
-| `<FEAT_C_BL>` | _(categoria — ex.: `<100 / 100-1000 / >1000` unidades)_ | [[<citekey>]] |
+| `<FEAT_C_BL>` | _(categoria — ex.: `<100 / 100-1000 / >1000` unidades)_ | [@<citekey>] |
 | `<FEAT_MED_Y1..Y5>` | _(mediana anual por ano de follow-up)_ | SAP §X |
 | `<FEAT_NADIR>` | _(mínimo pós-IDX_DT)_ | SAP §X |
 | `<FEAT_LATEST>` | _(último valor antes de censura)_ | SAP §X |
 | `<FEAT_SLOPE>` | _(slope linear (log10) ~ DATE, ≥3 pontos)_ | SAP §X |
-| `<EVENT_F>` | _(critério confirmatório do desfecho primário)_ | [[<citekey>]] |
+| `<EVENT_F>` | _(critério confirmatório do desfecho primário)_ | [@<citekey>] |
 | `<EVENT_DT>` | Data da observação que abre o par confirmatório | — |
 
 > [!info] Categorias e cutoffs
-> _(Justificar cada cutoff com `[[citekey]]` — não inventar cortes
+> _(Justificar cada cutoff com `[@citekey]` — não inventar cortes
 > ad-hoc; ancorar em guideline ou paper de derivação/validação.)_
 
 ### 2.2 Secundário 1 — Carga clínica e HCRU
 
 | Feature | Cálculo | Fonte |
 |---|---|---|
-| `<DISEASE_F>` | _(combinação: ICD ∈ {...} OR exam_long flag = 1 OR biópsia com resultado X)_ | [[<citekey>]] |
+| `<DISEASE_F>` | _(combinação: ICD ∈ {...} OR exam_long flag = 1 OR biópsia com resultado X)_ | [@<citekey>] |
 | `<DISEASE_DT>` | `min(DATE)` da primeira evidência | — |
 | `HOSP_N`, `HOSP_DAYS` | `ENCOUNTER_TYPE=IP` no follow-up | — |
 | `ICU_N`, `ICU_DAYS` | Análogo para `ICU` | — |
 | `ED_N` | Contagem de `ED` | — |
 | `EXAM_N_<DOM>_Y` | Contagem de obs do domínio por ano de follow-up | — |
-| `SURV_ADHERENCE` | Proporção de _(janela temporal)_ com ≥1 _(exame de vigilância)_: `aderente` (≥0.8) / `parcial` (0.4-0.8) / `não-aderente` (<0.4) | [[<citekey>]] |
+| `SURV_ADHERENCE` | Proporção de _(janela temporal)_ com ≥1 _(exame de vigilância)_: `aderente` (≥0.8) / `parcial` (0.4-0.8) / `não-aderente` (<0.4) | [@<citekey>] |
 
 ### 2.3 Secundário 2 — Coinfecções / comorbidades laboratoriais
 
 | Feature | Cálculo | Fonte |
 |---|---|---|
-| `<COINF_F>` | _(critério de coinfecção ativa — combinar marcadores serológicos + carga viral)_ | [[<citekey>]] |
+| `<COINF_F>` | _(critério de coinfecção ativa — combinar marcadores serológicos + carga viral)_ | [@<citekey>] |
 | `<COINF_DT>` | `min(DATE)` da primeira evidência positiva | — |
 | `<COINF_EXPOSURE_F>` | _(exposição prévia/atual, ex.: anticorpo positivo ever)_ | — |
-| `<SCREEN_F>` | _(houve qualquer obs do marcador — cobertura de rastreamento)_ | [[<citekey>]] |
+| `<SCREEN_F>` | _(houve qualquer obs do marcador — cobertura de rastreamento)_ | [@<citekey>] |
 
 ### 2.4 Secundário 3 — Tratamento e _(faseamento clínico)_
 
@@ -270,7 +270,7 @@ Janela baseline padrão: `[IDX_DT − Nd, IDX_DT + Nd]` _(definir N)_.
 
 **_(Faseamento clínico — ex.: `EASL_PHASE`, estadiamento, status funcional)_** no baseline:
 janela `[IDX_DT−Nd, IDX_DT+Nd]`, combinando _(listar variáveis envolvidas)_.
-Fonte: [[<citekey>]] Table X.
+Fonte: [@<citekey>] Table X.
 
 | `<PHASE>` | _(critério A)_ | _(critério B)_ | _(critério C)_ | _(critério D)_ |
 |---|---|---|---|---|
@@ -283,7 +283,7 @@ Fonte: [[<citekey>]] Table X.
 
 | Feature | Cálculo | Fonte |
 |---|---|---|
-| `<SEROCONV_F>` | _(trajetória confirmada — ex.: 2 medições N separadas por ≥Nm)_ | [[<citekey>]] |
+| `<SEROCONV_F>` | _(trajetória confirmada — ex.: 2 medições N separadas por ≥Nm)_ | [@<citekey>] |
 | `<SEROCONV_DT>` | Data da 1ª observação `N` que abre o par confirmatório | — |
 | `<SUPPRESSION_F>` | _(≥1 obs com `STATUS=BELOW_LLOQ` pós-IDX_DT)_ | — |
 | `<SUPPRESSION_DT>` | Data da primeira `BELOW_LLOQ` | — |
@@ -295,8 +295,8 @@ Fonte: [[<citekey>]] Table X.
 |---|---|---|
 | `COHORT` | _(label principal)_ / _(label secundário)_ / `EXCL_<motivo>` | [[decisions/001_cohort_definition]] |
 | `RECENT_DX` | 1 se houve obs `<negativa>` no lookback ≤Nm antes de `DX_DT` | Protocolo §X |
-| `<EXCL_F>` | 1 se _(critério de exclusão — ex.: forma aguda da doença)_ | [[<citekey>]] |
-| `<ACUTE_FLARE_F>` | _(critério de flare/exacerbação)_ | [[<citekey>]] |
+| `<EXCL_F>` | 1 se _(critério de exclusão — ex.: forma aguda da doença)_ | [@<citekey>] |
+| `<ACUTE_FLARE_F>` | _(critério de flare/exacerbação)_ | [@<citekey>] |
 
 ### 2.6 Escores não-invasivos e sumárias longitudinais
 
@@ -307,20 +307,20 @@ Todos calculados em janela baseline (`[IDX_DT−Nd, IDX_DT+Nd]`).
 $$\text{<SCORE>} = \frac{\text{<numerador>}}{\text{<denominador>}}$$
 
 - Cutoffs: _(listar — ex.: ≤1.45 baixo risco; ≥3.25 alto risco)_
-- Fonte: [[<citekey>]] _(derivação)_; [[<citekey>]] _(validação no contexto da doença)_.
+- Fonte: [@<citekey>] _(derivação)_; [@<citekey>] _(validação no contexto da doença)_.
 
 **_(Escore B — ex.: APRI, PAGE-B, MELD)_** (`<SCORE>_BL`):
 
 - Variáveis: _(listar)_
 - Categorias: _(listar)_
 - ⚠ _(advertir sobre variáveis com disponibilidade incerta — checar antes de incluir; marcar `NA` com flag de motivo se faltar componente)_
-- Fonte: [[<citekey>]]
+- Fonte: [@<citekey>]
 
 **Sumárias longitudinais:**
 
 | Feature | Cálculo | Fonte |
 |---|---|---|
-| `<FLARE_F>` | 1 se qualquer obs `VAR=X, RESULT_N > N×ULN` | [[<citekey>]] |
+| `<FLARE_F>` | 1 se qualquer obs `VAR=X, RESULT_N > N×ULN` | [@<citekey>] |
 | `<FLARE_N>` | Contagem de eventos de flare | — |
 | `<BIOMARKER>_PEAK` | `max(RESULT_N)` em todo histórico | — |
 | `<BIOMARKER>_LATEST` | Último `RESULT_N` ou `STATUS` | — |

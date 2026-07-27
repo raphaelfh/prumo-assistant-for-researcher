@@ -82,17 +82,13 @@ Reportar lista de órfãs com caminho relativo.
 
 ### 2. Citekeys quebradas
 
-Toda citação `[@foo]` (ou legado `[[@foo]]`) deve ter entrada `@<tipo>{foo,…}` em `references/_references.bib`.
+Toda citação `[@foo]` (marcada) ou `@foo` (narrativa) deve ter entrada `@<tipo>{foo,…}` em `references/_references.bib`.
 
-```
-# Coletar citekeys referenciadas (forma nova [@foo] + legado [[@foo]]):
-Grep "\\[\\[@[^\\]]+\\]\\]|\\[@[^\\]]+\\]" docs/ references/notes/ -o
-
-# Coletar citekeys definidas:
-Grep "^@\\w+\\{([^,]+)," references/_references.bib -o
-
-# Diff: referenciadas \ definidas
-```
+Não reimplemente a extração de citekey em grep: `prumo wiki lint` já usa a
+gramática única (`core/citations.py`) e reporta `broken_citekey` para as duas
+formas (marcada e narrativa), tratando corretamente grupo (`[@a; @b]`) e
+locator (`[@k, p. 3]`) — que um grep de colchete inteiro transformaria em
+falso positivo.
 
 Reportar citekeys referenciadas sem definição (e, se útil, o inverso — definidas mas nunca usadas).
 

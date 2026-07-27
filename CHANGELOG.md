@@ -178,6 +178,19 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   `review_status` também desceu pro domínio (`review.status(page)`), e a
   contagem de drops pendentes — antes duplicada entre a tool e o comando
   `write review ingest` — unificou em `review.count_pending_drops`.
+- Template clínico (`data_dictionary_skeleton.md`) prescrevia `[[citekey]]`
+  (sem `@`) como âncora bibliográfica — forma que a gramática Pandoc não
+  reconhece e que nenhum consumidor de citação enxerga, enquanto
+  `PAGE_LINK_RE` a confundia com wikilink de página. Migrado para
+  `[@citekey]` célula a célula (o `README.md` do mesmo diretório tinha a
+  mesma menção em prosa, também corrigida). Projetos que já copiaram o
+  skeleton não são corrigidos pela edição do template, mas passam a ter as
+  citekeys VISÍVEIS ao lint: espere `broken_citekey` novos onde antes havia
+  silêncio, e o sumiço dos `concept_candidate` com nome de citekey.
+- Buscas embutidas em `paper-manager` (quem-cita) e `wiki-lint` (citekeys
+  quebradas) divergiam da gramática única: a primeira casava zero em nota
+  Pandoc (reportando "nenhum paper cita este"), a segunda tratava o colchete
+  inteiro como citekey e acusava `[@a; @b]` de quebrada.
 
 ### Mudado
 - `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par
