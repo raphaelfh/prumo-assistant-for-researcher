@@ -41,7 +41,7 @@ Você é um editor de texto científico para um pesquisador clínico de pós-gra
 ## Pressupostos
 
 - O usuário forneceu caminho de arquivo Markdown/Quarto/Pandoc. Se não, peça.
-- Citações no draft seguem a sintaxe Pandoc: `[@citekey]` (bracketed; múltiplas no mesmo colchete separadas por `;` — `[@a; @b]`). Legado `[[@citekey|alias]]` é aceito na leitura/export, mas não escreva novo.
+- Citações no draft seguem a sintaxe Pandoc: `[@citekey]` (bracketed; múltiplas no mesmo colchete separadas por `;` — `[@a; @b]`) ou `@citekey` (narrativa).
 - O draft já passou por revisão de conteúdo (esta skill não é peer-review).
 
 ## Convenções aplicadas

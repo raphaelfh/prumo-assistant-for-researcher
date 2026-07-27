@@ -85,10 +85,13 @@ Reportar lista de órfãs com caminho relativo.
 Toda citação `[@foo]` (marcada) ou `@foo` (narrativa) deve ter entrada `@<tipo>{foo,…}` em `references/_references.bib`.
 
 Não reimplemente a extração de citekey em grep: `prumo wiki lint` já usa a
-gramática única (`core/citations.py`) e reporta `broken_citekey` para as duas
-formas (marcada e narrativa), tratando corretamente grupo (`[@a; @b]`) e
-locator (`[@k, p. 3]`) — que um grep de colchete inteiro transformaria em
-falso positivo.
+gramática única (`core/citations.py`), tratando corretamente grupo (`[@a; @b]`)
+e locator (`[@k, p. 3]`) — que um grep de colchete inteiro transformaria em
+falso positivo. Escopo do `broken_citekey`: só as formas MARCADAS (`[@foo]`),
+via `scan_marked_citekeys` — narrativa solta (`@foo`) fica de fora de
+propósito, para que um handle `@fulano` em prosa não vire warning espúrio. Se
+o usuário quiser conferir narrativa, isso é leitura manual da página, não
+saída do lint.
 
 Reportar citekeys referenciadas sem definição (e, se útil, o inverso — definidas mas nunca usadas).
 
@@ -142,7 +145,7 @@ Heurística:
 Conceito mencionado em wikilinks `[[termo]]` **sem** arquivo correspondente em `docs/concepts/` e **citado ≥ 3 vezes**.
 
 ```
-Grep "\\[\\[[^@][^\\]]+\\]\\]" docs/ -o   # todos wikilinks não-citekey
+Grep "\\[\\[[^\\]]+\\]\\]" docs/ -o   # todos wikilinks
 # Agregar, filtrar por frequência >=3, remover os que já têm arquivo.
 ```
 

@@ -101,7 +101,7 @@ def verify_refs_command(
     path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
     page: Annotated[
         Path | None,
-        typer.Option("--page", help="Escopo: só citekeys marcadas nesta página .md (recomendado)."),
+        typer.Option("--page", help="Escopo: só as citekeys desta página .md (recomendado)."),
     ] = None,
     deep: Annotated[
         bool,

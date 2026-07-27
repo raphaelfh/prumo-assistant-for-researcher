@@ -26,7 +26,8 @@ def extract_citekeys(body: str, known: set[str], self_citekey: str | None = None
 
 
 def update_graph(pj_path: Path) -> dict[str, Any]:
-    """Varre todas as notas, popula ``cites`` a partir de wikilinks no body.
+    """Varre todas as notas, popula ``cites`` a partir das citações Pandoc do
+    body (``iter_citekeys`` — captura ampla: ``[@key]`` e ``@key``).
 
     Retorna ``{"edges_added": N, "edges_removed": M}``.
     """

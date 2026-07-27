@@ -64,7 +64,7 @@ tags: [journey, playbook]
 ### "Quero extrair conteúdo estruturado de um PDF"
 1. `/prumo-assist:paper-extract @<citekey>` — preenche callout (TL;DR + PICOT + Método + Resultados + Limitações).
 2. Conferir em `references/notes/<citekey>/_extract.md` *(layout α)*.
-3. `prumo paper graph` — atualiza arestas `[[@key]]` no YAML.
+3. `prumo paper graph` — atualiza arestas `[@key]` no YAML.
 
 ### "Importei N papers novos no Zotero"
 1. `prumo paper sync` — `.bib` → `references/notes/<key>/_meta.md` *(layout α)*.
@@ -105,7 +105,7 @@ tags: [journey, playbook]
 
 ### "Vou começar um draft"
 1. Criar `.md` em `docs/findings/` ou `docs/sources/` com frontmatter (ou editar `docs/project.md` direto).
-2. Escrever — usando `[[@key]]` pra citações inline.
+2. Escrever — usando `[@key]` (ou `@key` narrativa) pra citações inline.
 3. `/prumo-assist:scientific-writing` — passe editorial (pontuação, citação, superlativos).
 
 ### "Terminei um draft e quero auto-revisar antes do orientador"
