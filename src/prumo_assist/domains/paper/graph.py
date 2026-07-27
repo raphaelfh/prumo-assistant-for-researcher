@@ -1,8 +1,8 @@
 """Grafo passivo de citação: citações no corpo → ``cites:`` no YAML.
 
-Reconhece as duas gramáticas via ``core/citations`` (``[@key]``/``@key``
-Pandoc e ``[[@key]]`` legado). O filtro por ``known`` descarta qualquer
-falso positivo da captura ampla. Migrado de ``cite_graph.py``.
+Reconhece a gramática Pandoc via ``core/citations`` (``[@key]``/``@key``).
+O filtro por ``known`` descarta qualquer falso positivo da captura ampla.
+Migrado de ``cite_graph.py``.
 """
 
 from __future__ import annotations

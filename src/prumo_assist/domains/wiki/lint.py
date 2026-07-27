@@ -2,7 +2,7 @@
 
 Detecta problemas estruturais que LLM não precisa ver:
 
-- Citekeys marcados (``[@key]`` Pandoc ou ``[[@key]]`` legado) ausentes do .bib.
+- Citekeys marcados (``[@key]``) ausentes do .bib.
 - Páginas órfãs (sem links de entrada).
 - Frontmatter ausente em páginas tipadas (``concepts/``, ``entities/``, etc.).
 - ``_index.md`` ou ``_log.md`` ausentes.
@@ -80,9 +80,8 @@ def lint(pj_path: Path) -> dict[str, Any]:
         if parts and parts[0] in EXPECTED_DIRS and not text.startswith("---"):
             issues.append(WikiIssue("warning", "no_frontmatter", "sem frontmatter", page=rel))
 
-        # Citekeys quebrados — formas marcadas nas duas gramáticas
-        # ([@key] Pandoc e [[@key]] legado); narrativa solta fica fora
-        # de propósito (handle @fulano em prosa não é citação).
+        # Citekeys quebrados — formas marcadas (`[@key]`); narrativa solta
+        # fica fora de propósito (handle @fulano em prosa não é citação).
         for ck in scan_marked_citekeys(text):
             if bib_keys and ck not in bib_keys:
                 issues.append(
@@ -116,7 +115,7 @@ def lint(pj_path: Path) -> dict[str, Any]:
 
     issues.extend(_check_log_prefixes(docs))
     issues.extend(_check_single_primary(pj_path))
-    issues.extend(_check_dead_frontmatter_links(texts, pj_path, page_stems, bib_keys))
+    issues.extend(_check_dead_frontmatter_links(texts, pj_path, page_stems))
     issues.extend(_check_concept_candidates(texts, page_stems))
 
     return _report(issues)
@@ -185,14 +184,16 @@ def _check_log_prefixes(docs: Path) -> list[WikiIssue]:
 
 
 _FM_LINK_FIELDS = ("links_to", "sources", "related")
-_WIKILINK_TARGET_RE = re.compile(r"\[\[(@?[^\]|#]+)")
+# Só alvo de página: `@` fica de fora do próprio charset — `[[@key]]` deixa
+# de casar (regride a None), citekey em frontmatter segue coberta por
+# `scan_marked_citekeys` (varre o arquivo inteiro, frontmatter incluso).
+_WIKILINK_TARGET_RE = re.compile(r"\[\[([^\]|#@]+)")
 
 
 def _check_dead_frontmatter_links(
     texts: dict[Path, str],
     pj_path: Path,
     page_stems: set[str],
-    bib_keys: set[str],
 ) -> list[WikiIssue]:
     """Wikilinks em ``links_to``/``sources``/``related`` cujo alvo não existe."""
     issues: list[WikiIssue] = []
@@ -213,18 +214,7 @@ def _check_dead_frontmatter_links(
                 if not m:
                     continue
                 target = m.group(1).strip()
-                if target.startswith("@"):
-                    key = target[1:]
-                    if bib_keys and key not in bib_keys:
-                        issues.append(
-                            WikiIssue(
-                                "warning",
-                                "dead_link",
-                                f"{field}: [[@{key}]] ausente do .bib",
-                                page=rel,
-                            )
-                        )
-                elif target not in page_stems:
+                if target not in page_stems:
                     issues.append(
                         WikiIssue(
                             "warning",

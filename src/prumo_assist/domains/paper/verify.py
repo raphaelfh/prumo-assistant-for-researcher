@@ -547,8 +547,8 @@ def verify_refs(
 ) -> dict[str, Any]:
     """Verifica as referências do ``references/_references.bib`` do pj.
 
-    Com ``page``, restringe às citekeys MARCADAS na página (``[[@key]]`` /
-    ``[@key]``) — recomendado: sem chave de API o pool público é lento.
+    Com ``page``, restringe às citekeys da página (``[@key]``/``@key``) —
+    recomendado: sem chave de API o pool público é lento.
     """
     bib_path = pj_path / "references" / "_references.bib"
     if not bib_path.exists():

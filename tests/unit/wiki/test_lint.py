@@ -46,7 +46,7 @@ def test_lint_flags_missing_index_log(tmp_path: Path) -> None:
 def test_lint_flags_broken_citekey(tmp_path: Path) -> None:
     pj = _setup_wiki(tmp_path, "@article{real,title={X}}\n")
     (pj / "docs" / "findings" / "f1.md").write_text(
-        "---\ntype: finding\n---\n\nSee [[@nonexistent]] and [[@real]].\n"
+        "---\ntype: finding\n---\n\nSee [@nonexistent] and [@real].\n"
     )
     report = lint(pj)
     codes = {i["code"] for i in report["issues"]}
@@ -113,22 +113,38 @@ def test_lint_single_primary_is_clean(tmp_path: Path) -> None:
 
 
 def test_lint_flags_dead_frontmatter_links(tmp_path: Path) -> None:
-    pj = _setup_wiki(tmp_path, "@article{real,title={X}}\n")
+    pj = _setup_wiki(tmp_path)
     (pj / "docs" / "concepts" / "alpha.md").write_text(
         "---\ntype: concept\n---\n\nbody\n", encoding="utf-8"
     )
     (pj / "docs" / "concepts" / "beta.md").write_text(
-        "---\ntype: concept\nrelated:\n  - '[[alpha]]'\n  - '[[ghost]]'\n"
-        "sources:\n  - '[[@real]]'\n  - '[[@missingkey]]'\n---\n\n"
+        "---\ntype: concept\nrelated:\n  - '[[alpha]]'\n  - '[[ghost]]'\n---\n\n"
         "Links to [[alpha]] so beta is not orphan.\n",
         encoding="utf-8",
     )
     report = lint(pj)
     dead = [i["message"] for i in report["issues"] if i["code"] == "dead_link"]
     assert any("ghost" in m for m in dead)
-    assert any("missingkey" in m for m in dead)
     assert not any("alpha" in m for m in dead)  # exists
-    assert not any("real" in m for m in dead)  # exists in .bib
+
+
+def test_lint_frontmatter_citekey_is_broken_citekey_not_dead_link(tmp_path: Path) -> None:
+    """`_WIKILINK_TARGET_RE` deixou de aceitar `@` (só alvo de página) —
+    citekey em `sources:`/`related:`/`links_to:` não vira mais `dead_link`;
+    segue coberta por `scan_marked_citekeys`, que varre o arquivo inteiro
+    (frontmatter incluso) e sinaliza `broken_citekey`."""
+    pj = _setup_wiki(tmp_path, "@article{real,title={X}}\n")
+    (pj / "docs" / "concepts" / "beta.md").write_text(
+        "---\ntype: concept\nsources:\n  - '[[@real]]'\n  - '[[@missingkey]]'\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+    report = lint(pj)
+    dead = [i["message"] for i in report["issues"] if i["code"] == "dead_link"]
+    broken = [i["message"] for i in report["issues"] if i["code"] == "broken_citekey"]
+    assert not any("missingkey" in m for m in dead)
+    assert not any("real" in m for m in dead)
+    assert any("missingkey" in m for m in broken)
+    assert not any("real" in m for m in broken)  # existe no .bib
 
 
 def test_lint_reports_concept_candidates_as_info(tmp_path: Path) -> None:

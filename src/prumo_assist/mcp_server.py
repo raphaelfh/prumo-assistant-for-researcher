@@ -109,7 +109,7 @@ def propose_prose_edit(
     sozinha — vira marca pendente que um humano decide via `prumo write
     review apply --by-author agente` (ou `apply_review(by_author="agente",
     ...)`); as guardas I1/I3b (payload de citação, âncora que toca
-    `[[@key]]`) e a validação de `anchor_excerpt`/`position` moram no
+    `[@key]`) e a validação de `anchor_excerpt`/`position` moram no
     domínio e chegam aqui como `ValueError` pt-BR já pronto — esta tool só
     traduz `FileNotFoundError` (raiz do projeto ou worklist ausente, mesmo
     padrão das 3 tools read-only acima) para o mesmo tipo.

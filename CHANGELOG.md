@@ -124,14 +124,12 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   conforto. Páginas que hoje passam com exit 0 podem passar a sair com 1 —
   que é o gate correto do ADR-0018.
 - **Guarda I1 (citação é átomo) cega para a sintaxe-padrão** — a guarda que
-  recusa proposta de agente encostando em citação localizava o átomo só pelo
-  span legado `[[@key]]`. Em projeto novo, que é Pandoc puro por decisão do
-  spec 2026-07-22 (`[@key]`), ela não protegia nada: a sintaxe MANDATÓRIA era
-  a desprotegida. As guardas de fabricação (multiconjunto `CITEKEY_RE`) já
-  cobriam as duas gramáticas, mas a de tangência não — um agente podia ancorar
-  sobre a citação e alterá-la preservando a citekey (acrescentar locator,
-  mover posição). Passa a usar a união do span legado com
-  `core.citations.iter_marked_citation_spans` (gramática única, Princípio I7).
+  recusa proposta de agente encostando em citação localizava o átomo só por
+  regex própria de `review.py`, cega à forma narrativa `@key` da gramática
+  Pandoc: um agente podia ancorar sobre a citação e alterá-la preservando a
+  citekey (acrescentar locator, mover posição). Passa a usar a união de
+  `core.citations.iter_marked_citation_spans`/`iter_narrative_citation_spans`
+  (gramática única, Princípio I7) — cobre `[@key]` marcada e `@key` narrativa.
 - `prumo init`: os placeholders de nome do template (`pj-NOME` no
   `pyproject.toml`, `pj_<NOME>` nos títulos de README/docs) agora são
   substituídos pelo nome real do projeto nos arquivos copiados — o projeto

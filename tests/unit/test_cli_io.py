@@ -38,7 +38,7 @@ def test_read_stdin_json_nao_objeto_levanta_prumoerror() -> None:
 
 
 def test_parse_json_list_ok() -> None:
-    assert cli_io.parse_json_list('["[[@a]]", "[[@b]]"]', "--sources") == ["[[@a]]", "[[@b]]"]
+    assert cli_io.parse_json_list('["[@a]", "[@b]"]', "--sources") == ["[@a]", "[@b]"]
 
 
 def test_parse_json_list_default_vazio() -> None:

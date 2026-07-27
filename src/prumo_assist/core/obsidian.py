@@ -1,10 +1,11 @@
 """Normalizador Obsidian Markdown → Pandoc Markdown.
 
 Transformado de ``monorepo-anterior/.claude/scripts/_obsidian_md.py`` sem mudança
-de comportamento. Regras (ver spec sec. 4.2 do export pipeline):
+de comportamento. Citação é gramática Pandoc pura (``[@key]``/``@key`` — ver
+``core/citations``); este módulo nunca a reconhece, só o wikilink de página
+e os demais átomos Obsidian abaixo (spec 2026-07-22, retirada do legado
+``[[@key]]``). Regras (ver spec sec. 4.2 do export pipeline):
 
-- ``[[@key]]`` → ``[@key]``
-- ``[[@key|alias]]`` → ``[@key]`` (alias descartado; CSL renderiza)
 - ``[[file]]`` → ``file`` (texto plano)
 - ``[[file|alias]]`` → ``alias``
 - ``![[img.png]]`` → ``![](caminho_resolvido)`` (busca relativa)
@@ -34,7 +35,6 @@ _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?\n?", re.DOTALL)
 _CODE_FENCE_RE = re.compile(r"(```.*?\n.*?\n```)", re.DOTALL)
 _INLINE_CODE_RE = re.compile(r"(`[^`\n]+`)")
 
-_CITATION_RE = re.compile(r"\[\[@([^\]\|]+)(?:\|[^\]]+)?\]\]")
 _WIKILINK_RE = re.compile(r"\[\[([^\]\|@]+)(?:\|([^\]]+))?\]\]")
 _IMAGE_EMBED_RE = re.compile(r"!\[\[([^\]]+)\]\]")
 _BLOCK_ID_RE = re.compile(r"\s\^[A-Za-z0-9-]+\b")
@@ -77,8 +77,8 @@ def split_frontmatter_raw(text: str) -> tuple[str, str]:
 class SpanFragment:
     """Fragmento do mapa norm↔source (offsets absolutos, fim exclusivo).
 
-    ``kind`` é um de ``identity | citation | wikilink | image | callout |
-    block-id | code``. Fragmentos são contíguos e cobrem ``[0, len(source))``
+    ``kind`` é um de ``identity | wikilink | image | callout | block-id |
+    code``. Fragmentos são contíguos e cobrem ``[0, len(source))``
     e ``[0, len(norm))`` sem buracos nem sobreposição (ver invariantes em
     ``tests/unit/core/test_obsidian_spanmap.py``).
     """
@@ -155,9 +155,6 @@ def _collect_edits(text: str, page_dir: Path | None, code: list[tuple[int, int]]
             add(m.start(), m.end(), f"![]({ref})", "image")
         else:
             add(m.start(), m.end(), f"![]({path})", "image")
-
-    for m in _CITATION_RE.finditer(text):
-        add(m.start(), m.end(), f"[@{m.group(1)}]", "citation")
 
     for m in _WIKILINK_RE.finditer(text):
         if m.start() > 0 and text[m.start() - 1] == "!":

@@ -38,7 +38,7 @@ def archive_as_finding(
     """Cria/sobrescreve docs/.../findings/<slug>.md, atualiza _index.md e _log.md.
 
     ``body`` é texto markdown livre que vai abaixo do frontmatter.
-    ``sources`` é lista de wikilinks (strings como ``"[[@key]]"`` ou ``"[[page]]"``).
+    ``sources`` é lista de referências (strings como ``"[@key]"`` ou ``"[[page]]"``).
     ``generator`` identifica quem chamou (``"wiki-query"`` ou ``"active-learning"``).
     """
     if not (pj_path / "docs").exists():

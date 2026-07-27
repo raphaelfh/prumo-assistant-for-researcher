@@ -28,17 +28,6 @@ def test_identity_only_text() -> None:
     assert [f.kind for f in frags] == ["identity"]
 
 
-def test_citation_fragment_mapped() -> None:
-    src = "antes [[@smith2020]] depois"
-    norm, frags = normalize_markdown_with_map(src)
-    assert norm == "antes [@smith2020] depois"
-    _check_invariants(src, norm, frags)
-    cit = [f for f in frags if f.kind == "citation"]
-    assert len(cit) == 1
-    assert src[cit[0].source_start : cit[0].source_end] == "[[@smith2020]]"
-    assert norm[cit[0].norm_start : cit[0].norm_end] == "[@smith2020]"
-
-
 def test_wikilink_alias_and_blockid_anchor() -> None:
     src = "veja [[Conceito|o conceito]] aqui ^abc123\n"
     norm, frags = normalize_markdown_with_map(src)
@@ -51,9 +40,9 @@ def test_wikilink_alias_and_blockid_anchor() -> None:
 
 
 def test_code_block_is_atomic_and_untouched() -> None:
-    src = "a\n```\n[[@nao_toca]] [[nem_isto]]\n```\nb"
+    src = "a\n```\n[@nao_toca] [[nem_isto]]\n```\nb"
     norm, frags = normalize_markdown_with_map(src)
-    assert "[[@nao_toca]]" in norm
+    assert "[@nao_toca]" in norm
     _check_invariants(src, norm, frags)
     assert any(f.kind == "code" for f in frags)
 
@@ -66,16 +55,8 @@ def test_callout_header_with_and_without_title() -> None:
 
 
 def test_wrapper_behavior_unchanged() -> None:
-    src = "x [[@k]] [[A|b]] ^id\n"
+    src = "x [@k] [[A|b]] ^id\n"
     assert normalize_markdown(src) == normalize_markdown_with_map(src)[0]
-
-
-def test_callout_title_normalizes_nested_citation() -> None:
-    src = "> [!note] Veja [[@smith2020]]\n> corpo\n"
-    norm, frags = normalize_markdown_with_map(src)
-    assert norm == "> **Veja [@smith2020]**\n> corpo\n"
-    _check_invariants(src, norm, frags)
-    assert any(f.kind == "citation" for f in frags)
 
 
 def test_callout_title_normalizes_nested_wikilink_and_trailing_spaces() -> None:

@@ -55,7 +55,7 @@ def graph_command(
     path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Grafo passivo de citação: lê ``[@key]``/``[[@key]]`` no body, popula ``cites:`` no YAML."""
+    """Grafo passivo de citação: lê ``[@key]``/``@key`` no body, popula ``cites:`` no YAML."""
     with cli_run(json_mode=json_mode) as console:
         report = graph.update_graph(path.resolve())
         console.success(

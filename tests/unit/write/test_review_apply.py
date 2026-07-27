@@ -232,7 +232,7 @@ def _jones_drop_event() -> ReviewEvent:
 def test_apply_citation_drop_without_confirmation_hard_fails(
     init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
-    page_body = "Outro estudo [[@jones2021]] confirmou o achado."
+    page_body = "Outro estudo [@jones2021] confirmou o achado."
     project_root, page = init_project(body=page_body)
     write_review_artifacts(
         project_root,
@@ -259,7 +259,7 @@ def test_apply_citation_drop_without_confirmation_hard_fails(
 def test_apply_confirmed_citation_drop_removes_citation_and_conserves(
     init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
-    page_body = "Outro estudo [[@jones2021]] confirmou o achado."
+    page_body = "Outro estudo [@jones2021] confirmou o achado."
     project_root, page = init_project(body=page_body)
     # o humano já removeu a referência à citação em review.md (é o único
     # jeito de a citação de fato sair do corpo — o apply nunca transplanta
@@ -297,7 +297,7 @@ def test_apply_confirmed_citation_drop_without_removing_from_review_md_raises_co
     """Auto-review edge case: confirmar o drop não remove a citação por
     mágica — se o humano esqueceu de editar `review.md`, a citação ainda
     aparece no corpo final e a conservação pós-apply pega isso."""
-    page_body = "Outro estudo [[@jones2021]] confirmou o achado."
+    page_body = "Outro estudo [@jones2021] confirmou o achado."
     project_root, page = init_project(body=page_body)
     write_review_artifacts(
         project_root,
@@ -436,7 +436,7 @@ def test_apply_second_call_after_confirmed_drop_needs_no_reconfirmation(
     só o `citation-drop` pendente desta — que já não existe)."""
     prefix = "Primeiro paragrafo. Segundo estudo "
     suffix = " confirmou."
-    page_body = prefix + "[[@jones2021]]" + suffix
+    page_body = prefix + "[@jones2021]" + suffix
     project_root, page = init_project(body=page_body)
     # humano já removeu a referência à citação em review.md, e há 1 marca de
     # prosa pendente (Alice) ao lado — mesmo padrão dos outros testes de drop.
@@ -611,30 +611,6 @@ def test_propose_prose_edit_rejects_citation_payload_i3b(
     assert (review_dir / "review.md").read_text() == page_body
 
 
-# --- 14. âncora colada em `[[@key]]` -> recusa I1 ---------------------------
-
-
-def test_propose_prose_edit_rejects_anchor_tangent_to_citation_i1(
-    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
-) -> None:
-    page_body = "Estudo anterior [[@jones2021]] confirmou o achado."
-    project_root, page = init_project(body=page_body)
-    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
-
-    with pytest.raises(ValueError) as exc:
-        propose_prose_edit(
-            page=page,
-            anchor_excerpt="anterior ",  # termina exatamente onde a citação começa
-            position="after",
-            kind="ins",
-            b=" recente",
-            project_root=project_root,
-        )
-
-    assert "I1" in str(exc.value)
-    assert (review_dir / "review.md").read_text() == page_body
-
-
 # --- 15. replace com kind != del/sub OU a != excerto -> erro ----------------
 
 
@@ -715,11 +691,11 @@ def test_propose_prose_edit_identifies_inserted_mark_by_position_not_content(
 def test_propose_prose_edit_rejects_anchor_immediately_after_citation_i1(
     init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
-    """Completa a cobertura da fronteira estrita da Guarda I1: o teste 14
+    """Completa a cobertura da fronteira estrita da Guarda I1: o teste 23
     cobre `end == cs` (âncora termina onde a citação começa); este cobre
     `ce == start` (âncora começa onde a citação termina) — sem espaço algum
     entre a citação e a vírgula que seria a âncora."""
-    page_body = "Ver [[@jones2021]], confirmando o achado."
+    page_body = "Ver [@jones2021], confirmando o achado."
     project_root, page = init_project(body=page_body)
     review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
@@ -786,8 +762,8 @@ def test_propose_prose_edit_rejects_author_delimiter_injection(
     init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
     """`author` é colado SEM escape em `"{>>prumo-autor: " + author + "<<}"`
-    — um `author` hostil (`"agente<<} [[@injetado]] {>>x"`) fecha a âncora
-    PREMATURAMENTE (`<<}`), solta `"[[@injetado]] {>>x"` como texto LIVRE
+    — um `author` hostil (`"agente<<} [@injetado] {>>x"`) fecha a âncora
+    PREMATURAMENTE (`<<}`), solta `"[@injetado] {>>x"` como texto LIVRE
     (não marcado — inclusive uma citação fabricada) no corpo do worklist, e
     reabre um comentário (`{>>x`) que consumiria o resto do corpo. A
     allowlist de `author` recusa ANTES de qualquer leitura/escrita."""
@@ -802,7 +778,7 @@ def test_propose_prose_edit_rejects_author_delimiter_injection(
             position="after",
             kind="ins",
             b=" extra",
-            author="agente<<} [[@injetado]] {>>x",
+            author="agente<<} [@injetado] {>>x",
             project_root=project_root,
         )
 
@@ -914,14 +890,10 @@ def test_propose_prose_edit_rejects_kind_comment(
 def test_propose_prose_edit_rejects_anchor_tangent_to_pandoc_citation_i1(
     init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
-    """A Guarda I1 vale nas DUAS gramáticas de citação, não só no legado.
-
-    Projeto novo é Pandoc puro (spec 2026-07-22): a citação se escreve
-    ``[@key]``, não ``[[@key]]``. Localizar o átomo só pelo span legado
-    deixaria a sintaxe-padrão do repo SEM a proteção — inversão exata do
-    invariante I1 (a forma mandatória seria a desprotegida). Espelha o
-    teste 14 (``end == cs``) na gramática Pandoc.
-    """
+    """Guarda I1 na fronteira estrita ``end == cs`` (âncora termina exatamente
+    onde a citação começa), gramática Pandoc única do repo (spec 2026-07-22):
+    a citação se escreve ``[@key]``. Par do teste 17 (``ce == start``, o
+    outro lado da fronteira)."""
     page_body = "Estudo anterior [@jones2021] confirmou o achado."
     project_root, page = init_project(body=page_body)
     review_dir = write_review_artifacts(project_root, page, review_md=page_body)

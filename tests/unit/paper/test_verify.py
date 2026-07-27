@@ -38,13 +38,12 @@ def test_page_scope_ignora_handle_de_prosa() -> None:
     assert verify._page_scope_citekeys(body, {"known2020"}) == ["known2020"]
 
 
-def test_page_scope_cobre_as_duas_gramaticas_marcadas() -> None:
-    body = "Ver [[@legado2019]], [@bracket2020] e @narrativa2021.\n"
-    known = {"legado2019", "bracket2020", "narrativa2021"}
+def test_page_scope_cobre_bracketed_e_narrativa() -> None:
+    body = "Ver [@bracket2020] e @narrativa2021.\n"
+    known = {"bracket2020", "narrativa2021"}
 
     assert sorted(verify._page_scope_citekeys(body, known)) == [
         "bracket2020",
-        "legado2019",
         "narrativa2021",
     ]
 
@@ -383,7 +382,7 @@ class TestVerifyRefs:
         pj = self._pj(tmp_path)
         pagina = tmp_path / "draft.md"
         pagina.write_text(
-            "Como mostrado em [[@guan2020clinical]] e também [@naoexiste2020].\n",
+            "Como mostrado em [@guan2020clinical] e também [@naoexiste2020].\n",
             encoding="utf-8",
         )
         monkeypatch.setattr(
@@ -504,7 +503,7 @@ class TestDuplicateCitekey:
     ) -> None:
         pj = self._pj(tmp_path)
         pagina = tmp_path / "draft.md"
-        pagina.write_text("Como em [[@guan2020clinical]].\n", encoding="utf-8")
+        pagina.write_text("Como em [@guan2020clinical].\n", encoding="utf-8")
 
         def fake(url: str, *, timeout: float = 10.0) -> dict[str, Any]:
             raise AssertionError("nenhuma chamada de rede deveria ocorrer")

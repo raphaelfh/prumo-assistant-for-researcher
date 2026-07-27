@@ -25,7 +25,7 @@ def test_archive_creates_finding_in_default_location(tmp_path: Path) -> None:
         slug="curvas-roc-limiar",
         title="Curvas ROC e escolha de limiar",
         body="Sintetiza que exchangeability quebra; a correção C compensa.",
-        sources=["[[@hanley1982roc]]", "[[concepts/curvas-roc]]"],
+        sources=["[@hanley1982roc]", "[[concepts/curvas-roc]]"],
         date="2026-05-03",
     )
     assert out.exists()
@@ -87,7 +87,7 @@ def test_archive_appends_log(tmp_path: Path) -> None:
         slug="my-finding",
         title="My Finding",
         body="B",
-        sources=["[[@a]]"],
+        sources=["[@a]"],
         date="2026-05-03",
         generator="active-learning",
     )
@@ -159,7 +159,7 @@ def test_archive_stamps_generator_in_frontmatter(tmp_path: Path) -> None:
         slug="q1",
         title="Q1",
         body="body",
-        sources=["[[@a]]"],
+        sources=["[@a]"],
         date="2026-05-30",
         generator="wiki-query",
     )

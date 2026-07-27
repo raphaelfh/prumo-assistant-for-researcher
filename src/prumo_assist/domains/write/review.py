@@ -2548,12 +2548,13 @@ def _pair_author_anchors(
 
 
 def _citekey_multiset(text: str) -> Counter[str]:
-    """Multiconjunto de citekeys em `text` (fonte, sintaxe Obsidian/Pandoc) —
-    a conservação pós-apply precisa do MULTIconjunto exato (uma citação
-    repetida conta 2x), não da lista deduplicada de
-    `core.citations.scan_citekeys`. Mesmo caminho de detecção do export
-    (`export._norm_citation_spans` sobre o texto normalizado): cada grupo
-    `[@a]`/`[@a; @b]` contribui os citekeys que contém, via `CITEKEY_RE`.
+    """Multiconjunto de citekeys em `text` (fonte, normalizado antes da
+    contagem — `normalize_markdown`) — a conservação pós-apply precisa do
+    MULTIconjunto exato (uma citação repetida conta 2x), não da lista
+    deduplicada de `core.citations.scan_citekeys`. Mesmo caminho de detecção
+    do export (`export._norm_citation_spans` sobre o texto normalizado):
+    cada grupo `[@a]`/`[@a; @b]` contribui os citekeys que contém, via
+    `CITEKEY_RE`.
 
     LIMITAÇÃO conhecida (consistente com `export._norm_citation_spans`):
     citação narrativa `@key` fora de colchetes não é contada — o pipeline
@@ -3059,8 +3060,6 @@ def apply_review(
 # (vira âncora órfã, perde autoria) — ver o `if` logo no topo do corpo da
 # função.
 
-_PROPOSAL_CITATION_SPAN_RE = re.compile(r"\[\[@[^\]]+\]\]")
-
 # Guarda NOVA (Fix pós-review, achado Crítico 1): `author` é colado DIRETO
 # na âncora `"{>>prumo-autor: " + author + "<<}"` sem NENHUM escape — allowlist
 # (não denylist) é a defesa correta: só letras (inclusive acentuadas
@@ -3115,30 +3114,19 @@ def _reject_citation_divergence(before_text: str, after_text: str) -> None:
     passa `criticmarkup.accept(body)`/`criticmarkup.accept(new_body)`
     (simulando o aceite da proposta, o caminho normal do fluxo humano via
     `apply_review(by_author=author, author_decision=True)`), NUNCA o texto
-    cru com marcas ainda pendentes: o payload `b="[["` do repro do reviewer
+    cru com marcas ainda pendentes: o payload `b="["` do repro do reviewer
     nunca aparece adjacente ao texto pré-existente no `new_body` CRU (fica
-    preso dentro do `{++...++}` da própria marca) — só se torna
-    `"[[@fake2020]]"` depois que a marca é resolvida/aceita. Três checagens
-    independentes, sobre o corpo INTEIRO (sem restringir a spans de citação
-    — pega até citação narrativa `@key` solta, fora de colchetes):
-    (i) ``[[@chave]]`` marcadas (``_PROPOSAL_CITATION_SPAN_RE``, span externo
-    do legado); (ii) citekeys crus (``CITEKEY_RE``); (iii) GRUPOS de citação
-    nas duas gramáticas (``_citation_atom_spans``). A (iii) existe porque as
-    duas primeiras são cegas à composição em sintaxe Pandoc: embrulhar
-    ``@key`` em ``[@key]`` não muda span legado nem multiconjunto de chave —
-    só o conjunto de grupos marcados. QUALQUER divergência entre antes/depois
-    — em qualquer uma das três — recusa: não importa COMO a fabricação
-    aconteceria (inserção, deleção, substituição), só importa que o
-    multiconjunto de citações do resultado seja idêntico ao de antes."""
-    before_marked = Counter(_PROPOSAL_CITATION_SPAN_RE.findall(before_text))
-    after_marked = Counter(_PROPOSAL_CITATION_SPAN_RE.findall(after_text))
-    if before_marked != after_marked:
-        _reject_composed_result(
-            "o multiconjunto de citações marcadas (`[[@chave]]`, simulando "
-            "aceite da proposta) mudou entre antes e depois da composição — "
-            f"antes: {dict(before_marked)}, depois: {dict(after_marked)}"
-        )
-
+    preso dentro do `{++...++}` da própria marca) — só se torna `"[@fake2020]"`
+    depois que a marca é resolvida/aceita. Duas checagens independentes,
+    sobre o corpo INTEIRO (sem restringir a spans de citação — pega até
+    citação narrativa `@key` solta, fora de colchetes): (i) citekeys crus
+    (``CITEKEY_RE``); (ii) GRUPOS de citação (``_citation_atom_spans``). A
+    (ii) existe porque a (i) é cega à composição: embrulhar ``@key`` em
+    ``[@key]`` não muda o multiconjunto de chave — só o conjunto de grupos
+    marcados. QUALQUER divergência entre antes/depois — em qualquer uma das
+    duas — recusa: não importa COMO a fabricação aconteceria (inserção,
+    deleção, substituição), só importa que o multiconjunto de citações do
+    resultado seja idêntico ao de antes."""
     before_keys = Counter(CITEKEY_RE.findall(before_text))
     after_keys = Counter(CITEKEY_RE.findall(after_text))
     if before_keys != after_keys:
@@ -3204,28 +3192,21 @@ def _reject_citation_payload_in_proposal(a: str, b: str) -> None:
 
 
 def _citation_atom_spans(body: str) -> Iterator[tuple[int, int]]:
-    """Spans de citação protegidos pela Guarda I1. União de TRÊS fontes.
+    """Spans de citação protegidos pela Guarda I1. União de DUAS fontes.
 
-    União de três fontes, porque nenhuma sozinha basta:
+    União de duas fontes, porque nenhuma sozinha basta:
 
-    - ``_PROPOSAL_CITATION_SPAN_RE`` — legado ``[[@key]]``, span EXTERNO
-      (inclui os colchetes de fora).
     - ``iter_marked_citation_spans`` (gramática única de ``core/citations``)
-      — cobre o Pandoc ``[@key]``/``[@a; @b]``, sintaxe-padrão de projeto
-      novo (spec 2026-07-22). Em ``[[@key]]`` ela casa só o span INTERNO,
-      1 caractere adentro — por isso NÃO substitui a primeira: sozinha,
-      moveria a fronteira e a tangência exata no colchete externo deixaria
-      de recusar.
+      — cobre o Pandoc ``[@key]``/``[@a; @b]``, única sintaxe do repo
+      (spec 2026-07-22).
     - ``iter_narrative_citation_spans`` — cobre ``@key`` narrativa, forma
-      legítima da gramática Pandoc que nenhuma das duas primeiras enxerga
-      (o legado não tem forma narrativa). Sem ela, a MESMA edição é recusada
-      em ``[@k]`` e aplicada em ``@k`` — e nesse caminho chega à página.
+      legítima da MESMA gramática Pandoc que a primeira não enxerga (fora
+      de colchetes). Sem ela, a MESMA edição é recusada em ``[@k]`` e
+      aplicada em ``@k`` — e nesse caminho chega à página.
 
     Sobreposição entre as fontes é inofensiva: a guarda recusa no primeiro
     span que encostar.
     """
-    for match in _PROPOSAL_CITATION_SPAN_RE.finditer(body):
-        yield match.start(), match.end()
     yield from iter_marked_citation_spans(body)
     yield from iter_narrative_citation_spans(body)
 
@@ -3235,8 +3216,8 @@ def _reject_anchor_tangent_to_citation(body: str, start: int, end: int) -> None:
     (adjacência imediata, distância zero) um span de citação no corpo do
     worklist é recusada — citação é átomo opaco (I1, spec): qualquer
     edição que a encoste é decisão HUMANA, nunca aproximada por agente.
-    Vale nas duas gramáticas (``[@key]`` Pandoc e ``[[@key]]`` legado) —
-    ver :func:`_citation_atom_spans`.
+    Vale nas duas formas da gramática Pandoc (``[@key]`` marcada e ``@key``
+    narrativa) — ver :func:`_citation_atom_spans`.
     ``not (end < cs or ce < start)`` é a negação de "os dois intervalos têm
     ao menos 1 caractere de distância" — cobre interseção E adjacência
     (``end == cs`` ou ``ce == start``) com o MESMO teste, `<` estrito nos
@@ -3289,7 +3270,7 @@ def propose_prose_edit(
     Guardas I1/I3b (hard-fail ValueError pt-BR, ANTES de qualquer escrita):
     ver `_reject_citation_payload_in_proposal` (I3b — payload nunca cunha
     citação) e `_reject_anchor_tangent_to_citation` (I1 — âncora nunca
-    intersecta/tangencia citação `[[@key]]`) — um agente nunca decide nada
+    intersecta/tangencia citação `[@key]`) — um agente nunca decide nada
     que toque um átomo de citação; esses eventos ficam para o reconciliador
     HUMANO (`prumo write review events --checklist`, modo degradado).
 

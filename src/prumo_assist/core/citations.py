@@ -1,20 +1,19 @@
-"""Gramática única de citekey (Pandoc + legado Obsidian).
+"""Gramática única de citekey (Pandoc).
 
 Uma citação Pandoc é ``@key`` (narrativa) ou ``[@key]``/``[@a; @b]``
-(bracketed). O legado Obsidian usa ``[[@key]]``/``[[@key|alias]]``
-(normalizado para ``[@key]`` no export). Este módulo é o ÚNICO lugar
-do pacote que reconhece citekeys em texto (spec 2026-07-22; invariante
-I7 do spec 2026-07-05): export, compose, wiki lint, paper graph, paper
-verify, write review e capture route consomem estas funções ou o
-``CITEKEY_BODY`` — nunca regexes próprios.
+(bracketed). Este módulo é o ÚNICO lugar do pacote que reconhece citekeys
+em texto (spec 2026-07-22; invariante I7 do spec 2026-07-05): export,
+compose, wiki lint, paper graph, paper verify, write review e capture
+route consomem estas funções ou o ``CITEKEY_BODY`` — nunca regexes
+próprios.
 
 Dois níveis de captura:
 
 - ``iter_citekeys``/``scan_citekeys`` — amplo: qualquer ``@key`` fora
   de code block. Para pre-fetch e relatórios (falso positivo é barato).
-- ``scan_marked_citekeys`` — conservador: só formas marcadas
-  (``[[@key]]``, ou dentro de colchetes ``[...]``). Para lint/validação,
-  onde um handle ``@fulano`` em prosa não pode virar warning espúrio.
+- ``scan_marked_citekeys`` — conservador: só formas marcadas (dentro de
+  colchetes ``[...]``). Para lint/validação, onde um handle ``@fulano``
+  em prosa não pode virar warning espúrio.
 """
 
 from __future__ import annotations
@@ -77,11 +76,10 @@ def iter_marked_citation_spans(text: str) -> Iterator[tuple[int, int]]:
     """Spans ``(start, end)`` dos GRUPOS de citação marcada em ``text``, em ordem.
 
     Um span por bloco ``[...]`` sem colchetes internos que contenha ao menos
-    um citekey — ``[@a]`` e ``[@a; @b, p. 3]`` cada um conta como UM span
-    (também casa o miolo interno de ``[[@key]]`` legado). É o nível-span da
-    mesma gramática de :func:`scan_marked_citekeys`; NÃO filtra code blocks —
-    responsabilidade do chamador (linha a linha via :func:`_body_lines`, ou
-    por span-map no export).
+    um citekey — ``[@a]`` e ``[@a; @b, p. 3]`` cada um conta como UM span.
+    É o nível-span da mesma gramática de :func:`scan_marked_citekeys`; NÃO
+    filtra code blocks — responsabilidade do chamador (linha a linha via
+    :func:`_body_lines`, ou por span-map no export).
     """
     for match in _BRACKET_SPAN_RE.finditer(text):
         if CITEKEY_RE.search(match.group(0)):
@@ -110,8 +108,8 @@ def iter_narrative_citation_spans(text: str) -> Iterator[tuple[int, int]]:
 
 
 def scan_marked_citekeys(markdown_text: str) -> list[str]:
-    """Citekeys em formas MARCADAS, ordenadas: ``[[@key]]`` legado ou
-    dentro de colchetes ``[@key]``/``[@a; @b, p. 3]``.
+    """Citekeys em formas MARCADAS, ordenadas: dentro de colchetes
+    ``[@key]``/``[@a; @b, p. 3]``.
 
     Narrativa solta (``@key`` fora de colchete) fica de fora de
     propósito — ver docstring do módulo.

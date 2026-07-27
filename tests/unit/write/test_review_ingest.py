@@ -389,7 +389,7 @@ def test_ingest_deleted_citation_emits_drop_event_without_duplicate_mark(
     formatted = "(Jones, 2021)"
     prose_before = "Outro estudo "
     prose_after = " confirmou o achado principal."
-    body = prose_before + "[[@jones2021]]" + prose_after
+    body = prose_before + "[@jones2021]" + prose_after
     project_root, page = init_project(body=body)
 
     payload = _payload(occ_id="00000002", citekeys=["jones2021"], formatted=formatted)
@@ -438,11 +438,11 @@ def test_ingest_deleted_citation_emits_drop_event_without_duplicate_mark(
     assert "confirme no apply" in drop_event.detail
 
     # review.md SEM marca dupla: a citação nunca foi transplantada (o drop é
-    # só o evento) — o texto sai idêntico ao source, wikilink intacto.
+    # só o evento) — o texto sai idêntico ao source, citação intacta.
     review_md_text = result.review_md.read_text()
     assert review_md_text == body
     assert "{--" not in review_md_text
-    assert "[[@jones2021]]" in review_md_text
+    assert "[@jones2021]" in review_md_text
 
 
 # --- 6. guarda de re-ingest: worklist pendente exige --force ----------------

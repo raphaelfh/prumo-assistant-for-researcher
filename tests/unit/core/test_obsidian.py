@@ -43,11 +43,6 @@ def test_split_frontmatter_raw_returns_empty_when_absent() -> None:
     assert body == text
 
 
-def test_citation_with_alias_keeps_only_key() -> None:
-    out = normalize_markdown("See [[@smith2024|Smith et al.]] for details.")
-    assert out == "See [@smith2024] for details."
-
-
 def test_wikilink_with_alias_replaces_with_alias() -> None:
     out = normalize_markdown("Refer to [[some-page|that page]].")
     assert out == "Refer to that page."
