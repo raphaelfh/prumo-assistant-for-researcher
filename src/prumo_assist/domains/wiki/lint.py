@@ -18,6 +18,7 @@ Contradições e stale claims permanecem semânticas — trabalho da skill
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -190,12 +191,32 @@ _FM_LINK_FIELDS = ("links_to", "sources", "related")
 _WIKILINK_TARGET_RE = re.compile(r"\[\[([^\]|#@]+)")
 
 
+def _frontmatter_page_targets(value: str) -> Iterator[str]:
+    """Alvos de PÁGINA num item de ``links_to``/``sources``/``related``.
+
+    Duas formas: wikilink ``[[pagina]]`` (legado) e link markdown
+    ``[texto](pagina.md)`` — a esperada em projeto Pandoc-puro (ver
+    ``MD_LINK_RE``, já usado acima pra contar links de entrada no corpo).
+    Alvo NU não entra de propósito: ``sources`` recebe string livre (título
+    de paper, URL, nome de dataset) e qualquer não-stem viraria
+    ``dead_link``, inundando o relatório. Citekey já não casa aqui —
+    ``_WIKILINK_TARGET_RE`` exclui ``@`` do próprio charset.
+    """
+    for match in _WIKILINK_TARGET_RE.finditer(value):
+        yield _link_stem(match.group(1))
+    for match in MD_LINK_RE.finditer(value):
+        alvo = match.group(1).strip()
+        if "://" in alvo:
+            continue
+        yield Path(_link_stem(alvo)).stem
+
+
 def _check_dead_frontmatter_links(
     texts: dict[Path, str],
     pj_path: Path,
     page_stems: set[str],
 ) -> list[WikiIssue]:
-    """Wikilinks em ``links_to``/``sources``/``related`` cujo alvo não existe."""
+    """Wikilinks e links markdown em ``links_to``/``sources``/``related`` cujo alvo (de página) não existe."""
     issues: list[WikiIssue] = []
     for page, text in texts.items():
         try:
@@ -210,19 +231,16 @@ def _check_dead_frontmatter_links(
             if not isinstance(value, list):
                 continue
             for raw in value:
-                m = _WIKILINK_TARGET_RE.search(str(raw))
-                if not m:
-                    continue
-                target = m.group(1).strip()
-                if target not in page_stems:
-                    issues.append(
-                        WikiIssue(
-                            "warning",
-                            "dead_link",
-                            f"{field}: [[{target}]] não existe no vault",
-                            page=rel,
+                for target in _frontmatter_page_targets(str(raw)):
+                    if target not in page_stems:
+                        issues.append(
+                            WikiIssue(
+                                "warning",
+                                "dead_link",
+                                f"{field}: {target} não existe no vault",
+                                page=rel,
+                            )
                         )
-                    )
     return issues
 
 

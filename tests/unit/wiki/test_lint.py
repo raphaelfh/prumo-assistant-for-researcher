@@ -128,6 +128,46 @@ def test_lint_flags_dead_frontmatter_links(tmp_path: Path) -> None:
     assert not any("alpha" in m for m in dead)  # exists
 
 
+def test_lint_flags_dead_markdown_link_in_frontmatter(tmp_path: Path) -> None:
+    """`related:` com link markdown para página inexistente. É a forma que o
+    próprio lint.py:33-35 reconhece como esperada em projeto Pandoc-puro, e o
+    ramo de página não tem rede de segurança (`scan_marked_citekeys` não
+    cobre alvo de página)."""
+    pj = _setup_wiki(tmp_path)
+    (pj / "docs" / "concepts" / "alpha.md").write_text(
+        "---\ntype: concept\n---\n\nbody\n", encoding="utf-8"
+    )
+    (pj / "docs" / "concepts" / "beta.md").write_text(
+        "---\ntype: concept\nrelated:\n  - '[alpha](alpha.md)'\n"
+        "  - '[fantasma](ghostpage.md)'\n---\n\n"
+        "Links to [[alpha]] so beta is not orphan.\n",
+        encoding="utf-8",
+    )
+    report = lint(pj)
+    dead = [i["message"] for i in report["issues"] if i["code"] == "dead_link"]
+    assert any("ghostpage" in m for m in dead)
+    assert not any("alpha" in m for m in dead)  # existe
+
+
+def test_lint_nao_acusa_texto_livre_em_sources(tmp_path: Path) -> None:
+    """`sources:` recebe string livre (título de paper, URL, nome de
+    dataset). Aceitar alvo NU inundaria o relatório."""
+    pj = _setup_wiki(tmp_path, "@article{real,title={X}}\n")
+    (pj / "docs" / "concepts" / "alpha.md").write_text(
+        "---\ntype: concept\n---\n\nbody\n", encoding="utf-8"
+    )
+    (pj / "docs" / "concepts" / "beta.md").write_text(
+        "---\ntype: concept\nsources:\n"
+        "  - 'Combinado learning in practice (Nature, 2024)'\n"
+        "  - 'https://example.com/artigo'\n---\n\n"
+        "Links to [[alpha]] so beta is not orphan.\n",
+        encoding="utf-8",
+    )
+    report = lint(pj)
+    dead = [i["message"] for i in report["issues"] if i["code"] == "dead_link"]
+    assert dead == []
+
+
 def test_lint_frontmatter_citekey_is_broken_citekey_not_dead_link(tmp_path: Path) -> None:
     """`_WIKILINK_TARGET_RE` deixou de aceitar `@` (só alvo de página) —
     citekey em `sources:`/`related:`/`links_to:` não vira mais `dead_link`;
