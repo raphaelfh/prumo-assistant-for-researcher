@@ -4,8 +4,9 @@ Uma citação Pandoc é ``@key`` (narrativa) ou ``[@key]``/``[@a; @b]``
 (bracketed). O legado Obsidian usa ``[[@key]]``/``[[@key|alias]]``
 (normalizado para ``[@key]`` no export). Este módulo é o ÚNICO lugar
 do pacote que reconhece citekeys em texto (spec 2026-07-22; invariante
-I7 do spec 2026-07-05): export, compose, wiki lint e paper graph
-consomem estas funções — nunca regexes próprios.
+I7 do spec 2026-07-05): export, compose, wiki lint, paper graph, paper
+verify, write review e capture route consomem estas funções ou o
+``CITEKEY_BODY`` — nunca regexes próprios.
 
 Dois níveis de captura:
 
@@ -21,11 +22,17 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 
+# Corpo do citekey Pandoc, SEM o `@` e sem âncora — compartilhado por quem
+# precisa ancorar de outro jeito (ex.: `domains/capture/route.py`, que casa
+# um token inteiro). Manter ÚNICO: um segundo reconhecedor divergente é
+# exatamente o que o Princípio I7 proíbe.
+CITEKEY_BODY = r"[A-Za-z0-9_]\w*(?:[:.#$%&+\-?<>~/]\w+)*"
+
 # Pandoc citation keys: alphanumeric/underscore start, then internal
 # `:.#$%&-+?<>~/` punctuation that must be followed by more word chars
 # (so we don't grab trailing sentence punctuation like the `.` in
 # `[@key].`). Negative lookbehind on `@\w` skips emails (foo@bar).
-CITEKEY_RE = re.compile(r"(?<![@\w])@([A-Za-z0-9_]\w*(?:[:.#$%&+\-?<>~/]\w+)*)")
+CITEKEY_RE = re.compile(r"(?<![@\w])@(" + CITEKEY_BODY + r")")
 
 # Um span entre colchetes sem colchetes internos. Cobre ``[@key]``,
 # ``[@a; @b, p. 3]`` e também o miolo de ``[[@key]]`` (o span interno).

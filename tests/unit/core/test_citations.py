@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from prumo_assist.core.citations import (
+    CITEKEY_RE,
     iter_citekeys,
     iter_narrative_citation_spans,
     scan_citekeys,
@@ -66,3 +67,11 @@ def test_iter_narrative_citation_spans_inclui_o_arroba() -> None:
     ((start, end),) = iter_narrative_citation_spans(text)
     assert text[start] == "@"
     assert text[start:end] == "@key2020"
+
+
+def test_citekey_re_tem_exatamente_um_grupo_de_captura() -> None:
+    """Contrato duro: `review.py` faz `Counter(CITEKEY_RE.findall(...))`, que
+    só devolve `list[str]` com UM grupo. Com dois, `findall` devolve tuplas e
+    o multiconjunto de conservação passa a comparar lixo SILENCIOSAMENTE."""
+    assert CITEKEY_RE.groups == 1
+    assert CITEKEY_RE.findall("Cita [@a2020] e [@b2021].") == ["a2020", "b2021"]

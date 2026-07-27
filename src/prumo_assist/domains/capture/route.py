@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from prumo_assist.core.citations import CITEKEY_BODY
+
 InputKind = Literal["doi", "arxiv", "pdf", "url", "citekey", "unknown"]
 
 DOI_RE = re.compile(r"^(?:https?://(?:dx\.)?doi\.org/)?(10\.\d{4,9}/\S+)$", re.IGNORECASE)
@@ -15,7 +17,12 @@ ARXIV_RE = re.compile(
     re.IGNORECASE,
 )
 URL_RE = re.compile(r"^https?://", re.IGNORECASE)
-CITEKEY_RE = re.compile(r"^@?([a-z][\w-]*\d{4}[\w-]*)$")
+
+# Citekey como TOKEN INTEIRO. Deriva de `core.citations.CITEKEY_BODY`
+# (Princípio I7 — um único reconhecedor no pacote). Heurística de
+# roteamento, não validador: a checagem roda por ÚLTIMO em `classify`,
+# depois de PDF/arXiv/DOI/URL, então um DOI nunca cai aqui.
+CITEKEY_RE = re.compile(r"^@?(" + CITEKEY_BODY + r")$")
 
 
 @dataclass(frozen=True)

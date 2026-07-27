@@ -48,5 +48,25 @@ def test_classify_citekey() -> None:
 
 
 def test_classify_unknown() -> None:
-    out = classify("randomgarbage")
+    """Palavra nua agora roteia para `citekey` (é um corpo Pandoc legal, e
+    `prumo paper find <palavra>` é sugestão inócua e mais útil que "não sei").
+    `unknown` fica para o que não é token único."""
+    out = classify("not a citekey!!")
     assert out.kind == "unknown"
+
+
+def test_classify_citekey_com_pontuacao_composta() -> None:
+    """Chaves REAIS do acervo do usuário que a 2ª gramática rejeitava.
+
+    `route.py` tinha `^@?([a-z][\\w-]*\\d{4}[\\w-]*)$`, que exige inicial
+    minúscula e 4 dígitos — 10 de 173 chaves reais caíam em `unknown`.
+    """
+    for key in (
+        "collins2024tripod+ai",
+        "2023attentionbased",
+        "benjamind.simon2024future",
+        "integrative",
+        "smith2020:aha-guideline",
+    ):
+        assert classify(key).kind == "citekey", key
+        assert classify(f"@{key}").kind == "citekey", key

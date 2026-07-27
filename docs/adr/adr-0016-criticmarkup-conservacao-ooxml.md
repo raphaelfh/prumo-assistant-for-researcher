@@ -12,3 +12,14 @@ A camada de revisão vive inline na fonte `.md` como as cinco marcas CriticMarku
 
 ## Consequências
 O agente e o humano revisam sobre a mesma fonte plain-text em Git, com aceite/rejeição determinístico por marca; toda contagem de citação deriva do OOXML, nunca de texto exibido ou saída de conversor (precedente do padrão máquina-possui-região: ADR-0009). Custos: payload maior por campo no docx, sidecars adicionais por export, e dependência do shape OOXML dos campos Zotero — mitigada pelas guardas hard-fail que transformam qualquer drift silencioso em erro barulhento.
+
+## Nota de correção (2026-07-26)
+
+A afirmação "o tokenizador divergente que descartava chaves compostas foi
+eliminado" era incompleta quando esta ADR foi aceita. O escopo declarado do
+I7 cobria apenas `domains/write/compose.py`; `domains/capture/route.py:18`
+manteve um segundo reconhecedor (`^@?([a-z][\w-]*\d{4}[\w-]*)$`) que rejeitava
+10 de 173 citekeys de um acervo real (5%) — chave sem 4 dígitos, com inicial
+maiúscula, com `.` ou `+`. Fechado no plano 2026-07-26 (Task 3): `route.py`
+passa a derivar de `core.citations.CITEKEY_BODY`. A decisão desta ADR não
+muda; só o registro de que o invariante ainda não estava fechado.
