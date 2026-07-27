@@ -4,10 +4,15 @@ O Zettlr exporta via perfis — defaults files com ``reader`` e ``writer``
 obrigatórios (exigência do assets manager dele). Este módulo gera o
 ``docs/templates/prumo-docx.yaml`` do projeto replicando o que dá para
 reproduzir do ``prumo write export --to docx`` sem Python: a cadeia
-``citeproc`` ANTES do ``zotero_live_docx.lua``. ATENÇÃO: num defaults
-file, ``citeproc: true`` rodaria o citeproc DEPOIS dos lua filters e
-quebraria o filtro — por isso o citeproc entra como item da lista
-``filters``, na frente.
+``citeproc`` ANTES do ``zotero_live_docx.lua``. O citeproc entra como
+item da lista ``filters`` porque só a ordem DENTRO de ``filters:`` é
+garantida pelo manual do Pandoc ("Filters are run in the order
+specified"). ``citeproc: true`` não oferece controle de ordem — na
+prática é prependado à cadeia (verificado com filtro-sonda em pandoc
+3.9.0.2: o Lua recebe ``(Autor 2001)``, ou seja o citeproc já rodou),
+mas isso é detalhe de implementação não documentado. NUNCA declarar os
+dois juntos: o citeproc roda duas vezes e a bibliografia sai
+duplicada.
 
 Fica de fora por design (spec 2026-07-22): lookup BBT (URIs de relink)
 e guardas pós-export — exclusivos do caminho canônico ``prumo write
@@ -37,7 +42,13 @@ def generate_profile(pj_path: Path, *, style: str = "apa") -> Path:
     O CSL é best-effort: sem o estilo em ``~/Zotero/styles/``, o perfil
     sai sem ``csl`` (citeproc usa Chicago) — o docx de trabalho continua
     com campos vivos. ``bibliography`` não entra aqui: viaja no
-    frontmatter de cada draft, que tem precedência sobre o defaults file.
+    frontmatter de cada draft. ATENÇÃO à precedência real —
+    ``bibliography`` num defaults file equivale a ``--bibliography`` e
+    SOBRESCREVE o metadata do documento (verificado com dois .bib
+    conflitantes). O frontmatter do draft só prevalece enquanto o campo
+    "Citation database" das preferências do Zettlr estiver VAZIO: o
+    exporter do Zettlr injeta a biblioteca global em qualquer defaults
+    file importado.
 
     Exige a raiz de um pj_* (``references/_references.bib`` presente) —
     sem isso o perfil seria criado em diretório arbitrário.

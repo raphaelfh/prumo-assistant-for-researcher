@@ -3270,7 +3270,7 @@ def propose_prose_edit(
     Guardas I1/I3b (hard-fail ValueError pt-BR, ANTES de qualquer escrita):
     ver `_reject_citation_payload_in_proposal` (I3b — payload nunca cunha
     citação) e `_reject_anchor_tangent_to_citation` (I1 — âncora nunca
-    intersecta/tangencia citação `[@key]`) — um agente nunca decide nada
+    intersecta/tangencia citação (`[@key]` ou `@key`)) — um agente nunca decide nada
     que toque um átomo de citação; esses eventos ficam para o reconciliador
     HUMANO (`prumo write review events --checklist`, modo degradado).
 

@@ -37,8 +37,8 @@ def test_profile_has_reader_writer_required_by_zettlr(tmp_path: Path) -> None:
 
 
 def test_profile_runs_citeproc_before_lua_filter(tmp_path: Path) -> None:
-    # Num defaults file, `citeproc: true` rodaria DEPOIS dos lua filters
-    # e quebraria o zotero_live_docx.lua — a ordem TEM que vir da lista.
+    # A lista é usada porque é o único mecanismo com ordem garantida pelo
+    # manual, não porque `citeproc: true` rodaria depois.
     data = _gen(tmp_path)
     filters = data["filters"]
     assert filters[0] == "citeproc"
