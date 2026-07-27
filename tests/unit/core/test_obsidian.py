@@ -53,6 +53,23 @@ def test_wikilink_without_alias_keeps_target() -> None:
     assert out == "See some-page."
 
 
+def test_wikilink_legado_de_citacao_degrada_para_narrativa_pandoc() -> None:
+    """Achado I3: enquanto `_WIKILINK_RE` excluía `@` do charset do alvo, um
+    `[[@key]]` remanescente passava INTACTO pelo normalizador e o pandoc
+    entregava `[(Smith 2020)]` no docx — e, com alias,
+    `[[@jones2021|Jones et al.]]` virava `[(Jones 2021, |Jones et al.)]`,
+    texto corrompido DENTRO da citação, sem erro nenhum.
+
+    Sem reintroduzir suporte legado: caindo na regra NORMAL de wikilink,
+    `[[@key]]` degrada para `@key` — citação narrativa Pandoc válida. Com
+    alias vale a regra de alias (o alias vence, como em qualquer wikilink);
+    o resultado é texto limpo, nunca colchete órfão.
+    """
+    assert normalize_markdown("Como [[@smith2020]] mostrou.") == "Como @smith2020 mostrou."
+    assert normalize_markdown("Ver [[@jones2021|Jones et al.]].") == "Ver Jones et al.."
+    assert normalize_markdown("Grupo [[@a2020; @b2021]].") == "Grupo @a2020; @b2021."
+
+
 def test_image_embed_with_missing_file_keeps_path() -> None:
     out = normalize_markdown("![[fig.png]]", page_dir=Path("/no/such/dir"))
     assert out == "![](fig.png)"

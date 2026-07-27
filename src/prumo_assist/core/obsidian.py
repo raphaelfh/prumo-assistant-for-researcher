@@ -2,9 +2,10 @@
 
 Transformado de ``monorepo-anterior/.claude/scripts/_obsidian_md.py`` sem mudança
 de comportamento. Citação é gramática Pandoc pura (``[@key]``/``@key`` — ver
-``core/citations``); este módulo nunca a reconhece, só o wikilink de página
-e os demais átomos Obsidian abaixo (spec 2026-07-22, retirada do legado
-``[[@key]]``). Regras (ver spec sec. 4.2 do export pipeline):
+``core/citations``); este módulo não tem nenhuma regra de citação, só o
+wikilink de página e os demais átomos Obsidian abaixo (spec 2026-07-22,
+retirada do legado ``[[@key]]``). Regras (ver spec sec. 4.2 do export
+pipeline):
 
 - ``[[file]]`` → ``file`` (texto plano)
 - ``[[file|alias]]`` → ``alias``
@@ -35,7 +36,15 @@ _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?\n?", re.DOTALL)
 _CODE_FENCE_RE = re.compile(r"(```.*?\n.*?\n```)", re.DOTALL)
 _INLINE_CODE_RE = re.compile(r"(`[^`\n]+`)")
 
-_WIKILINK_RE = re.compile(r"\[\[([^\]\|@]+)(?:\|([^\]]+))?\]\]")
+# O charset do alvo NÃO exclui `@` — de propósito, e sem reintroduzir
+# suporte ao legado. Enquanto excluía (resíduo do reconhecedor legado), um
+# `[[@smith2020]]` remanescente passava INTACTO pelo normalizador e o pandoc
+# entregava `[(Smith 2020)]` no docx; com alias, `[[@jones2021|Jones et al.]]`
+# virava `[(Jones 2021, |Jones et al.)]` — texto corrompido DENTRO da
+# citação, sem erro nenhum. Caindo na regra normal de wikilink, `[[@key]]`
+# degrada para `@key`, que é citação narrativa Pandoc VÁLIDA: o pior caso
+# passa a ser uma citação correta em vez de docx corrompido.
+_WIKILINK_RE = re.compile(r"\[\[([^\]\|]+)(?:\|([^\]]+))?\]\]")
 _IMAGE_EMBED_RE = re.compile(r"!\[\[([^\]]+)\]\]")
 _BLOCK_ID_RE = re.compile(r"\s\^[A-Za-z0-9-]+\b")
 _CALLOUT_HEADER_RE = re.compile(r"^>\s*\[!(\w+)\](?:\s+(.+))?\s*$")
