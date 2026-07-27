@@ -3171,16 +3171,10 @@ def _reject_citation_payload_in_proposal(a: str, b: str) -> None:
     citação no payload (``a``/``b``) — citekey só entra por seleção humana
     explícita, com metadados completos, atestada em Git (I3b, spec). Checa
     `CITEKEY_RE` (mesma gramática de `core/citations`, único reconhecedor de
-    citekey do pacote) e também as duas sintaxes de colchete cru (``[@``,
-    ``[[@``) — a checagem literal de substring cobre até uma citação
-    malformada que `CITEKEY_RE` sozinho poderia não casar (ex.: colchete
-    aberto sem fechar)."""
-    if (
-        CITEKEY_RE.search(a or "")
-        or CITEKEY_RE.search(b or "")
-        or "[@" in (a + b)
-        or "[[@" in (a + b)
-    ):
+    citekey do pacote) e também o colchete cru ``[@`` — a checagem literal de
+    substring cobre até uma citação malformada que `CITEKEY_RE` sozinho
+    poderia não casar (ex.: colchete aberto sem fechar)."""
+    if CITEKEY_RE.search(a or "") or CITEKEY_RE.search(b or "") or "[@" in (a + b):
         raise ValueError(
             "propose_prose_edit recusado (I3b — vínculo semântico atestado): "
             f"payload contém citekey/sintaxe de citação (a={a!r}, b={b!r}). "
