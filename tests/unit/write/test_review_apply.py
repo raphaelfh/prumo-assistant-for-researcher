@@ -960,9 +960,9 @@ def test_propose_prose_edit_allows_bracket_far_from_citation(
     parágrafo que tem `[@k2020]` noutro ponto é edição legítima de prosa."""
     page_body = "Primeira frase com [@k2020] aqui. Segunda frase separada."
     project_root, page = init_project(body=page_body)
-    write_review_artifacts(project_root, page, review_md=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
-    propose_prose_edit(
+    result = propose_prose_edit(
         page=page,
         anchor_excerpt="Segunda frase",
         position="after",
@@ -970,6 +970,16 @@ def test_propose_prose_edit_allows_bracket_far_from_citation(
         b=" [sic]",
         project_root=project_root,
     )
+
+    written = (review_dir / "review.md").read_text()
+    assert written == (
+        "Primeira frase com [@k2020] aqui. Segunda frase{++ [sic]++}"
+        "{>>prumo-autor: agente<<} separada."
+    )
+    # A citação pré-existente sai íntegra nos DOIS desfechos da marca.
+    assert "[@k2020]" in criticmarkup.accept(written)
+    assert "[@k2020]" in criticmarkup.reject(written)
+    assert criticmarkup.parse(written)[result.inserted_mark_index].b == " [sic]"
 
 
 # --- 26. Guarda I1 protege narrativa igual a bracketed (D2) ----------------
@@ -1022,3 +1032,47 @@ def test_reject_citation_divergence_permite_prosa_sem_mexer_em_citacao() -> None
     depois = "Frase [@k2020] aqui. Outra frase [sic]."
 
     _reject_citation_divergence(antes, depois)  # não levanta
+
+
+# --- 28. conservação também no caminho de REJEIÇÃO (achado C1) -------------
+
+
+def test_propose_prose_edit_rejects_del_that_fabricates_citation_on_reject(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """Achado C1: a guarda de conservação simulava só o ACEITE.
+
+    Uma marca ``{--@--}`` colada antes de `Smith2020` (token que NÃO é
+    citação — não tem sigilo) é invisível no aceite (o `@` some, corpo
+    idêntico) e fabrica `@Smith2020` na REJEIÇÃO — citekey que humano
+    nenhum cunhou, injetada justamente quando o humano REJEITA a proposta
+    do agente. Nem a I1 (não há citação no corpo para tangenciar), nem a
+    I3b (`a="@"` sozinho não casa `CITEKEY_RE`), nem `apply_review`
+    (`_citekey_multiset` é marked-only) pegavam.
+    """
+    page_body = "Segundo Smith2020, o efeito e claro."
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Segundo ",
+            position="after",
+            kind="del",
+            a="@",
+            project_root=project_root,
+        )
+
+    assert "rejeição" in str(exc.value)
+    assert "Smith2020" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+def test_reject_citation_divergence_reporta_o_lado_que_divergiu() -> None:
+    """A mensagem diz QUAL simulação divergiu — sem isso o humano não sabe
+    se o problema está no aceite ou na rejeição da proposta."""
+    with pytest.raises(ValueError) as exc:
+        _reject_citation_divergence("Segundo Smith2020.", "Segundo @Smith2020.", moment="aceite")
+
+    assert "aceite" in str(exc.value)

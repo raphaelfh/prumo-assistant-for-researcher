@@ -3053,7 +3053,9 @@ def apply_review(
 # que foi PEDIDO e o que o RESULTADO re-parseado realmente contém — contagem
 # de marcas, identidade da marca inserida (kind/a/b) e da âncora de autor
 # seguinte, e conservação do multiconjunto de citações (marcadas e
-# `CITEKEY_RE` cru) simulando o aceite da proposta. Ver
+# `CITEKEY_RE` cru) simulando os DOIS desfechos da proposta — aceite E
+# rejeição (achado C1: só o aceite deixava `{--@--}` cunhar citação na
+# rejeição). Ver
 # `_reject_composed_result`/`_reject_citation_divergence` abaixo para os
 # detalhes de cada sub-checagem. (Important, mesmo review): `kind="comment"`
 # deixou de ser proponível — não é pareável por `_pair_author_anchors`
@@ -3108,31 +3110,45 @@ def _reject_composed_result(detail: str) -> NoReturn:
     )
 
 
-def _reject_citation_divergence(before_text: str, after_text: str) -> None:
+def _reject_citation_divergence(
+    before_text: str, after_text: str, *, moment: str = "aceite"
+) -> None:
     """Guarda NOVA (Fix pós-review, achado Crítico 2): compara os
     multiconjuntos de citação de `before_text`/`after_text` — o CHAMADOR
-    passa `criticmarkup.accept(body)`/`criticmarkup.accept(new_body)`
-    (simulando o aceite da proposta, o caminho normal do fluxo humano via
-    `apply_review(by_author=author, author_decision=True)`), NUNCA o texto
-    cru com marcas ainda pendentes: o payload `b="["` do repro do reviewer
-    nunca aparece adjacente ao texto pré-existente no `new_body` CRU (fica
-    preso dentro do `{++...++}` da própria marca) — só se torna `"[@fake2020]"`
-    depois que a marca é resolvida/aceita. Duas checagens independentes,
-    sobre o corpo INTEIRO (sem restringir a spans de citação — pega até
-    citação narrativa `@key` solta, fora de colchetes): (i) citekeys crus
-    (``CITEKEY_RE``); (ii) GRUPOS de citação (``_citation_atom_spans``). A
-    (ii) existe porque a (i) é cega à composição: embrulhar ``@key`` em
-    ``[@key]`` não muda o multiconjunto de chave — só o conjunto de grupos
-    marcados. QUALQUER divergência entre antes/depois — em qualquer uma das
-    duas — recusa: não importa COMO a fabricação aconteceria (inserção,
-    deleção, substituição), só importa que o multiconjunto de citações do
-    resultado seja idêntico ao de antes."""
+    passa o par JÁ RESOLVIDO (`criticmarkup.accept` ou `criticmarkup.reject`
+    de `body`/`new_body`), NUNCA o texto cru com marcas ainda pendentes: o
+    payload `b="["` do repro do reviewer nunca aparece adjacente ao texto
+    pré-existente no `new_body` CRU (fica preso dentro do `{++...++}` da
+    própria marca) — só se torna `"[@fake2020]"` depois que a marca é
+    resolvida. `moment` nomeia QUAL simulação está sendo checada, e entra na
+    mensagem de recusa.
+
+    `propose_prose_edit` roda a guarda DUAS vezes, sobre os DOIS desfechos
+    possíveis da marca proposta (achado C1): o aceite
+    (`apply_review(by_author=author, author_decision=True)`) e a REJEIÇÃO
+    (`author_decision=False`). Simular só o aceite deixava passar a classe
+    inteira de fabricação por `kind` `del`/`sub` fora de
+    `position="replace"`: uma marca `{--@--}` colada antes de um token sem
+    sigilo (`Segundo {--@--}Smith2020`) é invisível no aceite (o `@` some) e
+    cunha `@Smith2020` na rejeição — citação fabricada justamente quando o
+    humano REJEITA a proposta do agente.
+
+    Duas checagens independentes por desfecho, sobre o corpo INTEIRO (sem
+    restringir a spans de citação — pega até citação narrativa `@key` solta,
+    fora de colchetes): (i) citekeys crus (``CITEKEY_RE``); (ii) GRUPOS de
+    citação (``_citation_atom_spans``). A (ii) existe porque a (i) é cega à
+    composição: embrulhar ``@key`` em ``[@key]`` não muda o multiconjunto de
+    chave — só o conjunto de grupos marcados. QUALQUER divergência entre
+    antes/depois — em qualquer uma das duas, em qualquer um dos dois
+    desfechos — recusa: não importa COMO a fabricação aconteceria, só
+    importa que o multiconjunto de citações do resultado seja idêntico ao de
+    antes."""
     before_keys = Counter(CITEKEY_RE.findall(before_text))
     after_keys = Counter(CITEKEY_RE.findall(after_text))
     if before_keys != after_keys:
         _reject_composed_result(
             "o multiconjunto de citekeys (`CITEKEY_RE`, corpo inteiro, "
-            "simulando aceite da proposta) mudou entre antes e depois da "
+            f"simulando {moment} da proposta) mudou entre antes e depois da "
             f"composição — antes: {dict(before_keys)}, depois: {dict(after_keys)}"
         )
 
@@ -3142,7 +3158,8 @@ def _reject_citation_divergence(before_text: str, after_text: str) -> None:
         _reject_composed_result(
             "o multiconjunto de GRUPOS de citação (gramática única de "
             "`core.citations`, as duas sintaxes) mudou entre antes e depois "
-            f"da composição — antes: {dict(before_spans)}, depois: {dict(after_spans)}"
+            f"da composição, simulando {moment} da proposta — antes: "
+            f"{dict(before_spans)}, depois: {dict(after_spans)}"
         )
 
 
@@ -3200,6 +3217,13 @@ def _citation_atom_spans(body: str) -> Iterator[tuple[int, int]]:
 
     Sobreposição entre as fontes é inofensiva: a guarda recusa no primeiro
     span que encostar.
+
+    Roda sobre o corpo CRU, sem filtrar code fences (ao contrário de
+    ``scan_marked_citekeys``, que passa por ``_body_lines``): super-proteção
+    deliberada — um ``@key`` dentro de bloco de código vira átomo protegido
+    e o agente leva recusa. É o lado certo do trade-off (fail-toward-human):
+    o custo do falso positivo é o humano decidir uma edição; o do falso
+    negativo seria edição silenciosa de citação.
     """
     yield from iter_marked_citation_spans(body)
     yield from iter_narrative_citation_spans(body)
@@ -3277,8 +3301,8 @@ def propose_prose_edit(
     `new_body` e ANTES de escrever, um round-trip guard reprova qualquer
     divergência entre o PEDIDO e o RESULTADO re-parseado (contagem de
     marcas, identidade kind/a/b da marca inserida e da âncora seguinte,
-    conservação do multiconjunto de citações simulando o aceite da
-    proposta — `_reject_citation_divergence`).
+    conservação do multiconjunto de citações simulando os DOIS desfechos da
+    proposta, aceite E rejeição — `_reject_citation_divergence`).
 
     Reescreve `review.md` = `raw_fm` (frontmatter VERBATIM, extraído por
     `split_frontmatter_raw` — nunca a página original, que só muda quando um
@@ -3397,7 +3421,14 @@ def propose_prose_edit(
             f"{expected_anchor_body!r}"
         )
 
-    _reject_citation_divergence(criticmarkup.accept(body), criticmarkup.accept(new_body))
+    # Os DOIS desfechos da marca proposta (achado C1): simular só o aceite
+    # deixava a rejeição fabricar citação (`{--@--}` antes de `Smith2020`).
+    _reject_citation_divergence(
+        criticmarkup.accept(body), criticmarkup.accept(new_body), moment="aceite"
+    )
+    _reject_citation_divergence(
+        criticmarkup.reject(body), criticmarkup.reject(new_body), moment="rejeição"
+    )
 
     review_md_path = review_dir / "review.md"
     review_md_path.write_text(_compose_page(raw_fm, new_body), encoding="utf-8")
