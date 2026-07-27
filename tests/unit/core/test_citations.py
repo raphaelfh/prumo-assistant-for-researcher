@@ -90,6 +90,16 @@ def test_citekey_re_continua_ignorando_email() -> None:
     assert CITEKEY_RE.findall("mande para foo@bar.com") == []
 
 
+def test_citekey_re_ignora_email_com_local_part_nao_ascii() -> None:
+    """Liberar `_` no lookbehind não pode liberar letra acentuada: um
+    lookbehind ASCII-only (`(?<![@0-9A-Za-z])`) fazia `josé@usp.br` render o
+    citekey fantasma `usp.br` enquanto `joao@usp.br` não rendia nada — o
+    mesmo e-mail, veredito diferente por causa do acento."""
+    assert CITEKEY_RE.findall("mande para josé@usp.br") == []
+    assert CITEKEY_RE.findall("mande para joao@usp.br") == []
+    assert CITEKEY_RE.findall("mande para Иванов@usp.br") == []
+
+
 def test_citekey_re_alargado_e_superset_do_anterior() -> None:
     """Regressão: tudo que a gramática antiga casava, a nova casa igual."""
     amostras = [

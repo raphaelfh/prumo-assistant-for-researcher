@@ -40,10 +40,14 @@ from collections.abc import Iterator
 CITEKEY_BODY = r"\w(?:\w|[:.#$%&+\-?<>~/]\w)*"
 
 # Lookbehind: barra e-mail (`foo@bar`) exigindo que o caractere anterior não
-# seja letra/dígito. `_` é PERMITIDO antes de propósito — `_@lima2018 mostrou_`
-# é ênfase Markdown com citação dentro, ASCII puro e caminho default, e o
-# `(?<![@\w])` original a perdia porque `_` é word char.
-CITEKEY_RE = re.compile(r"(?<![@0-9A-Za-z])@(" + CITEKEY_BODY + r")")
+# seja letra/dígito UNICODE. `_` é PERMITIDO antes de propósito —
+# `_@lima2018 mostrou_` é ênfase Markdown com citação dentro, ASCII puro e
+# caminho default, e o `(?<![@\w])` original a perdia porque `_` é word char.
+# `[^\W_]` é exatamente "word char menos `_`": liberar `_` sem liberar letra
+# acentuada. Uma versão ASCII-only (`(?<![@0-9A-Za-z])`) reabria o furo de
+# e-mail com local-part não-ASCII — `josé@usp.br` virava o citekey fantasma
+# `usp.br` enquanto `joao@usp.br` não virava nada.
+CITEKEY_RE = re.compile(r"(?<!@)(?<![^\W_])@(" + CITEKEY_BODY + r")")
 
 # Um span entre colchetes sem colchetes internos. Cobre ``[@key]``,
 # ``[@a; @b, p. 3]`` e também o miolo de ``[[@key]]`` (o span interno).
