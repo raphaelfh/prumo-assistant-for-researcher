@@ -9,6 +9,38 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Corrigido
 
+- **`prumo paper sync-annotations`/`sync-notes` voltam a funcionar** — o caminho
+  que lê o Zotero ao vivo estava morto por três defeitos empilhados, cada um
+  mascarando o seguinte, todos invisíveis à suíte porque os testes mockavam
+  exatamente os três seams que falhavam (Princípio V — dependência externa
+  mockada no seam só protege quando o fixture tem o shape real):
+  - `check_zotero_running()` sondava a raiz `127.0.0.1:23119`, que responde
+    **404** com o Zotero aberto; como `HTTPError` é subclasse de `URLError`, o
+    resultado era `False` e os dois comandos recusavam com "Zotero não está
+    rodando". A sonda passa a ser `/connector/ping` (200 + `X-Zotero-Version`),
+    agora num seam único `core/deps.zotero_local_api_up()` reusado pelos dois
+    lados — `prumo doctor` e `prumo paper` deixam de discordar sobre o mesmo fato.
+  - `resolve_citekey()` estourava `AttributeError` contra o Better BibTeX real:
+    `item.search` devolve `library` como **string** e não expõe `itemKey`. A
+    identidade passa a vir da `custom.uri` de `item.pandoc_filter`
+    (`http://zotero.org/users/<id>/items/<key>`), única fonte que carrega o
+    caminho de biblioteca **e** o itemKey. O retorno vira o value object
+    `ZoteroRef(library_path, item_key)`, e erro JSON-RPC no corpo com HTTP 200
+    (`library.get ... not found`) deixa de passar batido.
+  - `fetch_children()` montava `/api/users/<libraryID do BBT>/...` — o
+    `libraryID` do BBT **não** é o id da API (`users/1` → HTTP 400; biblioteca de
+    grupo exige `groups/<groupID>`), e o erro HTTP virava lista vazia, tornando
+    "falhou" indistinguível de "sem anotações".
+- **Annotations do Zotero passam a ser encontradas.** `/children` nunca devolve
+  `itemType: annotation` — annotations são **netas** do item (top-level →
+  attachment → annotation) e o filtro `?parentItem=` é ignorado pela API local.
+  Novo `fetch_annotations_index()` varre `/items?itemType=annotation` **uma vez
+  por biblioteca** e indexa por `parentItem`; `annotations_for_item()` casa o
+  índice com os attachments do item. Child notes seguem vindo de `/children`.
+- **HTTP 403 da API local vira erro acionável** (`ZoteroApiError`, sob
+  `PaperError`) com o passo exato de correção — Zotero → Settings → Advanced →
+  "Allow other applications on this computer to communicate with Zotero" — em vez
+  de "0 anotações" silencioso.
 - **O parser de `.bib` passa a falar os dois dialetos do Better BibTeX.** O
   `prumo paper connect` pina o translator **Better BibLaTeX**
   ([ADR-0020](docs/adr/adr-0020-connect-autoexport-bbt.md)), que usa um vocabulário

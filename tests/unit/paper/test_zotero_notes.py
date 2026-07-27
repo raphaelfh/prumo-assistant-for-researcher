@@ -10,6 +10,7 @@ import yaml
 
 from prumo_assist.core.note_paths import child_note_path, meta_path
 from prumo_assist.domains.paper.zotero import (
+    ZoteroRef,
     _replace_note_block,
     compose_child_note_file,
     note_title_from_html,
@@ -113,7 +114,10 @@ def test_sync_notes_writes_one_file_per_child_note(tmp_path: Path) -> None:
     children = [_sample_note()]
     with (
         patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
-        patch("prumo_assist.domains.paper.zotero.resolve_citekey", return_value=(1, "PARENT01")),
+        patch(
+            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            return_value=ZoteroRef("users/13049353", "PARENT01"),
+        ),
         patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=children),
     ):
         report = sync_notes(pj)
@@ -128,7 +132,10 @@ def test_sync_notes_idempotent_second_run(tmp_path: Path) -> None:
     children = [_sample_note()]
     with (
         patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
-        patch("prumo_assist.domains.paper.zotero.resolve_citekey", return_value=(1, "PARENT01")),
+        patch(
+            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            return_value=ZoteroRef("users/13049353", "PARENT01"),
+        ),
         patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=children),
     ):
         sync_notes(pj)
@@ -142,7 +149,10 @@ def test_sync_notes_preserves_human_text_outside_block(tmp_path: Path) -> None:
     children = [_sample_note()]
     with (
         patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
-        patch("prumo_assist.domains.paper.zotero.resolve_citekey", return_value=(1, "PARENT01")),
+        patch(
+            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            return_value=ZoteroRef("users/13049353", "PARENT01"),
+        ),
         patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=children),
     ):
         sync_notes(pj)
