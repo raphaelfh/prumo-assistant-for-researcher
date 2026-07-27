@@ -2,9 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fazer todo ponto do código que reconhece, protege, conta ou valida citação tratar as duas gramáticas (Pandoc `[@key]`/`@key` e legado `[[@key]]`), fechando as 8 divergências verificadas na spec `docs/superpowers/specs/2026-07-26-citacao-pandoc-cidada-primeira-classe-design.md`.
+> **Escopo revisto em 2026-07-26** (decisão do dono — ver a seção "REVISÃO DE
+> ESCOPO" ao fim deste arquivo). **Goal, Architecture e Global Constraints
+> abaixo já refletem a revisão.** O que dizia "tratar as duas gramáticas",
+> "nunca substituir `_PROPOSAL_CITATION_SPAN_RE`" e "as 231 ocorrências
+> continuam válidas" foi REVOGADO: não há compatibilidade legada.
 
-**Architecture:** O reconhecedor canônico é `core/citations.py` (Princípio I7). Cada correção substitui um literal/regex legado local por consumo da gramática única — sempre por **união** com o que já existe, nunca por substituição, porque `iter_marked_citation_spans` casa o miolo de `[[@key]]` (1 caractere adentro) e trocar moveria fronteiras de span. Duas restrições atravessam o plano: `CITEKEY_RE` mantém **exatamente 1 grupo de captura** (`review.py` alimenta `Counter` via `findall`), e nenhuma mudança reescreve conteúdo legado existente.
+**Goal:** Fazer da citação Pandoc (`[@key]` bracketed e `@key` narrativa) a ÚNICA gramática do repo — todo ponto do código que reconhece, protege, conta ou valida citação passa a consumir `core/citations.py`, e o reconhecimento do legado `[[@key]]` é REMOVIDO (Task 9). Fecha as 8 divergências verificadas na spec `docs/superpowers/specs/2026-07-26-citacao-pandoc-cidada-primeira-classe-design.md`.
+
+**Architecture:** O reconhecedor canônico é `core/citations.py` (Princípio I7). Cada correção **substitui** o literal/regex legado local por consumo da gramática única — o reconhecedor legado sai, não convive. Uma restrição atravessa o plano: `CITEKEY_RE` mantém **exatamente 1 grupo de captura** (`review.py` alimenta `Counter` via `findall`).
 
 **Tech Stack:** Python 3.13, `uv`, pytest, mypy --strict, ruff, Typer, Pydantic v1 schemas versionados.
 
@@ -13,11 +19,11 @@
 - **Baseline verde antes de começar:** 782 testes, `mypy --strict` limpo em 161 arquivos, `ruff check` + `ruff format --check` limpos.
 - **Bateria completa antes de CADA commit:** `uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run mypy`. Nas tasks que tocam `skills/` ou `docs/`, também `uv run python .github/scripts/gen_indexes.py --check`.
 - **`CITEKEY_RE.groups == 1` é inegociável.** `review.py` usa `CITEKEY_RE.findall(...)` para alimentar `Counter`; com 2+ grupos, `findall` devolve tuplas e o multiconjunto compara lixo **silenciosamente**. Alargar só com grupos não-capturantes `(?:...)`.
-- **Nunca substituir `_PROPOSAL_CITATION_SPAN_RE` por `iter_marked_citation_spans`** — só unir. A primeira dá o span EXTERNO do legado; a segunda casa o miolo.
-- **Não mexer no span-map** (`core.obsidian.normalize_markdown_with_map`): fazer emitir `kind="citation"` para Pandoc fatiaria toda prosa hoje contida num único fragment `identity`.
+- **`_PROPOSAL_CITATION_SPAN_RE` é REMOVIDO** (Task 9), não unido a `iter_marked_citation_spans`. Ele só existia para dar o span EXTERNO do legado; sem legado, `_citation_atom_spans` (marcada ∪ narrativa) é a fonte única de átomo de citação.
+- **Não mexer no span-map** (`core.obsidian.normalize_markdown_with_map`): fazer emitir `kind="citation"` para Pandoc fatiaria toda prosa hoje contida num único fragment `identity`. O fragment `kind="citation"` do legado sai junto com ele (Task 9) — não é consumido por nenhuma lógica de produção.
 - **Não alargar `scan_marked_citekeys`** em `core/citations.py` para resolver o `verify-refs`: o contrato conservador é consumido por 2 domínios e `domains/wiki/lint.py:86` depende dele. Corrigir no call site.
 - **Layering:** `core/` NUNCA importa de `domains/`. Docstrings e mensagens de usuário em pt-BR com comando de correção embutido; identificadores em inglês.
-- **Nenhuma migração de conteúdo legado.** As 231 ocorrências de `[[@` no repo continuam válidas como fixture e leitura (decisão 5 do spec 2026-07-22).
+- **Fixtures de teste legadas migram (Task 9, Step 1).** A decisão 5 do spec 2026-07-22 ("as ocorrências de `[[@` continuam válidas como fixture e leitura") foi REVOGADA pela revisão de escopo: medido nos 4 `pj_*` reais, das 172 ocorrências só 4 são citação real — não há corpus legado a preservar. Nenhum conteúdo de projeto do USUÁRIO é reescrito por este plano; a migração é das fixtures do repo.
 - **`from __future__ import annotations`** em todo módulo novo/tocado.
 
 ## File Structure
