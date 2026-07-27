@@ -50,7 +50,11 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from prumo_assist.core import criticmarkup
-from prumo_assist.core.citations import CITEKEY_RE, iter_marked_citation_spans
+from prumo_assist.core.citations import (
+    CITEKEY_RE,
+    iter_marked_citation_spans,
+    iter_narrative_citation_spans,
+)
 from prumo_assist.core.obsidian import (
     SpanFragment,
     normalize_markdown,
@@ -3200,9 +3204,9 @@ def _reject_citation_payload_in_proposal(a: str, b: str) -> None:
 
 
 def _citation_atom_spans(body: str) -> Iterator[tuple[int, int]]:
-    """Spans de citação protegidos pela Guarda I1, nas DUAS gramáticas.
+    """Spans de citação protegidos pela Guarda I1. União de TRÊS fontes.
 
-    União de duas fontes, porque nenhuma sozinha basta:
+    União de três fontes, porque nenhuma sozinha basta:
 
     - ``_PROPOSAL_CITATION_SPAN_RE`` — legado ``[[@key]]``, span EXTERNO
       (inclui os colchetes de fora).
@@ -3212,6 +3216,10 @@ def _citation_atom_spans(body: str) -> Iterator[tuple[int, int]]:
       1 caractere adentro — por isso NÃO substitui a primeira: sozinha,
       moveria a fronteira e a tangência exata no colchete externo deixaria
       de recusar.
+    - ``iter_narrative_citation_spans`` — cobre ``@key`` narrativa, forma
+      legítima da gramática Pandoc que nenhuma das duas primeiras enxerga
+      (o legado não tem forma narrativa). Sem ela, a MESMA edição é recusada
+      em ``[@k]`` e aplicada em ``@k`` — e nesse caminho chega à página.
 
     Sobreposição entre as fontes é inofensiva: a guarda recusa no primeiro
     span que encostar.
@@ -3219,6 +3227,7 @@ def _citation_atom_spans(body: str) -> Iterator[tuple[int, int]]:
     for match in _PROPOSAL_CITATION_SPAN_RE.finditer(body):
         yield match.start(), match.end()
     yield from iter_marked_citation_spans(body)
+    yield from iter_narrative_citation_spans(body)
 
 
 def _reject_anchor_tangent_to_citation(body: str, start: int, end: int) -> None:

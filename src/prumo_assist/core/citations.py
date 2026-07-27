@@ -81,6 +81,27 @@ def iter_marked_citation_spans(text: str) -> Iterator[tuple[int, int]]:
             yield match.span()
 
 
+def iter_narrative_citation_spans(text: str) -> Iterator[tuple[int, int]]:
+    """Spans ``(start, end)`` das citações NARRATIVAS (``@key`` solta) de ``text``.
+
+    Complementa :func:`iter_marked_citation_spans`: devolve só os matches que
+    NÃO estão dentro de um grupo marcado. O span começa no ``@`` (span do
+    match inteiro, nunca ``span(1)``) — quem protege citação como átomo
+    precisa do sigilo dentro do intervalo.
+
+    Captura AMPLA por construção (``CITEKEY_RE``): ``@fulano`` em prosa entra.
+    Consumidor que não tolere falso positivo deve filtrar (ver docstring do
+    módulo); num guard de hard-fail o custo do falso positivo é trabalho
+    manual, o do falso negativo é edição silenciosa de citação.
+    """
+    marked = list(iter_marked_citation_spans(text))
+    for match in CITEKEY_RE.finditer(text):
+        start, end = match.span()
+        if any(ms <= start and end <= me for ms, me in marked):
+            continue
+        yield start, end
+
+
 def scan_marked_citekeys(markdown_text: str) -> list[str]:
     """Citekeys em formas MARCADAS, ordenadas: ``[[@key]]`` legado ou
     dentro de colchetes ``[@key]``/``[@a; @b, p. 3]``.

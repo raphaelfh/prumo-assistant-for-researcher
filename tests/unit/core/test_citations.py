@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from prumo_assist.core.citations import iter_citekeys, scan_citekeys, scan_marked_citekeys
+from prumo_assist.core.citations import (
+    iter_citekeys,
+    iter_narrative_citation_spans,
+    scan_citekeys,
+    scan_marked_citekeys,
+)
 
 
 def test_scan_catches_all_pandoc_autocomplete_forms() -> None:
@@ -46,3 +51,18 @@ def test_marked_accepts_bracketed_and_wikilink_only() -> None:
 def test_marked_skips_code_blocks() -> None:
     text = "```\n[@fake]\n```\n[@real]"
     assert scan_marked_citekeys(text) == ["real"]
+
+
+def test_iter_narrative_citation_spans_cobre_narrativa_e_pula_marcada() -> None:
+    text = "Como @smith2024 mostrou, ver tambem [@jones2020]."
+    spans = list(iter_narrative_citation_spans(text))
+    assert [text[s:e] for s, e in spans] == ["@smith2024"]
+
+
+def test_iter_narrative_citation_spans_inclui_o_arroba() -> None:
+    """O span começa no `@` — usar `match.span(1)` deixaria o `@` desprotegido
+    e uma âncora poderia encostar nele."""
+    text = "Ver @key2020 aqui."
+    ((start, end),) = iter_narrative_citation_spans(text)
+    assert text[start] == "@"
+    assert text[start:end] == "@key2020"

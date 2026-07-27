@@ -27,6 +27,7 @@ from prumo_assist.domains.write.review import (
     CitationConservationError,
     MarkLostError,
     ProposalResult,
+    _reject_citation_divergence,
     apply_review,
     propose_prose_edit,
 )
@@ -818,12 +819,16 @@ def test_propose_prose_edit_rejects_composition_that_fabricates_citation(
 ) -> None:
     """`b="[["` sozinho não bate em NENHUMA guarda de entrada: não tem `@`,
     não tem `[@`/`[[@`, e o corpo original (`"Prefixo @fake2020]] sufixo"`)
-    não tem `[[@...]]` nenhum (falta o `[[` de abertura) — `CITEKEY_RE` já
-    casa `@fake2020` como citekey NARRATIVO ali, mas a Guarda I1 só olha
-    spans JÁ marcados. Ao aceitar a proposta (`criticmarkup.accept`), o
-    `"[["` fica adjacente ao `"@fake2020]]"` pré-existente e COMPLETA uma
-    citação `[[@fake2020]]` nunca cunhada por humano. O round-trip guard
-    simula o aceite antes de escrever e recusa a composição."""
+    não tem `[[@...]]` nenhum (falta o `[[` de abertura). Ao aceitar a
+    proposta (`criticmarkup.accept`), o `"[["` ficaria adjacente ao
+    `"@fake2020]]"` pré-existente e COMPLETARIA uma citação `[[@fake2020]]`
+    nunca cunhada por humano — mas desde que a narrativa `@key` virou átomo
+    protegido (D2), a Guarda I1 já recusa a âncora `position="before"`
+    colada em `@fake2020` ANTES disso: ela roda mais cedo que o round-trip
+    guard (`_reject_citation_divergence`/`_reject_composed_result`), que
+    fica como defesa em profundidade atrás dela para qualquer composição
+    que I1 não alcance (ver Teste 27, que exercita essa defesa
+    diretamente)."""
     page_body = "Prefixo @fake2020]] sufixo"
     project_root, page = init_project(body=page_body)
     review_dir = write_review_artifacts(project_root, page, review_md=page_body)
@@ -838,7 +843,7 @@ def test_propose_prose_edit_rejects_composition_that_fabricates_citation(
             project_root=project_root,
         )
 
-    assert "I1/I3b" in str(exc.value)
+    assert "I1" in str(exc.value)
     assert (review_dir / "review.md").read_text() == page_body
 
 
@@ -986,3 +991,55 @@ def test_propose_prose_edit_allows_bracket_far_from_citation(
         b=" [sic]",
         project_root=project_root,
     )
+
+
+# --- 26. Guarda I1 protege narrativa igual a bracketed (D2) ----------------
+
+
+def test_propose_prose_edit_rejects_anchor_tangent_to_narrative_citation(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """Par narrativa-vs-bracketed no MESMO documento: a MESMA edição colada
+    no fim de cada átomo tem de ter o MESMO veredito. Antes deste fix, a
+    narrativa era aceita e chegava à página."""
+    page_body = "Como @smith2024 mostrou, ver tambem [@jones2020]."
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Como @smith2024",
+            position="after",
+            kind="ins",
+            b=" [sic]",
+            project_root=project_root,
+        )
+
+    assert "I1" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 27. terceira checagem de conservação, isolada da ordem das guardas ----
+
+
+def test_reject_citation_divergence_pega_grupo_composto() -> None:
+    """A terceira sub-checagem (Task 1) é defesa em profundidade atrás da
+    I1: desde que a narrativa virou átomo protegido, a I1 recusa antes em
+    todo cenário de composição alcançável por `propose_prose_edit`. Este
+    teste a exercita DIRETAMENTE, para que a guarda não fique sem cobertura
+    caso a ordem upstream mude de novo."""
+    antes = "Como discute @silva2020, o desfecho melhora."
+    depois = "Como discute [@silva2020], o desfecho melhora."
+
+    with pytest.raises(ValueError) as exc:
+        _reject_citation_divergence(antes, depois)
+
+    assert "GRUPOS de citação" in str(exc.value)
+
+
+def test_reject_citation_divergence_permite_prosa_sem_mexer_em_citacao() -> None:
+    antes = "Frase [@k2020] aqui. Outra frase."
+    depois = "Frase [@k2020] aqui. Outra frase [sic]."
+
+    _reject_citation_divergence(antes, depois)  # não levanta
