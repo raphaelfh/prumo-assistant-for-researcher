@@ -19,7 +19,7 @@ from pathlib import Path
 
 import yaml
 
-from prumo_assist.core.bib import extract_field, parse_bib
+from prumo_assist.core.bib import extract_field, extract_year, parse_bib
 from prumo_assist.core.citations import scan_citekeys
 from prumo_assist.core.note_paths import extract_path
 from prumo_assist.core.paths import find_resource
@@ -88,8 +88,8 @@ def _read_papers(pj_path: Path) -> dict[str, PaperSummary]:
     out: dict[str, PaperSummary] = {}
     for entry in parse_bib(bib.read_text(encoding="utf-8")):
         title = (extract_field(entry.body, "title") or "").strip()
-        year_raw = (extract_field(entry.body, "year") or "").strip()
-        year = int(year_raw) if year_raw.isdigit() else None
+        year_raw = extract_year(entry.body)
+        year = int(year_raw) if year_raw else None
         authors = (extract_field(entry.body, "author") or "").strip()
         extract_content = _read_text(extract_path(pj_path, entry.citekey))
         out[entry.citekey] = PaperSummary(

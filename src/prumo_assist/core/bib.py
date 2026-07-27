@@ -111,3 +111,37 @@ def extract_field(body: str, field: str) -> str | None:
     while i < len(body) and body[i] not in ",}\n":
         i += 1
     return body[start:i].strip()
+
+
+_LEADING_YEAR_RE = re.compile(r"^\d{4}(?!\d)")
+
+
+def extract_year(body: str) -> str:
+    """Retorna o ano numérico da entrada, ou ``""`` se não for determinável.
+
+    Cobre os dois dialetos que o Better BibTeX exporta:
+
+    - Better BibTeX (legado): ``year = 2025`` — vence sempre que for puramente
+      numérico. A checagem é ``str.isdigit()``, e NÃO "exatamente 4 dígitos", para
+      não estreitar o comportamento anterior a este helper: ``year = {999}`` (ano
+      999) continua valendo, como valia antes.
+    - Better BibLaTeX: nunca emite ``year``, só ``date = {2025-09-01}`` — o ano
+      vem do prefixo de 4 dígitos do ``date``.
+
+    O ``date`` do BibLaTeX é EDTF, não ISO: tolera ``1999-uu``, ``1897/1913``,
+    ``2016-07-18T20:26:06``, ``2020-21`` e o ``~`` de aproximação (que o BBT
+    reescreve como NBSP). Quando não há ano determinável (``19uu``, ``y-51234``,
+    ``year = {n.d.}``) devolve ``""`` — nunca inventa. O ``\\b`` do
+    ``extract_field`` impede que ``urldate``/``origdate`` sejam confundidos com
+    ``date``.
+
+    Ano NÃO-numérico (``n.d.``, ``2024a``, ``in press``) não é representável aqui e
+    sai como ``""``. Quem indexa texto — e não precisa de um inteiro — deve
+    preservar o valor cru; ver ``domains/paper/find.py``.
+    """
+    year = (extract_field(body, "year") or "").strip()
+    if year.isdigit():
+        return year
+    date = (extract_field(body, "date") or "").strip()
+    m = _LEADING_YEAR_RE.match(date)
+    return m.group(0) if m else ""

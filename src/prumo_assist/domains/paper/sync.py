@@ -18,7 +18,7 @@ from typing import Any
 
 import yaml
 
-from prumo_assist.core.bib import BibEntry, extract_field, parse_bib
+from prumo_assist.core.bib import BibEntry, extract_field, extract_year, parse_bib
 
 METADATA_FIELDS = {
     "id",
@@ -51,12 +51,16 @@ def bib_entry_to_metadata(entry: BibEntry) -> dict[str, Any]:
     """Converte ``BibEntry`` → dict com campos metadata-only para YAML da nota."""
     body = entry.body
     title = (extract_field(body, "title") or "").strip()
-    year_raw = (extract_field(body, "year") or "").strip()
-    year: int | None = int(year_raw) if year_raw.isdigit() else None
+    year_raw = extract_year(body)
+    year: int | None = int(year_raw) if year_raw else None
     doi = (extract_field(body, "doi") or "").strip()
     url = (extract_field(body, "url") or "").strip()
+    # `journal` é o dialeto Better BibTeX; `journaltitle`, o Better BibLaTeX (que
+    # nunca emite `journal`). Nunca coexistem. `shortjournal` fica de fora de
+    # propósito: é abreviação ("JAMA Oncol."), não o título do container.
     container = (
         extract_field(body, "journal")
+        or extract_field(body, "journaltitle")
         or extract_field(body, "booktitle")
         or extract_field(body, "publisher")
         or ""

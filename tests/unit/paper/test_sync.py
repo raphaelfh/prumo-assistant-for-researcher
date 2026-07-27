@@ -53,11 +53,99 @@ def test_bib_entry_to_metadata_minimal() -> None:
     assert meta["pdf"] == "../../pdfs/smith2024combinado.pdf"
 
 
-def test_bib_entry_to_metadata_no_year() -> None:
+def test_bib_entry_to_metadata_biblatex_date_yields_year() -> None:
+    """Better BibLaTeX não emite ``year``; o ano tem de vir do ``date`` (EDTF)."""
+    entry = BibEntry(
+        entry_type="article",
+        citekey="audisio2025total",
+        body=(
+            "\n  title = {Total {{Neoadjuvant Therapy}}},\n"
+            "  author = {Audisio, Alessandro},\n"
+            "  date = {2025-09-01},\n"
+            "  journaltitle = {JAMA Oncology},\n"
+            "  urldate = {2026-07-23}\n"
+        ),
+    )
+    meta = bib_entry_to_metadata(entry)
+    assert meta["issued"] == {"date-parts": [[2025]]}
+
+
+def test_bib_entry_to_metadata_without_year_nor_date() -> None:
+    """Sem ``year`` (BibTeX) E sem ``date`` (BibLaTeX): ``issued`` fica nulo."""
     entry = BibEntry(entry_type="misc", citekey="x", body='title = "Untitled"')
     meta = bib_entry_to_metadata(entry)
     assert meta["issued"] == {"date-parts": [[None]]}
     assert meta["type"] == "manuscript"
+
+
+# --- container-title: dialetos Better BibTeX (journal) e Better BibLaTeX (journaltitle) ---
+
+# Bodies mínimos derivados das fixtures reais (audisio2025total nos dois dialetos).
+# O BibLaTeX traz `shortjournal` (20/23) junto do `journaltitle` (23/23).
+BIBLATEX_ARTICLE_BODY = (
+    "\n  title = {Total {{Neoadjuvant Therapy}}},\n"
+    "  author = {Audisio, Alessandro},\n"
+    "  date = {2025-09-01},\n"
+    "  journaltitle = {JAMA Oncology},\n"
+    "  shortjournal = {JAMA Oncol.},\n"
+    "  doi = {10.1001/jamaoncol.2025.2026}\n"
+)
+BIBTEX_ARTICLE_BODY = (
+    "\n  title = {Total {{Neoadjuvant Therapy}}},\n"
+    "  author = {Audisio, Alessandro},\n"
+    "  year = 2025,\n  month = sep,\n"
+    "  journal = {JAMA Oncology},\n"
+    "  doi = {10.1001/jamaoncol.2025.2026}\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        pytest.param(BIBLATEX_ARTICLE_BODY, "JAMA Oncology", id="biblatex-journaltitle"),
+        pytest.param(BIBTEX_ARTICLE_BODY, "JAMA Oncology", id="bibtex-journal"),
+    ],
+)
+def test_bib_entry_to_metadata_container_title_both_dialects(body: str, expected: str) -> None:
+    """Better BibLaTeX escreve ``journaltitle`` e nunca ``journal``: os dois têm de valer."""
+    entry = BibEntry(entry_type="article", citekey="audisio2025total", body=body)
+    assert bib_entry_to_metadata(entry)["container-title"] == expected
+
+
+def test_bib_entry_to_metadata_container_title_falls_back_to_booktitle() -> None:
+    """Capítulo de livro: a cascata pré-existente ``booktitle`` não pode regredir."""
+    entry = BibEntry(
+        entry_type="inbook",
+        citekey="silva2020capitulo",
+        body=(
+            "\n  title = {Um Capítulo},\n"
+            "  author = {Silva, Ana},\n"
+            "  booktitle = {Manual de Oncologia},\n"
+            "  publisher = {Editora X},\n"
+            "  date = {2020}\n"
+        ),
+    )
+    assert bib_entry_to_metadata(entry)["container-title"] == "Manual de Oncologia"
+
+
+def test_bib_entry_to_metadata_container_title_falls_back_to_publisher() -> None:
+    """Livro sem periódico nem ``booktitle``: último degrau da cascata segue valendo."""
+    entry = BibEntry(
+        entry_type="book",
+        citekey="silva2020livro",
+        body="\n  title = {Um Livro},\n  publisher = {Editora X},\n  date = {2020}\n",
+    )
+    assert bib_entry_to_metadata(entry)["container-title"] == "Editora X"
+
+
+def test_bib_entry_to_metadata_ignores_shortjournal_abbreviation() -> None:
+    """``shortjournal`` é abreviação (``JAMA Oncol.``), não ``container-title``."""
+    entry = BibEntry(
+        entry_type="article",
+        citekey="x2025y",
+        body="\n  title = {T},\n  shortjournal = {JAMA Oncol.},\n  date = {2025}\n",
+    )
+    assert bib_entry_to_metadata(entry)["container-title"] == ""
 
 
 def test_merge_yaml_overrides_metadata_only() -> None:

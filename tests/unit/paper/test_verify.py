@@ -58,9 +58,43 @@ class TestIdentifiers:
         ids = verify._identifiers_for(_entry("doi = {10.1056/\n    NEJMoa2002032},"))
         assert ids.doi == "10.1056/NEJMoa2002032"
 
+    def test_pmid_por_eprinttype_pubmed_biblatex(self) -> None:
+        # Better BibLaTeX escreve o PMID como eprint + eprinttype = {pubmed}
+        # (medido no acervo real: benhima2026mismatch, PMID 42407299).
+        ids = verify._identifiers_for(
+            _entry(
+                "  volume = {245},\n  eprint = {42407299},\n"
+                "  eprinttype = {pubmed},\n  pages = {116911},\n",
+                citekey="benhima2026mismatch",
+            )
+        )
+        assert ids.pmid == "42407299"
+        assert ids.arxiv_id is None
+
+    def test_pmid_por_eprinttype_pubmed_sem_doi_nao_vira_no_identifier(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # consequência do defeito: entrada BibLaTeX sem DOI perdia a checagem
+        # de retração via PubMed silenciosamente.
+        entry = _entry("title = {X},\n  eprint = {40107952},\n  eprinttype = {pubmed},")
+        monkeypatch.setattr(
+            verify,
+            "_http_get_json",
+            lambda url, timeout=10.0: {
+                "result": {"40107952": {"pubtype": ["Retracted Publication"]}}
+            },
+        )
+        findings = verify.check_entry(entry, cache=verify.RefCache(path=tmp_path / "c.json"))
+        assert [(f.kind, f.level, f.source) for f in findings] == [("retracted", "error", "pubmed")]
+
+    def test_eprinttype_desconhecido_nao_vira_pmid(self) -> None:
+        ids = verify._identifiers_for(_entry("eprint = {abc123},\n  eprinttype = {jstor},"))
+        assert ids.pmid is None and ids.arxiv_id is None
+
     def test_arxiv_por_eprinttype(self) -> None:
         ids = verify._identifiers_for(_entry("eprint = {2301.00001},\n  eprinttype = {arXiv},"))
         assert ids.arxiv_id == "2301.00001"
+        assert ids.pmid is None
 
     def test_arxiv_por_archiveprefix(self) -> None:
         ids = verify._identifiers_for(_entry("eprint = {2301.00002},\n  archiveprefix = {arxiv},"))

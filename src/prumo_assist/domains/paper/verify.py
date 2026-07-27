@@ -71,7 +71,9 @@ def _normalize_doi(raw: str) -> str | None:
 def _identifiers_for(entry: BibEntry) -> RefIdentifiers:
     """Extrai DOI/PMID/arXiv tolerando as convenções do BBT.
 
-    PMID: campo dedicado ``pmid`` OU padrão ``PMID: NNNN`` em ``note``/``extra``/
+    PMID: campo dedicado ``pmid`` (dialeto Better BibTeX) OU ``eprint`` com
+    ``eprinttype``/``archiveprefix`` ``pubmed`` (dialeto Better BibLaTeX, que
+    não emite ``pmid``) OU padrão ``PMID: NNNN`` em ``note``/``extra``/
     ``annotation`` (nessa ordem de prioridade — BBT costuma despejar no
     ``note``), nunca varrendo o body inteiro. arXiv: ``eprint`` quando
     ``eprinttype``/``archiveprefix`` é ``arxiv`` (case-insensitive).
@@ -79,10 +81,21 @@ def _identifiers_for(entry: BibEntry) -> RefIdentifiers:
     raw_doi = extract_field(entry.body, "doi")
     doi = _normalize_doi(raw_doi) if raw_doi else None
 
+    # `eprint` é um campo POLIVALENTE: quem diz o que ele significa é o
+    # `eprinttype` (BibLaTeX) / `archiveprefix` (BibTeX legado).
+    raw_eprint_type = extract_field(entry.body, "eprinttype") or extract_field(
+        entry.body, "archiveprefix"
+    )
+    eprint_type = raw_eprint_type.strip().lower() if raw_eprint_type else None
+    raw_eprint = extract_field(entry.body, "eprint")
+    eprint = raw_eprint.strip() if raw_eprint else None
+
     pmid: str | None = None
     raw_pmid = extract_field(entry.body, "pmid")
     if raw_pmid and raw_pmid.strip().isdigit():
         pmid = raw_pmid.strip()
+    elif eprint_type == "pubmed" and eprint and eprint.isdigit():
+        pmid = eprint
     else:
         # BBT despeja "PMID: NNNN" em note/extra/annotation — NUNCA varrer o
         # body inteiro: um abstract que menciona o PMID de OUTRO trabalho
@@ -96,13 +109,8 @@ def _identifiers_for(entry: BibEntry) -> RefIdentifiers:
                     break
 
     arxiv_id: str | None = None
-    eprint_type = extract_field(entry.body, "eprinttype") or extract_field(
-        entry.body, "archiveprefix"
-    )
-    if eprint_type and eprint_type.strip().lower() == "arxiv":
-        eprint = extract_field(entry.body, "eprint")
-        if eprint and eprint.strip():
-            arxiv_id = eprint.strip()
+    if eprint_type == "arxiv" and eprint:
+        arxiv_id = eprint
 
     return RefIdentifiers(doi=doi, pmid=pmid, arxiv_id=arxiv_id)
 
