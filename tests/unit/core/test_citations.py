@@ -70,3 +70,34 @@ def test_citekey_re_tem_exatamente_um_grupo_de_captura() -> None:
     o multiconjunto de conservação passa a comparar lixo SILENCIOSAMENTE."""
     assert CITEKEY_RE.groups == 1
     assert CITEKEY_RE.findall("Cita [@a2020] e [@b2021].") == ["a2020", "b2021"]
+
+
+def test_citekey_re_aceita_inicial_unicode() -> None:
+    """Pandoc 3.9 aceita e renderiza `@Ünal2024` (verificado contra o binário).
+    O regex exigia `[A-Za-z0-9_]` na âncora mas usava `\\w` (Unicode) no resto,
+    então `@unÜal2024` passava e `@Ünal2024` sumia — assimetria silenciosa."""
+    assert CITEKEY_RE.findall("Cita [@Ünal2024].") == ["Ünal2024"]
+    assert CITEKEY_RE.findall("Cita [@ünal2024b].") == ["ünal2024b"]
+
+
+def test_citekey_re_ve_citacao_em_enfase_underscore() -> None:
+    """`_@lima2018 mostrou_` é ASCII puro, caminho default, e o Pandoc trata
+    como citação. O lookbehind `(?<![@\\w])` a perdia porque `_` é word char."""
+    assert CITEKEY_RE.findall("_@lima2018 mostrou_ isso.") == ["lima2018"]
+
+
+def test_citekey_re_continua_ignorando_email() -> None:
+    assert CITEKEY_RE.findall("mande para foo@bar.com") == []
+
+
+def test_citekey_re_alargado_e_superset_do_anterior() -> None:
+    """Regressão: tudo que a gramática antiga casava, a nova casa igual."""
+    amostras = [
+        ("Veja [@smith2024cohort] e [@jones2023trial].", ["smith2024cohort", "jones2023trial"]),
+        ("narrativa @lee2025core e @Author2015 [p. 123]", ["lee2025core", "Author2015"]),
+        ("composta @smith2020:aha-guideline", ["smith2020:aha-guideline"]),
+        ("sufixo @key2020. Fim.", ["key2020"]),
+        ("@_priv2024 e @2024smith", ["_priv2024", "2024smith"]),
+    ]
+    for texto, esperado in amostras:
+        assert CITEKEY_RE.findall(texto) == esperado, texto

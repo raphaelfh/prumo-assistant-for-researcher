@@ -14,6 +14,11 @@ Dois níveis de captura:
 - ``scan_marked_citekeys`` — conservador: só formas marcadas (dentro de
   colchetes ``[...]``). Para lint/validação, onde um handle ``@fulano``
   em prosa não pode virar warning espúrio.
+
+Fora da cobertura (registrado, não implementado): a forma CHAVEADA
+``@{...}`` — recomendada pelo manual do Pandoc para chave com ``://`` —
+exigiria um segundo grupo de captura, e ``CITEKEY_RE.findall`` tem contrato
+de ``list[str]`` com os consumidores de ``domains/write/review.py``.
 """
 
 from __future__ import annotations
@@ -25,13 +30,20 @@ from collections.abc import Iterator
 # precisa ancorar de outro jeito (ex.: `domains/capture/route.py`, que casa
 # um token inteiro). Manter ÚNICO: um segundo reconhecedor divergente é
 # exatamente o que o Princípio I7 proíbe.
-CITEKEY_BODY = r"[A-Za-z0-9_]\w*(?:[:.#$%&+\-?<>~/]\w+)*"
+#
+# Âncora inicial `\w` (Unicode-aware, coerente com o `\w` do resto): o
+# Pandoc aceita citekey iniciada por letra não-ASCII — `@Ünal2024`,
+# `@Иванов2020` — e a versão ASCII-only criava assimetria silenciosa
+# (`@unÜal2024` passava, `@Ünal2024` sumia). Pontuação interna
+# `:.#$%&-+?<>~/` precisa ser seguida de word char, para não engolir o
+# `.` final de `[@key].`.
+CITEKEY_BODY = r"\w(?:\w|[:.#$%&+\-?<>~/]\w)*"
 
-# Pandoc citation keys: alphanumeric/underscore start, then internal
-# `:.#$%&-+?<>~/` punctuation that must be followed by more word chars
-# (so we don't grab trailing sentence punctuation like the `.` in
-# `[@key].`). Negative lookbehind on `@\w` skips emails (foo@bar).
-CITEKEY_RE = re.compile(r"(?<![@\w])@(" + CITEKEY_BODY + r")")
+# Lookbehind: barra e-mail (`foo@bar`) exigindo que o caractere anterior não
+# seja letra/dígito. `_` é PERMITIDO antes de propósito — `_@lima2018 mostrou_`
+# é ênfase Markdown com citação dentro, ASCII puro e caminho default, e o
+# `(?<![@\w])` original a perdia porque `_` é word char.
+CITEKEY_RE = re.compile(r"(?<![@0-9A-Za-z])@(" + CITEKEY_BODY + r")")
 
 # Um span entre colchetes sem colchetes internos. Cobre ``[@key]``,
 # ``[@a; @b, p. 3]`` e também o miolo de ``[[@key]]`` (o span interno).
