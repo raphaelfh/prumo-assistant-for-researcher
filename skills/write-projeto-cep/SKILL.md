@@ -95,6 +95,7 @@ Resolução CNS 466/2012 + 510/2016, LGPD). Template default co-localizado:
 Mesmo fluxo de 6 passos do `write-paper`, com `--kind projeto-cep`:
 
 1. **Carregar inputs** — `prumo write prep --kind projeto-cep --json > /tmp/compose_prep.json`.
+   O JSON traz `language` + `language_source` (idioma já resolvido; declare ao usuário).
    PicotSpec + `protocol.md` obrigatórios (aborta se faltarem).
 2. Resolver template `projeto-cep.md` (leia `template_path` do JSON).
 3. Gerar prose por section.

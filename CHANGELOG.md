@@ -25,6 +25,16 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   `locale_lock: pt-BR`: CEP/CONEP e TCLE não admitem outro idioma.
 - **Convenções C7 (padrão inglês americano) e C8 (economia lexical)** em
   `/prumo-assist:scientific-writing`, e `--lang pt-BR|en-US` nas skills de prosa.
+- **`prumo write prep --lang` + `language`/`language_source` no JSON** — a cascata
+  determinística (trava de gênero > flag > `[writing].language` > default) passou a
+  ser resolvida por `compose.resolve_language`, e não recomposta em prosa pelas
+  quatro skills `write-*`, que já dependem do CLI (Princípio II). Efeito colateral
+  que é o ponto: `[writing].language` inválido passa a falhar no caminho de
+  escrita, onde a chave importa — antes só quebrava `prumo paper` e era honrado em
+  silêncio por quem escrevia. A trava de gênero é lida do próprio
+  `skills/write-<kind>/SKILL.md`, mesma fonte do template. `scientific-writing` e
+  `peer-review` seguem resolvendo em prosa por serem julgamento puro
+  ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
 
 ### Mudado
 - **⚠ Breaking — idioma de escrita default passa a `en-US`.** As skills de prosa

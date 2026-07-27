@@ -211,18 +211,25 @@ def prep_command(
         str, typer.Option("--kind", help="paper|projeto-cep|statistics|scientific.")
     ] = "paper",
     path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    lang: Annotated[
+        str | None, typer.Option("--lang", help="pt-BR|en-US. Omitido resolve pela cascata.")
+    ] = None,
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Lê inputs do projeto + resolve o template (contexto pra escrita) num só passo."""
+    """Lê inputs do projeto + resolve template e idioma (contexto pra escrita) num só passo."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         if kind not in _WRITE_KINDS:
             raise PrumoError(f"--kind deve ser um de {list(_WRITE_KINDS)}.")
-        result = compose.prep(path.resolve(), kind=cast(WriteKind, kind))
-        console.success(f"Contexto pronto (template {result.template_path.name}).")
+        result = compose.prep(path.resolve(), kind=cast(WriteKind, kind), lang=lang)
+        console.success(
+            f"Contexto pronto (template {result.template_path.name}, idioma {result.language})."
+        )
         console.emit(
             {
                 "inputs": result.inputs.model_dump(mode="json"),
                 "template_path": str(result.template_path),
+                "language": result.language,
+                "language_source": result.language_source,
             }
         )
 

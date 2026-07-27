@@ -49,10 +49,12 @@ prumo:
 
 <!-- prumo:prose:begin -->
 > **Contrato de prosa (gerado de `.github/scripts/prose_conventions.md` — não edite este bloco).**
-> 1. **Idioma.** Resolva nesta ordem e **declare qual usou e por qual regra** antes
->    de escrever: (a) pedido explícito (`--lang pt-BR|en-US` ou em linguagem
->    natural); (b) `[writing].language` de `.claude/pj_config.toml`; (c) idioma do
->    texto alvo, quando já existe; (d) default `en-US`. **Nunca traduza** texto
+> 1. **Idioma.** Já vem resolvido: `prumo write prep --json` devolve `language` e
+>    `language_source` (`flag`, `pj_config` ou `default`). Use esse valor e
+>    **declare-o ao usuário com a origem** — não releia `pj_config.toml` nem
+>    recomponha a cascata na mão. Para escrever em outro idioma, passe
+>    `--lang pt-BR|en-US` ao `prep`. Se `language_source` for `default` e o projeto
+>    tiver prosa em outro idioma, avise antes de escrever. **Nunca traduza** texto
 >    existente: se o idioma resolvido divergir do idioma do texto, avise e escreva
 >    no idioma do texto.
 > 2. **Citação no fim do período.** Toda `[@citekey]` fica imediatamente antes do
@@ -98,6 +100,7 @@ co-localizado: [`./template.md`](template.md). Override por projeto:
 Mesmo fluxo do `write-paper`, com `--kind statistics` (template = `./template.md`):
 
 1. **Carregar inputs** — `prumo write prep --kind statistics --json > /tmp/compose_prep.json`.
+   O JSON traz `language` + `language_source` (idioma já resolvido; declare ao usuário).
    Usa `PicotSpec.outcome+metrics` e `protocol.md § Splits`.
 2-4. Resolver template → gerar prose por section → validar citação strict (idêntico aos outros write-*).
 5. **Escrever output** via `prumo write draft`:

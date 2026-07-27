@@ -103,6 +103,8 @@ Avaliada nesta ordem, e a skill **declara em voz alta** qual idioma resolveu e p
 4. **Idioma do texto alvo**, quando já existe (draft do passe editorial, `--seed`, `--into`).
 5. **Default `en-US`.**
 
+**Onde cada degrau roda.** Os degraus 1, 2, 3 e 5 são determinísticos e vivem em `compose.resolve_language`, exposto por `prumo write prep --json` como `language` + `language_source` — as quatro `write-*` (todas `requires: [cli]`) consomem o valor pronto em vez de recompor a cascata em prosa, o que de quebra fecha o buraco de `[writing].language` só ser validado no caminho de extração de paper. A trava de gênero sai do próprio `skills/write-<kind>/SKILL.md` via `parse_skill_file`, não de um mapa novo em `compose.py`. O degrau 4 fica com a skill nos dois casos: depende de ler prosa, não de consultar índice. `scientific-writing` e `peer-review` mantêm a cascata em prosa porque não têm CLI para consultar (ADR-0019), e o gerador emite variantes distintas do item de idioma conforme o manifesto (`lang-locked` > `lang-cli` > `lang-free`).
+
 **Regra de segurança transversal:** nenhuma skill de prosa traduz. Se o idioma resolvido divergir do idioma do texto existente, a skill avisa e adota o do texto. É o que impede o default novo de converter draft pt-BR em passe editorial.
 
 ### Configuração
@@ -230,7 +232,8 @@ O relatório final separa **removidos** (contagem por convenção) de **sinaliza
 | `skills/peer-review/SKILL.md` | `prose: true` (avalia contra o contrato; não reescreve) |
 | `templates/pj_base/.claude/pj_config.toml` | seção `[writing]` documentada |
 | `templates/pj_base/CLAUDE.md` | separa idioma de interação de idioma de escrita |
-| `src/prumo_assist/domains/write/cli.py` | corrige `list-templates` para a chain real (adjacente) |
+| `src/prumo_assist/domains/write/compose.py` | `resolve_language()`, `locale_lock()`, `WritePrep.language`/`language_source` |
+| `src/prumo_assist/domains/write/cli.py` | `prep --lang` + `language`/`language_source` no JSON; corrige `list-templates` para a chain real (adjacente) |
 | `docs/adr/adr-0021-idioma-de-escrita-cascata-e-default.md` | registra a decisão de idioma |
 | `README.md`, `skills/start/SKILL.md`, `docs/adr/_index.md` | regenerados |
 

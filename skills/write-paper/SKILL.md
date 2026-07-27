@@ -49,10 +49,12 @@ prumo:
 
 <!-- prumo:prose:begin -->
 > **Contrato de prosa (gerado de `.github/scripts/prose_conventions.md` — não edite este bloco).**
-> 1. **Idioma.** Resolva nesta ordem e **declare qual usou e por qual regra** antes
->    de escrever: (a) pedido explícito (`--lang pt-BR|en-US` ou em linguagem
->    natural); (b) `[writing].language` de `.claude/pj_config.toml`; (c) idioma do
->    texto alvo, quando já existe; (d) default `en-US`. **Nunca traduza** texto
+> 1. **Idioma.** Já vem resolvido: `prumo write prep --json` devolve `language` e
+>    `language_source` (`flag`, `pj_config` ou `default`). Use esse valor e
+>    **declare-o ao usuário com a origem** — não releia `pj_config.toml` nem
+>    recomponha a cascata na mão. Para escrever em outro idioma, passe
+>    `--lang pt-BR|en-US` ao `prep`. Se `language_source` for `default` e o projeto
+>    tiver prosa em outro idioma, avise antes de escrever. **Nunca traduza** texto
 >    existente: se o idioma resolvido divergir do idioma do texto, avise e escreva
 >    no idioma do texto.
 > 2. **Citação no fim do período.** Toda `[@citekey]` fica imediatamente antes do
@@ -103,6 +105,7 @@ prumo write prep --kind paper --json > /tmp/compose_prep.json
 ```
 
 Ler o JSON; os inputs estruturados estão sob a chave `inputs`. Identificar:
+- `language` + `language_source` (idioma já resolvido pela cascata — declare ao usuário)
 - `inputs.picot` (se None, abortar com mensagem "rode `/prumo-assist:formulate-picot` primeiro")
 - `inputs.citekeys` (lista pra validação de citação)
 - `inputs.papers` (citekey → metadata + extract_content)
@@ -124,8 +127,9 @@ Tom de cada section:
 - **Title**: declarativo, ≤180 chars
 - **Abstract**: IMRaD 250-300 palavras, sem citações
 - **Introduction**: presente pra SOTA, futuro pra "this study will"
-- **Methods**: presente impessoal ("é avaliado") ou passivo ("foi avaliado")
-- **Results**: pretérito; placeholders `[RESULTADO N=...]` quando ainda não temos dado
+- **Methods** e **Results**: voz e tempo conforme o item 6 do contrato de prosa, que
+  varia por idioma (en-US aceita `we` ativo; pt-BR mantém impessoal). Em Results,
+  placeholders `[RESULTADO N=...]` quando ainda não temos dado
 - **Discussion**: presente pra interpretação, comparação com literatura
 - **Limitations**: lista numerada, derivada de `protocol.md § Limitações` ou ADRs
 

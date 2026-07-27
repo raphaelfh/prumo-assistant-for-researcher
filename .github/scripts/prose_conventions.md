@@ -6,9 +6,11 @@ Este arquivo é a **fonte canônica** do bloco machine-owned estampado em cada
 uma skill à mão — o `--check` do CI reverte (ADR-0009, ADR-0021).
 
 O gerador antepõe seu próprio cabeçalho (`_PROSE_HEADER` em `gen_indexes.py`) e
-compõe o corpo com (`lang-free` **ou** `lang-locked`, conforme
-`prumo.locale_lock`) + `core`. Em `lang-locked`, `{locale}` é substituído pelo
-idioma travado da skill.
+compõe o corpo com um item de idioma + `core`. O item sai de `lang-locked`
+quando a skill declara `prumo.locale_lock` (com `{locale}` interpolado), de
+`lang-cli` quando ela declara `requires: [cli]` — aí o idioma vem resolvido pelo
+`prumo write prep`, não recomposto em prosa (Princípio II) — e de `lang-free`
+nas skills de julgamento puro, que não têm CLI para consultar (ADR-0019).
 
 O detalhamento completo das convenções (C1–C8, tabelas por idioma, greps de
 audit, fluxo de aplicação) vive em `skills/scientific-writing/SKILL.md`, que é a
@@ -22,6 +24,17 @@ skill que fiscaliza. Este contrato é o resumo que toda skill de prosa carrega.
 >    existente: se o idioma resolvido divergir do idioma do texto, avise e escreva
 >    no idioma do texto.
 <!-- prose:lang-free:end -->
+
+<!-- prose:lang-cli:begin -->
+> 1. **Idioma.** Já vem resolvido: `prumo write prep --json` devolve `language` e
+>    `language_source` (`flag`, `pj_config` ou `default`). Use esse valor e
+>    **declare-o ao usuário com a origem** — não releia `pj_config.toml` nem
+>    recomponha a cascata na mão. Para escrever em outro idioma, passe
+>    `--lang pt-BR|en-US` ao `prep`. Se `language_source` for `default` e o projeto
+>    tiver prosa em outro idioma, avise antes de escrever. **Nunca traduza** texto
+>    existente: se o idioma resolvido divergir do idioma do texto, avise e escreva
+>    no idioma do texto.
+<!-- prose:lang-cli:end -->
 
 <!-- prose:lang-locked:begin -->
 > 1. **Idioma travado em `{locale}`.** Este gênero é documento regulatório

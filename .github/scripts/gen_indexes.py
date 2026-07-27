@@ -220,12 +220,17 @@ def _fragment(name: str) -> str:
 def render_prose(manifest: SkillManifest) -> str:
     """Compõe o bloco de prosa (ADR-0021) a partir de ``prose_conventions.md``.
 
-    Corpo = cabeçalho + item de idioma + ``core``. O item de idioma é a variante
-    travada (``lang-locked``, com ``{locale}`` interpolado) quando a skill declara
-    ``prumo.locale_lock``, senão a cascata livre (``lang-free``).
+    Corpo = cabeçalho + item de idioma + ``core``. O item de idioma tem três
+    variantes, em ordem de precedência: ``lang-locked`` (skill com
+    ``prumo.locale_lock``, com ``{locale}`` interpolado), ``lang-cli`` (skill que
+    declara ``cli`` em ``requires`` — o idioma vem resolvido do ``prumo write
+    prep``, não recomposto em prosa) e ``lang-free`` (julgamento puro, sem CLI
+    para consultar).
     """
     if manifest.locale_lock:
         lang = _fragment("lang-locked").replace("{locale}", manifest.locale_lock)
+    elif "cli" in manifest.requires:
+        lang = _fragment("lang-cli")
     else:
         lang = _fragment("lang-free")
     return "\n".join([_PROSE_HEADER, lang, _fragment("core")])

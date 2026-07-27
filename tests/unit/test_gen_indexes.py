@@ -160,3 +160,32 @@ def test_todas_as_skills_de_prosa_carregam_o_bloco(registry: Any) -> None:
         # `body` é o SKILL.md pós-frontmatter, já lido pelo parser
         has_block = "<!-- prumo:prose:begin -->" in registry.get(name).body
         assert has_block is (name in prose_skills), name
+
+
+def test_render_prose_usa_a_variante_cli_quando_a_skill_tem_cli(
+    gen: ModuleType, registry: Any
+) -> None:
+    """Skill com CLI não recompõe a cascata em prosa — lê o `language` do prep."""
+    body = gen.render_prose(registry.get("write-paper"))
+    assert "`prumo write prep --json` devolve `language`" in body
+    assert "não releia `pj_config.toml`" in body
+    # a variante livre (cascata em prosa) não aparece nessas skills
+    assert "Resolva nesta ordem" not in body
+
+
+def test_locale_lock_vence_a_variante_cli(gen: ModuleType, registry: Any) -> None:
+    """write-projeto-cep é `requires: [cli]` E travada — a trava ganha."""
+    manifest = registry.get("write-projeto-cep")
+    assert "cli" in manifest.requires
+    body = gen.render_prose(manifest)
+    assert "Idioma travado em `pt-BR`" in body
+    assert "prumo write prep" not in body
+
+
+def test_julgamento_puro_mantem_a_cascata_em_prosa(gen: ModuleType, registry: Any) -> None:
+    """Sem CLI para consultar, a cascata precisa estar no texto (ADR-0019)."""
+    manifest = registry.get("scientific-writing")
+    assert manifest.requires == ()
+    body = gen.render_prose(manifest)
+    assert "Resolva nesta ordem" in body
+    assert "prumo write prep" not in body
