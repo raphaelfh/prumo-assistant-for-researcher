@@ -55,6 +55,21 @@ def test_classify_unknown() -> None:
     assert out.kind == "unknown"
 
 
+def test_classify_pdf_inexistente_nao_vira_citekey() -> None:
+    """`.` é pontuação interna válida num citekey Pandoc, então `artigo.pdf`
+    casava `CITEKEY_RE` inteiro. Como o ramo de PDF só dispara com
+    `path.exists()`, o erro de usuário mais provável — caminho errado —
+    virava `citekey` e perdia a mensagem que ensina o formato certo."""
+    out = classify("/nao/existe/artigo.pdf")
+    assert out.kind == "unknown"
+    assert "caminho" in out.suggestion
+
+
+def test_classify_caminho_relativo_nao_vira_citekey() -> None:
+    for raw in ("docs/notes.md", "notas.txt", "relatorio.docx", "pasta/arquivo"):
+        assert classify(raw).kind == "unknown", raw
+
+
 def test_classify_citekey_com_pontuacao_composta() -> None:
     """Chaves REAIS do acervo do usuário que a 2ª gramática rejeitava.
 
