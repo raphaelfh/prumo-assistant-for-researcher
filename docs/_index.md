@@ -64,6 +64,7 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 **Plans ativos:**
 
 - [[superpowers/plans/2026-07-22-zettlr-front]] · draft
+- [[superpowers/plans/2026-07-26-citacao-pandoc-primeira-classe]] · —
 
 **Plans arquivados:** 26 em `superpowers/plans/archive/`
 
