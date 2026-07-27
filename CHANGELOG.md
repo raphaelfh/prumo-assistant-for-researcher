@@ -114,6 +114,15 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   uma retratada); uma issue por citekey, com o comando de correção embutido.
 
 ### Corrigido
+- **⚠ Breaking — `prumo paper verify-refs --page` passa a verificar citação
+  narrativa.** O escopo vinha de `scan_marked_citekeys`, que exclui `@key`
+  solta por contrato: página cujas citações são narrativas saía com
+  `checked=0`, exit 0 e "✓ 0 referência(s) verificada(s)" — indistinguível de
+  página sem citação, mesmo com paper RETRATADO no acervo. O escopo passa a
+  usar a captura ampla filtrada pelo bib (`@fulano` de prosa continua fora), e
+  um achado `empty-page-scope` (`info`, não muda exit code) substitui o falso
+  conforto. Páginas que hoje passam com exit 0 podem passar a sair com 1 —
+  que é o gate correto do ADR-0018.
 - **Guarda I1 (citação é átomo) cega para a sintaxe-padrão** — a guarda que
   recusa proposta de agente encostando em citação localizava o átomo só pelo
   span legado `[[@key]]`. Em projeto novo, que é Pandoc puro por decisão do

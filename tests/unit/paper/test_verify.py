@@ -21,6 +21,34 @@ def _entry(body: str, *, citekey: str = "smith2020", entry_type: str = "article"
     return BibEntry(entry_type=entry_type, citekey=citekey, body=body)
 
 
+def test_page_scope_cobre_citacao_narrativa() -> None:
+    """Citação narrativa (`@key`, sem colchete) tem de entrar no escopo.
+    `scan_marked_citekeys` a exclui por contrato, e por isso uma página
+    só-narrativa saía com `checked=0` e exit 0 — mesmo com paper retratado."""
+    body = "Como @known2020 demonstrou, o efeito existe.\n"
+
+    assert verify._page_scope_citekeys(body, {"known2020"}) == ["known2020"]
+
+
+def test_page_scope_ignora_handle_de_prosa() -> None:
+    """Simétrico: o filtro por `known` é o que torna a captura ampla segura —
+    `@fulano` não está no bib e cai fora."""
+    body = "Conversei com @fulano sobre @known2020.\n"
+
+    assert verify._page_scope_citekeys(body, {"known2020"}) == ["known2020"]
+
+
+def test_page_scope_cobre_as_duas_gramaticas_marcadas() -> None:
+    body = "Ver [[@legado2019]], [@bracket2020] e @narrativa2021.\n"
+    known = {"legado2019", "bracket2020", "narrativa2021"}
+
+    assert sorted(verify._page_scope_citekeys(body, known)) == [
+        "bracket2020",
+        "legado2019",
+        "narrativa2021",
+    ]
+
+
 class TestIdentifiers:
     def test_doi_campo_direto(self) -> None:
         ids = verify._identifiers_for(_entry("\n  doi = {10.1056/NEJMoa2002032},\n"))
@@ -373,6 +401,53 @@ class TestVerifyRefs:
         assert [m["citekey"] for m in missing] == ["naoexiste2020"]
         assert "prumo paper lint" in missing[0]["message"]
         assert report["page"] == str(pagina)
+
+    def test_escopo_por_pagina_cobre_citacao_narrativa(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Página cuja única citação é narrativa entra no escopo. Antes, o
+        `scan_marked_citekeys` a excluía por contrato e a página saía com
+        `checked=0` e exit 0 — mesmo com paper retratado no acervo."""
+        pj = self._pj(tmp_path)
+        pagina = tmp_path / "draft.md"
+        pagina.write_text(
+            "Como @guan2020clinical demonstrou, o efeito existe.\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(
+            "prumo_assist.domains.paper.verify._http_get_json",
+            _fake_http(
+                {
+                    "api.crossref.org/works?filter=updates": _UPDATES_EMPTY,
+                    "api.crossref.org/works/": _WORKS_OK,
+                }
+            ),
+        )
+        report = verify.verify_refs(pj, page=pagina, cache_path=tmp_path / "c.json")
+
+        assert report["scope"] == ["guan2020clinical"]
+        assert report["checked"] == 1
+        # narrativa NÃO gera missing-citekey (senão `@fulano` de prosa viraria achado)
+        assert [f for f in report["findings"] if f["kind"] == "missing-citekey"] == []
+
+    def test_escopo_vazio_emite_empty_page_scope(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """ "0 verificadas" deixa de ser indistinguível de "nada a verificar"."""
+        pj = self._pj(tmp_path)
+        pagina = tmp_path / "draft.md"
+        pagina.write_text("Prosa sem citação nenhuma.\n", encoding="utf-8")
+        monkeypatch.setattr(
+            "prumo_assist.domains.paper.verify._http_get_json",
+            _fake_http({"api.crossref.org/works?filter=updates": _UPDATES_EMPTY}),
+        )
+        report = verify.verify_refs(pj, page=pagina, cache_path=tmp_path / "c.json")
+
+        assert report["scope"] == []
+        kinds = [f["kind"] for f in report["findings"]]
+        assert "empty-page-scope" in kinds
+        # `info` não deriva exit 1 (gate do ADR-0018)
+        assert report["summary"]["errors"] == 0
 
     def test_page_inexistente_mensagem_pt_br(self, tmp_path: Path) -> None:
         pj = self._pj(tmp_path)
