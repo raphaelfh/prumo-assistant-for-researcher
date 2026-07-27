@@ -1255,3 +1255,87 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - [ ] Repro da spec fechadas: rodar os snippets de F1, F2, F3 e F4 e confirmar que o comportamento Pandoc agora **iguala** o legado
 - [ ] CHANGELOG com o "⚠ Breaking" da Task 4 e as notas de efeito-que-parece-regressão da Task 5
 - [ ] Mover este plano para `docs/superpowers/plans/archive/` com frontmatter `status: implemented` + `verified` + `release`
+
+---
+
+## REVISÃO DE ESCOPO (2026-07-26, decisão do dono)
+
+**Sem compatibilidade legada.** O alvo passa a ser só a forma Pandoc — a
+adotada para projetos futuros. KISS: uma gramática, não duas.
+
+Fato que torna a mudança segura, medido nos 4 `pj_*` reais: das **172**
+ocorrências de `[[@`, apenas **4 são citações reais**
+(`smith2025review` ×2, `hanley1982roc`, `liang2024foundations`).
+Todo o resto é placeholder de template (`[[@citekey_outro]]`) e exemplo de
+documentação (`[[@key]]`, `[[@a]]`). Não há corpus legado relevante a
+preservar.
+
+As Tasks 5-8 originais seguem válidas, **simplificadas**: onde diziam "as
+duas gramáticas", passam a mirar só a Pandoc. A Task 9 abaixo remove o
+legado do código.
+
+---
+
+### Task 9: Remover o reconhecimento da gramática legada
+
+Consolida a decisão acima. É uma task de **deleção** — nenhum comportamento
+novo, e a suíte inteira é a rede.
+
+**Files:**
+- Modify: `src/prumo_assist/domains/write/review.py` (`_PROPOSAL_CITATION_SPAN_RE` e seus 3 usos)
+- Modify: `src/prumo_assist/core/obsidian.py:37,159-160` (`_CITATION_RE`, emissão de fragment `citation`)
+- Modify: `src/prumo_assist/core/citations.py` (docstrings)
+- Modify: `src/prumo_assist/domains/wiki/lint.py` (`_WIKILINK_TARGET_RE`: some o ramo `@`)
+- Modify: docstrings de `domains/paper/{graph,cli,verify}.py` e `domains/wiki/findings.py`
+- Test: os 17 arquivos com fixture legada (~63 ocorrências)
+
+**Raio de impacto verificado antes de escrever esta task:**
+`kind="citation"` do span-map é **produzido** só em `obsidian.py:160` e não é
+consumido por nenhuma lógica de produção (`config.py:32` é namespace de
+config, não fragmento). `_CITATION_RE` só é usado no próprio `obsidian.py`.
+
+- [ ] **Step 1: Migrar as fixtures de teste primeiro**
+
+Antes de tocar produção, troque `[[@key]]` → `[@key]` e `[[@key|alias]]` →
+`[@key]` nas fixtures dos 17 arquivos de teste. Rode `uv run pytest` a cada
+arquivo migrado. **Testes que existem SÓ para provar que o legado é lido**
+(ex.: `test_obsidian.py::...normalize...citation`, os de
+`test_obsidian_spanmap.py` que asseguram fragment `citation`) devem ser
+DELETADOS, não migrados — o comportamento que eles fixam deixa de existir.
+
+Expected: a suíte fica verde ou acusa exatamente os testes que provam
+comportamento legado. Liste-os no relatório antes de deletar.
+
+- [ ] **Step 2: Remover do `review.py`**
+
+`_citation_atom_spans` passa a unir DUAS fontes (marcada + narrativa);
+`_reject_citation_divergence` passa a fazer DUAS checagens (`CITEKEY_RE` +
+grupos). Apague `_PROPOSAL_CITATION_SPAN_RE` e atualize as docstrings das
+duas funções, que hoje descrevem a união de três e a checagem de três.
+
+- [ ] **Step 3: Remover do `core/obsidian.py`**
+
+Apague `_CITATION_RE` (linha 37) e a emissão do fragment `citation` (159-160).
+Atualize a docstring do módulo, cuja primeira regra é `[[@key]]` → `[@key]`.
+
+- [ ] **Step 4: Limpar `wiki/lint.py`**
+
+`_WIKILINK_TARGET_RE` deixa de aceitar `@` — passa a ser só alvo de página.
+O ramo `target.startswith("@")` de `_check_dead_frontmatter_links` some;
+citekey em frontmatter continua coberta por `scan_marked_citekeys` (lint.py:86),
+que varre o arquivo inteiro, frontmatter incluso.
+
+- [ ] **Step 5: Docstrings**
+
+`core/citations.py` deixa de descrever o legado como gramática co-equal.
+Mesma limpeza em `paper/{graph,cli,verify}.py` e `wiki/findings.py`.
+
+- [ ] **Step 6: Bateria + commit**
+
+```bash
+uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run mypy
+uv run python .github/scripts/gen_indexes.py --check
+```
+
+Commit: `refactor: remove o reconhecimento da gramática legada [[@key]]`,
+citando no corpo a medição dos 4 pj_* (172 ocorrências, 4 citações reais).
