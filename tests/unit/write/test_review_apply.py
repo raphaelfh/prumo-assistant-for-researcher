@@ -949,9 +949,16 @@ def test_propose_prose_edit_rejects_pandoc_composition_that_fabricates_citation(
     """Par Pandoc de `test_..._rejects_composition_that_fabricates_citation`.
 
     O agente insere só `[` para embrulhar a narrativa `@fake2020` num grupo
-    `[@fake2020]` — citação que humano nenhum cunhou. As duas sub-checagens
-    antigas passam (spans legados `[]`→`[]`; multiconjunto `CITEKEY_RE`
-    `{fake2020:1}`→`{fake2020:1}`), então só a terceira recusa.
+    `[@fake2020]` — citação que humano nenhum cunhou. Desde que a citação
+    narrativa `@key` virou átomo protegido (`_citation_atom_spans`), a
+    Guarda I1 (`_reject_anchor_tangent_to_citation`) já recusa ANTES de
+    `propose_prose_edit` chegar a compor o resultado: a âncora `"Prefixo "`
+    termina exatamente onde `@fake2020` começa (tangência, distância zero).
+    A terceira sub-checagem de `_reject_citation_divergence` (multiconjunto
+    de GRUPOS de citação) é defesa em profundidade — fica atrás da I1 neste
+    caminho e nunca chega a rodar aqui; sua cobertura DIRETA, isolada da
+    ordem das guardas, vive na seção 27 (`test_reject_citation_divergence_*`,
+    que chama a sub-checagem sem passar por `propose_prose_edit`).
     """
     page_body = "Prefixo @fake2020] sufixo."
     project_root, page = init_project(body=page_body)
@@ -967,7 +974,7 @@ def test_propose_prose_edit_rejects_pandoc_composition_that_fabricates_citation(
             project_root=project_root,
         )
 
-    assert "citaç" in str(exc.value).lower()
+    assert "I1 — citação é átomo" in str(exc.value)
     assert (review_dir / "review.md").read_text() == page_body
 
 
