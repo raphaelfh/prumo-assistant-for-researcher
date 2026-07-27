@@ -83,6 +83,25 @@ def test_read_inputs_citekeys_and_papers(tmp_path: Path) -> None:
     assert "resumo bom" in (smith.extract_content or "")
 
 
+def test_read_inputs_year_from_biblatex_date(tmp_path: Path) -> None:
+    """Better BibLaTeX (o que ``prumo paper connect`` gera) não emite ``year``:
+    o ano do ``PaperSummary`` tem de vir do ``date``."""
+    pj = tmp_path / "pj_biblatex"
+    refs = pj / "references"
+    refs.mkdir(parents=True)
+    (refs / "_references.bib").write_text(
+        "@article{audisio2025total,\n"
+        "  title = {Total {{Neoadjuvant Therapy}}},\n"
+        "  author = {Audisio, Alessandro},\n"
+        "  date = {2025-09-01},\n"
+        "  journaltitle = {JAMA Oncology},\n"
+        "  urldate = {2026-07-23}\n"
+        "}\n"
+    )
+    out = read_inputs(pj)
+    assert out.papers["audisio2025total"].year == 2025
+
+
 def test_read_inputs_paper_without_extract(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     # doe2025 não tem _meta.md/_extract.md

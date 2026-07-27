@@ -7,6 +7,37 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Corrigido
+
+- **O parser de `.bib` passa a falar os dois dialetos do Better BibTeX.** O
+  `prumo paper connect` pina o translator **Better BibLaTeX**
+  ([ADR-0020](docs/adr/adr-0020-connect-autoexport-bbt.md)), que usa um vocabulário
+  diferente do Better BibTeX legado dos projetos mantidos à mão — e o parser do
+  prumo só conhecia o legado. Consequência medida sobre a mesma coleção de 23
+  entradas: todo projeto criado pelo caminho recomendado nascia com o acervo **sem
+  ano e sem periódico**. Três correções, todas por extensão da cascata de fallback
+  que o repo já praticava (`journal → booktitle → publisher` em `sync.py`,
+  `eprinttype → archiveprefix` em `verify.py`) — Princípio I:
+  - **ano** — novo `core/bib.py:extract_year()`, fonte única usada por
+    `paper sync`, `paper find` e `write compose`. Prefere `year` (BibTeX) e cai
+    para o ano do `date` (BibLaTeX). O `date` do BBT é **EDTF**, não ISO
+    (`biblatexExtendedDateFormat` é default): tolera `1999-uu`, `1897/1913`,
+    `2016-07-18T20:26:06`, `2020-21` (estação) e o `~` de aproximação que o BBT
+    reescreve como NBSP; devolve `""` quando não há ano determinável (`19uu`) em
+    vez de inventar. `_meta.md` deixa de sair com `issued: date-parts: [[null]]`.
+  - **periódico** — a cascata do `container-title` em `domains/paper/sync.py`
+    ganha `journaltitle`; `shortjournal` fica deliberadamente **fora** (é
+    abreviação — "JAMA Oncol." — não o título do periódico).
+  - **PMID** — `domains/paper/verify.py` reconhece `eprinttype = {pubmed}` +
+    `eprint`, que é como o BibLaTeX carrega o mesmo PMID que o BibTeX põe em
+    `pmid`. Sem isso, entrada BibLaTeX sem DOI perdia silenciosamente a checagem
+    de existência/retração via PubMed.
+
+  O dialeto legado fica **byte-idêntico** (verificado entrada a entrada nas 23
+  reais: zero diferença no dict de metadata). `issued` e `container-title` estão em
+  `METADATA_FIELDS`, então **`prumo paper sync` cura retroativamente** as notas já
+  geradas com ano nulo e periódico vazio, preservando `tldr`/`role`/`added`.
+
 ## [0.63.0] - 2026-07-26
 
 > **Marco:** fecha o programa zero-friction inteiro (F0–F5) — nenhuma fase

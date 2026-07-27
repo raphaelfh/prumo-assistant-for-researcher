@@ -9,7 +9,7 @@ import difflib
 from pathlib import Path
 from typing import Any
 
-from prumo_assist.core.bib import extract_field, parse_bib
+from prumo_assist.core.bib import extract_field, extract_year, parse_bib
 from prumo_assist.core.note_paths import citekey_from_meta_path, iter_note_meta_files
 from prumo_assist.domains.paper.sync import read_nota_yaml
 
@@ -27,7 +27,10 @@ def build_index(pj_path: Path) -> dict[str, dict[str, Any]]:
     for entry in parse_bib(bib.read_text()):
         title = (extract_field(entry.body, "title") or "").strip()
         author = (extract_field(entry.body, "author") or "").strip()
-        year = (extract_field(entry.body, "year") or "").strip()
+        # O índice é TEXTO, não inteiro: quando o ano não é numérico (``n.d.``,
+        # ``2024a``, ``in press``) ``extract_year`` devolve "" e o valor cru do
+        # ``year`` é preservado — o haystack de busca (abaixo) só perde com isso.
+        year = extract_year(entry.body) or (extract_field(entry.body, "year") or "").strip()
         record: dict[str, Any] = {
             "citekey": entry.citekey,
             "title": title,
