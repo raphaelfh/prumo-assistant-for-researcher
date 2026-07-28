@@ -147,6 +147,8 @@ Sete itens, versão compacta:
 | Duas fontes, claims distintos, mesmo período | quebrar em dois períodos |
 | Contraste explícito (`enquanto X [@a] encontrou…, Y [@b] não`) | **não editar**; marcar `<!-- REVER: citação em meio de período; quebrar em dois? -->` |
 
+A regra cobre também a **citação narrativa** (`@a`, sem colchetes), que o repo reconhece como forma Pandoc de primeira classe: é mid-período por construção, já que o citekey ocupa a posição de sujeito, então convertê-la para a forma marcada no fim do período é a própria aplicação de C1. O audit ganha um segundo grep, em PCRE2, que pula o miolo dos colchetes com `(*SKIP)(*F)` para não acusar o `@b` de `[@a; @b]` e descarta e-mail pela classe à esquerda.
+
 Preservações: legendas de figura/tabela, itens de lista (a citação fecha o item), lista de referências, blocos de código.
 
 Audit novo — superconjunto conservador, triagem manual descarta preservações:

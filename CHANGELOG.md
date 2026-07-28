@@ -44,8 +44,9 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   cobre passe editorial sobre draft pt-BR, e **nenhuma skill de prosa traduz**
   texto existente. Geração do zero em projeto antigo sem a chave sai em inglês —
   acrescente `[writing] language = "pt-BR"` para manter o comportamento anterior.
-- **Citação sempre imediatamente antes do terminador do período** (C1), sem a
-  exceção de autor-sujeito: `Liang et al. [@a] propõem X.` vira `X foi proposto
+- **Citação sempre imediatamente antes do terminador do período** (C1), nas duas
+  formas Pandoc — marcada (`[@a]`) e narrativa (`@a`, mid-período por construção) —
+  e sem a exceção de autor-sujeito: `Liang et al. [@a] propõem X.` vira `X foi proposto
   por Liang et al. [@a].`, e duas fontes com claims distintos viram dois períodos.
   O audit passou a um superconjunto conservador (`rg "\[@[^]]+\][^.]"`) no lugar
   da heurística acentuada, que perdia citação seguida de maiúscula, número ou

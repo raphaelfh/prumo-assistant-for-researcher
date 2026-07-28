@@ -40,11 +40,13 @@ prumo:
 >    texto alvo, quando já existe; (d) default `en-US`. **Nunca traduza** texto
 >    existente: se o idioma resolvido divergir do idioma do texto, avise e escreva
 >    no idioma do texto.
-> 2. **Citação no fim do período.** Toda `[@citekey]` fica imediatamente antes do
+> 2. **Citação no fim do período.** Toda citação fica imediatamente antes do
 >    terminador do período (`.`, `?`, `!`), nunca no meio da frase. Sem exceção para
 >    autor-sujeito: reescreva (`Liang et al. [@a] propõem X.` → `X foi proposto por
->    Liang et al. [@a].`). Duas fontes sustentando claims distintos viram dois
->    períodos, um para cada.
+>    Liang et al. [@a].`). Isso vale também para a **citação narrativa** (`@a` sem
+>    colchetes), que é mid-período por construção: reescreva para a forma marcada no
+>    fim do período. Duas fontes sustentando claims distintos viram dois períodos,
+>    um para cada.
 > 3. **Agrupamento.** Fontes que sustentam a mesma afirmação vão num colchete só,
 >    separadas por `;` — `[@a; @b; @c]`. Nunca `[@a], [@b]` nem colchetes adjacentes.
 > 4. **Pontuação.** Em texto corrido, sem ` — `, `:` nem `;`. Use vírgula, ponto,
@@ -96,13 +98,16 @@ Se (1) ou (2) resolverem para um idioma diferente do idioma do draft, **não tra
 
 ### C1. Citação imediatamente antes do terminador do período
 
-**Regra.** Toda `[@citekey]` ocupa a posição imediatamente anterior ao terminador do período (`.`, `?`, `!`). Nunca no meio da frase. Não há exceção para autor-sujeito.
+**Regra.** Toda citação ocupa a posição imediatamente anterior ao terminador do período (`.`, `?`, `!`). Nunca no meio da frase. Não há exceção para autor-sujeito.
+
+Vale para as duas formas Pandoc: a **marcada** (`[@a]`, `[@a; @b]`) e a **narrativa** (`@a`, sem colchetes). A narrativa é mid-período por construção — o citekey ocupa a posição de sujeito — então a conversão para a forma marcada no fim do período é a própria aplicação da regra, não uma mudança de estilo à parte.
 
 | Situação | Ação |
 |---|---|
 | `Modelos combinados [@a] atingem alto desempenho.` | mover → `Modelos combinados atingem alto desempenho [@a].` |
 | `Liang et al. [@a] propõem três princípios.` | reescrever → `Três princípios foram propostos por Liang et al. [@a].` |
 | `Liang et al. [@a] propose three principles.` | reescrever → `Three principles were proposed by Liang et al. [@a].` |
+| `@a propõe três princípios.` (narrativa) | reescrever → `Três princípios foram propostos [@a].` |
 | Duas fontes sustentando claims distintos no mesmo período | quebrar em dois períodos, cada um com sua citação antes do ponto |
 | Contraste explícito entre fontes (`enquanto X [@a] encontrou..., Y [@b] não`) | **não editar**; marcar `<!-- REVER: citação em meio de período; quebrar em dois? -->` |
 
@@ -207,9 +212,15 @@ Mecânica, nos dois idiomas.
 Resolver o idioma, rodar audit e só então editar. Reportar contagem de cada violação.
 
 ```bash
-# C1: citação não seguida imediatamente de terminador — superconjunto conservador.
-# Triagem manual descarta as preservações (legenda, item de lista, referência).
+# C1a: citação marcada não seguida imediatamente de terminador — superconjunto
+# conservador. Triagem manual descarta as preservações (legenda, item de lista,
+# lista de referências).
 rg -n "\[@[^]]+\][^.]" <draft>
+
+# C1b: citação narrativa (@key fora de colchete) — mid-período por construção.
+# O `(*SKIP)(*F)` do PCRE2 pula o miolo dos colchetes, então `[@a; @b]` não vira
+# falso positivo; o `[^@...]` à esquerda descarta e-mail (`nome@dominio`).
+rg -nP "\[[^\]]*\](*SKIP)(*F)|(^|[^@[:alnum:]._-])@[[:alpha:]][[:alnum:].+_-]*" <draft>
 
 # C2: colchetes de citação adjacentes ([@a] [@b]) ou vírgula entre citações ([@a], [@b])
 rg -n "\]\s*,?\s*\[@" <draft>

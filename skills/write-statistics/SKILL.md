@@ -57,11 +57,13 @@ prumo:
 >    tiver prosa em outro idioma, avise antes de escrever. **Nunca traduza** texto
 >    existente: se o idioma resolvido divergir do idioma do texto, avise e escreva
 >    no idioma do texto.
-> 2. **Citação no fim do período.** Toda `[@citekey]` fica imediatamente antes do
+> 2. **Citação no fim do período.** Toda citação fica imediatamente antes do
 >    terminador do período (`.`, `?`, `!`), nunca no meio da frase. Sem exceção para
 >    autor-sujeito: reescreva (`Liang et al. [@a] propõem X.` → `X foi proposto por
->    Liang et al. [@a].`). Duas fontes sustentando claims distintos viram dois
->    períodos, um para cada.
+>    Liang et al. [@a].`). Isso vale também para a **citação narrativa** (`@a` sem
+>    colchetes), que é mid-período por construção: reescreva para a forma marcada no
+>    fim do período. Duas fontes sustentando claims distintos viram dois períodos,
+>    um para cada.
 > 3. **Agrupamento.** Fontes que sustentam a mesma afirmação vão num colchete só,
 >    separadas por `;` — `[@a; @b; @c]`. Nunca `[@a], [@b]` nem colchetes adjacentes.
 > 4. **Pontuação.** Em texto corrido, sem ` — `, `:` nem `;`. Use vírgula, ponto,
