@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.64.0] - 2026-07-27
+
 ### Adicionado
 - **Contrato de prosa `prumo:prose`** — bloco machine-owned estampado por
   `gen_indexes.py` nas 6 skills que produzem ou fiscalizam prosa
@@ -659,7 +661,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.63.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.0...HEAD
+[0.64.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.63.0...v0.64.0
 [0.63.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.1...v0.63.0
 [0.62.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.0...v0.62.1
 [0.62.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.61.0...v0.62.0
