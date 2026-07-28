@@ -102,7 +102,9 @@ def iter_marked_citation_spans(text: str) -> Iterator[tuple[int, int]]:
             yield match.span()
 
 
-def iter_narrative_citation_spans(text: str) -> Iterator[tuple[int, int]]:
+def iter_narrative_citation_spans(
+    text: str, *, marked: list[tuple[int, int]] | None = None
+) -> Iterator[tuple[int, int]]:
     """Spans ``(start, end)`` das citações NARRATIVAS (``@key`` solta) de ``text``.
 
     Complementa :func:`iter_marked_citation_spans`: devolve só os matches que
@@ -110,17 +112,40 @@ def iter_narrative_citation_spans(text: str) -> Iterator[tuple[int, int]]:
     match inteiro, nunca ``span(1)``) — quem protege citação como átomo
     precisa do sigilo dentro do intervalo.
 
+    ``marked`` evita a varredura redundante quando o chamador já a computou
+    (ver :func:`iter_citation_spans`); omitido, é calculado aqui.
+
     Captura AMPLA por construção (``CITEKEY_RE``): ``@fulano`` em prosa entra.
     Consumidor que não tolere falso positivo deve filtrar (ver docstring do
     módulo); num guard de hard-fail o custo do falso positivo é trabalho
     manual, o do falso negativo é edição silenciosa de citação.
     """
-    marked = list(iter_marked_citation_spans(text))
+    if marked is None:
+        marked = list(iter_marked_citation_spans(text))
     for match in CITEKEY_RE.finditer(text):
         start, end = match.span()
         if any(ms <= start and end <= me for ms, me in marked):
             continue
         yield start, end
+
+
+def iter_citation_spans(text: str) -> Iterator[tuple[int, int]]:
+    """Spans de TODA citação de ``text``: marcada e narrativa, em uma varredura.
+
+    União de :func:`iter_marked_citation_spans` e
+    :func:`iter_narrative_citation_spans` — a definição de "átomo de citação"
+    na gramática do repo. Mora aqui, e não no consumidor, porque compor as
+    duas fontes na mão já produziu bug: o fix ``813d230`` uniu só as formas
+    entre colchetes e esqueceu a narrativa, deixando a MESMA edição ser
+    recusada em ``[@k]`` e aplicada em ``@k``. Quem precisa de "isto é uma
+    citação, não encoste" chama esta função e não redescobre a composição.
+
+    ``iter_marked_citation_spans`` roda UMA vez: o resultado é reusado como
+    filtro da parte narrativa.
+    """
+    marked = list(iter_marked_citation_spans(text))
+    yield from marked
+    yield from iter_narrative_citation_spans(text, marked=marked)
 
 
 def scan_marked_citekeys(markdown_text: str) -> list[str]:

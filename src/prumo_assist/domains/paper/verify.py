@@ -30,9 +30,10 @@ from urllib.parse import quote
 
 from prumo_assist._version import __version__
 from prumo_assist.core.bib import BibEntry, extract_field, parse_bib
-from prumo_assist.core.citations import iter_citekeys, scan_marked_citekeys
+from prumo_assist.core.citations import scan_marked_citekeys
 from prumo_assist.core.uvx import PinnedTool, run_pinned
 from prumo_assist.domains.paper.errors import PaperError
+from prumo_assist.domains.paper.graph import extract_citekeys
 
 _USER_AGENT = f"prumo-assist/{__version__} (+https://github.com/raphaelfh/prumo-assist)"
 
@@ -533,8 +534,13 @@ def _page_scope_citekeys(body: str, known: set[str]) -> list[str]:
     contra retratação como qualquer outra. O filtro por ``known`` é o que
     torna a captura ampla segura aqui — ``@fulano`` em prosa não está no bib
     e cai fora.
+
+    Delega a :func:`~prumo_assist.domains.paper.graph.extract_citekeys`, que
+    já é essa política ("ampla, filtrada por ``known``") no mesmo domínio —
+    manter duas cópias significaria dois lugares a lembrar quando ela ganhar
+    nuance.
     """
-    return [k for k in iter_citekeys(body) if k in known]
+    return extract_citekeys(body, known)
 
 
 def verify_refs(

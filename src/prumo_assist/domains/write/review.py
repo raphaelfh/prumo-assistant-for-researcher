@@ -50,11 +50,7 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from prumo_assist.core import criticmarkup
-from prumo_assist.core.citations import (
-    CITEKEY_RE,
-    iter_marked_citation_spans,
-    iter_narrative_citation_spans,
-)
+from prumo_assist.core.citations import CITEKEY_RE, iter_citation_spans
 from prumo_assist.core.obsidian import (
     SpanFragment,
     normalize_markdown,
@@ -3203,20 +3199,13 @@ def _reject_citation_payload_in_proposal(a: str, b: str) -> None:
 
 
 def _citation_atom_spans(body: str) -> Iterator[tuple[int, int]]:
-    """Spans de citação protegidos pela Guarda I1. União de DUAS fontes.
+    """Spans de citação protegidos pela Guarda I1 — ``core.citations``.
 
-    União de duas fontes, porque nenhuma sozinha basta:
-
-    - ``iter_marked_citation_spans`` (gramática única de ``core/citations``)
-      — cobre o Pandoc ``[@key]``/``[@a; @b]``, única sintaxe do repo
-      (spec 2026-07-22).
-    - ``iter_narrative_citation_spans`` — cobre ``@key`` narrativa, forma
-      legítima da MESMA gramática Pandoc que a primeira não enxerga (fora
-      de colchetes). Sem ela, a MESMA edição é recusada em ``[@k]`` e
-      aplicada em ``@k`` — e nesse caminho chega à página.
-
-    Sobreposição entre as fontes é inofensiva: a guarda recusa no primeiro
-    span que encostar.
+    A composição das formas (marcada + narrativa) mora em
+    :func:`~prumo_assist.core.citations.iter_citation_spans`, não aqui: é
+    definição de gramática, e compô-la na mão já produziu bug (o fix
+    ``813d230`` esqueceu a narrativa). Este wrapper existe só para registrar
+    a escolha de ALTITUDE do consumidor, abaixo.
 
     Roda sobre o corpo CRU, sem filtrar code fences (ao contrário de
     ``scan_marked_citekeys``, que passa por ``_body_lines``): super-proteção
@@ -3225,8 +3214,7 @@ def _citation_atom_spans(body: str) -> Iterator[tuple[int, int]]:
     o custo do falso positivo é o humano decidir uma edição; o do falso
     negativo seria edição silenciosa de citação.
     """
-    yield from iter_marked_citation_spans(body)
-    yield from iter_narrative_citation_spans(body)
+    yield from iter_citation_spans(body)
 
 
 def _reject_anchor_tangent_to_citation(body: str, start: int, end: int) -> None:

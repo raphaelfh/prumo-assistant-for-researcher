@@ -95,16 +95,7 @@ def lint(pj_path: Path) -> dict[str, Any]:
                 )
 
         # Links de entrada (para detectar páginas órfãs)
-        for target in PAGE_LINK_RE.findall(text):
-            stem = _link_stem(target)
-            if stem in incoming:
-                incoming[stem] += 1
-
-        for md_target in MD_LINK_RE.findall(text):
-            target = md_target.split("#")[0].strip()
-            if _is_external_link(target):
-                continue
-            stem = Path(target).stem
+        for stem in _page_link_targets(text):
             if stem in incoming:
                 incoming[stem] += 1
 
@@ -137,6 +128,29 @@ def _is_external_link(target: str) -> bool:
     falso.
     """
     return "://" in target or target.startswith("mailto:")
+
+
+def _page_link_targets(text: str) -> Iterator[str]:
+    """Stems de página referenciados em ``text``, nas duas sintaxes.
+
+    Fonte ÚNICA para os dois caminhos que precisam disso — contagem de links
+    de entrada no corpo e validação de alvo em ``links_to``/``sources``/
+    ``related``. Enquanto eram duas implementações, divergiram: o caminho do
+    frontmatter pulava só ``"://"`` (um ``mailto:`` virava ``dead_link``
+    falso) e cada uma carregava seu próprio regex de wikilink.
+
+    Alvo NU não entra de propósito: ``sources`` recebe string livre (título
+    de paper, URL, nome de dataset) e qualquer não-stem viraria ``dead_link``,
+    inundando o relatório. Citekey também não — ``PAGE_LINK_RE`` exclui ``@``
+    do charset; quem valida citekey é ``scan_marked_citekeys``.
+    """
+    for target in PAGE_LINK_RE.findall(text):
+        yield _link_stem(target)
+    for md_target in MD_LINK_RE.findall(text):
+        alvo = _link_stem(md_target)
+        if _is_external_link(alvo):
+            continue
+        yield Path(alvo).stem
 
 
 def _report(issues: list[WikiIssue]) -> dict[str, Any]:
@@ -196,33 +210,6 @@ def _check_log_prefixes(docs: Path) -> list[WikiIssue]:
 
 
 _FM_LINK_FIELDS = ("links_to", "sources", "related")
-# Só alvo de página: `@` fica de fora do próprio charset — `[[@key]]` deixa
-# de casar (regride a None), citekey em frontmatter segue coberta por
-# `scan_marked_citekeys` (varre o arquivo inteiro, frontmatter incluso).
-_WIKILINK_TARGET_RE = re.compile(r"\[\[([^\]|#@]+)")
-
-
-def _frontmatter_page_targets(value: str) -> Iterator[str]:
-    """Alvos de PÁGINA num item de ``links_to``/``sources``/``related``.
-
-    Duas formas: wikilink ``[[pagina]]`` (legado) e link markdown
-    ``[texto](pagina.md)`` — a esperada em projeto Pandoc-puro (ver
-    ``MD_LINK_RE``, já usado acima pra contar links de entrada no corpo).
-    Alvo NU não entra de propósito: ``sources`` recebe string livre (título
-    de paper, URL, nome de dataset) e qualquer não-stem viraria
-    ``dead_link``, inundando o relatório. Citekey já não casa aqui —
-    ``_WIKILINK_TARGET_RE`` exclui ``@`` do próprio charset. Alvo externo
-    sai por :func:`_is_external_link`, a MESMA checagem do corpo — enquanto
-    este caminho pulava só ``"://"``, um ``[contato](mailto:x@y.br)`` em
-    ``sources`` virava ``dead_link`` falso.
-    """
-    for match in _WIKILINK_TARGET_RE.finditer(value):
-        yield _link_stem(match.group(1))
-    for match in MD_LINK_RE.finditer(value):
-        alvo = match.group(1).strip()
-        if _is_external_link(alvo):
-            continue
-        yield Path(_link_stem(alvo)).stem
 
 
 def _check_dead_frontmatter_links(
@@ -245,7 +232,7 @@ def _check_dead_frontmatter_links(
             if not isinstance(value, list):
                 continue
             for raw in value:
-                for target in _frontmatter_page_targets(str(raw)):
+                for target in _page_link_targets(str(raw)):
                     if target not in page_stems:
                         issues.append(
                             WikiIssue(
