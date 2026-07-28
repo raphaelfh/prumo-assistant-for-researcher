@@ -429,7 +429,7 @@ def test_emit_sidecars_happy_path_writes_valid_sidecars(
     bib = _bib(tmp_path)
     page = tmp_path / "docs" / "achado.md"
     page.parent.mkdir(parents=True)
-    source_text = "Cita [[@smith2020]] aqui.\n"
+    source_text = "Cita [@smith2020] aqui.\n"
     norm_text = "Cita [@smith2020] aqui.\n"
     frag = SpanFragment(0, len(source_text), 0, len(norm_text), "identity")
 
@@ -471,7 +471,7 @@ def test_emit_sidecars_ignores_citation_like_spans_inside_code(
     produz — os fragments ``kind="code"`` do fence/inline vêm daí.
     """
     monkeypatch.setattr(export_mod, "_export_git_sha", lambda project_root: "deadbee")
-    source_text = "Cita [[@smith2020]].\n\n```\nexemplo: [@notacite]\n```\n\nE `[@outro]` inline.\n"
+    source_text = "Cita [@smith2020].\n\n```\nexemplo: [@notacite]\n```\n\nE `[@outro]` inline.\n"
     norm_text, frags = normalize_markdown_with_map(source_text)
 
     payload = (
@@ -530,7 +530,7 @@ def _docx_bytes_for_export_wiring(tmp_path: Path, payloads: list[str]) -> bytes:
 
 def test_export_docx_emits_review_sidecars(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root, page = _fake_project(tmp_path)
-    page.write_text("Cita [[@smith2020]] aqui.\n")
+    page.write_text("Cita [@smith2020] aqui.\n")
     _patch_export_seams(monkeypatch, tmp_path)
     payload = (
         '{"citationID":"00000001","prumoOcc":"00000001",'
@@ -563,7 +563,7 @@ def test_export_docx_wiring_mismatch_hard_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root, page = _fake_project(tmp_path)
-    page.write_text("Cita [[@smith2020]] aqui.\n")
+    page.write_text("Cita [@smith2020] aqui.\n")
     _patch_export_seams(monkeypatch, tmp_path)
     calls: list[list[str]] = []
     fake = _fake_run_writing_output_flag(

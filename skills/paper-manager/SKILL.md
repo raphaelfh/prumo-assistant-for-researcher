@@ -175,7 +175,11 @@ Mostra vizinhos do paper no grafo de citações.
 
 Passos:
 1. `Read references/notes/<citekey>/_meta.md` → campo `cites: [...]` → lista de quem este paper cita (dentro do acervo).
-2. `rg "\[\[@<citekey>\]\]" references/notes/ -l` + `rg "cites:.*<citekey>" references/notes/ -l` → quem cita este paper.
+2. `rg "@<citekey>\b" references/notes/ -l` (gramática Pandoc: `[@k]` e `@k`) + `rg "^\s*-\s*<citekey>\s*$" references/notes/ -l` (campo `cites:`, que o `_NotaDumper` serializa em bloco) → quem cita este paper.
+
+   > O `\b` final evita colisão de prefixo (`@smith2025review` casaria também
+   > `@smith2025reviewX`). Citekey Pandoc admite `-`, `.`, `:` e `_`, então
+   > `\b` não é infalível — confira a lista antes de reportar.
 3. Imprimir duas listas: **cita** (forward) e **citado por** (reverse).
 4. Se o paper cita algo que não tem `.md` correspondente, reportar como "paper conhecido mas sem nota — está só no `.bib`".
 

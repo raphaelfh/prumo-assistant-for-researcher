@@ -1,19 +1,24 @@
-"""Gramática única de citekey (Pandoc + legado Obsidian).
+"""Gramática única de citekey (Pandoc).
 
 Uma citação Pandoc é ``@key`` (narrativa) ou ``[@key]``/``[@a; @b]``
-(bracketed). O legado Obsidian usa ``[[@key]]``/``[[@key|alias]]``
-(normalizado para ``[@key]`` no export). Este módulo é o ÚNICO lugar
-do pacote que reconhece citekeys em texto (spec 2026-07-22; invariante
-I7 do spec 2026-07-05): export, compose, wiki lint e paper graph
-consomem estas funções — nunca regexes próprios.
+(bracketed). Este módulo é o ÚNICO lugar do pacote que reconhece citekeys
+em texto (spec 2026-07-22; invariante I7 do spec 2026-07-05): export,
+compose, wiki lint, paper graph, paper verify, write review e capture
+route consomem estas funções ou o ``CITEKEY_BODY`` — nunca regexes
+próprios.
 
 Dois níveis de captura:
 
 - ``iter_citekeys``/``scan_citekeys`` — amplo: qualquer ``@key`` fora
   de code block. Para pre-fetch e relatórios (falso positivo é barato).
-- ``scan_marked_citekeys`` — conservador: só formas marcadas
-  (``[[@key]]``, ou dentro de colchetes ``[...]``). Para lint/validação,
-  onde um handle ``@fulano`` em prosa não pode virar warning espúrio.
+- ``scan_marked_citekeys`` — conservador: só formas marcadas (dentro de
+  colchetes ``[...]``). Para lint/validação, onde um handle ``@fulano``
+  em prosa não pode virar warning espúrio.
+
+Fora da cobertura (registrado, não implementado): a forma CHAVEADA
+``@{...}`` — recomendada pelo manual do Pandoc para chave com ``://`` —
+exigiria um segundo grupo de captura, e ``CITEKEY_RE.findall`` tem contrato
+de ``list[str]`` com os consumidores de ``domains/write/review.py``.
 """
 
 from __future__ import annotations
@@ -21,11 +26,28 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 
-# Pandoc citation keys: alphanumeric/underscore start, then internal
-# `:.#$%&-+?<>~/` punctuation that must be followed by more word chars
-# (so we don't grab trailing sentence punctuation like the `.` in
-# `[@key].`). Negative lookbehind on `@\w` skips emails (foo@bar).
-CITEKEY_RE = re.compile(r"(?<![@\w])@([A-Za-z0-9_]\w*(?:[:.#$%&+\-?<>~/]\w+)*)")
+# Corpo do citekey Pandoc, SEM o `@` e sem âncora — compartilhado por quem
+# precisa ancorar de outro jeito (ex.: `domains/capture/route.py`, que casa
+# um token inteiro). Manter ÚNICO: um segundo reconhecedor divergente é
+# exatamente o que o Princípio I7 proíbe.
+#
+# Âncora inicial `\w` (Unicode-aware, coerente com o `\w` do resto): o
+# Pandoc aceita citekey iniciada por letra não-ASCII — `@Ünal2024`,
+# `@Иванов2020` — e a versão ASCII-only criava assimetria silenciosa
+# (`@unÜal2024` passava, `@Ünal2024` sumia). Pontuação interna
+# `:.#$%&-+?<>~/` precisa ser seguida de word char, para não engolir o
+# `.` final de `[@key].`.
+CITEKEY_BODY = r"\w(?:\w|[:.#$%&+\-?<>~/]\w)*"
+
+# Lookbehind: barra e-mail (`foo@bar`) exigindo que o caractere anterior não
+# seja letra/dígito UNICODE. `_` é PERMITIDO antes de propósito —
+# `_@lima2018 mostrou_` é ênfase Markdown com citação dentro, ASCII puro e
+# caminho default, e o `(?<![@\w])` original a perdia porque `_` é word char.
+# `[^\W_]` é exatamente "word char menos `_`": liberar `_` sem liberar letra
+# acentuada. Uma versão ASCII-only (`(?<![@0-9A-Za-z])`) reabria o furo de
+# e-mail com local-part não-ASCII — `josé@usp.br` virava o citekey fantasma
+# `usp.br` enquanto `joao@usp.br` não virava nada.
+CITEKEY_RE = re.compile(r"(?<!@)(?<![^\W_])@(" + CITEKEY_BODY + r")")
 
 # Um span entre colchetes sem colchetes internos. Cobre ``[@key]``,
 # ``[@a; @b, p. 3]`` e também o miolo de ``[[@key]]`` (o span interno).
@@ -70,20 +92,65 @@ def iter_marked_citation_spans(text: str) -> Iterator[tuple[int, int]]:
     """Spans ``(start, end)`` dos GRUPOS de citação marcada em ``text``, em ordem.
 
     Um span por bloco ``[...]`` sem colchetes internos que contenha ao menos
-    um citekey — ``[@a]`` e ``[@a; @b, p. 3]`` cada um conta como UM span
-    (também casa o miolo interno de ``[[@key]]`` legado). É o nível-span da
-    mesma gramática de :func:`scan_marked_citekeys`; NÃO filtra code blocks —
-    responsabilidade do chamador (linha a linha via :func:`_body_lines`, ou
-    por span-map no export).
+    um citekey — ``[@a]`` e ``[@a; @b, p. 3]`` cada um conta como UM span.
+    É o nível-span da mesma gramática de :func:`scan_marked_citekeys`; NÃO
+    filtra code blocks — responsabilidade do chamador (linha a linha via
+    :func:`_body_lines`, ou por span-map no export).
     """
     for match in _BRACKET_SPAN_RE.finditer(text):
         if CITEKEY_RE.search(match.group(0)):
             yield match.span()
 
 
+def iter_narrative_citation_spans(
+    text: str, *, marked: list[tuple[int, int]] | None = None
+) -> Iterator[tuple[int, int]]:
+    """Spans ``(start, end)`` das citações NARRATIVAS (``@key`` solta) de ``text``.
+
+    Complementa :func:`iter_marked_citation_spans`: devolve só os matches que
+    NÃO estão dentro de um grupo marcado. O span começa no ``@`` (span do
+    match inteiro, nunca ``span(1)``) — quem protege citação como átomo
+    precisa do sigilo dentro do intervalo.
+
+    ``marked`` evita a varredura redundante quando o chamador já a computou
+    (ver :func:`iter_citation_spans`); omitido, é calculado aqui.
+
+    Captura AMPLA por construção (``CITEKEY_RE``): ``@fulano`` em prosa entra.
+    Consumidor que não tolere falso positivo deve filtrar (ver docstring do
+    módulo); num guard de hard-fail o custo do falso positivo é trabalho
+    manual, o do falso negativo é edição silenciosa de citação.
+    """
+    if marked is None:
+        marked = list(iter_marked_citation_spans(text))
+    for match in CITEKEY_RE.finditer(text):
+        start, end = match.span()
+        if any(ms <= start and end <= me for ms, me in marked):
+            continue
+        yield start, end
+
+
+def iter_citation_spans(text: str) -> Iterator[tuple[int, int]]:
+    """Spans de TODA citação de ``text``: marcada e narrativa, em uma varredura.
+
+    União de :func:`iter_marked_citation_spans` e
+    :func:`iter_narrative_citation_spans` — a definição de "átomo de citação"
+    na gramática do repo. Mora aqui, e não no consumidor, porque compor as
+    duas fontes na mão já produziu bug: o fix ``813d230`` uniu só as formas
+    entre colchetes e esqueceu a narrativa, deixando a MESMA edição ser
+    recusada em ``[@k]`` e aplicada em ``@k``. Quem precisa de "isto é uma
+    citação, não encoste" chama esta função e não redescobre a composição.
+
+    ``iter_marked_citation_spans`` roda UMA vez: o resultado é reusado como
+    filtro da parte narrativa.
+    """
+    marked = list(iter_marked_citation_spans(text))
+    yield from marked
+    yield from iter_narrative_citation_spans(text, marked=marked)
+
+
 def scan_marked_citekeys(markdown_text: str) -> list[str]:
-    """Citekeys em formas MARCADAS, ordenadas: ``[[@key]]`` legado ou
-    dentro de colchetes ``[@key]``/``[@a; @b, p. 3]``.
+    """Citekeys em formas MARCADAS, ordenadas: dentro de colchetes
+    ``[@key]``/``[@a; @b, p. 3]``.
 
     Narrativa solta (``@key`` fora de colchete) fica de fora de
     propósito — ver docstring do módulo.

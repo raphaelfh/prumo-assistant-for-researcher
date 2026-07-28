@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from prumo_assist.core.citations import iter_citekeys, scan_citekeys, scan_marked_citekeys
+from prumo_assist.core.citations import (
+    CITEKEY_RE,
+    iter_citekeys,
+    iter_narrative_citation_spans,
+    scan_citekeys,
+    scan_marked_citekeys,
+)
 
 
 def test_scan_catches_all_pandoc_autocomplete_forms() -> None:
@@ -11,11 +17,6 @@ def test_scan_catches_all_pandoc_autocomplete_forms() -> None:
         "e narrativa com locator @Author2017 [p. 9]."
     )
     assert scan_citekeys(text) == ["Author2015", "Author2016", "Author2017"]
-
-
-def test_scan_catches_legacy_wikilink_and_alias() -> None:
-    text = "Veja [[@smith2024cohort]] e [[@jones2023trial|Jones et al.]]."
-    assert scan_citekeys(text) == ["jones2023trial", "smith2024cohort"]
 
 
 def test_scan_does_not_truncate_composite_keys() -> None:
@@ -35,14 +36,78 @@ def test_iter_preserves_first_occurrence_order() -> None:
     assert list(iter_citekeys(text)) == ["zeta2020", "alpha2019"]
 
 
-def test_marked_accepts_bracketed_and_wikilink_only() -> None:
+def test_marked_accepts_bracketed_forms_only() -> None:
     text = (
-        "Marcada [@smith2024] e legado [[@jones2023]] e grupo [@a2020; @b2021, p. 3]. "
+        "Marcada [@smith2024] e grupo [@a2020; @b2021, p. 3]. "
         "Handle solto @twitter_user fica de fora."
     )
-    assert scan_marked_citekeys(text) == ["a2020", "b2021", "jones2023", "smith2024"]
+    assert scan_marked_citekeys(text) == ["a2020", "b2021", "smith2024"]
 
 
 def test_marked_skips_code_blocks() -> None:
     text = "```\n[@fake]\n```\n[@real]"
     assert scan_marked_citekeys(text) == ["real"]
+
+
+def test_iter_narrative_citation_spans_cobre_narrativa_e_pula_marcada() -> None:
+    text = "Como @smith2024 mostrou, ver tambem [@jones2020]."
+    spans = list(iter_narrative_citation_spans(text))
+    assert [text[s:e] for s, e in spans] == ["@smith2024"]
+
+
+def test_iter_narrative_citation_spans_inclui_o_arroba() -> None:
+    """O span começa no `@` — usar `match.span(1)` deixaria o `@` desprotegido
+    e uma âncora poderia encostar nele."""
+    text = "Ver @key2020 aqui."
+    ((start, end),) = iter_narrative_citation_spans(text)
+    assert text[start] == "@"
+    assert text[start:end] == "@key2020"
+
+
+def test_citekey_re_tem_exatamente_um_grupo_de_captura() -> None:
+    """Contrato duro: `review.py` faz `Counter(CITEKEY_RE.findall(...))`, que
+    só devolve `list[str]` com UM grupo. Com dois, `findall` devolve tuplas e
+    o multiconjunto de conservação passa a comparar lixo SILENCIOSAMENTE."""
+    assert CITEKEY_RE.groups == 1
+    assert CITEKEY_RE.findall("Cita [@a2020] e [@b2021].") == ["a2020", "b2021"]
+
+
+def test_citekey_re_aceita_inicial_unicode() -> None:
+    """Pandoc 3.9 aceita e renderiza `@Ünal2024` (verificado contra o binário).
+    O regex exigia `[A-Za-z0-9_]` na âncora mas usava `\\w` (Unicode) no resto,
+    então `@unÜal2024` passava e `@Ünal2024` sumia — assimetria silenciosa."""
+    assert CITEKEY_RE.findall("Cita [@Ünal2024].") == ["Ünal2024"]
+    assert CITEKEY_RE.findall("Cita [@ünal2024b].") == ["ünal2024b"]
+
+
+def test_citekey_re_ve_citacao_em_enfase_underscore() -> None:
+    """`_@lima2018 mostrou_` é ASCII puro, caminho default, e o Pandoc trata
+    como citação. O lookbehind `(?<![@\\w])` a perdia porque `_` é word char."""
+    assert CITEKEY_RE.findall("_@lima2018 mostrou_ isso.") == ["lima2018"]
+
+
+def test_citekey_re_continua_ignorando_email() -> None:
+    assert CITEKEY_RE.findall("mande para foo@bar.com") == []
+
+
+def test_citekey_re_ignora_email_com_local_part_nao_ascii() -> None:
+    """Liberar `_` no lookbehind não pode liberar letra acentuada: um
+    lookbehind ASCII-only (`(?<![@0-9A-Za-z])`) fazia `josé@usp.br` render o
+    citekey fantasma `usp.br` enquanto `joao@usp.br` não rendia nada — o
+    mesmo e-mail, veredito diferente por causa do acento."""
+    assert CITEKEY_RE.findall("mande para josé@usp.br") == []
+    assert CITEKEY_RE.findall("mande para joao@usp.br") == []
+    assert CITEKEY_RE.findall("mande para Иванов@usp.br") == []
+
+
+def test_citekey_re_alargado_e_superset_do_anterior() -> None:
+    """Regressão: tudo que a gramática antiga casava, a nova casa igual."""
+    amostras = [
+        ("Veja [@smith2024cohort] e [@jones2023trial].", ["smith2024cohort", "jones2023trial"]),
+        ("narrativa @lee2025core e @Author2015 [p. 123]", ["lee2025core", "Author2015"]),
+        ("composta @smith2020:aha-guideline", ["smith2020:aha-guideline"]),
+        ("sufixo @key2020. Fim.", ["key2020"]),
+        ("@_priv2024 e @2024smith", ["_priv2024", "2024smith"]),
+    ]
+    for texto, esperado in amostras:
+        assert CITEKEY_RE.findall(texto) == esperado, texto

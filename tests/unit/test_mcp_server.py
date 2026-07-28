@@ -303,7 +303,7 @@ def test_propose_prose_edit_propagates_author_injection_guard_error(
 ) -> None:
     """Mesma disciplina do teste 8 (guardas do domínio atravessam a fachada
     sem reimplementação): o repro do reviewer (`author` hostil fechando a
-    âncora prematuramente e soltando `[[@injetado]]` livre no worklist)
+    âncora prematuramente e soltando `[@injetado]` livre no worklist)
     chega aqui como `ValueError` pt-BR ("author inválido"), e `review.md`
     permanece intocado."""
     project_root, page = init_project(body="Frase-alvo para a proposta aqui.")
@@ -322,7 +322,7 @@ def test_propose_prose_edit_propagates_author_injection_guard_error(
             position="after",
             kind="ins",
             b=" extra",
-            author="agente<<} [[@injetado]] {>>x",
+            author="agente<<} [@injetado] {>>x",
         )
 
     assert "author inválido" in str(exc.value)

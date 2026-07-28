@@ -1,8 +1,8 @@
 """Grafo passivo de citação: citações no corpo → ``cites:`` no YAML.
 
-Reconhece as duas gramáticas via ``core/citations`` (``[@key]``/``@key``
-Pandoc e ``[[@key]]`` legado). O filtro por ``known`` descarta qualquer
-falso positivo da captura ampla. Migrado de ``cite_graph.py``.
+Reconhece a gramática Pandoc via ``core/citations`` (``[@key]``/``@key``).
+O filtro por ``known`` descarta qualquer falso positivo da captura ampla.
+Migrado de ``cite_graph.py``.
 """
 
 from __future__ import annotations
@@ -26,7 +26,8 @@ def extract_citekeys(body: str, known: set[str], self_citekey: str | None = None
 
 
 def update_graph(pj_path: Path) -> dict[str, Any]:
-    """Varre todas as notas, popula ``cites`` a partir de wikilinks no body.
+    """Varre todas as notas, popula ``cites`` a partir das citações Pandoc do
+    body (``iter_citekeys`` — captura ampla: ``[@key]`` e ``@key``).
 
     Retorna ``{"edges_added": N, "edges_removed": M}``.
     """

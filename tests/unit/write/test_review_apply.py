@@ -27,6 +27,7 @@ from prumo_assist.domains.write.review import (
     CitationConservationError,
     MarkLostError,
     ProposalResult,
+    _reject_citation_divergence,
     apply_review,
     propose_prose_edit,
 )
@@ -231,7 +232,7 @@ def _jones_drop_event() -> ReviewEvent:
 def test_apply_citation_drop_without_confirmation_hard_fails(
     init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
-    page_body = "Outro estudo [[@jones2021]] confirmou o achado."
+    page_body = "Outro estudo [@jones2021] confirmou o achado."
     project_root, page = init_project(body=page_body)
     write_review_artifacts(
         project_root,
@@ -258,7 +259,7 @@ def test_apply_citation_drop_without_confirmation_hard_fails(
 def test_apply_confirmed_citation_drop_removes_citation_and_conserves(
     init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
-    page_body = "Outro estudo [[@jones2021]] confirmou o achado."
+    page_body = "Outro estudo [@jones2021] confirmou o achado."
     project_root, page = init_project(body=page_body)
     # o humano já removeu a referência à citação em review.md (é o único
     # jeito de a citação de fato sair do corpo — o apply nunca transplanta
@@ -296,7 +297,7 @@ def test_apply_confirmed_citation_drop_without_removing_from_review_md_raises_co
     """Auto-review edge case: confirmar o drop não remove a citação por
     mágica — se o humano esqueceu de editar `review.md`, a citação ainda
     aparece no corpo final e a conservação pós-apply pega isso."""
-    page_body = "Outro estudo [[@jones2021]] confirmou o achado."
+    page_body = "Outro estudo [@jones2021] confirmou o achado."
     project_root, page = init_project(body=page_body)
     write_review_artifacts(
         project_root,
@@ -435,7 +436,7 @@ def test_apply_second_call_after_confirmed_drop_needs_no_reconfirmation(
     só o `citation-drop` pendente desta — que já não existe)."""
     prefix = "Primeiro paragrafo. Segundo estudo "
     suffix = " confirmou."
-    page_body = prefix + "[[@jones2021]]" + suffix
+    page_body = prefix + "[@jones2021]" + suffix
     project_root, page = init_project(body=page_body)
     # humano já removeu a referência à citação em review.md, e há 1 marca de
     # prosa pendente (Alice) ao lado — mesmo padrão dos outros testes de drop.
@@ -610,30 +611,6 @@ def test_propose_prose_edit_rejects_citation_payload_i3b(
     assert (review_dir / "review.md").read_text() == page_body
 
 
-# --- 14. âncora colada em `[[@key]]` -> recusa I1 ---------------------------
-
-
-def test_propose_prose_edit_rejects_anchor_tangent_to_citation_i1(
-    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
-) -> None:
-    page_body = "Estudo anterior [[@jones2021]] confirmou o achado."
-    project_root, page = init_project(body=page_body)
-    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
-
-    with pytest.raises(ValueError) as exc:
-        propose_prose_edit(
-            page=page,
-            anchor_excerpt="anterior ",  # termina exatamente onde a citação começa
-            position="after",
-            kind="ins",
-            b=" recente",
-            project_root=project_root,
-        )
-
-    assert "I1" in str(exc.value)
-    assert (review_dir / "review.md").read_text() == page_body
-
-
 # --- 15. replace com kind != del/sub OU a != excerto -> erro ----------------
 
 
@@ -714,11 +691,11 @@ def test_propose_prose_edit_identifies_inserted_mark_by_position_not_content(
 def test_propose_prose_edit_rejects_anchor_immediately_after_citation_i1(
     init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
-    """Completa a cobertura da fronteira estrita da Guarda I1: o teste 14
+    """Completa a cobertura da fronteira estrita da Guarda I1: o teste 23
     cobre `end == cs` (âncora termina onde a citação começa); este cobre
     `ce == start` (âncora começa onde a citação termina) — sem espaço algum
     entre a citação e a vírgula que seria a âncora."""
-    page_body = "Ver [[@jones2021]], confirmando o achado."
+    page_body = "Ver [@jones2021], confirmando o achado."
     project_root, page = init_project(body=page_body)
     review_dir = write_review_artifacts(project_root, page, review_md=page_body)
 
@@ -785,8 +762,8 @@ def test_propose_prose_edit_rejects_author_delimiter_injection(
     init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
 ) -> None:
     """`author` é colado SEM escape em `"{>>prumo-autor: " + author + "<<}"`
-    — um `author` hostil (`"agente<<} [[@injetado]] {>>x"`) fecha a âncora
-    PREMATURAMENTE (`<<}`), solta `"[[@injetado]] {>>x"` como texto LIVRE
+    — um `author` hostil (`"agente<<} [@injetado] {>>x"`) fecha a âncora
+    PREMATURAMENTE (`<<}`), solta `"[@injetado] {>>x"` como texto LIVRE
     (não marcado — inclusive uma citação fabricada) no corpo do worklist, e
     reabre um comentário (`{>>x`) que consumiria o resto do corpo. A
     allowlist de `author` recusa ANTES de qualquer leitura/escrita."""
@@ -801,7 +778,7 @@ def test_propose_prose_edit_rejects_author_delimiter_injection(
             position="after",
             kind="ins",
             b=" extra",
-            author="agente<<} [[@injetado]] {>>x",
+            author="agente<<} [@injetado] {>>x",
             project_root=project_root,
         )
 
@@ -818,12 +795,16 @@ def test_propose_prose_edit_rejects_composition_that_fabricates_citation(
 ) -> None:
     """`b="[["` sozinho não bate em NENHUMA guarda de entrada: não tem `@`,
     não tem `[@`/`[[@`, e o corpo original (`"Prefixo @fake2020]] sufixo"`)
-    não tem `[[@...]]` nenhum (falta o `[[` de abertura) — `CITEKEY_RE` já
-    casa `@fake2020` como citekey NARRATIVO ali, mas a Guarda I1 só olha
-    spans JÁ marcados. Ao aceitar a proposta (`criticmarkup.accept`), o
-    `"[["` fica adjacente ao `"@fake2020]]"` pré-existente e COMPLETA uma
-    citação `[[@fake2020]]` nunca cunhada por humano. O round-trip guard
-    simula o aceite antes de escrever e recusa a composição."""
+    não tem `[[@...]]` nenhum (falta o `[[` de abertura). Ao aceitar a
+    proposta (`criticmarkup.accept`), o `"[["` ficaria adjacente ao
+    `"@fake2020]]"` pré-existente e COMPLETARIA uma citação `[[@fake2020]]`
+    nunca cunhada por humano — mas desde que a narrativa `@key` virou átomo
+    protegido (D2), a Guarda I1 já recusa a âncora `position="before"`
+    colada em `@fake2020` ANTES disso: ela roda mais cedo que o round-trip
+    guard (`_reject_citation_divergence`/`_reject_composed_result`), que
+    fica como defesa em profundidade atrás dela para qualquer composição
+    que I1 não alcance (ver Teste 27, que exercita essa defesa
+    diretamente)."""
     page_body = "Prefixo @fake2020]] sufixo"
     project_root, page = init_project(body=page_body)
     review_dir = write_review_artifacts(project_root, page, review_md=page_body)
@@ -838,7 +819,7 @@ def test_propose_prose_edit_rejects_composition_that_fabricates_citation(
             project_root=project_root,
         )
 
-    assert "I1/I3b" in str(exc.value)
+    assert "I1" in str(exc.value)
     assert (review_dir / "review.md").read_text() == page_body
 
 
@@ -901,3 +882,197 @@ def test_propose_prose_edit_rejects_kind_comment(
 
     assert "comment" in str(exc.value)
     assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 23. Guarda I1 em sintaxe Pandoc `[@key]` (projeto Zettlr-front) -------
+
+
+def test_propose_prose_edit_rejects_anchor_tangent_to_pandoc_citation_i1(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """Guarda I1 na fronteira estrita ``end == cs`` (âncora termina exatamente
+    onde a citação começa), gramática Pandoc única do repo (spec 2026-07-22):
+    a citação se escreve ``[@key]``. Par do teste 17 (``ce == start``, o
+    outro lado da fronteira)."""
+    page_body = "Estudo anterior [@jones2021] confirmou o achado."
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="anterior ",  # termina exatamente onde a citação começa
+            position="after",
+            kind="ins",
+            b=" recente",
+            project_root=project_root,
+        )
+
+    assert "I1" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 24. composição de citação em sintaxe Pandoc -> recusa (D1) -------------
+
+
+def test_propose_prose_edit_rejects_pandoc_composition_that_fabricates_citation(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """Par Pandoc de `test_..._rejects_composition_that_fabricates_citation`.
+
+    O agente insere só `[` para embrulhar a narrativa `@fake2020` num grupo
+    `[@fake2020]` — citação que humano nenhum cunhou. Desde que a citação
+    narrativa `@key` virou átomo protegido (`_citation_atom_spans`), a
+    Guarda I1 (`_reject_anchor_tangent_to_citation`) já recusa ANTES de
+    `propose_prose_edit` chegar a compor o resultado: a âncora `"Prefixo "`
+    termina exatamente onde `@fake2020` começa (tangência, distância zero).
+    A terceira sub-checagem de `_reject_citation_divergence` (multiconjunto
+    de GRUPOS de citação) é defesa em profundidade — fica atrás da I1 neste
+    caminho e nunca chega a rodar aqui; sua cobertura DIRETA, isolada da
+    ordem das guardas, vive na seção 27 (`test_reject_citation_divergence_*`,
+    que chama a sub-checagem sem passar por `propose_prose_edit`).
+    """
+    page_body = "Prefixo @fake2020] sufixo."
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Prefixo ",
+            position="after",
+            kind="ins",
+            b="[",
+            project_root=project_root,
+        )
+
+    assert "I1 — citação é átomo" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 25. colchete legítimo longe de citação NÃO é "citação fabricada" ------
+
+
+def test_propose_prose_edit_allows_bracket_far_from_citation(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """Guarda D1 compara grupos de citação, não colchetes: `[sic]` num
+    parágrafo que tem `[@k2020]` noutro ponto é edição legítima de prosa."""
+    page_body = "Primeira frase com [@k2020] aqui. Segunda frase separada."
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
+
+    result = propose_prose_edit(
+        page=page,
+        anchor_excerpt="Segunda frase",
+        position="after",
+        kind="ins",
+        b=" [sic]",
+        project_root=project_root,
+    )
+
+    written = (review_dir / "review.md").read_text()
+    assert written == (
+        "Primeira frase com [@k2020] aqui. Segunda frase{++ [sic]++}"
+        "{>>prumo-autor: agente<<} separada."
+    )
+    # A citação pré-existente sai íntegra nos DOIS desfechos da marca.
+    assert "[@k2020]" in criticmarkup.accept(written)
+    assert "[@k2020]" in criticmarkup.reject(written)
+    assert criticmarkup.parse(written)[result.inserted_mark_index].b == " [sic]"
+
+
+# --- 26. Guarda I1 protege narrativa igual a bracketed (D2) ----------------
+
+
+def test_propose_prose_edit_rejects_anchor_tangent_to_narrative_citation(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """Par narrativa-vs-bracketed no MESMO documento: a MESMA edição colada
+    no fim de cada átomo tem de ter o MESMO veredito. Antes deste fix, a
+    narrativa era aceita e chegava à página."""
+    page_body = "Como @smith2024 mostrou, ver tambem [@jones2020]."
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Como @smith2024",
+            position="after",
+            kind="ins",
+            b=" [sic]",
+            project_root=project_root,
+        )
+
+    assert "I1" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+# --- 27. terceira checagem de conservação, isolada da ordem das guardas ----
+
+
+def test_reject_citation_divergence_pega_grupo_composto() -> None:
+    """A terceira sub-checagem (Task 1) é defesa em profundidade atrás da
+    I1: desde que a narrativa virou átomo protegido, a I1 recusa antes em
+    todo cenário de composição alcançável por `propose_prose_edit`. Este
+    teste a exercita DIRETAMENTE, para que a guarda não fique sem cobertura
+    caso a ordem upstream mude de novo."""
+    antes = "Como discute @silva2020, o desfecho melhora."
+    depois = "Como discute [@silva2020], o desfecho melhora."
+
+    with pytest.raises(ValueError) as exc:
+        _reject_citation_divergence(antes, depois)
+
+    assert "GRUPOS de citação" in str(exc.value)
+
+
+def test_reject_citation_divergence_permite_prosa_sem_mexer_em_citacao() -> None:
+    antes = "Frase [@k2020] aqui. Outra frase."
+    depois = "Frase [@k2020] aqui. Outra frase [sic]."
+
+    _reject_citation_divergence(antes, depois)  # não levanta
+
+
+# --- 28. conservação também no caminho de REJEIÇÃO (achado C1) -------------
+
+
+def test_propose_prose_edit_rejects_del_that_fabricates_citation_on_reject(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """Achado C1: a guarda de conservação simulava só o ACEITE.
+
+    Uma marca ``{--@--}`` colada antes de `Smith2020` (token que NÃO é
+    citação — não tem sigilo) é invisível no aceite (o `@` some, corpo
+    idêntico) e fabrica `@Smith2020` na REJEIÇÃO — citekey que humano
+    nenhum cunhou, injetada justamente quando o humano REJEITA a proposta
+    do agente. Nem a I1 (não há citação no corpo para tangenciar), nem a
+    I3b (`a="@"` sozinho não casa `CITEKEY_RE`), nem `apply_review`
+    (`_citekey_multiset` é marked-only) pegavam.
+    """
+    page_body = "Segundo Smith2020, o efeito e claro."
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Segundo ",
+            position="after",
+            kind="del",
+            a="@",
+            project_root=project_root,
+        )
+
+    assert "rejeição" in str(exc.value)
+    assert "Smith2020" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
+def test_reject_citation_divergence_reporta_o_lado_que_divergiu() -> None:
+    """A mensagem diz QUAL simulação divergiu — sem isso o humano não sabe
+    se o problema está no aceite ou na rejeição da proposta."""
+    with pytest.raises(ValueError) as exc:
+        _reject_citation_divergence("Segundo Smith2020.", "Segundo @Smith2020.", moment="aceite")
+
+    assert "aceite" in str(exc.value)

@@ -2,7 +2,7 @@
 
 Detecta problemas estruturais que LLM não precisa ver:
 
-- Citekeys marcados (``[@key]`` Pandoc ou ``[[@key]]`` legado) ausentes do .bib.
+- Citekeys marcados (``[@key]``) ausentes do .bib.
 - Páginas órfãs (sem links de entrada).
 - Frontmatter ausente em páginas tipadas (``concepts/``, ``entities/``, etc.).
 - ``_index.md`` ou ``_log.md`` ausentes.
@@ -18,6 +18,7 @@ Contradições e stale claims permanecem semânticas — trabalho da skill
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -80,9 +81,8 @@ def lint(pj_path: Path) -> dict[str, Any]:
         if parts and parts[0] in EXPECTED_DIRS and not text.startswith("---"):
             issues.append(WikiIssue("warning", "no_frontmatter", "sem frontmatter", page=rel))
 
-        # Citekeys quebrados — formas marcadas nas duas gramáticas
-        # ([@key] Pandoc e [[@key]] legado); narrativa solta fica fora
-        # de propósito (handle @fulano em prosa não é citação).
+        # Citekeys quebrados — formas marcadas (`[@key]`); narrativa solta
+        # fica fora de propósito (handle @fulano em prosa não é citação).
         for ck in scan_marked_citekeys(text):
             if bib_keys and ck not in bib_keys:
                 issues.append(
@@ -95,16 +95,7 @@ def lint(pj_path: Path) -> dict[str, Any]:
                 )
 
         # Links de entrada (para detectar páginas órfãs)
-        for target in PAGE_LINK_RE.findall(text):
-            stem = _link_stem(target)
-            if stem in incoming:
-                incoming[stem] += 1
-
-        for md_target in MD_LINK_RE.findall(text):
-            target = md_target.split("#")[0].strip()
-            if target.startswith(("http://", "https://", "mailto:")):
-                continue
-            stem = Path(target).stem
+        for stem in _page_link_targets(text):
             if stem in incoming:
                 incoming[stem] += 1
 
@@ -116,7 +107,7 @@ def lint(pj_path: Path) -> dict[str, Any]:
 
     issues.extend(_check_log_prefixes(docs))
     issues.extend(_check_single_primary(pj_path))
-    issues.extend(_check_dead_frontmatter_links(texts, pj_path, page_stems, bib_keys))
+    issues.extend(_check_dead_frontmatter_links(texts, pj_path, page_stems))
     issues.extend(_check_concept_candidates(texts, page_stems))
 
     return _report(issues)
@@ -126,6 +117,40 @@ def _link_stem(match: str | tuple[str, ...]) -> str:
     """Normaliza um match de ``PAGE_LINK_RE`` para o stem do alvo (sem âncora)."""
     target = match if isinstance(match, str) else match[0]
     return target.strip().split("#")[0]
+
+
+def _is_external_link(target: str) -> bool:
+    """Alvo de link markdown que NÃO aponta para página do wiki.
+
+    Única fonte para os dois caminhos que precisam disso (corpo e
+    frontmatter): enquanto divergiam, o do frontmatter pulava só ``"://"`` e
+    um ``[contato](mailto:x@y.br)`` em ``sources`` virava ``dead_link``
+    falso.
+    """
+    return "://" in target or target.startswith("mailto:")
+
+
+def _page_link_targets(text: str) -> Iterator[str]:
+    """Stems de página referenciados em ``text``, nas duas sintaxes.
+
+    Fonte ÚNICA para os dois caminhos que precisam disso — contagem de links
+    de entrada no corpo e validação de alvo em ``links_to``/``sources``/
+    ``related``. Enquanto eram duas implementações, divergiram: o caminho do
+    frontmatter pulava só ``"://"`` (um ``mailto:`` virava ``dead_link``
+    falso) e cada uma carregava seu próprio regex de wikilink.
+
+    Alvo NU não entra de propósito: ``sources`` recebe string livre (título
+    de paper, URL, nome de dataset) e qualquer não-stem viraria ``dead_link``,
+    inundando o relatório. Citekey também não — ``PAGE_LINK_RE`` exclui ``@``
+    do charset; quem valida citekey é ``scan_marked_citekeys``.
+    """
+    for target in PAGE_LINK_RE.findall(text):
+        yield _link_stem(target)
+    for md_target in MD_LINK_RE.findall(text):
+        alvo = _link_stem(md_target)
+        if _is_external_link(alvo):
+            continue
+        yield Path(alvo).stem
 
 
 def _report(issues: list[WikiIssue]) -> dict[str, Any]:
@@ -185,16 +210,14 @@ def _check_log_prefixes(docs: Path) -> list[WikiIssue]:
 
 
 _FM_LINK_FIELDS = ("links_to", "sources", "related")
-_WIKILINK_TARGET_RE = re.compile(r"\[\[(@?[^\]|#]+)")
 
 
 def _check_dead_frontmatter_links(
     texts: dict[Path, str],
     pj_path: Path,
     page_stems: set[str],
-    bib_keys: set[str],
 ) -> list[WikiIssue]:
-    """Wikilinks em ``links_to``/``sources``/``related`` cujo alvo não existe."""
+    """Wikilinks e links markdown em ``links_to``/``sources``/``related`` cujo alvo (de página) não existe."""
     issues: list[WikiIssue] = []
     for page, text in texts.items():
         try:
@@ -209,30 +232,16 @@ def _check_dead_frontmatter_links(
             if not isinstance(value, list):
                 continue
             for raw in value:
-                m = _WIKILINK_TARGET_RE.search(str(raw))
-                if not m:
-                    continue
-                target = m.group(1).strip()
-                if target.startswith("@"):
-                    key = target[1:]
-                    if bib_keys and key not in bib_keys:
+                for target in _page_link_targets(str(raw)):
+                    if target not in page_stems:
                         issues.append(
                             WikiIssue(
                                 "warning",
                                 "dead_link",
-                                f"{field}: [[@{key}]] ausente do .bib",
+                                f"{field}: {target} não existe no vault",
                                 page=rel,
                             )
                         )
-                elif target not in page_stems:
-                    issues.append(
-                        WikiIssue(
-                            "warning",
-                            "dead_link",
-                            f"{field}: [[{target}]] não existe no vault",
-                            page=rel,
-                        )
-                    )
     return issues
 
 

@@ -33,6 +33,7 @@ from prumo_assist.core.bib import BibEntry, extract_field, parse_bib
 from prumo_assist.core.citations import scan_marked_citekeys
 from prumo_assist.core.uvx import PinnedTool, run_pinned
 from prumo_assist.domains.paper.errors import PaperError
+from prumo_assist.domains.paper.graph import extract_citekeys
 
 _USER_AGENT = f"prumo-assist/{__version__} (+https://github.com/raphaelfh/prumo-assist)"
 
@@ -533,6 +534,23 @@ def _findings_from_report(report: dict[str, Any], scope: set[str]) -> list[Findi
     return findings
 
 
+def _page_scope_citekeys(body: str, known: set[str]) -> list[str]:
+    """Citekeys de ``body`` que existem em ``known``, para o escopo de ``--page``.
+
+    Usa a captura AMPLA (``iter_citekeys``), não a marcada: citação narrativa
+    ``@key`` é forma legítima da gramática Pandoc e precisa ser verificada
+    contra retratação como qualquer outra. O filtro por ``known`` é o que
+    torna a captura ampla segura aqui — ``@fulano`` em prosa não está no bib
+    e cai fora.
+
+    Delega a :func:`~prumo_assist.domains.paper.graph.extract_citekeys`, que
+    já é essa política ("ampla, filtrada por ``known``") no mesmo domínio —
+    manter duas cópias significaria dois lugares a lembrar quando ela ganhar
+    nuance.
+    """
+    return extract_citekeys(body, known)
+
+
 def verify_refs(
     pj_path: Path,
     *,
@@ -543,8 +561,8 @@ def verify_refs(
 ) -> dict[str, Any]:
     """Verifica as referências do ``references/_references.bib`` do pj.
 
-    Com ``page``, restringe às citekeys MARCADAS na página (``[[@key]]`` /
-    ``[@key]``) — recomendado: sem chave de API o pool público é lento.
+    Com ``page``, restringe às citekeys da página (``[@key]``/``@key``) —
+    recomendado: sem chave de API o pool público é lento.
     """
     bib_path = pj_path / "references" / "_references.bib"
     if not bib_path.exists():
@@ -592,8 +610,9 @@ def verify_refs(
                 f"{page} não existe — confira o caminho passado em --page "
                 "(a página .md que cita as referências)."
             )
-        page_keys = scan_marked_citekeys(page.read_text(encoding="utf-8"))
-        scope = [k for k in page_keys if k in by_key]
+        page_body = page.read_text(encoding="utf-8")
+        scope = _page_scope_citekeys(page_body, set(by_key))
+        page_keys = scan_marked_citekeys(page_body)
         findings.extend(
             Finding(
                 citekey=key,
@@ -608,6 +627,20 @@ def verify_refs(
             for key in page_keys
             if key not in by_key
         )
+        if not scope:
+            findings.append(
+                Finding(
+                    citekey="-",
+                    level="info",
+                    kind="empty-page-scope",
+                    message=(
+                        "nenhuma citação desta página consta do bib — nada foi "
+                        "verificado. Confira se a página cita com `[@chave]` ou "
+                        "`@chave` e se o bib está sincronizado (`prumo paper sync`)."
+                    ),
+                    source="local",
+                )
+            )
     else:
         # dedup por citekey (emenda pós-review T2): uma citekey duplicada não
         # pode contar 2x no escopo — o achado duplicate-citekey já cobre o

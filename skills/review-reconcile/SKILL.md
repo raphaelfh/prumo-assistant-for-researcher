@@ -177,7 +177,7 @@ qualquer coisa. Trate cada recusa como esperada, não como bug a contornar:
   mascarar. Reduza o payload para não incluir citekey/colchete, ou deixe o
   evento inteiro para o humano se a intenção do coautor era mexer na
   citação.
-- **Âncora encosta em ou intersecta `[[@citekey]]`** (I1) → PARE; escolha
+- **Âncora encosta em ou intersecta citação (`[@key]` ou `@key`)** (I1) → PARE; escolha
   uma âncora que não toque a citação, ou escale.
 - **`author` inválido** → sempre `author="agente"` (default); nunca copie o
   nome do coautor nem invente string com `{`, `}`, `[`, `]`.

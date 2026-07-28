@@ -43,11 +43,6 @@ def test_split_frontmatter_raw_returns_empty_when_absent() -> None:
     assert body == text
 
 
-def test_citation_with_alias_keeps_only_key() -> None:
-    out = normalize_markdown("See [[@smith2024|Smith et al.]] for details.")
-    assert out == "See [@smith2024] for details."
-
-
 def test_wikilink_with_alias_replaces_with_alias() -> None:
     out = normalize_markdown("Refer to [[some-page|that page]].")
     assert out == "Refer to that page."
@@ -56,6 +51,23 @@ def test_wikilink_with_alias_replaces_with_alias() -> None:
 def test_wikilink_without_alias_keeps_target() -> None:
     out = normalize_markdown("See [[some-page]].")
     assert out == "See some-page."
+
+
+def test_wikilink_legado_de_citacao_degrada_para_narrativa_pandoc() -> None:
+    """Achado I3: enquanto `_WIKILINK_RE` excluía `@` do charset do alvo, um
+    `[[@key]]` remanescente passava INTACTO pelo normalizador e o pandoc
+    entregava `[(Smith 2020)]` no docx — e, com alias,
+    `[[@jones2021|Jones et al.]]` virava `[(Jones 2021, |Jones et al.)]`,
+    texto corrompido DENTRO da citação, sem erro nenhum.
+
+    Sem reintroduzir suporte legado: caindo na regra NORMAL de wikilink,
+    `[[@key]]` degrada para `@key` — citação narrativa Pandoc válida. Com
+    alias vale a regra de alias (o alias vence, como em qualquer wikilink);
+    o resultado é texto limpo, nunca colchete órfão.
+    """
+    assert normalize_markdown("Como [[@smith2020]] mostrou.") == "Como @smith2020 mostrou."
+    assert normalize_markdown("Ver [[@jones2021|Jones et al.]].") == "Ver Jones et al.."
+    assert normalize_markdown("Grupo [[@a2020; @b2021]].") == "Grupo @a2020; @b2021."
 
 
 def test_image_embed_with_missing_file_keeps_path() -> None:

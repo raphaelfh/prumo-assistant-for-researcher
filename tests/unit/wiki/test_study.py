@@ -38,7 +38,7 @@ def test_create_session_log_writes_yaml_frontmatter(tmp_path: Path) -> None:
         pj_path=pj,
         topic="curvas-roc",
         date="2026-05-03",
-        sources_consulted=["[[@hanley1982roc]]", "[[concepts/curvas-roc]]"],
+        sources_consulted=["[@hanley1982roc]", "[[concepts/curvas-roc]]"],
     )
     assert out.exists()
     text = out.read_text()
@@ -47,7 +47,7 @@ def test_create_session_log_writes_yaml_frontmatter(tmp_path: Path) -> None:
     assert "date: '2026-05-03'" in text or 'date: "2026-05-03"' in text
     assert "schema_version: SessionLog/v1" in text
     assert "in-progress" in text
-    assert "[[@hanley1982roc]]" in text
+    assert "[@hanley1982roc]" in text
 
 
 def test_append_step_adds_section(tmp_path: Path) -> None:
@@ -65,7 +65,7 @@ def test_append_step_adds_section(tmp_path: Path) -> None:
             question="Defina X",
             answer="X é Y",
             feedback="correto",
-            citations=["[[@a]]"],
+            citations=["[@a]"],
         ),
     )
     text = log_path.read_text()

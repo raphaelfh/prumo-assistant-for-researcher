@@ -58,7 +58,7 @@ caminho é humano (ou o fluxo review-reconcile → `prumo write review apply`).
      semântica de citação retratada/inexistente é irrelevante até o humano
      resolver o erro.
 2. **Inventário**: extraia da página cada par (frase → citekeys marcadas
-   `[[@key]]`/`[@key]`). Frase = sentença completa que contém a(s) marca(s).
+   `[@key]`). Frase = sentença completa que contém a(s) marca(s).
 3. **Evidência do acervo**: para cada citekey, leia
    `references/notes/<citekey>/_extract.md` (e `_meta.md` para
    título/autores/DOI). Sem extract → classifique como **Sem-extract** (não

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 from prumo_assist.cli import app
+from prumo_assist.core.paths import resolve_resource
 
 runner = CliRunner()
 
@@ -228,3 +230,16 @@ def test_init_scaffold_is_pandoc_pure(tmp_path: Path) -> None:
         if "[[@" in text or "![[" in text or "> [!" in text:
             offenders.append(str(rel))
     assert offenders == []
+
+
+def test_templates_nao_usam_ancora_bibliografica_sem_arroba() -> None:
+    """`[[citekey]]` (sem `@`) não é citação Pandoc válida: nenhum consumidor
+    de citação a enxerga, e `PAGE_LINK_RE` a confunde com wikilink de página
+    (vira `concept_candidate` no lint)."""
+    ofensores: list[str] = []
+    for path in resolve_resource("templates").rglob("*.md"):
+        for m in re.finditer(r"\[\[([^\]|@#]+)\]\]", path.read_text(encoding="utf-8")):
+            alvo = m.group(1)
+            if "citekey" in alvo.lower():
+                ofensores.append(f"{path}: [[{alvo}]]")
+    assert not ofensores, "âncora bibliográfica sem `@`: " + "; ".join(ofensores)

@@ -115,8 +115,9 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   (spec 2026-07-05, [ADR-0017](docs/adr/adr-0017-prumo-mcp-reconciliador.md)).
 - **`prumo paper verify-refs`** — verificação determinística de referências do
   `.bib`: existência e título via Crossref, retração via Crossref/PubMed, com
-  cache local (TTL 7 dias). `--page` restringe o escopo às citekeys marcadas na
-  página (recomendado); `--deep` liga o backend opcional `uvx
+  cache local (TTL 7 dias). `--page` restringe o escopo às citekeys da página,
+  nas duas formas Pandoc — `[@key]` e `@key` (recomendado); `--deep` liga o
+  backend opcional `uvx
   academic-refchecker==3.0.151` (pinado; achados viram `warning`, nunca gate);
   `--refresh` ignora o cache. Só achado `error` deriva exit 1 (spec 2026-07-05,
   [ADR-0018](docs/adr/adr-0018-verificacao-referencias-apis-publicas.md)).
@@ -183,7 +184,48 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   duas entradas homônimas faziam uma esconder a outra em silêncio (inclusive
   uma retratada); uma issue por citekey, com o comando de correção embutido.
 
+### Removido
+- **⚠ Breaking — a gramática legada `[[@citekey]]` deixou de ser reconhecida.**
+  A citação Pandoc (`[@key]` bracketed e `@key` narrativa) é a única gramática
+  do repo: `core/citations.py` é o único reconhecedor, e nenhum consumidor
+  (export, compose, `wiki lint`, `paper graph`, `paper verify-refs`, `write
+  review`, `capture route`) enxerga mais o colchete duplo. **Some junto a
+  normalização `[[@key]]` → `[@key]` do export**, publicada desde a 0.5.0.
+  Detecte o que ainda usa a forma antiga com `rg '\[\[@' docs/ references/`;
+  migre trocando `[[@key]]` por `[@key]`, `[[@a]] [[@b]]` por `[@a; @b]` e
+  `[[@key|alias]]` por `@key` (narrativa) ou por prosa + `[@key]`.
+  Não migrar não corrompe mais nada, mas muda o resultado: um `[[@key]]`
+  remanescente agora degrada para `@key` (citação narrativa VÁLIDA) —
+  ver "Corrigido" abaixo.
+
 ### Corrigido
+- **⚠ Breaking — `[[@citekey]]` remanescente degrada para `@citekey` em vez de
+  corromper o docx.** `normalize_markdown` excluía `@` do charset do wikilink
+  (resíduo do reconhecedor legado), então `[[@smith2020]]` passava INTACTO
+  pelo normalizador e o pandoc entregava `[(Smith 2020)]` no docx; com alias,
+  `[[@jones2021|Jones et al.]]` virava `[(Jones 2021, |Jones et al.)]` — texto
+  corrompido DENTRO da citação, sem erro nenhum (verificado contra pandoc
+  3.9.0.2). O colchete duplo passa a cair na regra NORMAL de wikilink:
+  `[[@key]]` → `@key` (citação narrativa Pandoc válida, renderizada corretamente)
+  e `[[@key|alias]]` → `alias` (texto plano, como qualquer wikilink com alias —
+  a citação some, então prefira migrar a forma com alias à mão). O pior caso
+  deixa de ser docx corrompido.
+- **⚠ Breaking — `prumo paper verify-refs --page` passa a verificar citação
+  narrativa.** O escopo vinha de `scan_marked_citekeys`, que exclui `@key`
+  solta por contrato: página cujas citações são narrativas saía com
+  `checked=0`, exit 0 e "✓ 0 referência(s) verificada(s)" — indistinguível de
+  página sem citação, mesmo com paper RETRATADO no acervo. O escopo passa a
+  usar a captura ampla filtrada pelo bib (`@fulano` de prosa continua fora), e
+  um achado `empty-page-scope` (`info`, não muda exit code) substitui o falso
+  conforto. Páginas que hoje passam com exit 0 podem passar a sair com 1 —
+  que é o gate correto do ADR-0018.
+- **Guarda I1 (citação é átomo) cega para a sintaxe-padrão** — a guarda que
+  recusa proposta de agente encostando em citação localizava o átomo só por
+  regex própria de `review.py`, cega à forma narrativa `@key` da gramática
+  Pandoc: um agente podia ancorar sobre a citação e alterá-la preservando a
+  citekey (acrescentar locator, mover posição). Passa a usar a união de
+  `core.citations.iter_marked_citation_spans`/`iter_narrative_citation_spans`
+  (gramática única, Princípio I7) — cobre `[@key]` marcada e `@key` narrativa.
 - `prumo init`: os placeholders de nome do template (`pj-NOME` no
   `pyproject.toml`, `pj_<NOME>` nos títulos de README/docs) agora são
   substituídos pelo nome real do projeto nos arquivos copiados — o projeto
@@ -232,6 +274,37 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   `review_status` também desceu pro domínio (`review.status(page)`), e a
   contagem de drops pendentes — antes duplicada entre a tool e o comando
   `write review ingest` — unificou em `review.count_pending_drops`.
+- Template clínico (`data_dictionary_skeleton.md`) prescrevia `[[citekey]]`
+  (sem `@`) como âncora bibliográfica — forma que a gramática Pandoc não
+  reconhece e que nenhum consumidor de citação enxerga, enquanto
+  `PAGE_LINK_RE` a confundia com wikilink de página. Migrado para
+  `[@citekey]` célula a célula (o `README.md` do mesmo diretório tinha a
+  mesma menção em prosa, também corrigida). Projetos que já copiaram o
+  skeleton NÃO mudam de comportamento — editar o template não reescreve
+  cópia nenhuma, e `[[citekey]]` sem `@` continua invisível a
+  `scan_marked_citekeys` e continua contada como wikilink de página
+  (`concept_candidate`). Para colher `broken_citekey` nessas cópias é
+  preciso migrar as células à mão para `[@citekey]`; ache-as com
+  `rg '\[\[[a-z]' docs/`.
+- Buscas embutidas em `paper-manager` (quem-cita) e `wiki-lint` (citekeys
+  quebradas) divergiam da gramática única: a primeira casava zero em nota
+  Pandoc (reportando "nenhum paper cita este"), a segunda tratava o colchete
+  inteiro como citekey e acusava `[@a; @b]` de quebrada.
+- `CITEKEY_RE` voltou a ignorar e-mail com local-part não-ASCII: o lookbehind
+  bloqueava só letra/dígito ASCII, então `josé@usp.br` rendia o citekey
+  fantasma `usp.br` enquanto `joao@usp.br` não rendia nada — mesmo e-mail,
+  veredito diferente por causa do acento. A ênfase `_@lima2018 mostrou_`
+  segue sendo citação.
+- `prumo capture` não classifica mais caminho de arquivo como citekey: `.` e
+  `/` são pontuação interna válida no citekey Pandoc, então `artigo.pdf` e
+  `docs/notes.md` saíam como `citekey`. Como o ramo de PDF só dispara com o
+  arquivo existente, um caminho digitado errado — o erro mais provável —
+  perdia a mensagem que ensina o formato certo; agora responde `unknown` com
+  a orientação.
+- `prumo wiki lint` não acusa mais `dead_link` falso em `mailto:` dentro de
+  `links_to`/`sources`/`related`: o caminho do frontmatter pulava só `"://"`,
+  enquanto o do corpo já pulava `mailto:` — as duas pontas passam pela mesma
+  checagem agora.
 
 ### Mudado
 - `prumo doctor` detecta a versão do Zotero pela API local e sinaliza par

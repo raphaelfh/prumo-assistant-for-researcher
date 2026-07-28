@@ -50,7 +50,7 @@ A mudança acompanha uma **emenda de política de release** (pré-1.0): PATCH pa
 
 ### Como o perfil global acha os arquivos do projeto
 
-Não precisa achar: `bibliography:` e `csl:` viajam no **frontmatter de cada draft** (gerado pelo scaffold), e frontmatter tem precedência sobre defaults file. O perfil carrega só a cadeia de filtros (com caminho absoluto do filtro Lua, resolvido por máquina) e o reference-doc padrão.
+Não precisa achar: `bibliography:` e `csl:` viajam no **frontmatter de cada draft** (gerado pelo scaffold), e o frontmatter só prevalece enquanto Citation Database e CSL globais do Zettlr estiverem vazios — a precedência do Pandoc é a INVERSA (defaults file = `--bibliography`/`--csl`, sobrescreve metadata do documento), e o exporter do Zettlr injeta os globais em qualquer defaults file importado. **Correção de fato registrada em 2026-07-26**; a decisão do spec não muda. O perfil carrega só a cadeia de filtros (com caminho absoluto do filtro Lua, resolvido por máquina) e o reference-doc padrão.
 
 ### Fronteira de compatibilidade
 
