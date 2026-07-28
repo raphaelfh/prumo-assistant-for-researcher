@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.domains.write.compose import compose_path, resolve_template
+from prumo_assist.domains.write.compose import (
+    compose_path,
+    resolve_template,
+    template_candidates,
+)
 
 
 def test_resolve_template_default_from_skill_bundle(tmp_path: Path) -> None:
@@ -101,3 +105,24 @@ def test_compose_path_into_and_out_conflict(tmp_path: Path) -> None:
             into=tmp_path / "a.md",
             out=tmp_path / "b.md",
         )
+
+
+def test_template_candidates_espelha_a_chain_de_resolve(tmp_path: Path) -> None:
+    """`list-templates` reporta os mesmos caminhos que `resolve_template` escolhe.
+
+    Guarda contra a divergência real que já aconteceu: o CLI apontava para
+    `templates/writing/<kind>.md` (vazio desde a migração) enquanto a resolução
+    usava `skills/write-<kind>/template.md`.
+    """
+    candidates = template_candidates(pj_path=tmp_path, kind="paper")
+    assert set(candidates) == {"project_override", "plugin_default"}
+    # sem override no projeto, o vencedor da chain é o default do plugin
+    assert resolve_template(pj_path=tmp_path, kind="paper") == candidates["plugin_default"]
+    assert candidates["plugin_default"] is not None
+    assert candidates["plugin_default"].exists()
+
+    override = tmp_path / ".claude" / "writing_templates" / "paper.md"
+    override.parent.mkdir(parents=True)
+    override.write_text("# override\n", encoding="utf-8")
+    assert resolve_template(pj_path=tmp_path, kind="paper") == override
+    assert template_candidates(pj_path=tmp_path, kind="paper")["project_override"] == override

@@ -7,6 +7,61 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.64.0] - 2026-07-28
+
+### Adicionado
+- **Contrato de prosa `prumo:prose`** — bloco machine-owned estampado por
+  `gen_indexes.py` nas 6 skills que produzem ou fiscalizam prosa
+  (`scientific-writing`, `write-paper`, `write-scientific`, `write-statistics`,
+  `write-projeto-cep`, `peer-review`), a partir da fonte única
+  `.github/scripts/prose_conventions.md`. Mesmo mecanismo do preflight
+  ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)), com `--check` no
+  CI garantindo que as 6 nunca divirjam (Princípio VII;
+  [ADR-0009](docs/adr/adr-0009-blocos-delimitados.md),
+  [ADR-0021](docs/adr/adr-0021-idioma-de-escrita-cascata-e-default.md)).
+- **`[writing].language` em `pj_config.toml`** — idioma das skills de prosa,
+  validado em `core/config.py` contra `WRITING_LANGUAGES = {pt-BR, en-US}`,
+  separado de `paper_extract.language` (contrato do callout de extração).
+- **`prumo.prose` e `prumo.locale_lock` no frontmatter de skill** — opt-in pelo
+  bloco e trava de idioma por gênero. `write-projeto-cep` declara
+  `locale_lock: pt-BR`: CEP/CONEP e TCLE não admitem outro idioma.
+- **Convenções C7 (padrão inglês americano) e C8 (economia lexical)** em
+  `/prumo-assist:scientific-writing`, e `--lang pt-BR|en-US` nas skills de prosa.
+- **`prumo write prep --lang` + `language`/`language_source` no JSON** — a cascata
+  determinística (trava de gênero > flag > `[writing].language` > default) passou a
+  ser resolvida por `compose.resolve_language`, e não recomposta em prosa pelas
+  quatro skills `write-*`, que já dependem do CLI (Princípio II). Efeito colateral
+  que é o ponto: `[writing].language` inválido passa a falhar no caminho de
+  escrita, onde a chave importa — antes só quebrava `prumo paper` e era honrado em
+  silêncio por quem escrevia. A trava de gênero é lida do próprio
+  `skills/write-<kind>/SKILL.md`, mesma fonte do template. `scientific-writing` e
+  `peer-review` seguem resolvendo em prosa por serem julgamento puro
+  ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
+
+### Mudado
+- **⚠ Breaking — idioma de escrita default passa a `en-US`.** As skills de prosa
+  resolvem o idioma por cascata (trava de gênero > pedido explícito >
+  `[writing].language` > idioma do texto alvo > `en-US`) e declaram qual usaram.
+  Projetos `pj_*` existentes sem a chave caem no default; o passo de detecção
+  cobre passe editorial sobre draft pt-BR, e **nenhuma skill de prosa traduz**
+  texto existente. Geração do zero em projeto antigo sem a chave sai em inglês —
+  acrescente `[writing] language = "pt-BR"` para manter o comportamento anterior.
+- **Citação sempre imediatamente antes do terminador do período** (C1), nas duas
+  formas Pandoc — marcada (`[@a]`) e narrativa (`@a`, mid-período por construção) —
+  e sem a exceção de autor-sujeito: `Liang et al. [@a] propõem X.` vira `X foi proposto
+  por Liang et al. [@a].`, e duas fontes com claims distintos viram dois períodos.
+  O audit passou a um superconjunto conservador (`rg "\[@[^]]+\][^.]"`) no lugar
+  da heurística acentuada, que perdia citação seguida de maiúscula, número ou
+  vírgula.
+- **Superlativo é removido, não atenuado** (C4). Intensificador sem número sai do
+  texto ou é trocado pelo valor medido; claim descalibrado (causalidade em
+  desenho associacional, hedging excessivo, antropomorfismo de modelo) passa a ser
+  **sinalizado** com `<!-- REVER -->`, nunca reescrito — reescrever seria
+  substância, e substância é peer-review.
+- `stamp_block`/`strip_block` genéricos em `gen_indexes.py` absorvem
+  `stamp_preflight`; skill que deixa de declarar `prose:` tem o bloco órfão
+  removido em vez de mantido em silêncio.
+
 ### Removido
 
 - **⚠ Breaking — a gramática legada `[[@citekey]]` deixou de ser reconhecida.**
@@ -23,6 +78,11 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   ver "Corrigido" abaixo.
 
 ### Corrigido
+- **`prumo write list-templates`** reportava `plugin_default: null` para os quatro
+  kinds: apontava para `templates/writing/<kind>.md`, esvaziado quando os
+  templates migraram para `skills/write-<kind>/template.md`. Agora consome
+  `compose.template_candidates`, a mesma fonte de `resolve_template`, com teste
+  travando as duas contra divergência futura.
 
 - **⚠ Breaking — `[[@citekey]]` remanescente degrada para `@citekey` em vez de
   corromper o docx.** `normalize_markdown` excluía `@` do charset do wikilink
@@ -142,6 +202,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   reais: zero diferença no dict de metadata). `issued` e `container-title` estão em
   `METADATA_FIELDS`, então **`prumo paper sync` cura retroativamente** as notas já
   geradas com ano nulo e periódico vazio, preservando `tldr`/`role`/`added`.
+
 
 ## [0.63.0] - 2026-07-26
 
@@ -599,7 +660,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.63.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.0...HEAD
+[0.64.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.63.0...v0.64.0
 [0.63.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.1...v0.63.0
 [0.62.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.0...v0.62.1
 [0.62.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.61.0...v0.62.0

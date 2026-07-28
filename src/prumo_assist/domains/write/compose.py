@@ -6,6 +6,8 @@ Funções:
   ``references/_references.bib``, callouts ``_extract.md``, ``protocol.md``,
   ``project_guide.md``, ``findings/*.md``.
 - ``resolve_template`` — chain ``--template`` > ``.claude/writing_templates/`` > skill bundle.
+- ``resolve_language`` — cascata de idioma (ADR-0021): trava de gênero > flag >
+  ``[writing].language`` > default.
 - ``compose_path`` — resolve output path por modo (drafts/into/out).
 - ``write_output`` — escreve conteúdo no destino + retorna ``WriteOutput``.
 - ``extract_missing_refs`` — varre texto pra ``[REF FALTANTE: ...]``.
@@ -14,6 +16,7 @@ Funções:
 from __future__ import annotations
 
 import re
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,6 +26,7 @@ from prumo_assist.core.bib import extract_field, extract_year, parse_bib
 from prumo_assist.core.citations import scan_citekeys
 from prumo_assist.core.note_paths import extract_path
 from prumo_assist.core.paths import find_resource
+from prumo_assist.domains.write.errors import WriteError
 from prumo_assist.domains.write.schemas.v1 import (
     ComposeInputs,
     FindingSummary,
@@ -47,17 +51,86 @@ def read_inputs(pj_path: Path) -> ComposeInputs:
 
 @dataclass(frozen=True)
 class WritePrep:
-    """Contexto de escrita: inputs compostos + template resolvido."""
+    """Contexto de escrita: inputs compostos + template e idioma resolvidos."""
 
     inputs: ComposeInputs
     template_path: Path
+    language: str
+    language_source: str
 
 
-def prep(pj_path: Path, *, kind: WriteKind) -> WritePrep:
-    """Compõe ``read_inputs`` + ``resolve_template`` num só passo de contexto."""
+def locale_lock(kind: WriteKind) -> str | None:
+    """Trava de idioma declarada por ``skills/write-<kind>/SKILL.md``, se houver.
+
+    Fonte única é o manifesto — o mesmo diretório de onde sai o template. Um mapa
+    ``kind -> locale`` aqui seria a segunda fonte, que é exatamente como o
+    ponteiro de template divergiu antes (ver ``template_candidates``).
+    ``None`` quando o bundle de skills não está resolvível (é opcional) ou quando
+    a skill não declara trava.
+    """
+    from prumo_assist.core.skills import parse_skill_file
+
+    skills_root = find_resource("skills")
+    if skills_root is None:
+        return None
+    manifest_path = skills_root / f"write-{kind}" / "SKILL.md"
+    if not manifest_path.is_file():
+        return None
+    return parse_skill_file(manifest_path).locale_lock
+
+
+def resolve_language(pj_path: Path, *, kind: WriteKind, lang: str | None = None) -> tuple[str, str]:
+    """Resolve o idioma de escrita (ADR-0021) e a regra que o resolveu.
+
+    Cascata determinística: trava de gênero > pedido explícito > ``[writing].language``
+    do ``pj_config.toml`` > default. Os dois últimos degraus saem de
+    ``load_project_config``, que valida o vocabulário — é por isto que um
+    ``[writing] language`` inválido passa a estourar no caminho de escrita, e não
+    só no de extração. A detecção do idioma do texto alvo continua com a skill:
+    depende de ler prosa, não de consultar índice.
+
+    Raises:
+        WriteError: se ``lang`` explícito estiver fora de ``WRITING_LANGUAGES``.
+        ConfigError: se ``[writing].language`` do projeto for inválido.
+    """
+    from prumo_assist.core.config import WRITING_LANGUAGES, load_project_config
+
+    locked = locale_lock(kind)
+    if locked is not None:
+        return locked, "locale_lock"
+    if lang is not None:
+        if lang not in WRITING_LANGUAGES:
+            raise WriteError(f"--lang '{lang}' inválido; use um de {sorted(WRITING_LANGUAGES)}.")
+        return lang, "flag"
+    language = str(load_project_config(pj_path)["writing"]["language"])
+    return language, ("pj_config" if _declares_writing_language(pj_path) else "default")
+
+
+def _declares_writing_language(pj_path: Path) -> bool:
+    """``True`` se o projeto declara ``[writing].language`` explicitamente.
+
+    Separa "veio do projeto" de "veio do default" no ``language_source`` — a
+    distinção que a skill precisa para avisar o usuário quando o idioma foi
+    escolhido por omissão. ``load_project_config`` já mesclou os defaults e não
+    sabe mais responder isso.
+    """
+    cfg_path = pj_path / ".claude" / "pj_config.toml"
+    if not cfg_path.exists():
+        return False
+    with cfg_path.open("rb") as f:
+        raw = tomllib.load(f)
+    writing = raw.get("writing")
+    return isinstance(writing, dict) and "language" in writing
+
+
+def prep(pj_path: Path, *, kind: WriteKind, lang: str | None = None) -> WritePrep:
+    """Compõe ``read_inputs`` + ``resolve_template`` + idioma num só passo de contexto."""
+    language, language_source = resolve_language(pj_path, kind=kind, lang=lang)
     return WritePrep(
         inputs=read_inputs(pj_path),
         template_path=resolve_template(pj_path=pj_path, kind=kind),
+        language=language,
+        language_source=language_source,
     )
 
 
@@ -142,6 +215,21 @@ def _strip_frontmatter(text: str) -> str:
 _VALID_KINDS = ("paper", "projeto-cep", "statistics", "scientific")
 
 
+def template_candidates(*, pj_path: Path, kind: WriteKind) -> dict[str, Path | None]:
+    """Candidatos a template de ``kind``, na ordem da chain (override > plugin).
+
+    Fonte única dos caminhos: ``resolve_template`` escolhe o primeiro que existe e
+    ``write list-templates`` reporta os dois. Sem isto, o relatório do CLI diverge
+    da resolução real — foi o que aconteceu quando os templates migraram para
+    ``skills/write-<kind>/template.md``.
+    """
+    skills_root = find_resource("skills")
+    return {
+        "project_override": pj_path / ".claude" / "writing_templates" / f"{kind}.md",
+        "plugin_default": (skills_root / f"write-{kind}" / "template.md" if skills_root else None),
+    }
+
+
 def resolve_template(
     *,
     pj_path: Path,
@@ -155,14 +243,9 @@ def resolve_template(
         if not explicit.exists():
             raise FileNotFoundError(f"--template {explicit} não existe.")
         return explicit
-    project_override = pj_path / ".claude" / "writing_templates" / f"{kind}.md"
-    if project_override.exists():
-        return project_override
-    skills_root = find_resource("skills")
-    if skills_root is not None:
-        skill_template = skills_root / f"write-{kind}" / "template.md"
-        if skill_template.exists():
-            return skill_template
+    for candidate in template_candidates(pj_path=pj_path, kind=kind).values():
+        if candidate is not None and candidate.exists():
+            return candidate
     raise FileNotFoundError(
         f"Nenhum template '{kind}' encontrado. Crie "
         f".claude/writing_templates/{kind}.md ou passe --template."

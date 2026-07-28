@@ -28,18 +28,27 @@ DEFAULTS: dict[str, Any] = {
             "subagents_per_wave": 8,
         },
     },
+    "writing": {
+        "language": "en-US",
+    },
     "wiki": {},
     "citation": {},
 }
 
 VALID_LANGUAGES = frozenset({"pt-BR", "en", "es"})
 
+# Vocabulário do idioma de PROSA (skills de escrita, ADR-0021) — deliberadamente
+# separado de VALID_LANGUAGES, que é do callout de extração: dois contratos, e
+# fundi-los amarraria a evolução de um ao outro.
+WRITING_LANGUAGES = frozenset({"pt-BR", "en-US"})
+
 
 def load_project_config(pj_path: Path) -> dict[str, Any]:
     """Carrega ``pj_*/.claude/pj_config.toml`` mesclado com ``DEFAULTS``.
 
     Raises:
-        ConfigError: se ``paper_extract.language`` não estiver em ``VALID_LANGUAGES``.
+        ConfigError: se ``paper_extract.language`` não estiver em ``VALID_LANGUAGES``
+            ou ``writing.language`` não estiver em ``WRITING_LANGUAGES``.
     """
     cfg_path = pj_path / ".claude" / "pj_config.toml"
     if not cfg_path.exists():
@@ -72,4 +81,10 @@ def _validate(cfg: dict[str, Any], source: Path) -> None:
         raise ConfigError(
             f"{source}: paper_extract.language='{lang}' inválido; "
             f"use um de {sorted(VALID_LANGUAGES)}"
+        )
+    writing_lang = cfg["writing"]["language"]
+    if writing_lang not in WRITING_LANGUAGES:
+        raise ConfigError(
+            f"{source}: writing.language='{writing_lang}' inválido; "
+            f"use um de {sorted(WRITING_LANGUAGES)}"
         )

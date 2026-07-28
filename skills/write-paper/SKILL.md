@@ -5,15 +5,17 @@ when_to_use: |
   Quando o usuário pedir "escreve um draft do meu paper", "gera o paper sobre X",
   "rascunho IMRaD pra Y", "me ajuda a começar o draft", ou ao fechar PICOT e
   querer iniciar o draft.
-argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH] [--venue NAME]"
+argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH] [--venue NAME] [--lang pt-BR|en-US]"
 allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *)
 prumo:
-  version: 1.0.0
+  version: 1.1.0
   schema: WriteOutput/v1
   determinism: agentic
   agent_compat: [claude-code]
   cost_estimate: ~10-30k tokens
+  prose: true
   inputs:
+    lang: optional
     venue: optional
     section: optional
     template: optional
@@ -45,6 +47,43 @@ prumo:
 > operação exata nunca é simulada.
 <!-- prumo:preflight:end -->
 
+<!-- prumo:prose:begin -->
+> **Contrato de prosa (gerado de `.github/scripts/prose_conventions.md` — não edite este bloco).**
+> 1. **Idioma.** Já vem resolvido: `prumo write prep --json` devolve `language` e
+>    `language_source` (`flag`, `pj_config` ou `default`). Use esse valor e
+>    **declare-o ao usuário com a origem** — não releia `pj_config.toml` nem
+>    recomponha a cascata na mão. Para escrever em outro idioma, passe
+>    `--lang pt-BR|en-US` ao `prep`. Se `language_source` for `default` e o projeto
+>    tiver prosa em outro idioma, avise antes de escrever. **Nunca traduza** texto
+>    existente: se o idioma resolvido divergir do idioma do texto, avise e escreva
+>    no idioma do texto.
+> 2. **Citação no fim do período.** Toda citação fica imediatamente antes do
+>    terminador do período (`.`, `?`, `!`), nunca no meio da frase. Sem exceção para
+>    autor-sujeito: reescreva (`Liang et al. [@a] propõem X.` → `X foi proposto por
+>    Liang et al. [@a].`). Isso vale também para a **citação narrativa** (`@a` sem
+>    colchetes), que é mid-período por construção: reescreva para a forma marcada no
+>    fim do período. Duas fontes sustentando claims distintos viram dois períodos,
+>    um para cada.
+> 3. **Agrupamento.** Fontes que sustentam a mesma afirmação vão num colchete só,
+>    separadas por `;` — `[@a; @b; @c]`. Nunca `[@a], [@b]` nem colchetes adjacentes.
+> 4. **Pontuação.** Em texto corrido, sem ` — `, `:` nem `;`. Use vírgula, ponto,
+>    parênteses ou conectivo. Preservados em YAML, tabelas, URLs/DOIs, títulos da
+>    lista de referências e notação matemática.
+> 5. **Sem superlativo.** Intensificador sem número não existe em escrita
+>    científica: remova (`highly accurate` → `accurate`) ou troque pelo valor medido.
+>    `significant`/`significativo` só no sentido estatístico, com p ou IC no mesmo
+>    período. Claim descalibrado (causalidade em desenho associacional, hedging
+>    excessivo, antropomorfismo de modelo) é **sinalizado**, nunca reescrito.
+> 6. **Voz e tempo.** pt-BR impessoal ou passiva (`avaliou-se`, `foram coletados`);
+>    en-US aceita `we` ativo em Methods e Results (AMA/ICMJE) e evita passiva
+>    desnecessária. Methods e Results em pretérito; estado da arte no presente.
+> 7. **Padrão en-US** (só quando o idioma resolvido é en-US). Ortografia americana
+>    (`analyze`, `behavior`, `center`, `modeling`); vírgula serial; decimal com ponto
+>    e milhar com vírgula (`0.89`, `1,200`); pontuação final dentro das aspas;
+>    numerais exceto em início de período. Termo técnico em inglês **sem itálico** —
+>    o itálico é regra de pt-BR.
+<!-- prumo:prose:end -->
+
 Você é um pesquisador clínico de ML escrevendo paper acadêmico. Template default
 co-localizado: [`./template.md`](template.md). Override por projeto:
 `<pj>/.claude/writing_templates/paper.md`. Override ad-hoc: `--template <path>`.
@@ -68,6 +107,7 @@ prumo write prep --kind paper --json > /tmp/compose_prep.json
 ```
 
 Ler o JSON; os inputs estruturados estão sob a chave `inputs`. Identificar:
+- `language` + `language_source` (idioma já resolvido pela cascata — declare ao usuário)
 - `inputs.picot` (se None, abortar com mensagem "rode `/prumo-assist:formulate-picot` primeiro")
 - `inputs.citekeys` (lista pra validação de citação)
 - `inputs.papers` (citekey → metadata + extract_content)
@@ -89,8 +129,9 @@ Tom de cada section:
 - **Title**: declarativo, ≤180 chars
 - **Abstract**: IMRaD 250-300 palavras, sem citações
 - **Introduction**: presente pra SOTA, futuro pra "this study will"
-- **Methods**: presente impessoal ("é avaliado") ou passivo ("foi avaliado")
-- **Results**: pretérito; placeholders `[RESULTADO N=...]` quando ainda não temos dado
+- **Methods** e **Results**: voz e tempo conforme o item 6 do contrato de prosa, que
+  varia por idioma (en-US aceita `we` ativo; pt-BR mantém impessoal). Em Results,
+  placeholders `[RESULTADO N=...]` quando ainda não temos dado
 - **Discussion**: presente pra interpretação, comparação com literatura
 - **Limitations**: lista numerada, derivada de `protocol.md § Limitações` ou ADRs
 

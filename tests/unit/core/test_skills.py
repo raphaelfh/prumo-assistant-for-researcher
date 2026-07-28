@@ -239,3 +239,64 @@ def test_requires_duplicata_deduplicada(tmp_path: Path) -> None:
         "---\nname: demo\ndescription: D.\nprumo:\n  requires: [cli, cli, qmd]\n---\n\nBody.\n",
     )
     assert parse_skill_file(skill).requires == ("cli", "qmd")
+
+
+def test_prose_defaults_to_false(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "demo" / "SKILL.md",
+        "---\nname: demo\ndescription: A demo skill.\n---\n\nBody.\n",
+    )
+    m = parse_skill_file(skill)
+    assert m.prose is False
+    assert m.locale_lock is None
+
+
+def test_parses_prose_and_locale_lock(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "cep" / "SKILL.md",
+        (
+            "---\n"
+            "name: write-projeto-cep\n"
+            "description: CEP.\n"
+            "prumo:\n"
+            "  prose: true\n"
+            "  locale_lock: pt-BR\n"
+            "---\n\nBody.\n"
+        ),
+    )
+    m = parse_skill_file(skill)
+    assert m.prose is True
+    assert m.locale_lock == "pt-BR"
+    # campos conhecidos não vazam pra `extra`
+    assert "prose" not in m.extra and "locale_lock" not in m.extra
+
+
+def test_prose_must_be_boolean(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "bad" / "SKILL.md",
+        "---\nname: bad\ndescription: X.\nprumo:\n  prose: sim\n---\n\nBody.\n",
+    )
+    with pytest.raises(ManifestError) as ei:
+        parse_skill_file(skill)
+    assert "prumo.prose" in str(ei.value)
+
+
+def test_invalid_locale_lock_raises(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "bad" / "SKILL.md",
+        "---\nname: bad\ndescription: X.\nprumo:\n  prose: true\n  locale_lock: en\n---\n\nBody.\n",
+    )
+    with pytest.raises(ManifestError) as ei:
+        parse_skill_file(skill)
+    assert "locale_lock" in str(ei.value)
+    assert "en-US" in str(ei.value)
+
+
+def test_locale_lock_without_prose_raises(tmp_path: Path) -> None:
+    skill = _write(
+        tmp_path / "bad" / "SKILL.md",
+        "---\nname: bad\ndescription: X.\nprumo:\n  locale_lock: pt-BR\n---\n\nBody.\n",
+    )
+    with pytest.raises(ManifestError) as ei:
+        parse_skill_file(skill)
+    assert "prose: true" in str(ei.value)

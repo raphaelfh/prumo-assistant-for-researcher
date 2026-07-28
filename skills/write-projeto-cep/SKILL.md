@@ -7,11 +7,13 @@ when_to_use: |
 argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH]"
 allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *)
 prumo:
-  version: 1.0.0
+  version: 1.1.0
   schema: WriteOutput/v1
   determinism: agentic
   agent_compat: [claude-code]
   cost_estimate: ~10-25k tokens
+  prose: true
+  locale_lock: pt-BR
   inputs:
     section: optional
     template: optional
@@ -43,6 +45,39 @@ prumo:
 > operação exata nunca é simulada.
 <!-- prumo:preflight:end -->
 
+<!-- prumo:prose:begin -->
+> **Contrato de prosa (gerado de `.github/scripts/prose_conventions.md` — não edite este bloco).**
+> 1. **Idioma travado em `pt-BR`.** Este gênero é documento regulatório
+>    brasileiro (CEP/CONEP, Plataforma Brasil, TCLE) e não admite outro idioma. Se
+>    o usuário pedir idioma diferente, avise que a trava existe e escreva em
+>    `pt-BR` mesmo assim. **Nunca traduza** texto existente.
+> 2. **Citação no fim do período.** Toda citação fica imediatamente antes do
+>    terminador do período (`.`, `?`, `!`), nunca no meio da frase. Sem exceção para
+>    autor-sujeito: reescreva (`Liang et al. [@a] propõem X.` → `X foi proposto por
+>    Liang et al. [@a].`). Isso vale também para a **citação narrativa** (`@a` sem
+>    colchetes), que é mid-período por construção: reescreva para a forma marcada no
+>    fim do período. Duas fontes sustentando claims distintos viram dois períodos,
+>    um para cada.
+> 3. **Agrupamento.** Fontes que sustentam a mesma afirmação vão num colchete só,
+>    separadas por `;` — `[@a; @b; @c]`. Nunca `[@a], [@b]` nem colchetes adjacentes.
+> 4. **Pontuação.** Em texto corrido, sem ` — `, `:` nem `;`. Use vírgula, ponto,
+>    parênteses ou conectivo. Preservados em YAML, tabelas, URLs/DOIs, títulos da
+>    lista de referências e notação matemática.
+> 5. **Sem superlativo.** Intensificador sem número não existe em escrita
+>    científica: remova (`highly accurate` → `accurate`) ou troque pelo valor medido.
+>    `significant`/`significativo` só no sentido estatístico, com p ou IC no mesmo
+>    período. Claim descalibrado (causalidade em desenho associacional, hedging
+>    excessivo, antropomorfismo de modelo) é **sinalizado**, nunca reescrito.
+> 6. **Voz e tempo.** pt-BR impessoal ou passiva (`avaliou-se`, `foram coletados`);
+>    en-US aceita `we` ativo em Methods e Results (AMA/ICMJE) e evita passiva
+>    desnecessária. Methods e Results em pretérito; estado da arte no presente.
+> 7. **Padrão en-US** (só quando o idioma resolvido é en-US). Ortografia americana
+>    (`analyze`, `behavior`, `center`, `modeling`); vírgula serial; decimal com ponto
+>    e milhar com vírgula (`0.89`, `1,200`); pontuação final dentro das aspas;
+>    numerais exceto em início de período. Termo técnico em inglês **sem itálico** —
+>    o itálico é regra de pt-BR.
+<!-- prumo:prose:end -->
+
 Você é um pesquisador clínico escrevendo projeto pra CEP/CONEP via Plataforma
 Brasil. Documento brasileiro com estrutura específica (TCLE quando aplicável,
 Resolução CNS 466/2012 + 510/2016, LGPD). Template default co-localizado:
@@ -62,6 +97,7 @@ Resolução CNS 466/2012 + 510/2016, LGPD). Template default co-localizado:
 Mesmo fluxo de 6 passos do `write-paper`, com `--kind projeto-cep`:
 
 1. **Carregar inputs** — `prumo write prep --kind projeto-cep --json > /tmp/compose_prep.json`.
+   O JSON traz `language` + `language_source` (idioma já resolvido; declare ao usuário).
    PicotSpec + `protocol.md` obrigatórios (aborta se faltarem).
 2. Resolver template `projeto-cep.md` (leia `template_path` do JSON).
 3. Gerar prose por section.
