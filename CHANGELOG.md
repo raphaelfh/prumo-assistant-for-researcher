@@ -7,9 +7,33 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.64.1] - 2026-07-28
+
+### Corrigido
+
+- **`/prumo-assist:peer-review` deixa de carregar o contrato de prosa.** A skill
+  entrou no conjunto `prose: true` na 0.64.0 por erro de desenho: o bloco é
+  escrito no imperativo de editor ("remova o intensificador", "reescreva", "use
+  vírgula"), e a própria `peer-review` proíbe isso em três lugares — "Não comente
+  vírgulas", "Não corrija ortografia ou estilo de linguagem" e "Não reescreva o
+  draft. Sugira; o autor decide" —, além de o `when_to_use` já rotear correção de
+  forma para `/prumo-assist:scientific-writing`. Eram 36 linhas de instrução
+  inexecutável dentro do prompt. O conjunto passa de seis para cinco skills
+  (`scientific-writing` e as quatro `write-*`); a remoção usa o caminho
+  `strip_block` do gerador. Ver a emenda de 2026-07-28 em
+  [ADR-0021](docs/adr/adr-0021-idioma-de-escrita-cascata-e-default.md).
+
+### Documentação
+
+- CHANGELOG da 0.64.0: linha em branco após os cabeçalhos `###` (a resolução de
+  conflito do release colara cabeçalho e corpo em três das quatro seções) e
+  descrição do audit da C1 corrigida para os dois greps que a versão de fato
+  introduziu, não um.
+
 ## [0.64.0] - 2026-07-28
 
 ### Adicionado
+
 - **Contrato de prosa `prumo:prose`** — bloco machine-owned estampado por
   `gen_indexes.py` nas 6 skills que produzem ou fiscalizam prosa
   (`scientific-writing`, `write-paper`, `write-scientific`, `write-statistics`,
@@ -39,6 +63,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
 
 ### Mudado
+
 - **⚠ Breaking — idioma de escrita default passa a `en-US`.** As skills de prosa
   resolvem o idioma por cascata (trava de gênero > pedido explícito >
   `[writing].language` > idioma do texto alvo > `en-US`) e declaram qual usaram.
@@ -50,9 +75,10 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   formas Pandoc — marcada (`[@a]`) e narrativa (`@a`, mid-período por construção) —
   e sem a exceção de autor-sujeito: `Liang et al. [@a] propõem X.` vira `X foi proposto
   por Liang et al. [@a].`, e duas fontes com claims distintos viram dois períodos.
-  O audit passou a um superconjunto conservador (`rg "\[@[^]]+\][^.]"`) no lugar
-  da heurística acentuada, que perdia citação seguida de maiúscula, número ou
-  vírgula.
+  O audit passou a dois greps de superconjunto conservador — `rg "\[@[^]]+\][^.]"`
+  para a forma marcada e um `rg -nP` com `(*SKIP)(*F)` para a narrativa, que pula o
+  miolo dos colchetes e descarta e-mail — no lugar da heurística acentuada, que
+  perdia citação seguida de maiúscula, número ou vírgula.
 - **Superlativo é removido, não atenuado** (C4). Intensificador sem número sai do
   texto ou é trocado pelo valor medido; claim descalibrado (causalidade em
   desenho associacional, hedging excessivo, antropomorfismo de modelo) passa a ser
@@ -78,12 +104,12 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   ver "Corrigido" abaixo.
 
 ### Corrigido
+
 - **`prumo write list-templates`** reportava `plugin_default: null` para os quatro
   kinds: apontava para `templates/writing/<kind>.md`, esvaziado quando os
   templates migraram para `skills/write-<kind>/template.md`. Agora consome
   `compose.template_candidates`, a mesma fonte de `resolve_template`, com teste
   travando as duas contra divergência futura.
-
 - **⚠ Breaking — `[[@citekey]]` remanescente degrada para `@citekey` em vez de
   corromper o docx.** `normalize_markdown` excluía `@` do charset do wikilink
   (resíduo do reconhecedor legado), então `[[@smith2020]]` passava INTACTO
@@ -660,7 +686,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.1...HEAD
+[0.64.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.0...v0.64.1
 [0.64.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.63.0...v0.64.0
 [0.63.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.1...v0.63.0
 [0.62.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.0...v0.62.1

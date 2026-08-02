@@ -149,7 +149,6 @@ def test_fragmento_ausente_aborta(gen: ModuleType) -> None:
 def test_todas_as_skills_de_prosa_carregam_o_bloco(registry: Any) -> None:
     prose_skills = [n for n in registry.names() if registry.get(n).prose]
     assert set(prose_skills) == {
-        "peer-review",
         "scientific-writing",
         "write-paper",
         "write-projeto-cep",
