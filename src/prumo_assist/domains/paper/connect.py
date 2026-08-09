@@ -287,7 +287,7 @@ def connect_collection(
     """
     if not bib_is_placeholder(pj_path):
         raise AlreadyConnectedError(
-            "references/_references.bib já tem entradas reais — reconectar às cegas "
+            "docs/references/_references.bib já tem entradas reais — reconectar às cegas "
             "duplicaria o export automático. Confira no Zotero: Preferences → Better "
             "BibTeX → Automatic export."
         )

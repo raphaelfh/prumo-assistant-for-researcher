@@ -40,7 +40,7 @@ def sync_command(
     path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """``.bib`` → ``references/notes/<citekey>/_meta.md`` (Better BibTeX → Obsidian, layout α)."""
+    """``.bib`` → ``docs/references/papers/<citekey>/_meta.md`` (Better BibTeX, layout α)."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         report = sync.sync(path.resolve())
         console.success(
@@ -167,7 +167,7 @@ def sync_pdfs_command(
     path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Cria/atualiza symlinks ``references/pdfs/<key>.pdf`` → ``~/Zotero/storage/...``."""
+    """Cria/atualiza symlinks ``docs/references/pdfs/<key>.pdf`` → ``~/Zotero/storage/...``."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         report = pdfs.sync_pdfs(path.resolve())
         console.success(
@@ -189,7 +189,7 @@ def connect_command(
     path: Annotated[Path, typer.Option("--path", help="pj_* (default cwd).")] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Conecta a coleção do Zotero ao projeto: cria o export automático do BBT → references/_references.bib."""
+    """Conecta a coleção do Zotero: cria o export automático do BBT → docs/references/_references.bib."""
     with cli_run(json_mode=json_mode, exit_codes={connect.ZoteroOfflineError: 2}) as console:
         r = connect.connect_collection(path.resolve(), collection, library=library)
         console.success(

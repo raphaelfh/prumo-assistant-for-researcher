@@ -37,8 +37,8 @@ def extract_prep(pj_path: Path, citekey: str) -> ExtractPrep:
 
     checks: list[tuple[str, Path, str]] = [
         ("template .claude/paper_extraction.md", template_path, "rode o scaffold do pj_*"),
-        ("references/_references.bib", bib_path, "exporte pelo BBT"),
-        (f"PDF references/pdfs/{citekey}.pdf", pdf_path, "rode `prumo paper sync-pdfs`"),
+        ("docs/references/_references.bib", bib_path, "exporte pelo BBT"),
+        (f"PDF docs/references/pdfs/{citekey}.pdf", pdf_path, "rode `prumo paper sync-pdfs`"),
         (f"_meta.md de {citekey}", meta_path, "rode `prumo paper sync`"),
     ]
     # `.exists()` é False para symlink quebrado — intencional: as dicas de

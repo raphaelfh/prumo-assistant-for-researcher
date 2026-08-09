@@ -636,7 +636,7 @@ def doctor_command(
     warnings: list[str] = []
     if not issues and bib_is_placeholder(target):
         warnings.append(
-            "references/_references.bib ainda é o placeholder do scaffold — "
+            "docs/references/_references.bib ainda é o placeholder do scaffold — "
             'conecte sua coleção do Zotero: prumo paper connect "<nome da coleção>"'
         )
 

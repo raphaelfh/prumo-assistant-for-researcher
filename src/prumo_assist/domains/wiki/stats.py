@@ -15,7 +15,7 @@ def stats(pj_path: Path) -> dict[str, Any]:
     mais ``by_type["references"]`` (bibliografia do projeto) e o total.
 
     ``by_type["references"]`` continua existindo mesmo com a mudança pro
-    layout por escopo — removê-lo violaria forward-only (``constitution.md:62``).
+    layout por escopo — removê-lo violaria forward-only (``constitution.md:63``).
     """
     docs = pj_path / "docs"
     out: dict[str, Any] = {"by_type": {}, "by_scope": {}, "totals": {}}
