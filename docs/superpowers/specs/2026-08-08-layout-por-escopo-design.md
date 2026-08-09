@@ -13,11 +13,11 @@ Três mudanças, nesta ordem de importância:
 
 1. **A bibliografia entra em `docs/`.** `docs/` é a **raiz única de leitura** — tudo que o pesquisador abre num editor de texto vive ali; dado, código e saída de máquina ficam fora. A bibliografia é leitura, logo mora dentro. `references/notes/<citekey>/` vira **`papers/<citekey>/`**, resolvendo a colisão com `notes/`.
 2. **O núcleo serve qualquer pesquisador.** Sete entradas de conteúdo que um revisor sistemático, uma pesquisadora qualitativa, um clínico sem código, um pesquisador de ML e um doutorando em humanidades usam **todos**. Tudo que serve só a alguns vira camada com gatilho observável.
-3. **Escopo é implícito.** Quando aparece a segunda escrita — segundo artigo, capítulo de tese, grant paralelo — ela ganha `docs/studies/<slug>/` com `notes/`, `writing/` e `decisions/` próprios. A bibliografia continua **uma, do projeto**.
+3. **A escrita mora sempre num escopo.** `docs/studies/<slug>/` com `notes/`, `writing/` e `decisions/` próprios existe desde o `init`, com um artigo ou com cinco. Uma segunda escrita — artigo, capítulo de tese, grant paralelo — é só uma pasta irmã. A bibliografia continua **uma, do projeto**.
 
 O que o núcleo é: **o que sobra quando você tira o computador do pesquisador.** Ler, anotar, citar, escrever, exportar, registrar decisão. Coorte, notebook, PICOT e comitê de ética são camadas.
 
-**Fase 1 (0.65.0, `⚠ Breaking`)**: bibliografia sob `docs/`, núcleo enxugado, camadas declaradas. **Fase 2**: `docs/studies/<slug>/`.
+Tudo entra numa fase só — **0.65.0, `⚠ Breaking`**. Não há Fase 2: com o escopo presente desde o `init`, `prumo add study <slug>` é criar uma pasta irmã, e a máquina de promoção que uma versão anterior desta spec desenhou (manifesto, recusa por worktree suja, reescrita de links) **deixa de existir**.
 
 ## Contexto
 
@@ -54,24 +54,31 @@ pj_<nome>/
     │   ├── _references.bib  _index.md
     │   ├── papers/<citekey>/      ex-notes/ — layout α (ADR-0008) intacto
     │   └── pdfs/<citekey>.pdf     flat, symlinks, gitignored
-    ├── notes/                  ← seu pensamento
-    ├── writing/                ← o produto
-    └── decisions/              ← append-only
+    └── studies/<slug>/         ← ESCOPO, sempre. Um projeto tem ≥ 1
+        ├── notes/                 seu pensamento
+        ├── writing/               o produto (+ figures/ e tables/ ao lado)
+        └── decisions/             append-only
 ```
+
+**O escopo existe desde o `init`, mesmo com um artigo só.** É a decisão que apaga a promoção: quando nasce a segunda escrita, ela é uma pasta irmã — nada se move, nenhum link muda de profundidade, nenhum manifesto é preciso. E a profundidade fixa torna o caminho relativo à bibliografia **invariante** em todo escopo (§6).
+
+Trabalho transversal a todos os escopos — preparo de dado, revisão de fundo — ganha um escopo próprio numerado, como o `pj_piloto_genetica` já faz com `00_data_preparation/`.
 
 ### O racional, testado contra cinco arquétipos
 
 Revisor sistemático (A), pesquisadora qualitativa (B), clínico sem código (C), pesquisador de ML (D), doutorando em humanidades (E).
 
-| entrada | quem escreve | quando muda | cobertura |
-|---|---|---|---|
-| `references/` | qualquer gerenciador → `.bib` | regenerável | **5/5** — o único que não é seu |
-| `notes/` | você | livre | **5/5** — extração p/ A, memos p/ B, fichamento p/ E |
-| `writing/` | você; máquina exporta | por entrega | **5/5** — o único produto que todos entregam |
-| `decisions/` | você | append-only, imutável | **5/5** — critério de elegibilidade (A), audit trail (B), emenda de protocolo (C) |
-| `_index.md` `_log.md` | máquina + você | contínuo | **5/5** — histórico de busca (A), reflexive journal (B), trilha de auditoria (C) |
-| `project_guide.md` | você | quando o projeto muda | **5/5** — a pergunta de pesquisa **em prosa livre** mora aqui |
-| `templates/` `build/exports/` | máquina | scratch | **5/5** — todos exportam |
+| entrada | nível | quem escreve | quando muda | cobertura |
+|---|---|---|---|---|
+| `references/` | projeto | qualquer gerenciador → `.bib` | regenerável | **5/5** — o único que não é seu |
+| `_index.md` `_log.md` | projeto | máquina + você | contínuo | **5/5** — histórico de busca (A), *reflexive journal* (B), trilha de auditoria (C) |
+| `project_guide.md` | projeto | você | quando o projeto muda | **5/5** — a pergunta de pesquisa **em prosa livre** mora aqui |
+| `templates/` `build/exports/` | projeto | máquina | scratch | **5/5** — todos exportam |
+| `notes/` | **escopo** | você | livre | **5/5** — extração p/ A, memos p/ B, fichamento p/ E |
+| `writing/` | **escopo** | você; máquina exporta | por entrega | **5/5** — o único produto que todos entregam |
+| `decisions/` | **escopo** | você | append-only, imutável | **5/5** — critério de elegibilidade (A), *audit trail* (B), emenda de protocolo (C) |
+
+A linha divisória é limpa: **o projeto guarda o que é comum a todas as escritas; o escopo guarda uma escrita.**
 
 `writing/` **não lista nomes de arquivo**. A regra é: um `.md` por entrega, com `figures/` e `tables/` ao lado. `protocol.md`, `sap.md` e `cep.md` são payload de camada.
 
@@ -79,31 +86,23 @@ Revisor sistemático (A), pesquisadora qualitativa (B), clínico sem código (C)
 
 **`project_guide.md` não exige hipótese.** As seções do núcleo são Objetivo, Pergunta(s) e Escopo. Hipótese entra pela camada `picot`.
 
-## Escopo — implícito, sem sentinela
-
-Quando aparece a **segunda escrita**, ela ganha pasta própria:
-
-```
-docs/
-├── references/                      UMA bibliografia, do projeto
-├── _index.md  _log.md  project_guide.md  templates/
-├── notes/  writing/  decisions/     escopo raiz
-└── studies/<slug>/
-    └── notes/  writing/  decisions/ escopo aninhado
-```
+## Escopo — sempre presente, resolvido por posição
 
 ```python
 find_pj_root(start)     # sobe até .claude/pj_config.toml
-find_scope_root(start)  # filho direto de docs/studies/ se houver; senão docs/
+find_scope_root(start)  # o filho direto de docs/studies/ que contém o arquivo
 ```
 
-- **Sem arquivo sentinela e sem exceção.** `find_scope_root` nunca levanta: sem `studies/`, o escopo é `docs/`. Zero conceito novo para quem tem um artigo só.
+- **Sem arquivo sentinela.** O escopo é posição na árvore: todo filho direto de `docs/studies/` é um escopo, sempre. Nada a criar, nada a perder num `git mv`.
+- **Segunda escrita = pasta irmã.** Nada se move, nenhum link muda de profundidade, nenhum manifesto de promoção é preciso. Esta é a razão de o escopo existir desde o `init`.
 - **Bibliografia, `reviews/`, `build/exports` e `slugify` ancoram no pj root.** `notes/`, `writing/` e `decisions/` ancoram no escopo.
-- **`slugify` no pj root é obrigatório**, senão `docs/writing/paper.md` e `docs/studies/x/writing/paper.md` geram o mesmo slug, os dois escrevem em `reviews/writing__paper/`, e um `write review ingest` casa contra o documento errado, em silêncio.
+- **`slugify` no pj root** produz `studies__<slug>__writing__paper` — único por construção, então dois escopos nunca colidem em `reviews/`.
 - **`pages:` do `compose`** resolve contra o diretório do índice quando ele está sob `writing/`.
 - **`picot.toml` é opcional e mora na raiz do escopo** quando a camada `picot` está ativa. Não é sentinela de nada.
 
 O eixo é "unidade de escrita", não "estudo clínico": serve capítulo de tese, submissão paralela, grant. O nome `studies/` fica por familiaridade; a semântica é neutra.
+
+**O slug do primeiro escopo** é sugerido pelo wizard a partir do nome do projeto e aceito com Enter — é a única pergunta nova que o `init` ganha.
 
 ### Bibliografia é do projeto, não do escopo
 
@@ -126,7 +125,7 @@ Consequência assumida: o escopo leva `notes/`, `writing/` e `decisions/` — n�
 | `picot` | pergunta comparativa formalizada | `picot.toml` no escopo, seção Hipótese | parcial |
 | `clinical` | participantes humanos, comitê de ética | `writing/protocol.md`, `sap.md` | existe (ver abaixo) |
 | `clinical-br` | submissão a CEP/CONEP | `writing/cep.md`, templates da Plataforma Brasil | **a separar** |
-| `studies` | nasce a **segunda** unidade de escrita | `docs/studies/<slug>/` | Fase 2 |
+| ~~`studies`~~ | — | virou núcleo: o escopo existe sempre | núcleo |
 | `zotero` | Local API detectada em `127.0.0.1:23119` | `paper connect`, sync de annotations, symlinks de PDF | existe |
 | `editor-profile` | `prumo write zettlr-profile` invocado | perfil de export do editor | existe |
 | `extended-wiki`, `brainstorm-pipeline`, `peer-review-loop`, `versioned-milestones`, `specify-workflow` | ver [RPS:74-87](../../Research%20Project%20Structure.md) | — | **prosa apenas** |
@@ -188,9 +187,13 @@ Nenhum dos dois resolvedores existe hoje — são custo novo, escritos juntos, c
 
 A saída permanece em `build/exports/`, e [export.py:793](../../../src/prumo_assist/domains/write/export.py) ganha a guarda de sobrescrita que [compose.py:322](../../../src/prumo_assist/domains/write/compose.py) já tem: no `pj_piloto_imagem`, `docs/study_protocol_oficial.docx` **é** o docx devolvido pelo coautor, untracked, ocupando exatamente o stem que um export irmão usaria.
 
-### 6 · O campo `bibliography` passa a ser calculado
+### 6 · O campo `bibliography` continua literal — e agora é invariante
 
-Os quatro `skills/write-*/template.md` gravam `bibliography: ../../references/_references.bib` e **nenhum código escreve esse campo** — esses literais *são* o mecanismo. Com escopo em profundidade variável, nenhum literal serve aos dois níveis: o `prumo` calcula e escreve o campo ao criar o draft.
+Os quatro `skills/write-*/template.md` gravam `bibliography: ../../references/_references.bib`, e **nenhum código escreve esse campo** — esses literais *são* o mecanismo que dá autocomplete de citação ao editor.
+
+Como todo draft mora em `docs/studies/<slug>/writing/`, a bibliografia está **sempre** a três níveis: `../../../references/_references.bib`. Um único literal serve a todos os escopos, hoje e quando o quinto nascer. Basta corrigir a profundidade nos quatro arquivos — eles não são `SKILL.md` e escaparam de todos os inventários anteriores.
+
+Foi o escopo desde o `init` que tornou isso possível: com escopo opcional, a profundidade variava e o campo teria de ser calculado em código.
 
 ### 7 · `references/.gitignore` próprio
 
@@ -231,7 +234,7 @@ Errar de escopo não quebra nada: o lint acusa e o arquivo continua legível.
 
 - **ADR-0022** — `docs/` como raiz única de leitura; bibliografia do projeto dentro dela; `papers/`; núcleo universal e camadas com gatilho; escopo implícito por posição.
 - **ADR-0023** — findings como `type:` em `notes/`, **substituindo ADR-0014**.
-- **ADR-0024** (Fase 2) — `docs/studies/<slug>/`.
+- **ADR-0024** — o escopo (`docs/studies/<slug>/`) presente desde o `init`, resolvido por posição, com a bibliografia fora dele.
 - **[Research Project Structure.md](../../Research%20Project%20Structure.md) é a fonte do catálogo de camadas** e precisa ser atualizada junto: hoje promete `findings/` e lista oito módulos, dos quais dois existem.
 - **Emenda à constitution**: [constitution.md:65](../../constitution.md) → `docs/references/papers/`, com Sync impact report.
 - **Release**: 0.64.1 → **0.65.0**, MINOR por ser breaking (ADR-0015).
@@ -245,7 +248,8 @@ Um teste por defeito medido: `prumo init` sem camada nenhuma produz **zero** dir
 ## Critérios de aceitação
 
 1. Inventário **nominal** de literais de layout autorizados fora de `core/pj_layout.py`.
-2. `prumo init` produz apenas o núcleo — nenhum `src/`, `content/`, `notebooks/`, `pyproject.toml` ou `studies/`.
+2. `prumo init` produz o núcleo com **um** escopo em `docs/studies/<slug>/` e nenhum `src/`, `content/`, `notebooks/` ou `pyproject.toml`.
+2b. `prumo add study <outro>` cria a pasta irmã e **não toca** em nada existente — nenhum arquivo movido, nenhum link reescrito.
 3. Um projeto sem Zotero, sem Python e sem git completa: apontar `.bib` → escrever em `writing/` → exportar. `doctor` avisa o que falta **antes** do primeiro export, com hint da plataforma detectada.
 4. Um `.md` com `![](figures/x.png)` exporta com a imagem embutida; sem a imagem, **falha**.
 5. Em projeto não migrado, todo comando exceto `doctor` falha convidando à adequação.
