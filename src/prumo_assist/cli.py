@@ -46,6 +46,7 @@ from prumo_assist.core.scaffold import (
     discover_modules,
     get_module,
     is_applied,
+    module_requires_scope,
 )
 from prumo_assist.core.scaffold import overlay as _overlay
 from prumo_assist.core.skills import load_skill_registry
@@ -523,7 +524,10 @@ def init_command(
             if _info is None:
                 console.warn(f"Módulo '{_name}' desconhecido; ignorado.")
                 continue
-            _overlay(_info.path, target)
+            # `scope_slug` já é o slug real deste projeto (renomeado acima, se
+            # o usuário pediu outro) — módulos por-escopo (ex. `clinical`)
+            # caem direto nele; módulos sem marcador de escopo ignoram o kwarg.
+            _overlay(_info.path, target, scope=scope_slug)
             modules_applied.append(_name)
 
         # Perfil de export do Zettlr — caminhos absolutos por máquina,
@@ -727,6 +731,14 @@ def add_command(
     target: Annotated[
         Path, typer.Option("--target", "-t", help="Projeto alvo (default: cwd).")
     ] = Path("."),
+    scope: Annotated[
+        str | None,
+        typer.Option(
+            "--scope",
+            help="Slug do escopo alvo (docs/studies/<slug>/) para módulos por-escopo "
+            "(ex.: clinical). Obrigatório quando o projeto tem mais de um escopo.",
+        ),
+    ] = None,
     list_only: Annotated[
         bool, typer.Option("--list", help="Só lista módulos disponíveis.")
     ] = False,
@@ -756,7 +768,15 @@ def add_command(
         console.error(f"Módulo '{module}' não encontrado. Use `prumo add --list`.")
         raise typer.Exit(code=1)
 
-    copied, skipped = _overlay(info.path, target)
+    scope_slug: str | None = None
+    if module_requires_scope(info):
+        try:
+            scope_slug = _resolve_module_scope(target, module, scope)
+        except PrumoError as e:
+            console.error(str(e))
+            raise typer.Exit(code=1) from e
+
+    copied, skipped = _overlay(info.path, target, scope=scope_slug)
     # Mesma substituição de placeholder de nome do `init` (ex.: `code/pyproject.toml`
     # ainda carrega `pj-NOME`) — só nos arquivos recém-copiados deste módulo.
     apply_project_name(target, target.name, copied)
@@ -771,6 +791,34 @@ def add_command(
         # Sem marcação Rich embutida — mesmo motivo do fix acima em `_do_init`.
         console.info(f"  {len(skipped)} arquivo(s) já existiam (preservados).")
     console.emit(payload)
+
+
+def _resolve_module_scope(target: Path, module: str, requested: str | None) -> str:
+    """Resolve o slug do escopo alvo pra módulos por-escopo (ex. ``clinical``).
+
+    Sem ambiguidade não precisa perguntar: um escopo só resolve sozinho. Zero
+    ou vários escopos exigem decisão explícita do usuário (``prumo add study
+    <slug>`` no primeiro caso, ``--scope <slug>`` no segundo).
+    """
+    slugs = [s.name for s in pj_layout.iter_scopes(target)]
+    if requested is not None:
+        if requested not in slugs:
+            disponiveis = ", ".join(slugs) if slugs else "(nenhum)"
+            raise PrumoError(
+                f"Escopo '{requested}' não encontrado em {target}. Disponíveis: {disponiveis}."
+            )
+        return requested
+    if not slugs:
+        raise PrumoError(
+            f"Nenhum escopo encontrado em {target}. Crie um com `prumo add study <slug>` "
+            f"antes de `prumo add {module}`."
+        )
+    if len(slugs) == 1:
+        return slugs[0]
+    raise PrumoError(
+        f"Mais de um escopo em {target} ({', '.join(slugs)}). Diga qual usar: "
+        f"`prumo add {module} --scope <slug>`."
+    )
 
 
 def _add_study(console: Console, *, target: Path, slug: str | None) -> None:

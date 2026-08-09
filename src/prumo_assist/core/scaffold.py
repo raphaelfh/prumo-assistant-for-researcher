@@ -13,23 +13,50 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from prumo_assist import PrumoError
+from prumo_assist.core import pj_layout
 from prumo_assist.core.paths import resolve_resource
 
 #: Formas do placeholder de nome usadas em ``templates/pj_base/``
 #: (``pj-NOME`` no pyproject.toml, ``pj_<NOME>`` nos títulos markdown).
 _NAME_PLACEHOLDERS: tuple[str, ...] = ("pj_<NOME>", "pj-NOME")
 
+#: Segmento de caminho usado por módulos cujo payload é por-escopo (ex.:
+#: ``clinical``). ``overlay`` substitui esse segmento pelo slug real antes de
+#: copiar; ``is_applied`` faz o mesmo antes de checar o anchor. Ver ADR-0024
+#: (escopo é resolvido por posição em ``docs/studies/<slug>/``, sem sentinela).
+SCOPE_MARKER = "__scope__"
 
-def overlay(template: Path, target: Path) -> tuple[list[str], list[str]]:
+
+def _substitute_scope(rel: Path, scope: str) -> Path:
+    """Troca o segmento ``__scope__`` de ``rel`` pelo slug real do escopo."""
+    return Path(*(scope if part == SCOPE_MARKER else part for part in rel.parts))
+
+
+def overlay(
+    template: Path, target: Path, *, scope: str | None = None
+) -> tuple[list[str], list[str]]:
     """Copia ``template/*`` para ``target/`` sem sobrescrever arquivos existentes.
 
     Retorna ``(copied, skipped)`` com paths relativos ao target. Cria
     diretórios faltantes; ignora arquivos cujo destino já existe.
+
+    Quando o payload do template usa o marcador :data:`SCOPE_MARKER` no
+    caminho (módulos por-escopo, ex. ``clinical``), ``scope`` é obrigatório
+    — o chamador resolve o slug real (via CLI ou pelo escopo recém-criado no
+    ``init``) antes de chamar ``overlay``.
     """
     copied: list[str] = []
     skipped: list[str] = []
     for src in template.rglob("*"):
         rel = src.relative_to(template)
+        if scope is not None:
+            rel = _substitute_scope(rel, scope)
+        elif SCOPE_MARKER in rel.parts:
+            raise PrumoError(
+                f"{src} usa o marcador de escopo `{SCOPE_MARKER}` mas nenhum escopo foi "
+                "resolvido antes do overlay (defeito interno do chamador)."
+            )
         dst = target / rel
         if src.is_dir():
             dst.mkdir(parents=True, exist_ok=True)
@@ -110,8 +137,28 @@ def get_module(name: str) -> ModuleInfo | None:
     return None
 
 
+def module_requires_scope(module: ModuleInfo) -> bool:
+    """``True`` se o payload do módulo usa :data:`SCOPE_MARKER` no caminho.
+
+    Módulos assim (ex. ``clinical``) precisam de um escopo resolvido
+    (``docs/studies/<slug>/``) antes de ``overlay`` — ver ``add_command``.
+    """
+    return any(SCOPE_MARKER in p.relative_to(module.path).parts for p in module.path.rglob("*"))
+
+
 def is_applied(target: Path, module: ModuleInfo) -> bool:
-    """``True`` se o ``anchor`` declarado do módulo existe em ``target``."""
+    """``True`` se o ``anchor`` declarado do módulo existe em ``target``.
+
+    Quando o anchor usa :data:`SCOPE_MARKER`, verifica em QUALQUER escopo
+    existente sob ``target/docs/studies/`` — não importa o slug escolhido
+    pelo usuário (Task 10 deriva o slug do nome do projeto, não de
+    ``"principal"``).
+    """
     if not module.anchor:
         return False
-    return (target / module.anchor).exists()
+    anchor = Path(module.anchor)
+    if SCOPE_MARKER not in anchor.parts:
+        return (target / anchor).exists()
+    return any(
+        (target / _substitute_scope(anchor, s.name)).exists() for s in pj_layout.iter_scopes(target)
+    )
