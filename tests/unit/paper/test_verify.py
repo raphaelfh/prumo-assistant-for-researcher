@@ -386,7 +386,9 @@ _BIB_TEXT = """@article{guan2020clinical,
 class TestVerifyRefs:
     def _pj(self, tmp_path: Path) -> Path:
         (tmp_path / "docs" / "references").mkdir(parents=True)
-        (tmp_path / "docs" / "references" / "_references.bib").write_text(_BIB_TEXT, encoding="utf-8")
+        (tmp_path / "docs" / "references" / "_references.bib").write_text(
+            _BIB_TEXT, encoding="utf-8"
+        )
         return tmp_path
 
     def test_bib_ausente_hard_fail(self, tmp_path: Path) -> None:
@@ -510,7 +512,9 @@ class TestDuplicateCitekey:
 
     def _pj(self, tmp_path: Path) -> Path:
         (tmp_path / "docs" / "references").mkdir(parents=True)
-        (tmp_path / "docs" / "references" / "_references.bib").write_text(self._DUP_BIB, encoding="utf-8")
+        (tmp_path / "docs" / "references" / "_references.bib").write_text(
+            self._DUP_BIB, encoding="utf-8"
+        )
         return tmp_path
 
     def test_duplicata_vira_error_e_pula_checks(
@@ -658,7 +662,9 @@ class TestDeepLayer:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         (tmp_path / "docs" / "references").mkdir(parents=True)
-        (tmp_path / "docs" / "references" / "_references.bib").write_text(_BIB_TEXT, encoding="utf-8")
+        (tmp_path / "docs" / "references" / "_references.bib").write_text(
+            _BIB_TEXT, encoding="utf-8"
+        )
         monkeypatch.setattr(
             "prumo_assist.domains.paper.verify._http_get_json",
             _fake_http(
@@ -687,7 +693,9 @@ class TestDeepLayer:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         (tmp_path / "docs" / "references").mkdir(parents=True)
-        (tmp_path / "docs" / "references" / "_references.bib").write_text(_BIB_TEXT, encoding="utf-8")
+        (tmp_path / "docs" / "references" / "_references.bib").write_text(
+            _BIB_TEXT, encoding="utf-8"
+        )
         monkeypatch.setattr(
             "prumo_assist.domains.paper.verify._http_get_json",
             _fake_http(

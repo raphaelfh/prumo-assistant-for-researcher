@@ -264,7 +264,7 @@ def draft_command(
         sections_list = parse_json_list(sections, "--sections")
         result = compose.write_output(
             content=content,
-            pj_path=path.resolve(),
+            scope=path.resolve(),
             kind=cast(WriteKind, kind),
             mode=cast(WriteMode, mode),
             section=section or None,

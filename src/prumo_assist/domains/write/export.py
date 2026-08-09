@@ -38,6 +38,7 @@ from typing import Any, cast
 
 import yaml
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.citations import iter_marked_citation_spans, scan_citekeys
 from prumo_assist.core.csl import list_zotero_styles, resolve_csl
 from prumo_assist.core.obsidian import (
@@ -782,7 +783,7 @@ def export(
     if to == "docx":
         _check_bbt_running()
     csl = resolve_csl(style)
-    bib = bib or (project_root / "references" / "_references.bib")
+    bib = bib or pj_layout.bib_path(project_root)
     if not bib.is_file():
         raise FileNotFoundError(f"bibliografia não encontrada: {bib}")
 
@@ -899,7 +900,7 @@ def compose(
     if to == "docx":
         _check_bbt_running()
     csl = resolve_csl(style)
-    bib = bib or (project_root / "references" / "_references.bib")
+    bib = bib or pj_layout.bib_path(project_root)
     if not bib.is_file():
         raise FileNotFoundError(f"bibliografia não encontrada: {bib}")
 

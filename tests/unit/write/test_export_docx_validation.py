@@ -177,7 +177,9 @@ def test_prefs_not_required_without_citations(tmp_path: Path) -> None:
 def _fake_project(tmp_path: Path) -> tuple[Path, Path]:
     root = tmp_path / "pj_demo"
     (root / "docs" / "references").mkdir(parents=True)
-    (root / "docs" / "references" / "_references.bib").write_text("@article{smith2020, title={X}}\n")
+    (root / "docs" / "references" / "_references.bib").write_text(
+        "@article{smith2020, title={X}}\n"
+    )
     page = root / "docs" / "page.md"
     page.parent.mkdir(parents=True)
     page.write_text("Texto sem citação.\n")

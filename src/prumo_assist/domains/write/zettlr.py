@@ -27,6 +27,7 @@ from pathlib import Path
 
 import yaml
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.csl import CslNotFoundError, resolve_csl
 from prumo_assist.domains.write.export import _zotero_live_docx_filter
 
@@ -50,13 +51,13 @@ def generate_profile(pj_path: Path, *, style: str = "apa") -> Path:
     exporter do Zettlr injeta a biblioteca global em qualquer defaults
     file importado.
 
-    Exige a raiz de um pj_* (``references/_references.bib`` presente) —
-    sem isso o perfil seria criado em diretório arbitrário.
+    Exige a raiz de um pj_* (``docs/references/_references.bib`` presente)
+    — sem isso o perfil seria criado em diretório arbitrário.
     """
-    bib = pj_path / "references" / "_references.bib"
+    bib = pj_layout.bib_path(pj_path)
     if not bib.is_file():
         raise FileNotFoundError(
-            f"{pj_path} não parece a raiz de um pj_* (esperado references/_references.bib). "
+            f"{pj_path} não parece a raiz de um pj_* (esperado docs/references/_references.bib). "
             "Rode na raiz do projeto ou aponte-a: `prumo write zettlr-profile --path <raiz>`."
         )
     profile: dict[str, object] = {
