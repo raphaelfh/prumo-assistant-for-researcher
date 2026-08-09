@@ -485,7 +485,11 @@ def zettlr_export_entry() -> None:
             if len(sys.argv) != 2:
                 raise PrumoError("uso: prumo-zettlr-export <arquivo.md>")
             page = Path(sys.argv[1]).resolve()
-            result = export.export(page=page, to="docx")
+            # force=True: aqui é sempre o autor reexportando a própria fonte pra
+            # build/exports/ (gitignored, regenerável) — o docx do coautor com
+            # tracked changes nunca mora ali, então a guarda de sobrescrita não
+            # protege nada neste caminho e só quebraria o re-export de rotina.
+            result = export.export(page=page, to="docx", force=True)
             console.success(f"exportado: {result}")
     except typer.Exit as e:
         # Entrypoint fora do dispatch do Click (é um `[project.scripts]` cru,

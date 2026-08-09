@@ -774,6 +774,35 @@ def test_export_sobrescreve_com_force(tmp_path: Path, monkeypatch: pytest.Monkey
     assert len(calls) == 1
 
 
+def test_zettlr_export_entry_overwrites_on_second_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``zettlr_export_entry`` (o entrypoint `prumo-zettlr-export` chamado
+    pelo Zettlr) sempre passa ``force=True`` — decisão de produto: ali é
+    sempre o autor reexportando a própria fonte pra scratch gitignored,
+    nunca o docx do coautor com tracked changes. Prova ponta a ponta (export
+    real, seams externos mockados) que reexportar o MESMO arquivo pelo
+    entrypoint do Zettlr sobrescreve sem levantar ``OutputExistsError``."""
+    from prumo_assist.domains.write.cli import zettlr_export_entry
+
+    root, page = _fake_project(tmp_path)
+    (root / ".claude").mkdir(parents=True, exist_ok=True)
+    (root / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    _patch_export_seams(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+    payload = _docx_bytes_for_export_wiring(tmp_path, [])
+    fake = _fake_run_writing_output_flag([payload, payload], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("sys.argv", ["prumo-zettlr-export", str(page)])
+
+    zettlr_export_entry()  # 1a exportação: cria o docx
+    zettlr_export_entry()  # 2a exportação do MESMO arquivo: sobrescreve sem erro
+
+    out = root / "build" / "exports" / f"{export_mod.slugify(page, root)}.docx"
+    assert out.is_file()
+    assert len(calls) == 2
+
+
 def test_compose_recusa_sobrescrever_sem_force(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
