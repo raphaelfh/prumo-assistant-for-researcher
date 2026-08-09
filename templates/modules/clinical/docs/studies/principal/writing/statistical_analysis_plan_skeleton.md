@@ -12,7 +12,7 @@ aliases: ["SAP skeleton", "Plano Estatístico (modelo)"]
 ## 0. Princípios
 
 1. **Tipo de estudo.** _(descritivo / explicativo / preditivo)_. Toda análise multivariável que não derive diretamente da hipótese pré-especificada deve ser rotulada como **exploratória/geradora de hipóteses**.
-2. **Pré-especificação.** Toda análise, subgrupo, sumarização e sensitivity check listada aqui é considerada pré-especificada; alterações posteriores devem ser registradas em `docs/decisions/` com data e justificativa (ADR).
+2. **Pré-especificação.** Toda análise, subgrupo, sumarização e sensitivity check listada aqui é considerada pré-especificada; alterações posteriores devem ser registradas em `decisions/` (deste escopo) com data e justificativa (ADR).
 3. **Bootstrap para IC.** ICs por bootstrap não-paramétrico (`n_boot = 2000`) com BCa para proporções e medianas; paramétricos (Poisson, Wald, Wilson) onde apropriado.
 4. **Missing data.** Reportar n disponível para cada análise. Imputação **não** será usada como análise primária; análise de complete-case é a primária. Multiple imputation por chained equations (MICE, `n_imp = 20`) **apenas** como análise de sensibilidade.
 5. **Software.** _(Python 3.12+ / R / SAS)_. Versionamento de ambiente via `pyproject.toml` ou `renv.lock`. Seeds fixadas em `42`.

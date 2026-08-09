@@ -88,6 +88,6 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
     # add reconstrói
     assert runner.invoke(app, ["add", "clinical", "-t", str(target)]).exit_code == 0
     assert runner.invoke(app, ["add", "ml", "-t", str(target)]).exit_code == 0
-    assert (target / "docs" / "protocol.md").is_file()
+    assert (target / "docs" / "studies" / "principal" / "writing" / "protocol.md").is_file()
     assert (target / ".claude" / "rules" / "ml_stack.md").is_file()
     assert (target / ".claude" / "make" / "ml.mk").is_file()

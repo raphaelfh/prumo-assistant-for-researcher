@@ -22,12 +22,13 @@ def _init(target: Path) -> None:
 def test_add_clinical_restores_protocol(tmp_path: Path) -> None:
     target = tmp_path / "pj_demo"
     _init(target)
-    assert not (target / "docs" / "protocol.md").exists()
+    assert not (target / "docs" / "studies" / "principal" / "writing" / "protocol.md").exists()
 
     res = runner.invoke(app, ["add", "clinical", "--target", str(target), "--json"])
     assert res.exit_code == 0, res.output
-    assert (target / "docs" / "protocol.md").is_file()
-    assert (target / "docs" / "templates" / "projeto-cep.md").is_file()
+    assert (target / "docs" / "studies" / "principal" / "writing" / "protocol.md").is_file()
+    assert (target / "docs" / "studies" / "principal" / "writing" / "projeto-cep.md").is_file()
+    assert (target / "docs" / "templates" / "data_dictionary_skeleton.md").is_file()
     payload = json.loads(res.stdout)
     assert payload["module"] == "clinical"
     assert payload["files_copied"] > 0
@@ -52,10 +53,11 @@ def test_add_unknown_module_errors(tmp_path: Path) -> None:
 def test_add_is_non_destructive(tmp_path: Path) -> None:
     target = tmp_path / "pj_demo"
     _init(target)
+    protocol = target / "docs" / "studies" / "principal" / "writing" / "protocol.md"
     runner.invoke(app, ["add", "clinical", "--target", str(target)])
-    (target / "docs" / "protocol.md").write_text("EDITADO PELO USUÁRIO")
+    protocol.write_text("EDITADO PELO USUÁRIO")
     runner.invoke(app, ["add", "clinical", "--target", str(target)])  # reaplica
-    assert (target / "docs" / "protocol.md").read_text() == "EDITADO PELO USUÁRIO"
+    assert protocol.read_text() == "EDITADO PELO USUÁRIO"
 
 
 def test_add_list_marks_applied(tmp_path: Path) -> None:
@@ -83,7 +85,8 @@ def test_add_interactive_picks_by_number(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     target = tmp_path / "pj_demo"
     _init(target)
-    # módulos ordenados: clinical(1), ml(2). Input "2" → ml.
-    res = runner.invoke(app, ["add", "--target", str(target)], input="2\n")
+    # módulos ordenados: clinical(1), code(2), data(3), ml(4), notebooks(5).
+    # Input "4" → ml.
+    res = runner.invoke(app, ["add", "--target", str(target)], input="4\n")
     assert res.exit_code == 0, res.output
     assert (target / ".claude" / "rules" / "ml_stack.md").is_file()

@@ -757,6 +757,9 @@ def add_command(
         raise typer.Exit(code=1)
 
     copied, skipped = _overlay(info.path, target)
+    # Mesma substituição de placeholder de nome do `init` (ex.: `code/pyproject.toml`
+    # ainda carrega `pj-NOME`) — só nos arquivos recém-copiados deste módulo.
+    apply_project_name(target, target.name, copied)
     payload = {
         "module": module,
         "target": str(target),
