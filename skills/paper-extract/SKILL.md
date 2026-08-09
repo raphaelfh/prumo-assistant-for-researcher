@@ -1,6 +1,6 @@
 ---
 name: paper-extract
-description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em references/notes/<citekey>/_extract.md. Pressupõe /prumo-assist:paper-manager sync executado + symlinks via prumo paper sync-pdfs."
+description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em docs/references/papers/<citekey>/_extract.md. Pressupõe /prumo-assist:paper-manager sync executado + symlinks via prumo paper sync-pdfs."
 when_to_use: |
   Quando o usuário pedir "resuma o paper X", "extraia os principais pontos",
   "processa todos os papers novos", ou quando um pj_* acabou de sincronizar
@@ -34,7 +34,7 @@ prumo:
 >    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
 >    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
 >    pule este passo em silêncio.
-> 3. **Estrutura:** se o diretório não tiver `references/` + `docs/` de um `pj_*`,
+> 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
 >    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
 >
@@ -42,7 +42,7 @@ prumo:
 > operação exata nunca é simulada.
 <!-- prumo:preflight:end -->
 
-Skill que lê o PDF (via symlink em `references/pdfs/<citekey>.pdf`), gera conteúdo para 5 seções estruturadas e escreve em `references/notes/<citekey>/_extract.md` (arquivo dedicado, layout α). O usuário edita/refina as seções humanas em `_meta.md`; o `_extract.md` é 100% auto.
+Skill que lê o PDF (via symlink em `docs/references/pdfs/<citekey>.pdf`), gera conteúdo para 5 seções estruturadas e escreve em `docs/references/papers/<citekey>/_extract.md` (arquivo dedicado, layout α). O usuário edita/refina as seções humanas em `_meta.md`; o `_extract.md` é 100% auto.
 
 ## Pressupostos
 
@@ -88,7 +88,7 @@ Passos:
 
 3. **Receber JSON** do subagent. Se `error`, abortar mostrando motivo.
 
-4. **Aplicar extração** via `Bash` (escreve o callout em `references/notes/<citekey>/_extract.md` e atualiza `_meta.md`):
+4. **Aplicar extração** via `Bash` (escreve o callout em `docs/references/papers/<citekey>/_extract.md` e atualiza `_meta.md`):
    ```bash
    cat <<'JSON' | prumo paper extract <citekey> --model "<modelo_atual>" --date "<hoje>" --json
    { "TL;DR": "<conteúdo extraído>", "Problema": "...", "Método": "...", "Resultados": "...", "Limitações": "..." }
@@ -96,7 +96,7 @@ Passos:
    ```
    Emite `{"changed": true}` (MUDOU) ou `{"changed": false}` (IDÊNTICO).
 
-5. **Mostrar diff** do callout ao usuário e perguntar: "Arquivar TL;DR como finding em `docs/wiki/findings/` (ou `docs/findings/` em projetos sem `docs/wiki/`)?". Se sim, delegar a `/prumo-assist:wiki-query` ou criar finding direto.
+5. **Mostrar diff** do callout ao usuário e perguntar: "Arquivar TL;DR como finding (`type: finding`) em `docs/studies/<slug>/notes/`?". Se sim, delegar a `/prumo-assist:wiki-query` ou criar finding direto.
 
 ### 2. `/prumo-assist:paper-extract-all [--limit N] [--stale-only]` — batch
 
@@ -107,8 +107,8 @@ Passos:
 1. **Ler config:** leia `.claude/pj_config.toml` (via `Read`) e pegue `paper_extract.batch.default_limit` (default 20) e `paper_extract.batch.subagents_per_wave` (default 8); se o arquivo ou as chaves não existirem, use os defaults.
 
 2. **Elegíveis:**
-   - Todas as notas em `references/notes/*/_meta.md` com:
-     - `references/pdfs/<citekey>.pdf` symlink existe e aponta para arquivo real (validado via `prumo paper extract-prep <citekey>` — reporta symlink quebrado ou PDF ausente);
+   - Todas as notas em `docs/references/papers/*/_meta.md` com:
+     - `docs/references/pdfs/<citekey>.pdf` symlink existe e aponta para arquivo real (validado via `prumo paper extract-prep <citekey>` — reporta symlink quebrado ou PDF ausente);
      - `extracted_at: null` **OU** (`--stale-only` AND hash atual do template != `extracted_template_hash`) — verificado lendo cada `_meta.md` com `Read`.
    - Aplicar `--limit` (default: `config.paper_extract.batch.default_limit`).
 
@@ -140,4 +140,4 @@ Passos:
 - `paper_extraction.md` ausente → "Restaure rodando `prumo init . --merge` no diretório do projeto (recoloca arquivos ausentes do template sem sobrescrever os existentes)."
 - `pj_config.toml` ausente → usa DEFAULTS (não é erro fatal).
 - Subagent retorna JSON malformado → retry 1x com prompt "corrija o JSON anterior"; depois skip com erro "JSON malformado após 2 tentativas".
-- Callout com delimitadores corrompidos (usuário mexeu dentro) → abortar com "Restaure ou delete as linhas entre `<!-- paper-extract:begin -->` e `<!-- paper-extract:end -->` em references/notes/<citekey>/_extract.md."
+- Callout com delimitadores corrompidos (usuário mexeu dentro) → abortar com "Restaure ou delete as linhas entre `<!-- paper-extract:begin -->` e `<!-- paper-extract:end -->` em docs/references/papers/<citekey>/_extract.md."

@@ -2,7 +2,7 @@
 title: ""
 target_venue: "general"
 authors: []
-bibliography: ../../references/_references.bib
+bibliography: ../../../references/_references.bib
 ---
 
 # Title
@@ -39,7 +39,7 @@ bibliography: ../../references/_references.bib
 # Results
 
 <!-- Placeholders [RESULTADO ...] se ainda em desenho.
-     Caso já tenha valores em docs/findings/, reutilizar. -->
+     Caso já tenha valores em notes/ (type: finding), reutilizar. -->
 
 # Discussion
 

@@ -97,7 +97,7 @@ Por trás, isso roda `prumo paper connect "<nome da coleção>"`. Antes desse
 comando existir, chegar ao mesmo resultado exigia configurar o "Keep
 updated" à mão dentro do Zotero (clicar com o botão direito na coleção,
 exportar, marcar a opção de manter atualizado e apontar para o
-`references/_references.bib` certo dentro do projeto) — um fio fácil de
+`docs/references/_references.bib` certo dentro do projeto) — um fio fácil de
 errar.
 
 Digitar o nome errado é seguro: o comando confere se a coleção existe
@@ -169,7 +169,7 @@ quem quiser explorar — **não validado neste piloto**.
 Recomendamos o [Zettlr](https://www.zettlr.com) como editor dos arquivos
 `.md` do projeto (drafts, notas, wiki): a convenção de citação `[@key]` que
 o prumo usa é a nativa dele, com autocomplete lendo direto o
-`references/_references.bib`.
+`docs/references/_references.bib`.
 
 ## Trilha dev (Claude Code, terminal)
 

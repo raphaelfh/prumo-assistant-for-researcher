@@ -40,7 +40,7 @@ tags: [journey, playbook]
    - greenfield → Socrático (perguntas P/I/C/O/T ancoradas em `wiki-query`)
    - prose existente → Formalize (extrai de `protocol.md`/`project.md`, confirma)
 2. Skill grava `.claude/picot.toml` (canônico), regenera blocos delimitados em `protocol.md` e `project.md`, e cria `adr-NNNN-picot-v1-versao-inicial.md`.
-3. (Manual quando preferir) editar `docs/protocol.md`/`docs/project.md` na prose ao redor dos blocos delimitados; depois rodar `prumo protocol propagate` pra realinhar caso edite `picot.toml`.
+3. (Manual quando preferir) editar `docs/studies/<slug>/writing/protocol.md`/`docs/project.md` na prose ao redor dos blocos delimitados; depois rodar `prumo protocol propagate` pra realinhar caso edite `picot.toml`.
 
 ### "PICOT mudou — preciso registrar"
 *Sub-fluxo de versão: bumpa picot.toml e gera ADR.*
@@ -63,11 +63,11 @@ tags: [journey, playbook]
 
 ### "Quero extrair conteúdo estruturado de um PDF"
 1. `/prumo-assist:paper-extract @<citekey>` — preenche callout (TL;DR + PICOT + Método + Resultados + Limitações).
-2. Conferir em `references/notes/<citekey>/_extract.md` *(layout α)*.
+2. Conferir em `docs/references/papers/<citekey>/_extract.md` *(layout α)*.
 3. `prumo paper graph` — atualiza arestas `[@key]` no YAML.
 
 ### "Importei N papers novos no Zotero"
-1. `prumo paper sync` — `.bib` → `references/notes/<key>/_meta.md` *(layout α)*.
+1. `prumo paper sync` — `.bib` → `docs/references/papers/<key>/_meta.md` *(layout α)*.
 2. `prumo paper sync-pdfs` — symlinks pra `~/Zotero/storage/`.
 3. `prumo paper sync-annotations` — highlights → `_annotations.md`.
 4. `prumo paper sync-notes` — child notes Zotero → `note__*.md` *(novo, spec B1)*.
@@ -80,7 +80,7 @@ tags: [journey, playbook]
 2. Highlights coloridos por categoria (amarelo = importante; rosa = crítica; verde = método; azul = quote).
 3. **Child notes** no Zotero pra ideias longas (1 ideia = 1 child note); título descritivo.
 4. Ao terminar a sessão: `prumo paper sync-annotations` + `prumo paper sync-notes` puxam tudo pro repo.
-5. Conferir em `references/notes/<key>/_annotations.md` e `note__*.md`.
+5. Conferir em `docs/references/papers/<key>/_annotations.md` e `note__*.md`.
 
 ### "Quero estudar conceito X usando minhas próprias fontes"
 *Claude como tutor metacognitivo. Sessão Socrática em 5 steps ancorada no acervo.*
@@ -104,7 +104,7 @@ tags: [journey, playbook]
 ## Fase 3 · Escrita  *(Deliver)*
 
 ### "Vou começar um draft"
-1. Criar `.md` em `docs/findings/` ou `docs/sources/` com frontmatter (ou editar `docs/project.md` direto).
+1. Criar `.md` em `docs/studies/<slug>/notes/` (`type: finding`) ou `docs/sources/` com frontmatter (ou editar `docs/project.md` direto).
 2. Escrever — usando `[@key]` (ou `@key` narrativa) pra citações inline.
 3. `/prumo-assist:scientific-writing` — passe editorial (pontuação, citação, superlativos).
 

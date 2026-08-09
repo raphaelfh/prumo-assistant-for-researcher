@@ -37,7 +37,7 @@ Opera sobre o schema canônico em `/docs/wiki-schema.md` do monorepo. Não reesc
 
 ## Pressupostos
 
-- cwd é um `pj_*` com scaffold padrão (`docs/_index.md`, `docs/_log.md`, `docs/{concepts,entities,findings,sources}/`, `references/`).
+- cwd é um `pj_*` com scaffold padrão (`docs/_index.md`, `docs/_log.md`, `docs/{concepts,entities,sources}/`, `docs/references/`).
 - Se faltar estrutura, orientar `prumo init pj_<nome>` (via /prumo-assist:start se o CLI não existir). NUNCA criar o scaffold manualmente — o agente não simula trabalho do CLI.
 
 ## Fluxo
@@ -105,7 +105,7 @@ Corpo (seções fixas):
 <bullets ou parágrafos curtos; 1 seção por ponto-chave identificado no passo 3>
 
 ## Aplicação neste projeto
-<como isso muda decisões no pj_*; apontar para findings/concepts/entities>
+<como isso muda decisões no pj_*; apontar para concepts/entities ou para uma nota `type: finding`>
 
 ## Notas
 <links complementares, leituras futuras>
@@ -168,7 +168,7 @@ qmd embed
 
 ## Boundaries
 
-- **Nunca baixa PDF automaticamente** (copyright). Para paper, o usuário coloca o PDF em `references/pdfs/<citekey>.pdf` manualmente.
+- **Nunca baixa PDF automaticamente** (copyright). Para paper, o usuário coloca o PDF em `docs/references/pdfs/<citekey>.pdf` manualmente.
 - **Não mexe em** `content/`, `pyproject.toml`, notebooks.
 - **Paper científico** nunca entra direto pelo `/prumo-assist:wiki-ingest`. Orientar o usuário: (1) adicionar no Zotero; (2) `/prumo-assist:paper-manager sync`; (3) voltar aqui para costurar a fonte a outras páginas do wiki se quiser.
 - **Máximo de 15 páginas tocadas** por ingest. Se mais forem necessárias, quebrar em ingests separados e deixar claro no log que é parte N/M.

@@ -1,6 +1,6 @@
 ---
 name: wiki-query
-description: "Responde pergunta ancorada no wiki do pj_* (docs/ + references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [@citekeys]). Oferece arquivar a resposta como finding em docs/wiki/findings/ (ou docs/findings/ em projetos sem docs/wiki/) quando útil. NÃO é para perguntas de código."
+description: "Responde pergunta ancorada no wiki do pj_* (docs/ + docs/references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [@citekeys]). Oferece arquivar a resposta como finding (type: finding) em docs/studies/<slug>/notes/ quando útil. NÃO é para perguntas de código."
 when_to_use: |
   Quando o usuário perguntar "o que a literatura diz sobre X", "compare Y e Z",
   "gere tabela comparativa", "resuma os achados sobre W", "quais decisões
@@ -55,8 +55,8 @@ Se a pergunta for ambígua ou genérica ("tudo sobre X"), pedir refinamento em *
 2. **Busca qmd** (se MCP disponível):
    - `mcp__qmd__query "<pergunta>"` (hybrid com rerank) → top 10.
    - Fallback BM25: `mcp__qmd__search`.
-3. **Fallback sem qmd**: `Grep` com termos-chave em `docs/ references/notes/`.
-4. Se o tópico é bibliográfico puro, considerar também `references/_references.bib` e `/prumo-assist:paper-manager list`.
+3. **Fallback sem qmd**: `Grep` com termos-chave em `docs/ docs/references/papers/`.
+4. Se o tópico é bibliográfico puro, considerar também `docs/references/_references.bib` e `/prumo-assist:paper-manager list`.
 
 ### 3. Ler as páginas mais relevantes
 
@@ -94,7 +94,7 @@ Regras:
 
 Depois da resposta, perguntar **exatamente uma vez**:
 
-> Quer arquivar essa resposta como finding? (`docs/wiki/findings/<slug>.md`) — útil se a síntese for reutilizada.
+> Quer arquivar essa resposta como finding? (`docs/studies/<escopo>/notes/<slug>.md`, `type: finding`) — útil se a síntese for reutilizada.
 
 Se **sim**, executar via `Bash`:
 
@@ -139,7 +139,7 @@ LOG
 ### 6. Visualizações inline
 
 Quando a resposta pedir gráfico (comparação numérica, distribuição, timeline):
-- Gerar bloco Python com **seaborn + matplotlib** (ver rule `.claude/rules/coding_style.md`), renderizado em notebook ou salvo em `docs/wiki/findings/_assets/<slug>.png` referenciado no markdown do finding.
+- Gerar bloco Python com **seaborn + matplotlib** (ver rule `.claude/rules/coding_style.md`), renderizado em notebook ou salvo em `docs/studies/<escopo>/notes/_assets/<slug>.png` referenciado no markdown do finding.
 - Plotly **só** se o usuário pedir explicitamente um dashboard interativo.
 
 ## Boundaries

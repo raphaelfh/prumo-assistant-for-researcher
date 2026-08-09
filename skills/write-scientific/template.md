@@ -1,7 +1,7 @@
 ---
 title: ""
 section: ""
-bibliography: ../../references/_references.bib
+bibliography: ../../../references/_references.bib
 ---
 
 # {{ title or "Seção" }}

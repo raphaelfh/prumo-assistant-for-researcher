@@ -142,5 +142,6 @@ O JSON segue este shape (`PeerReviewReport/v1`):
 
 ## Pós-review
 
-Ofereça ao usuário arquivar o relatório em `docs/wiki/findings/_peer_review_<draft-stem>_<YYYY-MM-DD>.md` (ou `docs/findings/` em projetos sem `docs/wiki/`)
+Ofereça ao usuário arquivar o relatório como finding (`type: finding`) em
+`docs/studies/<slug>/notes/_peer_review_<draft-stem>_<YYYY-MM-DD>.md`
 pra rastreamento histórico. Se aceito, escreva o markdown legível lá.
