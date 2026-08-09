@@ -14,13 +14,25 @@ from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 runner = CliRunner()
 
 
-def _bootstrap(tmp_path: Path) -> Path:
+def _mk_project(tmp_path: Path, slug: str = "principal") -> tuple[Path, Path]:
+    """Cria a raiz do projeto (marcador ``.claude/pj_config.toml``) e um escopo
+    vazio (``notes/``, ``writing/``, ``decisions/``). Devolve ``(pj_root, scope)``.
+    """
     pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
-    (pj / "docs" / "protocol.md").write_text("# Protocolo\n")
+    (pj / ".claude").mkdir(parents=True)
+    (pj / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    scope = pj / "docs" / "studies" / slug
+    for sub in ("notes", "writing", "decisions"):
+        (scope / sub).mkdir(parents=True)
+    return pj, scope
+
+
+def _bootstrap(tmp_path: Path, slug: str = "principal") -> tuple[Path, Path]:
+    """``_mk_project`` + ``protocol.md`` (escopo) e ``project_guide.md`` (projeto)."""
+    pj, scope = _mk_project(tmp_path, slug)
+    (scope / "writing" / "protocol.md").write_text("# Protocolo\n")
     (pj / "docs" / "project_guide.md").write_text("---\ntitle: x\n---\n\n# Projeto\n")
-    (pj / "docs" / "decisions").mkdir()
-    return pj
+    return pj, scope
 
 
 def _spec() -> PicotSpec:
@@ -43,9 +55,9 @@ def _spec() -> PicotSpec:
 
 
 def test_protocol_propagate_inserts_blocks(tmp_path: Path) -> None:
-    pj = _bootstrap(tmp_path)
+    pj, scope = _bootstrap(tmp_path)
     write_picot(pj, _spec())
-    result = runner.invoke(app, ["protocol", "propagate", str(pj), "--json"])
+    result = runner.invoke(app, ["protocol", "propagate", str(scope), "--json"])
     assert result.exit_code == 0, result.output
     payload = _last_json(result.stdout)
     assert payload["protocol_status"] == "inserted"
@@ -53,9 +65,9 @@ def test_protocol_propagate_inserts_blocks(tmp_path: Path) -> None:
 
 
 def test_protocol_diff_no_baseline(tmp_path: Path) -> None:
-    pj = _bootstrap(tmp_path)
+    pj, scope = _bootstrap(tmp_path)
     write_picot(pj, _spec())
-    result = runner.invoke(app, ["protocol", "diff", str(pj), "--json"])
+    result = runner.invoke(app, ["protocol", "diff", str(scope), "--json"])
     assert result.exit_code == 0, result.output
     payload = _last_json(result.stdout)
     assert payload["changes"] == []
@@ -63,23 +75,21 @@ def test_protocol_diff_no_baseline(tmp_path: Path) -> None:
 
 
 def test_protocol_propagate_missing_picot(tmp_path: Path) -> None:
-    pj = _bootstrap(tmp_path)  # sem picot.toml
-    result = runner.invoke(app, ["protocol", "propagate", str(pj), "--json"])
+    _pj, scope = _bootstrap(tmp_path)  # sem picot.toml
+    result = runner.invoke(app, ["protocol", "propagate", str(scope), "--json"])
     assert result.exit_code != 0
     assert "picot.toml" in result.output or "picot.toml" in result.stderr
 
 
 def test_protocol_detect_mode_init(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
-    result = runner.invoke(app, ["protocol", "detect-mode", str(pj)])
+    _pj, scope = _mk_project(tmp_path)
+    result = runner.invoke(app, ["protocol", "detect-mode", str(scope)])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == "init"
 
 
 def test_protocol_init_writes_and_emits(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
+    _pj, scope = _mk_project(tmp_path)
     payload = {
         "type": "clinical",
         "created_at": "2026-06-14",
@@ -94,7 +104,7 @@ def test_protocol_init_writes_and_emits(tmp_path: Path) -> None:
     }
     result = runner.invoke(
         app,
-        ["protocol", "init", "--date", "2026-06-14", "--path", str(pj), "--json"],
+        ["protocol", "init", "--date", "2026-06-14", "--path", str(scope), "--json"],
         input=json.dumps(payload),
     )
     assert result.exit_code == 0, result.output
@@ -103,10 +113,9 @@ def test_protocol_init_writes_and_emits(tmp_path: Path) -> None:
 
 
 def test_protocol_init_invalid_payload_fails(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
+    _pj, scope = _mk_project(tmp_path)
     result = runner.invoke(
-        app, ["protocol", "init", "--date", "2026-06-14", "--path", str(pj)], input="{}"
+        app, ["protocol", "init", "--date", "2026-06-14", "--path", str(scope)], input="{}"
     )
     assert result.exit_code == 1
     assert "hypothesis" in result.output
@@ -124,7 +133,7 @@ def _last_json(stdout: str) -> dict[str, object]:
 
 
 def test_protocol_adr_writes(tmp_path: Path) -> None:
-    pj = _bootstrap(tmp_path)
+    pj, scope = _bootstrap(tmp_path)
     write_picot(pj, _spec())
     result = runner.invoke(
         app,
@@ -138,7 +147,7 @@ def test_protocol_adr_writes(tmp_path: Path) -> None:
             "--date",
             "2026-06-14",
             "--path",
-            str(pj),
+            str(scope),
             "--json",
         ],
     )
@@ -148,7 +157,7 @@ def test_protocol_adr_writes(tmp_path: Path) -> None:
 
 
 def test_protocol_adr_missing_picot_fails(tmp_path: Path) -> None:
-    pj = _bootstrap(tmp_path)  # sem picot.toml
+    _pj, scope = _bootstrap(tmp_path)  # sem picot.toml
     result = runner.invoke(
         app,
         [
@@ -161,7 +170,7 @@ def test_protocol_adr_missing_picot_fails(tmp_path: Path) -> None:
             "--date",
             "2026-06-14",
             "--path",
-            str(pj),
+            str(scope),
         ],
     )
     assert result.exit_code == 1

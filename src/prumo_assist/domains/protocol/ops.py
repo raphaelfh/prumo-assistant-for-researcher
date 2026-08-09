@@ -17,11 +17,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from prumo_assist.core import pj_layout
+from prumo_assist.core.pj_layout import find_pj_root
 from prumo_assist.domains.protocol.adr import (
     compose_adr,
     extract_picot_snapshot,
     find_last_picot_adr,
-    next_adr_number,
+    next_number,
 )
 from prumo_assist.domains.protocol.diff import PicotDiff, diff_picot
 from prumo_assist.domains.protocol.picot_io import (
@@ -50,8 +52,9 @@ class PropagateReport:
     hash8: str
 
 
-def propagate(pj_path: Path) -> PropagateReport:
-    """Lê ``picot.toml``, regenera blocos delimitados em protocol.md e project_guide.md.
+def propagate(scope: Path) -> PropagateReport:
+    """Lê ``picot.toml`` (do projeto), regenera blocos delimitados em
+    ``protocol.md`` (do escopo) e ``project_guide.md`` (do projeto).
 
     Status por destino:
 
@@ -60,17 +63,18 @@ def propagate(pj_path: Path) -> PropagateReport:
     - ``updated``: bloco existia, foi substituído (hash mudou)
     - ``unchanged``: bloco já tem o hash atual, nada a fazer
     """
-    spec = read_picot(pj_path)
-    h = picot_hash(pj_path)
+    pj_root = find_pj_root(scope)
+    spec = read_picot(pj_root)
+    h = picot_hash(pj_root)
 
     protocol_status = _propagate_one(
-        target=pj_path / "docs" / "protocol.md",
+        target=pj_layout.writing_dir(scope) / "protocol.md",
         block=render_protocol_block(spec, hash8=h),
         anchor=r"^# .+$",
         new_hash8=h,
     )
     project_status = _propagate_one(
-        target=pj_path / "docs" / "project_guide.md",
+        target=pj_root / "docs" / "project_guide.md",
         block=render_project_block(spec, hash8=h),
         anchor=r"^---\n.*?\n---",
         new_hash8=h,
@@ -100,16 +104,17 @@ def _propagate_one(
     return "updated" if existing else "inserted"
 
 
-def detect_mode(pj_path: Path) -> str:
-    """Detecta o modo da skill ``formulate-picot`` pelo estado do projeto.
+def detect_mode(scope: Path) -> str:
+    """Detecta o modo da skill ``formulate-picot`` pelo estado do escopo/projeto.
 
     Retorna ``init`` | ``formalize`` | ``propagate`` | ``diff``.
     """
-    protocol_md = pj_path / "docs" / "protocol.md"
-    if not picot_path(pj_path).exists():
+    protocol_md = pj_layout.writing_dir(scope) / "protocol.md"
+    pj_root = find_pj_root(scope)
+    if not picot_path(pj_root).exists():
         has_prose = protocol_md.exists() and protocol_md.read_text(errors="ignore").strip() != ""
         return "formalize" if has_prose else "init"
-    if find_last_picot_adr(pj_path) is None:
+    if find_last_picot_adr(scope) is None:
         return "propagate"
     return "diff"
 
@@ -122,11 +127,13 @@ class InitResult:
     adr_path: Path
 
 
-def init_picot_spec(pj_path: Path, *, spec: PicotSpec, motivation: str, date: str) -> InitResult:
-    """Escreve o ``PicotSpec`` inicial, propaga os blocos e cria o ADR-0001."""
-    write_picot(pj_path, spec)
-    report = propagate(pj_path)
-    n = next_adr_number(pj_path)
+def init_picot_spec(scope: Path, *, spec: PicotSpec, motivation: str, date: str) -> InitResult:
+    """Escreve o ``PicotSpec`` inicial (no projeto), propaga os blocos e cria o
+    ADR-0001 (no escopo)."""
+    pj_root = find_pj_root(scope)
+    write_picot(pj_root, spec)
+    report = propagate(scope)
+    n = next_number(scope)
     body = compose_adr(
         adr_number=n,
         spec=spec,
@@ -135,7 +142,7 @@ def init_picot_spec(pj_path: Path, *, spec: PicotSpec, motivation: str, date: st
         supersedes_path=None,
         date=date,
     )
-    adr_path = pj_path / "docs" / "decisions" / f"adr-{n:04d}-picot-v1-versao-inicial.md"
+    adr_path = pj_layout.decisions_dir(scope) / f"adr-{n:04d}-picot-v1-versao-inicial.md"
     adr_path.parent.mkdir(parents=True, exist_ok=True)
     adr_path.write_text(body, encoding="utf-8")
     return InitResult(report=report, adr_path=adr_path)
@@ -149,14 +156,16 @@ class AdrResult:
     adr_path: Path
 
 
-def create_picot_adr(pj_path: Path, *, motivation: str, slug: str, date: str) -> AdrResult:
-    """Grava o ADR-N para a versão atual do ``picot.toml`` (após bump) e propaga."""
-    spec = read_picot(pj_path)
+def create_picot_adr(scope: Path, *, motivation: str, slug: str, date: str) -> AdrResult:
+    """Grava o ADR-N (no escopo) para a versão atual do ``picot.toml`` (após bump)
+    e propaga."""
+    pj_root = find_pj_root(scope)
+    spec = read_picot(pj_root)
     # read_picot acima já garante que o picot.toml existe, então diff_against_last_adr
     # nunca retorna None aqui; o ``or`` apenas estreita PicotDiff | None -> PicotDiff p/ mypy.
-    diff = diff_against_last_adr(pj_path) or PicotDiff(changes=[])
-    last_adr = find_last_picot_adr(pj_path)
-    n = next_adr_number(pj_path)
+    diff = diff_against_last_adr(scope) or PicotDiff(changes=[])
+    last_adr = find_last_picot_adr(scope)
+    n = next_number(scope)
     body = compose_adr(
         adr_number=n,
         spec=spec,
@@ -165,23 +174,25 @@ def create_picot_adr(pj_path: Path, *, motivation: str, slug: str, date: str) ->
         supersedes_path=last_adr,
         date=date,
     )
-    adr_path = pj_path / "docs" / "decisions" / f"adr-{n:04d}-picot-v{spec.version}-{slug}.md"
+    adr_path = pj_layout.decisions_dir(scope) / f"adr-{n:04d}-picot-v{spec.version}-{slug}.md"
     adr_path.parent.mkdir(parents=True, exist_ok=True)
     adr_path.write_text(body, encoding="utf-8")
-    report = propagate(pj_path)
+    report = propagate(scope)
     return AdrResult(report=report, adr_path=adr_path)
 
 
-def diff_against_last_adr(pj_path: Path) -> PicotDiff | None:
-    """Compara ``picot.toml`` atual contra snapshot do último ADR ``picot-v<N>``.
+def diff_against_last_adr(scope: Path) -> PicotDiff | None:
+    """Compara ``picot.toml`` atual (do projeto) contra snapshot do último ADR
+    ``picot-v<N>`` (do escopo).
 
     Retorna ``None`` se ``picot.toml`` ausente. Retorna ``PicotDiff`` com
     ``changes=[]`` quando não há ADR baseline (caller decide criar v1).
     """
-    if not picot_path(pj_path).exists():
+    pj_root = find_pj_root(scope)
+    if not picot_path(pj_root).exists():
         return None
-    current = read_picot(pj_path)
-    last_adr = find_last_picot_adr(pj_path)
+    current = read_picot(pj_root)
+    last_adr = find_last_picot_adr(scope)
     if last_adr is None:
         return PicotDiff(changes=[])
     snapshot_text = extract_picot_snapshot(last_adr.read_text(encoding="utf-8"))

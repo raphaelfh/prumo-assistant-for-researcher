@@ -11,7 +11,7 @@ from prumo_assist.domains.protocol.adr import (
     compose_adr,
     extract_picot_snapshot,
     find_last_picot_adr,
-    next_adr_number,
+    next_number,
 )
 from prumo_assist.domains.protocol.diff import FieldChange, PicotDiff
 from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
@@ -36,19 +36,33 @@ def _spec(version: int = 1, population: str = "DS_A") -> PicotSpec:
     )
 
 
-def test_next_adr_number_starts_at_1(tmp_path: Path) -> None:
-    decisions = tmp_path / "docs" / "decisions"
+def test_next_number_starts_at_1(tmp_path: Path) -> None:
+    decisions = tmp_path / "decisions"
     decisions.mkdir(parents=True)
-    assert next_adr_number(tmp_path) == 1
+    assert next_number(tmp_path) == 1
 
 
-def test_next_adr_number_increments(tmp_path: Path) -> None:
-    decisions = tmp_path / "docs" / "decisions"
+def test_next_number_increments(tmp_path: Path) -> None:
+    decisions = tmp_path / "decisions"
     decisions.mkdir(parents=True)
     (decisions / "adr-0001-foo.md").write_text("# x")
     (decisions / "adr-0003-bar.md").write_text("# x")
     (decisions / "not-an-adr.md").write_text("ignore")
-    assert next_adr_number(tmp_path) == 4
+    assert next_number(tmp_path) == 4
+
+
+def test_numeracao_de_adr_e_por_escopo(tmp_path: Path) -> None:
+    from prumo_assist.domains.protocol import adr
+
+    a = tmp_path / "docs" / "studies" / "a" / "decisions"
+    b = tmp_path / "docs" / "studies" / "b" / "decisions"
+    a.mkdir(parents=True)
+    b.mkdir(parents=True)
+    (a / "adr-0001-x.md").write_text("x", encoding="utf-8")
+    (a / "adr-0002-y.md").write_text("y", encoding="utf-8")
+
+    assert adr.next_number(a.parent) == 3
+    assert adr.next_number(b.parent) == 1
 
 
 def test_compose_adr_includes_diff_motivation_and_snapshot(tmp_path: Path) -> None:
@@ -111,7 +125,7 @@ def test_extract_snapshot_returns_none_when_absent() -> None:
 
 
 def test_find_last_picot_adr(tmp_path: Path) -> None:
-    decisions = tmp_path / "docs" / "decisions"
+    decisions = tmp_path / "decisions"
     decisions.mkdir(parents=True)
     (decisions / "adr-0001-foo.md").write_text("# foo")
     (decisions / "adr-0002-picot-v1-initial.md").write_text("# v1")
@@ -122,7 +136,7 @@ def test_find_last_picot_adr(tmp_path: Path) -> None:
 
 
 def test_find_last_picot_adr_none(tmp_path: Path) -> None:
-    decisions = tmp_path / "docs" / "decisions"
+    decisions = tmp_path / "decisions"
     decisions.mkdir(parents=True)
     (decisions / "adr-0001-foo.md").write_text("# foo")
     assert find_last_picot_adr(tmp_path) is None
