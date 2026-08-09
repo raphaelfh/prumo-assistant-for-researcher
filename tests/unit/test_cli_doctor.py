@@ -15,10 +15,12 @@ runner = CliRunner()
 
 
 def _project(tmp_path: Path) -> Path:
+    """Projeto no layout ATUAL: `.claude/pj_config.toml` + `docs/references/`."""
     pj = tmp_path / "pj_x"
-    for d in (".claude", "docs", "references"):
-        (pj / d).mkdir(parents=True)
+    (pj / ".claude").mkdir(parents=True)
+    (pj / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
     (pj / ".claude" / "skills").mkdir()
+    (pj / "docs" / "references").mkdir(parents=True)
     return pj
 
 
@@ -119,3 +121,19 @@ def test_doctor_sem_aviso_com_bib_real(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
     assert payload["warnings"] == []
+
+
+def test_doctor_acusa_layout_legado(tmp_path: Path) -> None:
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    (tmp_path / "references").mkdir()
+    (tmp_path / "docs").mkdir()
+    result = runner.invoke(app, ["doctor", str(tmp_path), "--json"])
+    assert "legacy_layout" in result.stdout
+
+
+def test_doctor_acusa_references_ressuscitado_pelo_zotero(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    (root / "references").mkdir()
+    result = runner.invoke(app, ["doctor", str(root), "--json"])
+    assert "references_ressuscitado" in result.stdout

@@ -57,14 +57,13 @@ def test_resolve_template_invalid_kind(tmp_path: Path) -> None:
 
 def test_compose_path_drafts_default(tmp_path: Path) -> None:
     pj = tmp_path / "pj"
-    (pj / "docs").mkdir(parents=True)
     out = compose_path(
         scope=pj,
         kind="paper",
         date="2026-05-03",
         slug="combinado",
     )
-    assert out == pj / "docs" / "drafts" / "paper-2026-05-03-combinado.md"
+    assert out == pj / "writing" / "paper-2026-05-03-combinado.md"
 
 
 def test_compose_path_into_uses_path_arg(tmp_path: Path) -> None:

@@ -80,7 +80,7 @@ def study_start_command(
         sources_list = parse_json_list(sources, "--sources")
         slug = slugify(topic)
         log_path = study.create_session_log(
-            pj_path=path.resolve(), topic=slug, date=date, sources_consulted=sources_list
+            scope=path.resolve(), topic=slug, date=date, sources_consulted=sources_list
         )
         console.success(f"Sessão criada: {log_path}")
         console.emit({"log_path": str(log_path), "slug": slug})

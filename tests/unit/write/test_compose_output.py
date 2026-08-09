@@ -11,7 +11,6 @@ from prumo_assist.domains.write.compose import write_output
 
 def test_write_output_drafts_creates_file(tmp_path: Path) -> None:
     pj = tmp_path / "pj"
-    (pj / "docs" / "drafts").mkdir(parents=True)
     out = write_output(
         content="# Draft\n\nbody\n",
         scope=pj,
@@ -20,7 +19,7 @@ def test_write_output_drafts_creates_file(tmp_path: Path) -> None:
         date="2026-05-03",
         slug="x",
     )
-    assert out.output_path == pj / "docs" / "drafts" / "paper-2026-05-03-x.md"
+    assert out.output_path == pj / "writing" / "paper-2026-05-03-x.md"
     assert out.output_path.exists()
     assert out.mode == "drafts"
     assert "body" in out.output_path.read_text()

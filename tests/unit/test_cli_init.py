@@ -14,6 +14,23 @@ from prumo_assist.core.paths import resolve_resource
 runner = CliRunner()
 
 
+def _project(tmp_path: Path) -> Path:
+    """Raiz do projeto no layout ATUAL: só o marcador `.claude/pj_config.toml`."""
+    root = tmp_path / "pj_x"
+    (root / ".claude").mkdir(parents=True)
+    (root / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    (root / "docs").mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _scope(root: Path, slug: str) -> Path:
+    """Escopo `docs/studies/<slug>/{notes,writing,decisions}`."""
+    scope = root / "docs" / "studies" / slug
+    for sub in ("notes", "writing", "decisions"):
+        (scope / sub).mkdir(parents=True)
+    return scope
+
+
 def test_init_creates_project_structure(tmp_path: Path) -> None:
     target = tmp_path / "pj_demo"
     result = runner.invoke(
@@ -230,6 +247,26 @@ def test_init_scaffold_is_pandoc_pure(tmp_path: Path) -> None:
         if "[[@" in text or "![[" in text or "> [!" in text:
             offenders.append(str(rel))
     assert offenders == []
+
+
+def test_add_study_cria_pasta_irma_sem_tocar_no_resto(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    _scope(root, "principal")
+    antes = sorted(p.relative_to(root).as_posix() for p in root.rglob("*"))
+    result = runner.invoke(app, ["add", "study", "sepse", "--target", str(root)])
+    assert result.exit_code == 0, result.output
+    for sub in ("notes", "writing", "decisions"):
+        assert (root / "docs" / "studies" / "sepse" / sub).is_dir()
+    depois = sorted(p.relative_to(root).as_posix() for p in root.rglob("*"))
+    assert set(antes).issubset(set(depois))
+
+
+def test_add_study_recusa_slug_existente(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    _scope(root, "principal")
+    result = runner.invoke(app, ["add", "study", "principal", "--target", str(root)])
+    assert result.exit_code != 0
+    assert "já existe" in result.output
 
 
 def test_templates_nao_usam_ancora_bibliografica_sem_arroba() -> None:

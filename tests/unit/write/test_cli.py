@@ -33,10 +33,26 @@ def _last_json(stdout: str) -> dict[str, object]:
     return last
 
 
-def test_write_prep_emits_inputs_and_template(tmp_path: Path) -> None:
+def _pj_with_scope(tmp_path: Path, slug: str = "principal") -> tuple[Path, Path]:
+    """Raiz do projeto (`.claude/pj_config.toml`) + escopo `docs/studies/<slug>/`.
+
+    `prep`/`draft` resolvem escopo via `pj_layout.find_scope_root` a partir de
+    `--path` — precisam de um caminho de verdade dentro de `docs/studies/`,
+    não só de `pj/docs/` (ADR-0022)."""
     pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
-    result = runner.invoke(app, ["write", "prep", "--kind", "paper", "--path", str(pj), "--json"])
+    (pj / ".claude").mkdir(parents=True)
+    (pj / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    scope = pj / "docs" / "studies" / slug
+    for sub in ("notes", "writing", "decisions"):
+        (scope / sub).mkdir(parents=True)
+    return pj, scope
+
+
+def test_write_prep_emits_inputs_and_template(tmp_path: Path) -> None:
+    _pj, scope = _pj_with_scope(tmp_path)
+    result = runner.invoke(
+        app, ["write", "prep", "--kind", "paper", "--path", str(scope), "--json"]
+    )
     assert result.exit_code == 0, result.output
     out = _last_json(result.stdout)
     assert "inputs" in out
@@ -52,8 +68,7 @@ def test_write_prep_invalid_kind_fails(tmp_path: Path) -> None:
 
 
 def test_write_draft_drafts_mode_writes_file(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
+    _pj, scope = _pj_with_scope(tmp_path)
     draft = "# Paper\n\n## Introduction\n\nReal-world evidence."
     result = runner.invoke(
         app,
@@ -71,7 +86,7 @@ def test_write_draft_drafts_mode_writes_file(tmp_path: Path) -> None:
             "--sections",
             '["Introduction"]',
             "--path",
-            str(pj),
+            str(scope),
             "--json",
         ],
         input=draft,
@@ -109,9 +124,9 @@ def test_write_draft_invalid_mode_fails(tmp_path: Path) -> None:
 
 
 def test_write_draft_into_mode_inserts_block(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
+    pj, scope = _pj_with_scope(tmp_path)
     target = pj / "docs" / "existing.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("# Existing\n\nSome intro.\n", encoding="utf-8")
     result = runner.invoke(
         app,
@@ -131,7 +146,7 @@ def test_write_draft_into_mode_inserts_block(tmp_path: Path) -> None:
             "--slug",
             "x",
             "--path",
-            str(pj),
+            str(scope),
             "--json",
         ],
         input="Methods content here.",
@@ -184,11 +199,16 @@ def _pj_with_bib(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def _pj_with_review_dir(tmp_path: Path) -> tuple[Path, Path, Path]:
-    """`_pj_with_bib` + `reviews/p/` vazio — scaffold dos testes de
+    """`_pj_with_root` + `reviews/p/` vazio — scaffold dos testes de
     `review events` (era o mesmo bloco inline repetido 6×; /simplify).
     O `events.yaml` fica a cargo de cada teste: cada um exercita um
-    conteúdo diferente (kinds reais, corrompido, colchetes literais)."""
-    pj, page = _pj_with_bib(tmp_path)
+    conteúdo diferente (kinds reais, corrompido, colchetes literais).
+
+    Precisa do sentinela de projeto (`_pj_with_root`, não `_pj_with_bib`
+    puro): `write review events` resolve o projeto via
+    `export.detect_project_root` → `pj_layout.find_pj_root`, que exige
+    `.claude/pj_config.toml`."""
+    pj, page = _pj_with_root(tmp_path)
     review_dir = pj / "reviews" / "p"
     review_dir.mkdir(parents=True)
     return pj, page, review_dir
@@ -669,7 +689,7 @@ def test_write_review_events_checklist(tmp_path: Path, monkeypatch: pytest.Monke
 def test_write_review_events_missing_sidecars_exits_cleanly(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _pj, page = _pj_with_bib(tmp_path)
+    _pj, page = _pj_with_root(tmp_path)
     # No review dir created, so events.yaml is missing
     monkeypatch.setenv("COLUMNS", "300")
 

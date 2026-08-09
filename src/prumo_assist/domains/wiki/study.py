@@ -34,14 +34,14 @@ def session_log_path(scope: Path, topic: str, date: str) -> Path:
 
 def create_session_log(
     *,
-    pj_path: Path,
+    scope: Path,
     topic: str,
     date: str,
     sources_consulted: list[str],
 ) -> Path:
     """Cria arquivo com YAML + heading; corpo aguarda ``append_step``."""
     log = SessionLog(topic=topic, date=date, sources_consulted=sources_consulted)
-    path = session_log_path(pj_path, topic, date)
+    path = session_log_path(scope, topic, date)
     path.write_text(_render_skeleton(log), encoding="utf-8")
     return path
 

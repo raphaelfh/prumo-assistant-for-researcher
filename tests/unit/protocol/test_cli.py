@@ -74,6 +74,22 @@ def test_protocol_diff_no_baseline(tmp_path: Path) -> None:
     assert payload["has_structural"] is False
 
 
+def test_protocol_propagate_from_pj_root_raises_clear_error_not_silent_missing(
+    tmp_path: Path,
+) -> None:
+    """Regressão: apontar `propagate` pra raiz do pj_* (não pro escopo) devolvia
+    `protocol_status: "missing"` em silêncio — `writing_dir(<raiz>)` virava
+    `<raiz>/writing/protocol.md`, que nunca existe. Agora o CLI resolve o
+    escopo via `find_scope_root` e falha alto, com o comando de correção
+    embutido na mensagem."""
+    pj, _scope = _bootstrap(tmp_path)
+    write_picot(pj, _spec())
+    result = runner.invoke(app, ["protocol", "propagate", str(pj), "--json"])
+    assert result.exit_code != 0
+    assert "escopo" in result.output.lower()
+    assert "prumo add study" in result.output
+
+
 def test_protocol_propagate_missing_picot(tmp_path: Path) -> None:
     _pj, scope = _bootstrap(tmp_path)  # sem picot.toml
     result = runner.invoke(app, ["protocol", "propagate", str(scope), "--json"])

@@ -35,6 +35,7 @@ from prumo_assist import (
     PrumoError,
     __version__,
 )
+from prumo_assist.core import pj_layout
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.core.deps import check_external_deps
 from prumo_assist.core.output import Console
@@ -219,6 +220,7 @@ class WizardAnswers:
     integrations: list[str]
     modules: list[str]
     init_git: bool
+    scope_slug: str
 
 
 def _wizard(console: Console, default_target: str | None = None) -> WizardAnswers:
@@ -230,6 +232,11 @@ def _wizard(console: Console, default_target: str | None = None) -> WizardAnswer
         default=default_target or "pj_",
     )
     target, _ = _validate_project_name(name)
+
+    # 1b. Slug do primeiro escopo de escrita (docs/studies/<slug>/) — sugerido
+    # a partir do nome do projeto, aceito com Enter.
+    slug_default = name.removeprefix("pj_") or "principal"
+    scope_slug = typer.prompt("Slug do primeiro escopo de escrita", default=slug_default)
 
     # 2. Modo
     if target.exists() and not _is_dir_empty(target):
@@ -307,6 +314,7 @@ def _wizard(console: Console, default_target: str | None = None) -> WizardAnswer
         integrations=integrations,
         modules=selected_modules,
         init_git=init_git,
+        scope_slug=scope_slug,
     )
 
 
@@ -416,6 +424,7 @@ def init_command(
         mode = answers.mode
         integration_list = list(answers.integrations)
         init_git_flag = answers.init_git
+        scope_slug = answers.scope_slug
     else:
         if project is None:
             console.error("Informe o nome do projeto ou rode em terminal interativo (TTY).")
@@ -423,6 +432,9 @@ def init_command(
         target, _ = _validate_project_name(project)
         integration_list = integration or ["claude_code"]
         init_git_flag = init_git
+        # Sem wizard, ninguém escolhe slug — o template já nasce com
+        # `docs/studies/principal/` (default da decisão de layout por escopo).
+        scope_slug = "principal"
         if merge:
             mode = MODE_MERGE
         elif force:
@@ -453,6 +465,16 @@ def init_command(
             copied = [str(p.relative_to(template)) for p in template.rglob("*") if p.is_file()]
 
         apply_project_name(target, target.name, copied)
+
+        # Escopo inicial com o slug escolhido no wizard — o template já nasce
+        # com `docs/studies/principal/`; só renomeia quando o usuário pediu
+        # outro slug (aceitar o default "principal" com Enter não move nada;
+        # --merge nunca reorganiza uma árvore que já pode ser do usuário).
+        if mode != MODE_MERGE and scope_slug != "principal":
+            principal_scope = target / pj_layout.STUDIES_RELPATH / "principal"
+            chosen_scope = target / pj_layout.STUDIES_RELPATH / scope_slug
+            if principal_scope.is_dir() and not chosen_scope.exists():
+                principal_scope.rename(chosen_scope)
 
         # git init (somente em MODE_NEW por default; merge não toca git existente).
         git_initialized = False
@@ -569,10 +591,22 @@ def doctor_command(
     target = path.resolve()
     issues: list[str] = []
 
-    expected = [".claude", "docs", "references"]
+    expected = [".claude", "docs"]
     for name in expected:
         if not (target / name).is_dir():
             issues.append(f"Diretório esperado ausente: {name}/")
+
+    if pj_layout.is_legacy_layout(target):
+        issues.append(
+            "[legacy_layout] `references/` na raiz. A bibliografia agora vive em "
+            "`docs/references/`. Peça ao agente: `adeque este projeto ao layout novo`."
+        )
+    elif (target / "references").is_dir():
+        issues.append(
+            "[references_ressuscitado] `docs/references/` existe E `references/` reapareceu "
+            "na raiz — assinatura do autoexport do Better BibTeX apontando para o caminho "
+            "antigo. Corrija em Zotero → Preferences → Better BibTeX → Automatic export."
+        )
 
     for adapter_cls in INTEGRATIONS.values():
         adapter = adapter_cls()
@@ -679,7 +713,16 @@ def skills_command(
 def add_command(
     module: Annotated[
         str | None,
-        typer.Argument(help="Módulo a ativar (ex.: clinical, ml). Omita para listar/escolher."),
+        typer.Argument(
+            help="Módulo a ativar (ex.: clinical, ml) ou `study` para criar um escopo de "
+            "escrita novo (`prumo add study <slug>`). Omita para listar/escolher."
+        ),
+    ] = None,
+    slug: Annotated[
+        str | None,
+        typer.Argument(
+            help="Slug do escopo novo — só junto de `study` (ex.: prumo add study mortalidade-uti)."
+        ),
     ] = None,
     target: Annotated[
         Path, typer.Option("--target", "-t", help="Projeto alvo (default: cwd).")
@@ -689,7 +732,7 @@ def add_command(
     ] = False,
     json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
 ) -> None:
-    """Ativa um módulo no projeto (overlay não-destrutivo)."""
+    """Ativa um módulo (overlay não-destrutivo) ou cria um escopo de escrita novo."""
     console = Console(json_mode=json_mode)
     target = target.resolve()
     modules = discover_modules()
@@ -703,6 +746,10 @@ def add_command(
         if module is None:
             console.warn("Nenhum módulo selecionado.")
             raise typer.Exit(code=130)
+
+    if module == "study":
+        _add_study(console, target=target, slug=slug)
+        return
 
     info = get_module(module)
     if info is None:
@@ -721,6 +768,30 @@ def add_command(
         # Sem marcação Rich embutida — mesmo motivo do fix acima em `_do_init`.
         console.info(f"  {len(skipped)} arquivo(s) já existiam (preservados).")
     console.emit(payload)
+
+
+def _add_study(console: Console, *, target: Path, slug: str | None) -> None:
+    """``prumo add study <slug>`` — cria só a pasta irmã do escopo novo.
+
+    Não move nada, não reescreve link nenhum, não grava manifesto (decisão do
+    plano de layout por escopo). Recusa se o slug já existir.
+    """
+    try:
+        if not slug:
+            raise PrumoError("Informe o slug do escopo: `prumo add study <slug>`.")
+        pj_root = pj_layout.find_pj_root(target)
+        pj_layout.assert_current_layout(pj_root)
+        scope = pj_root / pj_layout.STUDIES_RELPATH / slug
+        if scope.exists():
+            raise PrumoError(f"{scope} já existe. Escolha outro slug.")
+        for sub in pj_layout.SCOPE_DIRS:
+            (scope / sub).mkdir(parents=True)
+            (scope / sub / ".gitkeep").touch()
+    except PrumoError as e:
+        console.error(str(e))
+        raise typer.Exit(code=1) from e
+    console.success(f"Escopo '{slug}' criado em {scope}.")
+    console.emit({"scope": str(scope), "slug": slug})
 
 
 def _emit_module_list(console: Console, modules: list[ModuleInfo], target: Path) -> None:
