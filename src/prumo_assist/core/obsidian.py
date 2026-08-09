@@ -30,6 +30,8 @@ from typing import Any
 
 import yaml
 
+from prumo_assist.core import pj_layout
+
 logger = logging.getLogger(__name__)
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?\n?", re.DOTALL)
@@ -130,8 +132,8 @@ def _resolve_image(name: str, page_dir: Path | None) -> Path | None:
         return direct
     parent = page_dir.parent
     for candidate in (
-        parent / "references" / "pdfs" / name,
-        parent.parent / "references" / "pdfs" / name,
+        pj_layout.pdfs_dir(parent) / name,
+        pj_layout.pdfs_dir(parent.parent) / name,
     ):
         if candidate.is_file():
             return candidate

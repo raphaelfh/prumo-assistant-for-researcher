@@ -1,6 +1,6 @@
 """Path helpers para layout α de notas de paper.
 
-Layout α: cada paper tem uma pasta `references/notes/<citekey>/` contendo:
+Layout α: cada paper tem uma pasta `docs/references/papers/<citekey>/` contendo:
 
 - `_meta.md` — gerado por `prumo paper sync` (YAML CSL-JSON + body humano)
 - `_extract.md` — gerado por `/prumo-assist:paper-extract` (callout estruturado)
@@ -17,31 +17,33 @@ import re
 import unicodedata
 from pathlib import Path
 
+from prumo_assist.core import pj_layout
+
 _SLUG_MAX_LEN = 30
 
 
 def note_dir(pj_path: Path, citekey: str) -> Path:
-    """Retorna `<pj>/references/notes/<citekey>/`."""
-    return pj_path / "references" / "notes" / citekey
+    """Retorna `<pj>/docs/references/papers/<citekey>/`."""
+    return pj_layout.paper_dir(pj_path, citekey)
 
 
 def meta_path(pj_path: Path, citekey: str) -> Path:
-    """Retorna `<pj>/references/notes/<citekey>/_meta.md`."""
+    """Retorna `<pj>/docs/references/papers/<citekey>/_meta.md`."""
     return note_dir(pj_path, citekey) / "_meta.md"
 
 
 def extract_path(pj_path: Path, citekey: str) -> Path:
-    """Retorna `<pj>/references/notes/<citekey>/_extract.md`."""
+    """Retorna `<pj>/docs/references/papers/<citekey>/_extract.md`."""
     return note_dir(pj_path, citekey) / "_extract.md"
 
 
 def annotations_path(pj_path: Path, citekey: str) -> Path:
-    """Retorna `<pj>/references/notes/<citekey>/_annotations.md`."""
+    """Retorna `<pj>/docs/references/papers/<citekey>/_annotations.md`."""
     return note_dir(pj_path, citekey) / "_annotations.md"
 
 
 def child_note_path(pj_path: Path, citekey: str, item_key: str, slug: str) -> Path:
-    """Retorna `<pj>/references/notes/<citekey>/note__<itemKey>__<slug>.md`."""
+    """Retorna `<pj>/docs/references/papers/<citekey>/note__<itemKey>__<slug>.md`."""
     return note_dir(pj_path, citekey) / f"note__{item_key}__{slug}.md"
 
 
@@ -54,7 +56,7 @@ def iter_note_meta_files(pj_path: Path) -> list[Path]:
     Retorna lista ordenada por citekey. Quando ambos existem pra um citekey
     (situação anômala), prefere α e ignora o legado silenciosamente.
     """
-    notes_dir = pj_path / "references" / "notes"
+    notes_dir = pj_layout.papers_dir(pj_path)
     if not notes_dir.exists():
         return []
     found: dict[str, Path] = {}
@@ -68,8 +70,8 @@ def iter_note_meta_files(pj_path: Path) -> list[Path]:
 
 def citekey_from_meta_path(meta: Path) -> str:
     """Inverte: dado o path de metadata, devolve o citekey."""
-    if meta.parent.name == "notes":
-        return meta.stem  # legado <key>.md
+    if meta.parent.name == "papers":
+        return meta.stem  # legado <key>.md plano
     return meta.parent.name  # α <key>/_meta.md
 
 
