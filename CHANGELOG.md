@@ -7,6 +7,101 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.65.0] - 2026-08-09
+
+### Adicionado
+
+- **`docs/studies/<slug>/` como escopo de escrita**, presente desde o `prumo init`
+  (escopo default `principal`, mesmo em projeto de artigo único) — sem máquina de
+  promoção nem estado intermediário "projeto sem escopo"
+  ([ADR-0024](docs/adr/adr-0024-escopo-desde-o-init.md)). `prumo add study <slug>`
+  cria a pasta irmã (`notes/`, `writing/`, `decisions/`); nada se move, nenhum link
+  muda de profundidade.
+- **`core/pj_layout.py`** como autoridade única de caminho: `find_pj_root`
+  (sentinela `.claude/pj_config.toml`) separado de `find_scope_root` (resolve por
+  posição — filho direto de `docs/studies/`) ([ADR-0022](docs/adr/adr-0022-layout-por-escopo.md)).
+- **Três módulos novos com `_module.toml`** — `code` (`src/`, `tests/`,
+  `pyproject.toml`), `data` (`content/01_raw` somente leitura + `02_processed`) e
+  `notebooks` (`notebooks/` fora da raiz de leitura) — ativáveis com
+  `prumo add <nome>`, somando aos já existentes `ml`/`clinical` (5 módulos reais).
+- **`prumo doctor`** detecta layout legado (`references/` na raiz) e `references/`
+  ressuscitado ao lado de `docs/references/` (sintoma do autoexport do Better
+  BibTeX ainda apontando pro caminho antigo) — convite embutido à adequação
+  agêntica; não existe `prumo migrate`.
+- **`prumo wiki stats`** ganha `by_scope` (contagem de páginas por
+  notes/writing/decisions em cada `docs/studies/<slug>/`).
+- **`--force` em `prumo write export`/`prumo write compose`** e `--resource-path`
+  passado ao Pandoc: figura referenciada que não resolvia mais vira erro
+  (`MissingResourceError`) em vez de docx publicado sem a imagem, em silêncio.
+
+### Mudado
+
+- **⚠ Breaking — bibliografia do projeto muda de raiz.** `references/` sai da
+  raiz do `pj_*` e vira `docs/references/`, com `papers/<citekey>/` no lugar de
+  `notes/<citekey>/`; `docs/` passa a ser a raiz única de leitura
+  ([ADR-0022](docs/adr/adr-0022-layout-por-escopo.md)). **Passo manual obrigatório
+  no Zotero:** reaponte o autoexport do Better BibTeX (Preferences → Better
+  BibTeX → Automatic export) pro `.bib` no caminho novo — o autoexport grava
+  caminho absoluto, então sem esse passo o BBT recria `references/` na raiz
+  antiga e desfaz o movimento assim que o Zotero reabrir. `prumo doctor` sinaliza
+  os dois sintomas (`legacy_layout`, `references_ressuscitado`).
+- **⚠ Breaking — escrita vira escopo.** Todo draft mora em
+  `docs/studies/<slug>/writing/`; `docs/protocol.md` vira
+  `docs/studies/<slug>/writing/protocol.md` e `docs/decisions/` vira
+  `docs/studies/<slug>/decisions/`, numerado por escopo — sem máquina de
+  promoção (YAGNI militante, Princípio VI da constitution;
+  [ADR-0024](docs/adr/adr-0024-escopo-desde-o-init.md)). Com todo draft a três
+  níveis de `docs/`, o campo `bibliography:` dos quatro `skills/write-<kind>/template.md`
+  volta a ser um literal invariante: `../../../references/_references.bib`.
+- **⚠ Breaking — finding vira `type: finding`, não diretório.**
+  `docs/wiki/findings/` (e o fallback `docs/findings/`) somem; finding é uma nota
+  comum de `docs/studies/<slug>/notes/` distinguida por `type: finding` no
+  frontmatter ([ADR-0023](docs/adr/adr-0023-finding-como-type.md), substitui
+  [ADR-0014](docs/adr/adr-0014-findings-canonico.md)).
+- **⚠ Breaking — `pj_base` nasce sem estrutura de código.** `src/`, `tests/`,
+  `pyproject.toml`, `content/` e `notebooks/` saem do núcleo mínimo e viram
+  módulos opcionais com gatilho (`code`, `data`, `notebooks`) — a auditoria de
+  estado da arte mostrou que quatro dos cinco arquétipos de pesquisador
+  testados nunca abrem nenhum dos quatro (Princípio VI da constitution:
+  adições especulativas são recusadas até a dor ser real).
+- `wiki-lint` passa a operar por escopo: identidade de página é o caminho
+  relativo ao escopo, não o `stem` (páginas homônimas em escopos diferentes
+  não se fundem mais); `bib_missing` vira `warning` (só dispara quando há
+  citação marcada em algum escopo); `multiple_primary` fica opt-in
+  (`check_single_primary`, não roda mais por default).
+- `formulate-picot`/`domains/protocol` resolvem por escopo: numeração de ADR
+  passa a ser por `docs/studies/<slug>/decisions/`, não mais global ao projeto.
+- Módulo `clinical`: o anchor deixa de assumir o escopo `principal` fixo e
+  resolve o escopo real do projeto (via `--scope <slug>` quando há mais de um).
+
+### Corrigido
+
+- `prumo write export`/`compose` sobrescreviam `build/exports/*.docx` sem
+  guarda; ganham `--force` e recusam com `PrumoError` (comando de correção
+  embutido) quando o arquivo já existe.
+- `zettlr_export_entry` sempre reexporta com `force=True` — o Zettlr invoca o
+  entrypoint só com o caminho do arquivo, sem jeito de passar `--force`.
+- `wiki-lint`: `dead_link`/`concept_candidate` resolviam alvo de wikilink
+  contra a união global de stems entre escopos, mascarando link morto quando
+  um escopo diferente tinha página homônima — resolução agora é só contra o
+  próprio escopo que cita.
+
+### Documentação
+
+- [ADR-0022](docs/adr/adr-0022-layout-por-escopo.md),
+  [ADR-0023](docs/adr/adr-0023-finding-como-type.md),
+  [ADR-0024](docs/adr/adr-0024-escopo-desde-o-init.md) registram a governança
+  do layout por escopo; [ADR-0014](docs/adr/adr-0014-findings-canonico.md)
+  marcado substituído pelo ADR-0023.
+- `docs/constitution.md` — emenda PATCH (1.1.1 → 1.1.2): caminho de exemplo do
+  Princípio IV atualizado (`references/notes/` → `docs/references/papers/`);
+  nenhuma norma alterada.
+- Prosa das 15 skills universais e dos docs do repo (`ARCHITECTURE.md`,
+  `README.md`, `docs/Research Project Structure.md`,
+  `docs/actions-by-context.md`, `docs/onboarding-pesquisador.md`,
+  `docs/canvas/*.canvas`) alinhada ao layout novo; módulo `obsidian-power`
+  removido do catálogo (Obsidian é legado desde o front Zettlr, v0.62.1).
+
 ## [0.64.1] - 2026-07-28
 
 ### Corrigido
@@ -686,7 +781,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.1...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.0...HEAD
+[0.65.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.1...v0.65.0
 [0.64.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.0...v0.64.1
 [0.64.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.63.0...v0.64.0
 [0.63.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.1...v0.63.0
