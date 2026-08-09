@@ -47,8 +47,8 @@ def find_pj_root(start: Path) -> Path:
             return candidate
     raise PjRootNotFoundError(
         f"Raiz de projeto não encontrada a partir de {start} "
-        f"(esperado {PJ_CONFIG_RELPATH.as_posix()}). Rode `prumo init` ou aponte o "
-        "projeto com `--path <raiz>`."
+        f"(esperado {PJ_CONFIG_RELPATH.as_posix()}). Rode `prumo init`, execute o "
+        "comando de dentro do projeto, ou aponte a raiz pelo argumento que ele aceita."
     )
 
 

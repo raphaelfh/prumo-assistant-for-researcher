@@ -99,6 +99,20 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - Mensagens de erro e help do Typer citavam o layout antigo (`references/…`) —
   `prumo doctor` mandava conectar `references/_references.bib` em todo projeto
   novo, e seguir a mensagem acionava o próprio check `references_ressuscitado`.
+- `prumo capture <url>` sugeria `/prumo:wiki-ingest <url>` pra URL
+  não-acadêmica — namespace inexistente (o plugin inteiro usa
+  `/prumo-assist:`). Corrigido pra `/prumo-assist:wiki-ingest <url>`.
+- `prumo capture <citekey>` citava `prumo paper extract <citekey>` como
+  comando pronto pra rodar, mas o comando exige `--model`/`--date` (sem
+  default) e lê o conteúdo via stdin JSON — falha com `Missing option
+  '--model'` se executado como escrito. Mensagem agora aponta a skill
+  `/prumo-assist:paper-extract <citekey>`, o caminho que o usuário de fato usa.
+- `PjRootNotFoundError` (`pj_layout.find_pj_root`) sugeria `--path <raiz>`
+  como flag universal pra apontar a raiz do projeto, mas `prumo add study`
+  usa `--target/-t`, `prumo protocol propagate/diff/detect-mode` recebem o
+  caminho posicional e `prumo write export/compose` não têm flag de raiz
+  nenhuma. Mensagem vira neutra: aponta a raiz pelo argumento que o comando
+  aceita.
 
 ### Documentação
 
