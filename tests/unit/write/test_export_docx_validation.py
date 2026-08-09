@@ -1,6 +1,10 @@
 """Validação estrutural do docx gerado (Fase 1 do zero-friction onboarding).
 
 Fixtures construídas com zipfile em tmp_path — nenhum pandoc/Zotero real.
+Exceção: a seção "Task 8" no fim do arquivo roda pandoc DE VERDADE (precisa
+estar no PATH) para provar o defeito/conserto do ``--resource-path`` — um
+mock de subprocess não pegaria a peculiaridade real do pandoc 3.9.0.2 de sair
+0 com warning quando não acha a figura.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ import pytest
 
 import prumo_assist.domains.write.export as export_mod
 from prumo_assist.core.obsidian import SpanFragment, normalize_markdown_with_map, split_frontmatter
+from prumo_assist.core.pj_layout import PjRootNotFoundError
 from prumo_assist.domains.write.export import (
     CorruptDocxError,
     MissingFieldLockError,
@@ -181,7 +186,7 @@ def _fake_project(tmp_path: Path) -> tuple[Path, Path]:
         "@article{smith2020, title={X}}\n"
     )
     page = root / "docs" / "page.md"
-    page.parent.mkdir(parents=True)
+    page.parent.mkdir(parents=True, exist_ok=True)
     page.write_text("Texto sem citação.\n")
     return root, page
 
@@ -606,3 +611,158 @@ def test_fields_locked_missing_lock_raises(tmp_path: Path) -> None:
 def test_fields_locked_not_required_without_citations(tmp_path: Path) -> None:
     docx = _write_minimal_docx_with_payloads(tmp_path / "sem_campo.docx", [], locked=False)
     _assert_fields_locked(_docx_texts(docx)[0])  # não levanta (0 citações, lock irrelevante)
+
+
+# --- Task 8: raiz via pj_layout, --resource-path (figuras), guarda de
+# sobrescrita ------------------------------------------------------------
+
+
+def test_detect_project_root_delegates_to_pj_layout(tmp_path: Path) -> None:
+    root = tmp_path / "pj_demo"
+    (root / ".claude").mkdir(parents=True)
+    (root / ".claude" / "pj_config.toml").write_text("")
+    page = root / "docs" / "studies" / "estudo1" / "writing" / "pagina.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("Texto.\n")
+
+    assert export_mod.detect_project_root(page).resolve() == root.resolve()
+
+
+def test_detect_project_root_raises_pj_root_not_found(tmp_path: Path) -> None:
+    page = tmp_path / "solto.md"
+    page.write_text("Texto.\n")
+
+    with pytest.raises(PjRootNotFoundError):
+        export_mod.detect_project_root(page)
+
+
+def test_assert_no_missing_resource_raises_with_target() -> None:
+    stderr = "[WARNING] Could not fetch resource figures/ausente.png\n"
+    with pytest.raises(export_mod.MissingResourceError) as exc:
+        export_mod._assert_no_missing_resource(stderr)
+    assert "figures/ausente.png" in str(exc.value)
+
+
+def test_assert_no_missing_resource_silent_when_absent() -> None:
+    export_mod._assert_no_missing_resource("[WARNING] Duplicate link reference `foo`.\n")
+
+
+def test_build_pandoc_cmd_includes_resource_path(tmp_path: Path) -> None:
+    page_dir = tmp_path / "docs"
+    cmd = export_mod._build_pandoc_cmd(
+        pandoc_bin="pandoc",
+        input_md=tmp_path / "input.md",
+        output=tmp_path / "out.html",
+        bib=tmp_path / "refs.bib",
+        csl=tmp_path / "apa.csl",
+        style="apa",
+        metadata_file=None,
+        template=None,
+        reference_doc=None,
+        to_format="html",
+        resource_path=page_dir,
+    )
+    assert "--resource-path" in cmd
+    assert cmd[cmd.index("--resource-path") + 1] == str(page_dir)
+
+
+def test_build_pandoc_cmd_omits_resource_path_by_default(tmp_path: Path) -> None:
+    cmd = export_mod._build_pandoc_cmd(
+        pandoc_bin="pandoc",
+        input_md=tmp_path / "input.md",
+        output=tmp_path / "out.html",
+        bib=tmp_path / "refs.bib",
+        csl=tmp_path / "apa.csl",
+        style="apa",
+        metadata_file=None,
+        template=None,
+        reference_doc=None,
+        to_format="html",
+    )
+    assert "--resource-path" not in cmd
+
+
+# CSL mínimo porém estruturalmente válido (aceito pelo citeproc do pandoc)
+# — evita depender de ``~/Zotero/styles/*.csl`` do ambiente de quem roda o
+# teste; a página destes testes não tem citação, então o estilo em si nunca
+# é exercitado, só precisa parsear.
+_MINIMAL_CSL = (
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '<style xmlns="http://purl.org/net/xbiblio/csl" class="note" version="1.0">\n'
+    "  <info>\n"
+    "  </info>\n"
+    "  <citation>\n"
+    "    <layout>\n"
+    "    </layout>\n"
+    "  </citation>\n"
+    "</style>\n"
+)
+
+
+def test_export_falha_alto_quando_figura_falta(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Integração com pandoc DE VERDADE (defeito medido com 3.9.0.2): antes do
+    fix, ``![](figures/ausente.png)`` dava ``[WARNING] Could not fetch
+    resource`` com exit 0 — a figura sumia do export em silêncio. Agora vira
+    ``MissingResourceError`` explícito."""
+    root, page = _fake_project(tmp_path)
+    page.write_text("Texto\n\n![Fig](figures/ausente.png)\n")
+    csl = tmp_path / "minimal.csl"
+    csl.write_text(_MINIMAL_CSL)
+    monkeypatch.setattr(export_mod, "resolve_csl", lambda style: csl)
+
+    with pytest.raises(export_mod.MissingResourceError) as exc:
+        export_mod.export(page, to="html", project_root=root)
+    assert "figures/ausente.png" in str(exc.value)
+
+
+def test_export_html_embute_figura_presente_via_resource_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Prova o conserto: com ``--resource-path`` apontando pro diretório da
+    página (não o tempdir onde o markdown normalizado é gravado), uma figura
+    que de fato existe ao lado do ``.md`` é encontrada e embutida."""
+    root, page = _fake_project(tmp_path)
+    figures_dir = page.parent / "figures"
+    figures_dir.mkdir()
+    (figures_dir / "x.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    page.write_text("Texto\n\n![Fig](figures/x.png)\n")
+    csl = tmp_path / "minimal.csl"
+    csl.write_text(_MINIMAL_CSL)
+    monkeypatch.setattr(export_mod, "resolve_csl", lambda style: csl)
+
+    result = export_mod.export(page, to="html", project_root=root)
+
+    assert "data:image/png;base64" in result.read_text()
+
+
+def test_export_recusa_sobrescrever_sem_force(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, page = _fake_project(tmp_path)
+    _patch_export_seams(monkeypatch, tmp_path)
+    out = root / "build" / "exports" / "pagina.docx"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo do coautor")
+
+    with pytest.raises(FileExistsError) as exc:
+        export_mod.export(page, to="docx", out=out, project_root=root)
+    assert "--force" in str(exc.value)
+    assert out.read_bytes() == b"conteudo do coautor"  # nao mexeu no arquivo
+
+
+def test_export_sobrescreve_com_force(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root, page = _fake_project(tmp_path)
+    _patch_export_seams(monkeypatch, tmp_path)
+    out = root / "build" / "exports" / "pagina.docx"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo antigo")
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([_docx_bytes_for_export_wiring(tmp_path, [])], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+
+    result = export_mod.export(page, to="docx", out=out, project_root=root, force=True)
+
+    assert result == out
+    assert len(calls) == 1

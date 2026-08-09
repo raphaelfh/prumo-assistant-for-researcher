@@ -74,6 +74,16 @@ class PandocFailedError(WriteError):
     """Pandoc terminou com exit ≠ 0 — stderr embutido na mensagem."""
 
 
+class MissingResourceError(WriteError):
+    """Pandoc não encontrou um recurso referenciado (imagem, tabela incluída).
+
+    O pandoc sai com exit 0 e só avisa no stderr (``[WARNING] Could not
+    fetch resource ...``) — sem isso, o docx/html/typst sai sem a figura,
+    sem avisar o usuário (achado medido com pandoc 3.9.0.2). Ver
+    :func:`_assert_no_missing_resource`.
+    """
+
+
 class ZoteroCitekeyNotFoundError(WriteError):
     """``zotero.lua`` não encontrou uma ou mais citekeys na biblioteca ativa."""
 
@@ -270,6 +280,26 @@ def _assert_no_citeproc_missing(stderr: str) -> None:
         )
 
 
+_MISSING_RESOURCE_RE = re.compile(r"Could not fetch resource ([^\s:]+)")
+
+
+def _assert_no_missing_resource(stderr: str) -> None:
+    """Promove o warning do pandoc (recurso não encontrado, ex. figura) a erro.
+
+    Mesmo padrão de :func:`_assert_no_citeproc_missing`: o pandoc sai com
+    exit 0 e só avisa no stderr — sem isso, ``![](figures/x.png)`` some do
+    docx/html/typst em silêncio quando o markdown normalizado é gravado num
+    diretório diferente do da página (ex. o tempdir de :func:`export`).
+    """
+    faltando = _MISSING_RESOURCE_RE.findall(stderr)
+    if faltando:
+        alvos = ", ".join(sorted(set(faltando)))
+        raise MissingResourceError(
+            f"Recurso não encontrado no export: {alvos}. "
+            "Confira o caminho relativo à página (ex.: `figures/x.png` ao lado do .md)."
+        )
+
+
 def _docx_texts(docx_path: Path) -> tuple[str, str]:
     """``word/document.xml`` e ``docProps/custom.xml`` decodificados, zip aberto UMA vez.
 
@@ -337,12 +367,16 @@ def _run_pandoc_checked(cmd: list[str]) -> subprocess.CompletedProcess[str]:
 
     O stderr capturado alimenta ``_assert_no_citeproc_missing`` no caminho
     docx (o pandoc sai com exit 0 em citekey ausente — só avisa no stderr).
+    Também roda :func:`_assert_no_missing_resource` aqui — vale pra TODOS os
+    formatos (docx/html/typst/pdf), não só docx, porque um recurso ausente
+    (figura) é silencioso do mesmo jeito em qualquer um deles.
     """
     proc = subprocess.run(cmd, text=True, capture_output=True)
     if proc.returncode != 0:
         raise PandocFailedError(
             f"pandoc falhou (exit {proc.returncode}):\n{proc.stderr.strip()[-2000:]}"
         )
+    _assert_no_missing_resource(proc.stderr)
     return proc
 
 
@@ -696,6 +730,7 @@ def _build_pandoc_cmd(
     reference_doc: Path | None,
     to_format: str,
     zotero_lookup_file: Path | None = None,
+    resource_path: Path | None = None,
 ) -> list[str]:
     """Monta o comando do pandoc.
 
@@ -704,6 +739,13 @@ def _build_pandoc_cmd(
     embrulha cada Cite/Div#refs em campo do Word reconhecido pelo plugin
     Zotero, com o display já formatado. Para os demais formatos usa
     apenas ``--citeproc``.
+
+    ``resource_path``, quando dado, vira ``--resource-path`` — necessário
+    porque ``input_md`` é o markdown normalizado gravado num diretório
+    TEMPORÁRIO (nunca o diretório da página): sem isso, ``![](figures/x.png)``
+    resolve relativo ao tempdir, nunca encontra o arquivo, e o pandoc some
+    com a figura em silêncio (exit 0, só um warning no stderr — achado
+    medido com pandoc 3.9.0.2).
     """
     cmd = [
         pandoc_bin,
@@ -714,6 +756,8 @@ def _build_pandoc_cmd(
         f"--bibliography={bib}",
         f"--csl={csl}",
     ]
+    if resource_path is not None:
+        cmd += ["--resource-path", str(resource_path)]
     if to_format == "docx":
         cmd += [
             "--to=docx",
@@ -737,22 +781,18 @@ def _build_pandoc_cmd(
 
 
 def detect_project_root(page: Path) -> Path:
-    """Sobe da página até achar ``references/_references.bib``."""
-    cur = page.resolve().parent
-    for _ in range(10):
-        if (cur / "references" / "_references.bib").is_file():
-            return cur
-        if cur.parent == cur:
-            break
-        cur = cur.parent
-    raise FileNotFoundError(
-        f"Raiz do projeto não localizada (procurando references/_references.bib) a partir de {page}"
-    )
+    """Delegação para ``pj_layout.find_pj_root`` — sentinela é ``.claude/pj_config.toml``.
+
+    Nome preservado (não ``pj_layout.find_pj_root`` direto) porque
+    ``review.py`` e os testes importam ``export.detect_project_root`` — trocar
+    a chamada por dentro evita quebrar esses callers.
+    """
+    return pj_layout.find_pj_root(page)
 
 
 def export(
-    *,
     page: Path,
+    *,
     style: str = "apa",
     to: str = "docx",
     out: Path | None = None,
@@ -761,12 +801,15 @@ def export(
     template: Path | None = None,
     reference_doc: Path | None = None,
     project_root: Path | None = None,
+    force: bool = False,
 ) -> Path:
     """Exporta uma página `.md` para o formato escolhido. Retorna caminho do output.
 
     ``out`` fixa o caminho completo; ``out_dir`` troca só o diretório,
     mantendo a regra de nome default (``slugify(page)`` + extensão) — a
-    regra vive AQUI, nunca recomputada pela fachada.
+    regra vive AQUI, nunca recomputada pela fachada. ``force`` autoriza
+    sobrescrever um ``out`` já existente (default recusa — ver a guarda
+    logo abaixo).
     """
     if to not in EXT_BY_FORMAT:
         raise ValueError(f"--to deve ser um de {list(EXT_BY_FORMAT)}, recebeu {to}")
@@ -795,6 +838,11 @@ def export(
         (out_dir or project_root / "build" / "exports")
         / f"{slugify(page, project_root)}.{EXT_BY_FORMAT[to]}"
     )
+    if out.exists() and not force:
+        raise FileExistsError(
+            f"{out} já existe. Use `--force` para sobrescrever — atenção: se este for o "
+            "docx que voltou do coautor, sobrescrever perde a revisão."
+        )
     out.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as td:
@@ -824,6 +872,7 @@ def export(
             reference_doc=reference_doc,
             to_format=to,
             zotero_lookup_file=zotero_lookup_file,
+            resource_path=page.parent,
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
         if to == "docx":
