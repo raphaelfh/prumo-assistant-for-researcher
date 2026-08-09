@@ -1,10 +1,12 @@
 """Validação estrutural do docx gerado (Fase 1 do zero-friction onboarding).
 
 Fixtures construídas com zipfile em tmp_path — nenhum pandoc/Zotero real.
-Exceção: a seção "Task 8" no fim do arquivo roda pandoc DE VERDADE (precisa
-estar no PATH) para provar o defeito/conserto do ``--resource-path`` — um
-mock de subprocess não pegaria a peculiaridade real do pandoc 3.9.0.2 de sair
-0 com warning quando não acha a figura.
+``subprocess.run`` é sempre mockado (seam ``_patch_export_seams`` +
+``_fake_run_writing_output_flag``/``fake_run`` locais), inclusive na seção
+"Task 8": o CI (``ubuntu-latest``) não tem pandoc instalado, então nenhum
+teste deste arquivo pode depender do binário real (regra de
+``.claude/rules/code.md`` — dependências externas são sempre mockadas nos
+seams).
 """
 
 from __future__ import annotations
@@ -683,59 +685,60 @@ def test_build_pandoc_cmd_omits_resource_path_by_default(tmp_path: Path) -> None
     assert "--resource-path" not in cmd
 
 
-# CSL mínimo porém estruturalmente válido (aceito pelo citeproc do pandoc)
-# — evita depender de ``~/Zotero/styles/*.csl`` do ambiente de quem roda o
-# teste; a página destes testes não tem citação, então o estilo em si nunca
-# é exercitado, só precisa parsear.
-_MINIMAL_CSL = (
-    '<?xml version="1.0" encoding="utf-8"?>\n'
-    '<style xmlns="http://purl.org/net/xbiblio/csl" class="note" version="1.0">\n'
-    "  <info>\n"
-    "  </info>\n"
-    "  <citation>\n"
-    "    <layout>\n"
-    "    </layout>\n"
-    "  </citation>\n"
-    "</style>\n"
-)
-
-
 def test_export_falha_alto_quando_figura_falta(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Integração com pandoc DE VERDADE (defeito medido com 3.9.0.2): antes do
-    fix, ``![](figures/ausente.png)`` dava ``[WARNING] Could not fetch
-    resource`` com exit 0 — a figura sumia do export em silêncio. Agora vira
-    ``MissingResourceError`` explícito."""
+    """Prova a FIAÇÃO (não repete a prova pura de ``_assert_no_missing_resource``,
+    já coberta acima por ``test_assert_no_missing_resource_raises_with_target``):
+    quando o pandoc — mockado via ``subprocess.run``, sem depender do binário
+    instalado — sai 0 com ``[WARNING] Could not fetch resource`` no stderr,
+    ``export()`` propaga ``MissingResourceError`` até o chamador em vez de
+    completar em silêncio com a figura ausente."""
     root, page = _fake_project(tmp_path)
     page.write_text("Texto\n\n![Fig](figures/ausente.png)\n")
-    csl = tmp_path / "minimal.csl"
-    csl.write_text(_MINIMAL_CSL)
-    monkeypatch.setattr(export_mod, "resolve_csl", lambda style: csl)
+    _patch_export_seams(monkeypatch, tmp_path)
+
+    def fake_run(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            cmd,
+            0,
+            stdout="",
+            stderr="[WARNING] Could not fetch resource figures/ausente.png\n",
+        )
+
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake_run)
 
     with pytest.raises(export_mod.MissingResourceError) as exc:
         export_mod.export(page, to="html", project_root=root)
     assert "figures/ausente.png" in str(exc.value)
 
 
-def test_export_html_embute_figura_presente_via_resource_path(
+def test_export_html_usa_resource_path_do_diretorio_da_pagina(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Prova o conserto: com ``--resource-path`` apontando pro diretório da
-    página (não o tempdir onde o markdown normalizado é gravado), uma figura
-    que de fato existe ao lado do ``.md`` é encontrada e embutida."""
+    """Prova a FIAÇÃO (complementa, sem repetir, ``test_build_pandoc_cmd_includes_resource_path``
+    acima, que testa ``_build_pandoc_cmd`` isolada): o comando que ``export()``
+    de fato monta e executa (capturado do ``subprocess.run`` mockado) carrega
+    ``--resource-path`` com o VALOR do diretório da página FONTE
+    (``page.parent``) — não o tempdir onde o markdown normalizado é gravado.
+    Checar só a presença da flag não provaria nada (um valor errado, ex.
+    apontando pro tempdir, passaria) — por isso asserta o valor exato."""
     root, page = _fake_project(tmp_path)
-    figures_dir = page.parent / "figures"
-    figures_dir.mkdir()
-    (figures_dir / "x.png").write_bytes(b"\x89PNG\r\n\x1a\n")
     page.write_text("Texto\n\n![Fig](figures/x.png)\n")
-    csl = tmp_path / "minimal.csl"
-    csl.write_text(_MINIMAL_CSL)
-    monkeypatch.setattr(export_mod, "resolve_csl", lambda style: csl)
+    _patch_export_seams(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([b"<html>ok</html>"], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
 
     result = export_mod.export(page, to="html", project_root=root)
 
-    assert "data:image/png;base64" in result.read_text()
+    assert result.is_file()
+    assert len(calls) == 1
+    cmd = calls[0]
+    assert "--resource-path" in cmd
+    idx = cmd.index("--resource-path")
+    assert cmd[idx + 1] == str(page.parent)
+    assert cmd[idx + 1] != str(page.parent.parent)  # não aponta pro projeto inteiro
 
 
 def test_export_recusa_sobrescrever_sem_force(
@@ -839,4 +842,51 @@ def test_compose_sobrescreve_com_force(tmp_path: Path, monkeypatch: pytest.Monke
     result = export_mod.compose(index=index, to="docx", out=out, project_root=root, force=True)
 
     assert result == out
+
+
+def test_compose_resource_path_multiplos_diretorios_sem_duplicata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regressão do fix round 1 da Task 8: ``compose()`` nunca recebeu
+    ``resource_path`` nenhum, mas ficou sob a mesma checagem
+    ``_assert_no_missing_resource`` compartilhada com ``export()`` via
+    ``_run_pandoc_checked`` — qualquer figura em página composta passou a
+    falhar sempre. Prova o conserto: o comando real carrega
+    ``--resource-path`` com o diretório de CADA página combinada (index +
+    ``pages:``), sem duplicata (duas páginas no MESMO diretório — A e A2 —
+    só contam uma vez), na ordem estável em que entram no ``combined``."""
+    root, _page = _fake_project(tmp_path)
+    index = root / "docs" / "index.md"
+    index.write_text(
+        "---\npages: [docs/estudoA/pagA.md, docs/estudoA/pagA2.md, docs/estudoB/pagB.md]\n---\n"
+    )
+
+    page_a = root / "docs" / "estudoA" / "pagA.md"
+    page_a.parent.mkdir(parents=True)
+    (page_a.parent / "figures").mkdir()
+    (page_a.parent / "figures" / "a.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    page_a.write_text("Página A\n\n![Fig A](figures/a.png)\n")
+
+    page_a2 = root / "docs" / "estudoA" / "pagA2.md"
+    page_a2.write_text("Página A2, mesmo diretório de A.\n")
+
+    page_b = root / "docs" / "estudoB" / "pagB.md"
+    page_b.parent.mkdir(parents=True)
+    (page_b.parent / "figures").mkdir()
+    (page_b.parent / "figures" / "b.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    page_b.write_text("Página B\n\n![Fig B](figures/b.png)\n")
+
+    _patch_export_seams(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([b"<html>ok</html>"], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+
+    export_mod.compose(index=index, to="html", project_root=root)
+
+    assert len(calls) == 1
+    cmd = calls[0]
+    assert "--resource-path" in cmd
+    idx = cmd.index("--resource-path")
+    dirs = cmd[idx + 1].split(":")
+    assert dirs == [str(index.parent), str(page_a.parent), str(page_b.parent)]
     assert len(calls) == 1

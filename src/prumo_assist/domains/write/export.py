@@ -743,7 +743,7 @@ def _build_pandoc_cmd(
     reference_doc: Path | None,
     to_format: str,
     zotero_lookup_file: Path | None = None,
-    resource_path: Path | None = None,
+    resource_path: Path | str | None = None,
 ) -> list[str]:
     """Monta o comando do pandoc.
 
@@ -758,7 +758,10 @@ def _build_pandoc_cmd(
     TEMPORÁRIO (nunca o diretório da página): sem isso, ``![](figures/x.png)``
     resolve relativo ao tempdir, nunca encontra o arquivo, e o pandoc some
     com a figura em silêncio (exit 0, só um warning no stderr — achado
-    medido com pandoc 3.9.0.2).
+    medido com pandoc 3.9.0.2). Aceita um ``Path`` único (:func:`export`,
+    uma página só) ou uma ``str`` já no formato do pandoc — múltiplos
+    diretórios separados por ``:`` (:func:`compose`, que combina páginas de
+    diretórios potencialmente diferentes).
     """
     cmd = [
         pandoc_bin,
@@ -931,6 +934,15 @@ def compose(
     completo; ``out_dir`` troca só o diretório, mantendo a regra de nome
     default (stem do index sem ``.idx``). ``force`` autoriza sobrescrever um
     ``out`` já existente (default recusa — mesma guarda de :func:`export`).
+
+    Figuras (``![](figures/x.png)``) resolvem via ``--resource-path`` com o
+    diretório de CADA página combinada (index + toda página listada em
+    ``pages:``), sem duplicatas, na ordem em que entram no ``combined`` —
+    o pandoc aceita múltiplos diretórios separados por ``:`` (achado do fix
+    round 3 da Task 8: sem isso, ``_assert_no_missing_resource`` compartilhado
+    com :func:`export` via :func:`_run_pandoc_checked` fazia TODA figura em
+    página composta falhar sempre, já que ``compose()`` nunca passava
+    ``resource_path`` nenhum).
     """
     project_root = project_root or detect_project_root(index)
     text = index.read_text()
@@ -942,6 +954,7 @@ def compose(
     style = style or meta.get("style") or "apa"
 
     parts: list[str] = []
+    resource_dirs: list[Path] = [index.parent]
     if intro_body.strip():
         parts.append(normalize_markdown(intro_body, page_dir=index.parent))
     for rel in pages_meta:
@@ -950,6 +963,8 @@ def compose(
             raise FileNotFoundError(f"Página listada no index não existe: {page}")
         _meta_p, body = split_frontmatter(page.read_text())
         parts.append(normalize_markdown(body, page_dir=page.parent))
+        if page.parent not in resource_dirs:
+            resource_dirs.append(page.parent)
 
     combined = "\n\n".join(parts)
 
@@ -1003,6 +1018,7 @@ def compose(
             reference_doc=reference_doc,
             to_format=to,
             zotero_lookup_file=zotero_lookup_file,
+            resource_path=":".join(str(d) for d in resource_dirs),
         )
         if meta.get("toc"):
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]
