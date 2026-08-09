@@ -9,8 +9,8 @@ from prumo_assist.domains.paper.sync_all import sync_all
 
 
 def _bootstrap(tmp_path: Path) -> Path:
-    refs = tmp_path / "references"
-    (refs / "notes").mkdir(parents=True)
+    refs = tmp_path / "docs" / "references"
+    (refs / "papers").mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
     return tmp_path
 

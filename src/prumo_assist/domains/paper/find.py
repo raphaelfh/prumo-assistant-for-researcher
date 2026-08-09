@@ -9,6 +9,7 @@ import difflib
 from pathlib import Path
 from typing import Any
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.bib import extract_field, extract_year, parse_bib
 from prumo_assist.core.note_paths import citekey_from_meta_path, iter_note_meta_files
 from prumo_assist.domains.paper.sync import read_nota_yaml
@@ -16,7 +17,7 @@ from prumo_assist.domains.paper.sync import read_nota_yaml
 
 def build_index(pj_path: Path) -> dict[str, dict[str, Any]]:
     """Índice ``{citekey: {title, author, year, tldr, role, status}}``."""
-    bib = pj_path / "references" / "_references.bib"
+    bib = pj_layout.bib_path(pj_path)
     index: dict[str, dict[str, Any]] = {}
     if not bib.exists():
         return index

@@ -9,7 +9,7 @@ from prumo_assist.domains.write.compose import read_inputs
 
 def _bootstrap(tmp_path: Path) -> Path:
     pj = tmp_path / "pj_demo"
-    refs = pj / "references"
+    refs = pj / "docs" / "references"
     refs.mkdir(parents=True)
     (refs / "_references.bib").write_text(
         "@article{smith2024,\n  title = {Combinado Fusion},\n"
@@ -17,13 +17,13 @@ def _bootstrap(tmp_path: Path) -> Path:
         "@article{doe2025,\n  title = {Other},\n"
         '  author = "Doe, A.",\n  year = 2025\n}\n'
     )
-    (refs / "notes" / "smith2024").mkdir(parents=True)
-    (refs / "notes" / "smith2024" / "_meta.md").write_text(
+    (refs / "papers" / "smith2024").mkdir(parents=True)
+    (refs / "papers" / "smith2024" / "_meta.md").write_text(
         "---\nid: smith2024\ntitle: Combinado Fusion\nauthor:\n"
         "  - { family: Smith, given: J. }\nissued: { date-parts: [[2024]] }\n---\n\n"
         "## Notas\n"
     )
-    (refs / "notes" / "smith2024" / "_extract.md").write_text(
+    (refs / "papers" / "smith2024" / "_extract.md").write_text(
         "---\npaper: smith2024\nsource: prumo-paper-extract\n---\n\n"
         "<!-- paper-extract:begin -->\n"
         "> ### TL;DR\n> resumo bom\n"
@@ -87,7 +87,7 @@ def test_read_inputs_year_from_biblatex_date(tmp_path: Path) -> None:
     """Better BibLaTeX (o que ``prumo paper connect`` gera) não emite ``year``:
     o ano do ``PaperSummary`` tem de vir do ``date``."""
     pj = tmp_path / "pj_biblatex"
-    refs = pj / "references"
+    refs = pj / "docs" / "references"
     refs.mkdir(parents=True)
     (refs / "_references.bib").write_text(
         "@article{audisio2025total,\n"

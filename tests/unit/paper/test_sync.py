@@ -164,8 +164,8 @@ def test_merge_yaml_sets_added_when_absent() -> None:
 
 
 def test_sync_creates_meta_md_for_each_entry(tmp_path: Path) -> None:
-    refs = tmp_path / "references"
-    refs.mkdir()
+    refs = tmp_path / "docs" / "references"
+    refs.mkdir(parents=True)
     (refs / "_references.bib").write_text(
         "@article{smith2024,\n"
         "  title = {Combi-Nado Fusion},\n"
@@ -177,7 +177,7 @@ def test_sync_creates_meta_md_for_each_entry(tmp_path: Path) -> None:
     assert report["created"] == 1
     assert report["updated"] == 0
     assert report["orphans"] == []
-    meta = refs / "notes" / "smith2024" / "_meta.md"
+    meta = refs / "papers" / "smith2024" / "_meta.md"
     assert meta.exists()
     content = meta.read_text()
     assert "Combi-Nado Fusion" in content
@@ -185,8 +185,8 @@ def test_sync_creates_meta_md_for_each_entry(tmp_path: Path) -> None:
 
 
 def test_sync_re_run_is_idempotent(tmp_path: Path) -> None:
-    refs = tmp_path / "references"
-    refs.mkdir()
+    refs = tmp_path / "docs" / "references"
+    refs.mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{smith2024,\n  title = {X},\n  year = 2024\n}\n")
     sync(tmp_path)
     report = sync(tmp_path)
@@ -195,8 +195,8 @@ def test_sync_re_run_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_sync_detects_orphan_subdirs(tmp_path: Path) -> None:
-    refs = tmp_path / "references"
-    notes = refs / "notes"
+    refs = tmp_path / "docs" / "references"
+    notes = refs / "papers"
     (notes / "orphan_one").mkdir(parents=True)
     (notes / "orphan_one" / "_meta.md").write_text("---\nid: orphan_one\n---\n\nbody\n")
     (refs / "_references.bib").write_text("@article{a, title={X}}\n")

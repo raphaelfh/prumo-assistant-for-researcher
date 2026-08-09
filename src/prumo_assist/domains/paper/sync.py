@@ -18,6 +18,7 @@ from typing import Any
 
 import yaml
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.bib import BibEntry, extract_field, extract_year, parse_bib
 
 METADATA_FIELDS = {
@@ -185,7 +186,7 @@ def _dump_minimal_yaml(d: dict[str, Any]) -> str:
 
 def _template_body(pj_path: Path) -> str:
     """Retorna o body (pós-frontmatter) do ``literature_note.md`` template."""
-    tpl = pj_path / "references" / "templates" / "literature_note.md"
+    tpl = pj_layout.note_template_path(pj_path)
     if not tpl.exists():
         return ""
     text = tpl.read_text()
@@ -198,7 +199,7 @@ def _template_yaml_defaults(pj_path: Path) -> dict[str, Any]:
 
     Retorna apenas campos que NÃO são ``METADATA_FIELDS``, ``EXTRACTED_FIELDS``
     nem ``added`` — esses ficam pra ser preenchidos pelo merge."""
-    tpl = pj_path / "references" / "templates" / "literature_note.md"
+    tpl = pj_layout.note_template_path(pj_path)
     if not tpl.exists():
         return {}
     text = tpl.read_text()
@@ -219,8 +220,8 @@ def sync(pj_path: Path) -> dict[str, Any]:
     """Sync ``.bib`` → ``<key>/_meta.md``. Retorna report com ``created``, ``updated``, ``orphans``."""
     from prumo_assist.core.note_paths import meta_path
 
-    bib = pj_path / "references" / "_references.bib"
-    notes_dir = pj_path / "references" / "notes"
+    bib = pj_layout.bib_path(pj_path)
+    notes_dir = pj_layout.papers_dir(pj_path)
     notes_dir.mkdir(parents=True, exist_ok=True)
 
     if not bib.exists():

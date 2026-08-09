@@ -21,6 +21,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.bib import parse_bib
 from prumo_assist.core.note_paths import citekey_from_meta_path, iter_note_meta_files, meta_path
 from prumo_assist.domains.paper.sync import read_nota_yaml
@@ -38,9 +39,9 @@ def lint(pj_path: Path) -> dict[str, Any]:
     """Roda todos os checks. Retorna ``{"issues": [...], "ok": bool, "summary": {...}}``."""
     issues: list[LintIssue] = []
 
-    bib_path = pj_path / "references" / "_references.bib"
-    notes_dir = pj_path / "references" / "notes"
-    pdfs_dir = pj_path / "references" / "pdfs"
+    bib_path = pj_layout.bib_path(pj_path)
+    notes_dir = pj_layout.papers_dir(pj_path)
+    pdfs_dir = pj_layout.pdfs_dir(pj_path)
 
     if not bib_path.exists():
         issues.append(

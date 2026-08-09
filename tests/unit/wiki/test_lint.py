@@ -9,8 +9,8 @@ from prumo_assist.domains.wiki.lint import lint
 
 def _setup_wiki(tmp_path: Path, bib_text: str = "") -> Path:
     docs = tmp_path / "docs"
-    refs = tmp_path / "references"
-    refs.mkdir()
+    refs = tmp_path / "docs" / "references"
+    refs.mkdir(parents=True)
     (refs / "_references.bib").write_text(bib_text)
     docs.mkdir()
     for d in ("concepts", "entities", "findings", "sources"):
@@ -35,8 +35,8 @@ def test_lint_flags_missing_docs(tmp_path: Path) -> None:
 def test_lint_flags_missing_index_log(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
-    (tmp_path / "references").mkdir()
-    (tmp_path / "references" / "_references.bib").write_text("")
+    (tmp_path / "docs" / "references").mkdir(parents=True)
+    (tmp_path / "docs" / "references" / "_references.bib").write_text("")
     report = lint(tmp_path)
     codes = {i["code"] for i in report["issues"]}
     assert "no_index" in codes
@@ -92,7 +92,7 @@ def test_lint_flags_broken_log_prefix(tmp_path: Path) -> None:
 
 def test_lint_flags_multiple_primary_notes(tmp_path: Path) -> None:
     pj = _setup_wiki(tmp_path)
-    notes = pj / "references" / "notes"
+    notes = pj / "docs" / "references" / "papers"
     for key in ("a", "b"):
         d = notes / key
         d.mkdir(parents=True)
@@ -104,7 +104,7 @@ def test_lint_flags_multiple_primary_notes(tmp_path: Path) -> None:
 
 def test_lint_single_primary_is_clean(tmp_path: Path) -> None:
     pj = _setup_wiki(tmp_path)
-    d = pj / "references" / "notes" / "a"
+    d = pj / "docs" / "references" / "papers" / "a"
     d.mkdir(parents=True)
     (d / "_meta.md").write_text("---\nid: a\nrole: primary\n---\n", encoding="utf-8")
     report = lint(pj)

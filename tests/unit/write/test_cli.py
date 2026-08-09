@@ -170,8 +170,8 @@ def test_write_draft_invalid_kind_fails(tmp_path: Path) -> None:
 
 def _pj_with_bib(tmp_path: Path) -> tuple[Path, Path]:
     pj = tmp_path / "pj_demo"
-    (pj / "references").mkdir(parents=True)
-    (pj / "references" / "_references.bib").write_text("@article{k2020, title={T}}\n")
+    (pj / "docs" / "references").mkdir(parents=True)
+    (pj / "docs" / "references" / "_references.bib").write_text("@article{k2020, title={T}}\n")
     page = pj / "docs" / "p.md"
     page.parent.mkdir(parents=True)
     page.write_text("Texto.\n")

@@ -20,6 +20,7 @@ from html import unescape
 from pathlib import Path
 from typing import Any
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.bib import parse_bib
 from prumo_assist.core.deps import zotero_local_api_up
 from prumo_assist.core.note_paths import annotations_path, meta_path
@@ -508,8 +509,8 @@ def sync_annotations(pj_path: Path) -> dict[str, Any]:
     o pai (``<key>/``) já existe e podemos escrever ``_annotations.md``
     sem precisar de ``mkdir``. Reordenar o guard quebra essa invariante.
     """
-    bib = pj_path / "references" / "_references.bib"
-    notes_dir = pj_path / "references" / "notes"
+    bib = pj_layout.bib_path(pj_path)
+    notes_dir = pj_layout.papers_dir(pj_path)
 
     if not bib.exists():
         raise FileNotFoundError(f"{bib} não encontrado.")
@@ -604,8 +605,8 @@ def sync_notes(pj_path: Path) -> dict[str, Any]:
     """
     from prumo_assist.core.note_paths import child_note_path, meta_path, slugify
 
-    bib = pj_path / "references" / "_references.bib"
-    notes_dir = pj_path / "references" / "notes"
+    bib = pj_layout.bib_path(pj_path)
+    notes_dir = pj_layout.papers_dir(pj_path)
 
     if not bib.exists():
         raise FileNotFoundError(f"{bib} não encontrado.")

@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.bib import extract_field, parse_bib
 
 
@@ -29,8 +30,8 @@ def _extract_pdf_path_from_bib_body(body: str) -> str | None:
 
 def sync_pdfs(pj_path: Path) -> dict[str, Any]:
     """Cria/atualiza symlinks. Retorna report com contagens + ``missing``."""
-    bib = pj_path / "references" / "_references.bib"
-    out = pj_path / "references" / "pdfs"
+    bib = pj_layout.bib_path(pj_path)
+    out = pj_layout.pdfs_dir(pj_path)
 
     if not bib.exists():
         raise FileNotFoundError(f"{bib} não encontrado. Rode o auto-export do Better BibTeX.")

@@ -17,7 +17,7 @@ runner = CliRunner()
 
 def _bootstrap_project(tmp_path: Path, bib_text: str) -> Path:
     pj = tmp_path / "pj_demo"
-    refs = pj / "references"
+    refs = pj / "docs" / "references"
     refs.mkdir(parents=True)
     (refs / "_references.bib").write_text(bib_text)
     return pj
@@ -32,7 +32,7 @@ def test_paper_sync_creates_meta_md(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     payload = _last_json(result.stdout)
     assert payload["created"] == 1
-    assert (pj / "references" / "notes" / "smith2024" / "_meta.md").is_file()
+    assert (pj / "docs" / "references" / "papers" / "smith2024" / "_meta.md").is_file()
 
 
 def test_paper_find_returns_results(tmp_path: Path) -> None:
@@ -85,10 +85,10 @@ def test_paper_sync_notes_cli_writes_files(tmp_path: Path) -> None:
     from prumo_assist.domains.paper.zotero import ZoteroRef
 
     pj = tmp_path / "pj_x"
-    refs = pj / "references"
-    (refs / "notes" / "smith2024").mkdir(parents=True)
+    refs = pj / "docs" / "references"
+    (refs / "papers" / "smith2024").mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
-    (refs / "notes" / "smith2024" / "_meta.md").write_text("---\nid: smith2024\n---\n\nbody\n")
+    (refs / "papers" / "smith2024" / "_meta.md").write_text("---\nid: smith2024\n---\n\nbody\n")
 
     note = {
         "itemType": "note",
@@ -108,7 +108,7 @@ def test_paper_sync_notes_cli_writes_files(tmp_path: Path) -> None:
     ):
         result = runner.invoke(app, ["paper", "sync-notes", str(pj), "--json"])
     assert result.exit_code == 0, result.output
-    assert (refs / "notes" / "smith2024" / "note__ABCD1234__ideia.md").is_file()
+    assert (refs / "papers" / "smith2024" / "note__ABCD1234__ideia.md").is_file()
 
 
 def test_paper_extract_prep_emits_language(tmp_path: Path) -> None:
@@ -149,7 +149,7 @@ def test_paper_extract_applies_content_from_stdin(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     out = _last_json(result.stdout)
     assert out["changed"] is True
-    extract_md = pj / "references" / "notes" / "smith2020" / "_extract.md"
+    extract_md = pj / "docs" / "references" / "papers" / "smith2020" / "_extract.md"
     assert extract_md.exists()
     assert "Estudo de coorte" in extract_md.read_text(encoding="utf-8")
 
@@ -185,8 +185,8 @@ def test_paper_sync_all_cli_runs_offline_sync(tmp_path: Path) -> None:
     from unittest.mock import patch
 
     pj = tmp_path / "pj_y"
-    refs = pj / "references"
-    (refs / "notes").mkdir(parents=True)
+    refs = pj / "docs" / "references"
+    (refs / "papers").mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
 
     with (
@@ -195,7 +195,7 @@ def test_paper_sync_all_cli_runs_offline_sync(tmp_path: Path) -> None:
         result = runner.invoke(app, ["paper", "sync-all", str(pj), "--json"])
     # sync (offline) succeeds; annotations/notes skipped with warnings -> exit 0
     assert result.exit_code == 0, result.output
-    assert (refs / "notes" / "smith2024" / "_meta.md").is_file()
+    assert (refs / "papers" / "smith2024" / "_meta.md").is_file()
     # Verify JSON payload has null sub-reports for offline syncs
     payload = _last_json(result.stdout)
     assert payload["annotations"] is None
@@ -301,7 +301,7 @@ def test_paper_connect_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
             bbt_path="/My Library/Pesquisa",
             segments=("My Library", "Pesquisa"),
         ),
-        bib_path=tmp_path / "references" / "_references.bib",
+        bib_path=tmp_path / "docs" / "references" / "_references.bib",
         exported=True,
     )
 

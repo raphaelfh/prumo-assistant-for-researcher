@@ -26,7 +26,7 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
         ".claude/rules/documentation.md",
         ".claude/rules/project_context.md",
         ".claude/make",
-        "references/_references.bib",
+        "docs/docs/references/_references.bib",
     ]:
         assert (target / rel).exists(), f"faltou núcleo: {rel}"
 

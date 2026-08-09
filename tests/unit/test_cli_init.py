@@ -29,7 +29,7 @@ def test_init_creates_project_structure(tmp_path: Path) -> None:
     # Estrutura essencial existe
     assert (target / "CLAUDE.md").is_file()
     assert (target / "docs" / "_index.md").is_file()
-    assert (target / "references" / "_references.bib").is_file()
+    assert (target / "docs" / "references" / "_references.bib").is_file()
     assert (target / ".claude" / "pj_config.toml").is_file()
 
 
@@ -216,7 +216,7 @@ def test_init_scaffold_is_pandoc_pure(tmp_path: Path) -> None:
     target = tmp_path / "pj_demo"
     assert runner.invoke(app, ["init", str(target), "--json"]).exit_code == 0
     assert not (target / ".obsidian").exists()
-    assert not (target / "references" / "views").exists()
+    assert not (target / "docs" / "references" / "views").exists()
     assert not (target / "docs" / "canvas").exists()
     offenders: list[str] = []
     for md in target.rglob("*.md"):

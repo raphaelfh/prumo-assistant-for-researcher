@@ -14,8 +14,8 @@ from prumo_assist.domains.write.zettlr import PROFILE_RELPATH, generate_profile,
 
 def _pj(tmp_path: Path) -> Path:
     """Marca ``tmp_path`` como raiz de pj_* (o gerador exige o ``.bib``)."""
-    (tmp_path / "references").mkdir(exist_ok=True)
-    (tmp_path / "references" / "_references.bib").write_text("")
+    (tmp_path / "docs" / "references").mkdir(exist_ok=True)
+    (tmp_path / "docs" / "references" / "_references.bib").write_text("")
     return tmp_path
 
 
@@ -81,7 +81,7 @@ def test_generate_profile_rejects_non_pj_root(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError) as exc:
         generate_profile(tmp_path)
     msg = str(exc.value)
-    assert "references/_references.bib" in msg
+    assert "docs/docs/references/_references.bib" in msg
     assert "--path" in msg
 
 

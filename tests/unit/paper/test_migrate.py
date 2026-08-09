@@ -10,8 +10,8 @@ from prumo_assist.domains.paper.migrate import migrate_pj
 
 def _bootstrap_legacy(tmp_path: Path) -> Path:
     """Cria pj com 1 nota legada incluindo callout extract + bloco zotero annotations."""
-    refs = tmp_path / "references"
-    notes = refs / "notes"
+    refs = tmp_path / "docs" / "references"
+    notes = refs / "papers"
     notes.mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
     legacy = notes / "smith2024.md"
@@ -86,8 +86,8 @@ def test_migrate_idempotent_when_already_migrated(tmp_path: Path) -> None:
 
 
 def test_migrate_legacy_without_callout_or_zotero_block(tmp_path: Path) -> None:
-    refs = tmp_path / "references"
-    notes = refs / "notes"
+    refs = tmp_path / "docs" / "references"
+    notes = refs / "papers"
     notes.mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{plain2024, title={Y}}\n")
     (notes / "plain2024.md").write_text(

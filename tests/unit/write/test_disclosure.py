@@ -47,8 +47,8 @@ def test_record_from_plain_frontmatter_is_none() -> None:
 def test_collect_records_walks_and_skips_dotdirs(tmp_path: Path) -> None:
     from prumo_assist.domains.write.disclosure import collect_records
 
-    (tmp_path / "references" / "notes" / "a").mkdir(parents=True)
-    (tmp_path / "references" / "notes" / "a" / "_meta.md").write_text(
+    (tmp_path / "docs" / "references" / "papers" / "a").mkdir(parents=True)
+    (tmp_path / "docs" / "references" / "papers" / "a" / "_meta.md").write_text(
         "---\nextracted_model: m1\nextracted_at: 2026-05-01\n---\n", encoding="utf-8"
     )
     (tmp_path / ".prumo").mkdir()
@@ -69,8 +69,8 @@ def _paper(p: Path, model: str) -> None:
 def test_generate_disclosure_names_tool_and_model(tmp_path: Path) -> None:
     from prumo_assist.domains.write.disclosure import generate_disclosure
 
-    _paper(tmp_path / "references/notes/a/_meta.md", "claude-opus-4")
-    _paper(tmp_path / "references/notes/b/_meta.md", "claude-opus-4")
+    _paper(tmp_path / "docs/references/papers/a/_meta.md", "claude-opus-4")
+    _paper(tmp_path / "docs/references/papers/b/_meta.md", "claude-opus-4")
     disc = generate_disclosure(root=tmp_path)
     assert len(disc.tools) == 1
     assert disc.tools[0].count == 2
@@ -109,8 +109,8 @@ def test_cli_disclosure_json(tmp_path: Path) -> None:
 
     from prumo_assist.domains.write.cli import write_app
 
-    (tmp_path / "references" / "notes" / "a").mkdir(parents=True)
-    (tmp_path / "references" / "notes" / "a" / "_meta.md").write_text(
+    (tmp_path / "docs" / "references" / "papers" / "a").mkdir(parents=True)
+    (tmp_path / "docs" / "references" / "papers" / "a" / "_meta.md").write_text(
         "---\nextracted_model: claude-opus-4\nextracted_at: 2026-05-01\n---\n", encoding="utf-8"
     )
     result = CliRunner().invoke(write_app, ["disclosure", str(tmp_path), "--json"])
@@ -141,7 +141,7 @@ def test_record_from_canonical_meta_block() -> None:
 def test_aggregate_human_reviewed_is_and_across_group(tmp_path: Path) -> None:
     from prumo_assist.domains.write.disclosure import generate_disclosure
 
-    base = tmp_path / "references" / "notes"
+    base = tmp_path / "docs" / "references" / "papers"
     # Two paper-extract artifacts, same model → one aggregated tool group.
     # One reviewed, one not → the group must NOT be marked human_reviewed.
     (base / "a").mkdir(parents=True)

@@ -100,8 +100,8 @@ def test_compose_child_note_file_handles_missing_optional_fields() -> None:
 
 
 def _bootstrap_pj(tmp_path: Path, citekey: str = "smith2024") -> Path:
-    refs = tmp_path / "references"
-    refs.mkdir()
+    refs = tmp_path / "docs" / "references"
+    refs.mkdir(parents=True)
     (refs / "_references.bib").write_text(f"@article{{{citekey}, title={{X}}}}\n")
     meta_p = meta_path(tmp_path, citekey)
     meta_p.parent.mkdir(parents=True, exist_ok=True)

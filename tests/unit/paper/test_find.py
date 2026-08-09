@@ -29,7 +29,7 @@ _BIBTEX = (
 
 def _pj(tmp_path: Path, bib_text: str) -> Path:
     pj = tmp_path / "pj_demo"
-    refs = pj / "references"
+    refs = pj / "docs" / "references"
     refs.mkdir(parents=True)
     (refs / "_references.bib").write_text(bib_text)
     return pj

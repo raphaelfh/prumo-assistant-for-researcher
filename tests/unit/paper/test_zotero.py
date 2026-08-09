@@ -54,8 +54,8 @@ def test_compose_annotations_file_has_yaml_and_block() -> None:
 def test_sync_annotations_writes_dedicated_file(tmp_path: Path) -> None:
     from prumo_assist.domains.paper.zotero import sync_annotations
 
-    refs = tmp_path / "references"
-    refs.mkdir()
+    refs = tmp_path / "docs" / "references"
+    refs.mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
     meta_p = meta_path(tmp_path, "smith2024")
     meta_p.parent.mkdir(parents=True, exist_ok=True)
@@ -95,8 +95,8 @@ def test_sync_annotations_unchanged_when_content_identical(tmp_path: Path) -> No
     """Re-sync com mesmo conteúdo do Zotero conta como `unchanged`, não `updated`."""
     from prumo_assist.domains.paper.zotero import sync_annotations
 
-    refs = tmp_path / "references"
-    refs.mkdir()
+    refs = tmp_path / "docs" / "references"
+    refs.mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
     meta_p = meta_path(tmp_path, "smith2024")
     meta_p.parent.mkdir(parents=True, exist_ok=True)
@@ -134,8 +134,8 @@ def test_sync_annotations_updated_when_content_changes(tmp_path: Path) -> None:
     """Re-sync com conteúdo diferente do Zotero conta como `updated`."""
     from prumo_assist.domains.paper.zotero import sync_annotations
 
-    refs = tmp_path / "references"
-    refs.mkdir()
+    refs = tmp_path / "docs" / "references"
+    refs.mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
     meta_p = meta_path(tmp_path, "smith2024")
     meta_p.parent.mkdir(parents=True, exist_ok=True)
@@ -190,8 +190,8 @@ def test_sync_annotations_updated_when_content_changes(tmp_path: Path) -> None:
 
 
 def _bootstrap(tmp_path: Path, *citekeys: str) -> None:
-    refs = tmp_path / "references"
-    refs.mkdir()
+    refs = tmp_path / "docs" / "references"
+    refs.mkdir(parents=True)
     (refs / "_references.bib").write_text(
         "".join(f"@article{{{ck}, title={{X}}}}\n" for ck in citekeys)
     )

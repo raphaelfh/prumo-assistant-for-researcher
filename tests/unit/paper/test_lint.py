@@ -8,8 +8,8 @@ from prumo_assist.domains.paper.lint import lint, set_primary
 
 
 def _setup_project(tmp_path: Path, bib_text: str = "") -> Path:
-    refs = tmp_path / "references"
-    (refs / "notes").mkdir(parents=True)
+    refs = tmp_path / "docs" / "references"
+    (refs / "papers").mkdir(parents=True)
     (refs / "pdfs").mkdir(parents=True)
     (refs / "_references.bib").write_text(bib_text)
     return tmp_path
@@ -17,7 +17,7 @@ def _setup_project(tmp_path: Path, bib_text: str = "") -> Path:
 
 def test_lint_clean_when_consistent(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{a,title={x}}\n@article{b,title={y}}\n")
-    notes = pj / "references" / "notes"
+    notes = pj / "docs" / "references" / "papers"
     for key in ("a", "b"):
         (notes / key).mkdir(parents=True, exist_ok=True)
         (notes / key / "_meta.md").write_text(f"---\nid: {key}\n---\n\n")
@@ -28,7 +28,7 @@ def test_lint_clean_when_consistent(tmp_path: Path) -> None:
 
 def test_lint_flags_orphan_note(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{a,title={x}}\n")
-    notes = pj / "references" / "notes"
+    notes = pj / "docs" / "references" / "papers"
     (notes / "a").mkdir(parents=True, exist_ok=True)
     (notes / "a" / "_meta.md").write_text("---\nid: a\n---\n\n")
     (notes / "orphan").mkdir(parents=True, exist_ok=True)
@@ -40,7 +40,7 @@ def test_lint_flags_orphan_note(tmp_path: Path) -> None:
 
 def test_lint_flags_id_mismatch(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{realkey,title={x}}\n")
-    notes = pj / "references" / "notes"
+    notes = pj / "docs" / "references" / "papers"
     (notes / "realkey").mkdir(parents=True, exist_ok=True)
     (notes / "realkey" / "_meta.md").write_text("---\nid: WRONG\n---\n\n")
     report = lint(pj)
@@ -51,10 +51,10 @@ def test_lint_flags_id_mismatch(tmp_path: Path) -> None:
 
 def test_lint_flags_broken_pdf_link(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{a,title={x}}\n")
-    notes = pj / "references" / "notes"
+    notes = pj / "docs" / "references" / "papers"
     (notes / "a").mkdir(parents=True, exist_ok=True)
     (notes / "a" / "_meta.md").write_text("---\nid: a\n---\n\n")
-    pdfs = pj / "references" / "pdfs"
+    pdfs = pj / "docs" / "references" / "pdfs"
     (pdfs / "a.pdf").symlink_to("/nonexistent/file.pdf")
     report = lint(pj)
     codes = {i["code"] for i in report["issues"]}
@@ -63,7 +63,7 @@ def test_lint_flags_broken_pdf_link(tmp_path: Path) -> None:
 
 def test_lint_flags_multiple_primaries(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{a,title={x}}\n@article{b,title={y}}\n")
-    notes = pj / "references" / "notes"
+    notes = pj / "docs" / "references" / "papers"
     for key in ("a", "b"):
         (notes / key).mkdir(parents=True, exist_ok=True)
         (notes / key / "_meta.md").write_text(f"---\nid: {key}\nrole: primary\n---\n\n")
@@ -81,7 +81,7 @@ def test_lint_bib_missing_returns_error(tmp_path: Path) -> None:
 
 def test_set_primary_clears_others(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{a,title={x}}\n@article{b,title={y}}\n")
-    notes = pj / "references" / "notes"
+    notes = pj / "docs" / "references" / "papers"
     (notes / "a").mkdir(parents=True, exist_ok=True)
     (notes / "a" / "_meta.md").write_text("---\nid: a\nrole: primary\n---\n\nbody\n")
     (notes / "b").mkdir(parents=True, exist_ok=True)
@@ -108,8 +108,8 @@ def test_set_primary_raises_if_note_missing(tmp_path: Path) -> None:
 
 
 def test_lint_warns_subdir_without_meta(tmp_path: Path) -> None:
-    refs = tmp_path / "references"
-    notes = refs / "notes"
+    refs = tmp_path / "docs" / "references"
+    notes = refs / "papers"
     notes.mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{a, title={X}}\n")
     (notes / "incomplete_dir").mkdir()  # pasta sem _meta.md
@@ -118,8 +118,8 @@ def test_lint_warns_subdir_without_meta(tmp_path: Path) -> None:
 
 
 def test_lint_flags_duplicate_item_key(tmp_path: Path) -> None:
-    refs = tmp_path / "references"
-    notes = refs / "notes" / "smith2024"
+    refs = tmp_path / "docs" / "references"
+    notes = refs / "papers" / "smith2024"
     notes.mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
     (notes / "_meta.md").write_text("---\nid: smith2024\n---\n\nbody\n")
@@ -145,7 +145,7 @@ def test_lint_flags_duplicate_citekey_as_error(tmp_path: Path) -> None:
         "@article{smith2024, title={Segunda — sombra}}\n\n"
         "@article{unico2020, title={Ok}}\n",
     )
-    notes = pj / "references" / "notes"
+    notes = pj / "docs" / "references" / "papers"
     for key in ("smith2024", "unico2020"):
         (notes / key).mkdir(parents=True, exist_ok=True)
         (notes / key / "_meta.md").write_text(f"---\nid: {key}\n---\n\n")
@@ -160,7 +160,7 @@ def test_lint_flags_duplicate_citekey_as_error(tmp_path: Path) -> None:
 
 def test_lint_no_duplicate_citekey_when_keys_distinct(tmp_path: Path) -> None:
     pj = _setup_project(tmp_path, "@article{a,title={x}}\n@article{b,title={y}}\n")
-    notes = pj / "references" / "notes"
+    notes = pj / "docs" / "references" / "papers"
     for key in ("a", "b"):
         (notes / key).mkdir(parents=True, exist_ok=True)
         (notes / key / "_meta.md").write_text(f"---\nid: {key}\n---\n\n")
@@ -170,8 +170,8 @@ def test_lint_no_duplicate_citekey_when_keys_distinct(tmp_path: Path) -> None:
 
 
 def test_lint_no_duplicate_when_item_keys_distinct(tmp_path: Path) -> None:
-    refs = tmp_path / "references"
-    notes = refs / "notes" / "smith2024"
+    refs = tmp_path / "docs" / "references"
+    notes = refs / "papers" / "smith2024"
     notes.mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
     (notes / "_meta.md").write_text("---\nid: smith2024\n---\n\nbody\n")

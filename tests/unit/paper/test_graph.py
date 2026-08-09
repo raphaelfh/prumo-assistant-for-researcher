@@ -37,7 +37,7 @@ def test_extract_citekeys_filters_unknown_and_self() -> None:
 
 
 def test_update_graph_populates_cites(tmp_path: Path) -> None:
-    notes = tmp_path / "references" / "notes"
+    notes = tmp_path / "docs" / "references" / "papers"
     notes.mkdir(parents=True)
     for key, content in [
         ("a", "---\nid: a\n---\n\nSee [@b] and [@c].\n"),

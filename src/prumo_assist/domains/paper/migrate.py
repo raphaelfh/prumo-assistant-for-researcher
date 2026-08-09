@@ -21,6 +21,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.note_paths import annotations_path, extract_path, meta_path
 from prumo_assist.domains.paper.sync import FRONTMATTER_RE
 
@@ -79,7 +80,7 @@ def migrate_pj(pj_path: Path) -> dict[str, Any]:
         already_migrated: list[str]    — citekeys já em layout α (puladas)
         warnings: list[str]            — situações inesperadas
     """
-    notes_dir = pj_path / "references" / "notes"
+    notes_dir = pj_layout.papers_dir(pj_path)
     if not notes_dir.exists():
         return {"migrated": [], "already_migrated": [], "warnings": []}
 
