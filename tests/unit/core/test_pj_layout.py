@@ -56,11 +56,41 @@ def test_find_scope_root_nao_confunde_escopos_irmaos(tmp_path: Path) -> None:
     assert b.name == "b"
 
 
-def test_find_scope_root_fora_de_studies_levanta(tmp_path: Path) -> None:
+def test_find_scope_root_fora_de_studies_resolve_o_escopo_unico(tmp_path: Path) -> None:
+    """Fora de `docs/studies/` (a raiz do pj_* é o cwd do agente), um escopo só
+    resolve sozinho — mesma política de `cli._resolve_module_scope`. Sem isso,
+    toda invocação bare das skills (`prumo write prep`, `prumo wiki finding`)
+    saía com exit 1 num projeto recém-criado."""
     root = _mk_project(tmp_path / "pj_x")
+    assert L.find_scope_root(root) == root / "docs" / "studies" / "principal"
+    assert (
+        L.find_scope_root(root / "docs" / "references") == root / "docs" / "studies" / "principal"
+    )
+
+
+def test_find_scope_root_sem_escopo_nenhum_levanta_com_add_study(tmp_path: Path) -> None:
+    root = tmp_path / "pj_x"
+    (root / ".claude").mkdir(parents=True)
+    (root / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
     with pytest.raises(L.PjRootNotFoundError) as exc:
-        L.find_scope_root(root / "docs" / "references")
+        L.find_scope_root(root)
     assert "prumo add study" in str(exc.value)
+
+
+def test_find_scope_root_com_varios_escopos_exige_escolha_e_lista_slugs(tmp_path: Path) -> None:
+    root = _mk_project(tmp_path / "pj_x", "artigo-a", "artigo-b")
+    with pytest.raises(L.PjRootNotFoundError) as exc:
+        L.find_scope_root(root)
+    message = str(exc.value)
+    assert "artigo-a" in message
+    assert "artigo-b" in message
+    assert "docs/studies/" in message
+
+
+def test_find_scope_root_caminho_explicito_tem_precedencia(tmp_path: Path) -> None:
+    """Contrato de quem já passa escopo explícito: POSIÇÃO ganha do fallback."""
+    root = _mk_project(tmp_path / "pj_x", "a", "b")
+    assert L.find_scope_root(root / "docs" / "studies" / "b") == root / "docs" / "studies" / "b"
 
 
 def test_iter_scopes_ordena_e_ignora_arquivo(tmp_path: Path) -> None:

@@ -53,16 +53,36 @@ def find_pj_root(start: Path) -> Path:
 
 
 def find_scope_root(start: Path) -> Path:
-    """Devolve o filho direto de ``docs/studies/`` que contém ``start``."""
+    """Resolve o escopo de ``start``, em duas etapas com precedência.
+
+    1. **POSIÇÃO** — se ``start`` está sob ``docs/studies/<slug>/``, o escopo é
+       esse filho direto. Caminho explícito sempre ganha.
+    2. **ESCOPO ÚNICO** — fora de ``docs/studies/`` (a raiz do ``pj_*``, que é
+       o cwd do agente, é o caso comum), um escopo só resolve sozinho.
+
+    Zero ou vários escopos exigem decisão explícita — mesma política de
+    ``cli._resolve_module_scope``, com os slugs disponíveis na mensagem.
+    """
     pj_root = find_pj_root(start)
     studies = (pj_root / STUDIES_RELPATH).resolve()
     cur = _as_dir(start)
     for candidate in (cur, *cur.parents):
         if candidate.parent == studies:
             return candidate
+
+    scopes = iter_scopes(pj_root)
+    if len(scopes) == 1:
+        return scopes[0]
+    if not scopes:
+        raise PjRootNotFoundError(
+            f"Nenhum escopo de escrita em {pj_root}. Todo texto vive em "
+            "`docs/studies/<slug>/` — crie o primeiro com `prumo add study <slug>`."
+        )
+    slugs = ", ".join(s.name for s in scopes)
     raise PjRootNotFoundError(
-        f"{start} não está dentro de um escopo. Todo texto vive em "
-        "`docs/studies/<slug>/`. Crie um com `prumo add study <slug>`."
+        f"{start} não está dentro de um escopo e {pj_root} tem mais de um ({slugs}). "
+        "Diga qual usar apontando o caminho do escopo, ex.: `docs/studies/"
+        f"{scopes[0].name}`."
     )
 
 

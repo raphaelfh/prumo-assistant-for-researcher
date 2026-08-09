@@ -74,20 +74,43 @@ def test_protocol_diff_no_baseline(tmp_path: Path) -> None:
     assert payload["has_structural"] is False
 
 
-def test_protocol_propagate_from_pj_root_raises_clear_error_not_silent_missing(
-    tmp_path: Path,
-) -> None:
-    """Regressão: apontar `propagate` pra raiz do pj_* (não pro escopo) devolvia
+def test_protocol_propagate_from_pj_root_uses_the_single_scope(tmp_path: Path) -> None:
+    """Regressão dupla. (a) Apontar `propagate` pra raiz do pj_* devolvia
     `protocol_status: "missing"` em silêncio — `writing_dir(<raiz>)` virava
-    `<raiz>/writing/protocol.md`, que nunca existe. Agora o CLI resolve o
-    escopo via `find_scope_root` e falha alto, com o comando de correção
-    embutido na mensagem."""
-    pj, _scope = _bootstrap(tmp_path)
+    `<raiz>/writing/protocol.md`, que nunca existe. (b) Depois passou a sair
+    com exit 1, quebrando a invocação bare das skills (nenhuma passa `--path`).
+    Com um escopo só, `find_scope_root` resolve sozinho."""
+    pj, scope = _bootstrap(tmp_path)
+    write_picot(pj, _spec())
+    result = runner.invoke(app, ["protocol", "propagate", str(pj), "--json"])
+    assert result.exit_code == 0, result.output
+    payload = _last_json(result.stdout)
+    assert payload["protocol_status"] == "inserted"
+    assert "<!-- picot:begin " in (scope / "writing" / "protocol.md").read_text(encoding="utf-8")
+
+
+def test_protocol_propagate_sem_escopo_nenhum_falha_com_add_study(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / ".claude").mkdir(parents=True)
+    (pj / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
     write_picot(pj, _spec())
     result = runner.invoke(app, ["protocol", "propagate", str(pj), "--json"])
     assert result.exit_code != 0
     assert "escopo" in result.output.lower()
     assert "prumo add study" in result.output
+
+
+def test_protocol_propagate_com_varios_escopos_exige_escolha(tmp_path: Path) -> None:
+    """Ambiguidade real continua exigindo decisão explícita, com os slugs na
+    mensagem — nada de escolher um escopo em silêncio."""
+    pj, _scope = _bootstrap(tmp_path, "artigo-a")
+    for sub in ("notes", "writing", "decisions"):
+        (pj / "docs" / "studies" / "artigo-b" / sub).mkdir(parents=True)
+    write_picot(pj, _spec())
+    result = runner.invoke(app, ["protocol", "propagate", str(pj), "--json"])
+    assert result.exit_code != 0
+    assert "artigo-a" in result.output
+    assert "artigo-b" in result.output
 
 
 def test_protocol_propagate_missing_picot(tmp_path: Path) -> None:

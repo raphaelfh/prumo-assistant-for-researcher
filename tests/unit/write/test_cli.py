@@ -59,6 +59,57 @@ def test_write_prep_emits_inputs_and_template(tmp_path: Path) -> None:
     assert "template_path" in out
 
 
+def test_write_prep_sem_path_da_raiz_do_projeto(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regressão (Crítico #2 da review final): as 5 skills que chamam `write prep`
+    e `write draft` NÃO passam `--path` — rodam do cwd do agente, que é a raiz
+    do pj_*. Num `prumo init` novo (escopo único `principal`) isso saía com
+    exit 1 antes de `find_scope_root` ganhar o fallback de escopo único."""
+    pj, scope = _pj_with_scope(tmp_path)
+    monkeypatch.chdir(pj)
+    result = runner.invoke(app, ["write", "prep", "--kind", "paper", "--json"])
+    assert result.exit_code == 0, result.output
+    out = _last_json(result.stdout)
+    assert "inputs" in out
+    assert "template_path" in out
+
+    draft = runner.invoke(
+        app,
+        [
+            "write",
+            "draft",
+            "--kind",
+            "paper",
+            "--mode",
+            "drafts",
+            "--date",
+            "2026-06-14",
+            "--slug",
+            "rwe-paper",
+            "--json",
+        ],
+        input="# Paper\n\n## Introduction\n\nTexto.",
+    )
+    assert draft.exit_code == 0, draft.output
+    written = Path(str(_last_json(draft.stdout)["output_path"]))
+    assert written.parent == scope / "writing"
+
+
+def test_write_prep_com_varios_escopos_exige_escolha(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ambiguidade real não é resolvida em silêncio: a mensagem traz os slugs."""
+    pj, _scope = _pj_with_scope(tmp_path, "artigo-a")
+    for sub in ("notes", "writing", "decisions"):
+        (pj / "docs" / "studies" / "artigo-b" / sub).mkdir(parents=True)
+    monkeypatch.chdir(pj)
+    result = runner.invoke(app, ["write", "prep", "--kind", "paper"])
+    assert result.exit_code == 1
+    assert "artigo-a" in result.output
+    assert "artigo-b" in result.output
+
+
 def test_write_prep_invalid_kind_fails(tmp_path: Path) -> None:
     pj = tmp_path / "pj_demo"
     (pj / "docs").mkdir(parents=True)
