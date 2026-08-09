@@ -85,6 +85,20 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   contra a união global de stems entre escopos, mascarando link morto quando
   um escopo diferente tinha página homônima — resolução agora é só contra o
   próprio escopo que cita.
+- `prumo wiki finding` e `prumo wiki study-start` repassavam o `--path` cru
+  como escopo: apontados pra raiz do `pj_*` gravavam em `<pj>/notes/`, FORA de
+  `docs/`, com exit 0 — invisíveis pra `write prep`, `wiki lint`/`stats` e o
+  índice do `qmd`, enquanto o `_index.md` do projeto já ganhava o wikilink
+  morto. Ambos resolvem o escopo por `pj_layout.find_scope_root` agora.
+- `find_scope_root` exigia caminho dentro de `docs/studies/<slug>/` e falhava
+  com exit 1 na raiz do `pj_*` — o cwd de onde as skills invocam `write
+  prep`/`draft` e `protocol detect-mode`/`init`/`adr`/`propagate`/`diff` sem
+  `--path`. Passa a aplicar a política que `prumo add <módulo>` já usava: um
+  escopo resolve sozinho, zero ou vários exigem escolha explícita com os slugs
+  disponíveis na mensagem. Caminho de escopo explícito mantém a precedência.
+- Mensagens de erro e help do Typer citavam o layout antigo (`references/…`) —
+  `prumo doctor` mandava conectar `references/_references.bib` em todo projeto
+  novo, e seguir a mensagem acionava o próprio check `references_ressuscitado`.
 
 ### Documentação
 

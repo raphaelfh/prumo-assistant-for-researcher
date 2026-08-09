@@ -63,7 +63,7 @@ autor (`make ...`) — a pessoa instalou um plugin, não clonou um repositório.
 ## Catálogo completo (gerado — não editar à mão)
 
 <!-- prumo:skills-catalog:begin -->
-- `/prumo-assist:active-learning` — Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/wiki/study-sessions/. No Reflect, oferece arquivar insight como finding.
+- `/prumo-assist:active-learning` — Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/studies/<slug>/notes/. No Reflect, oferece arquivar insight como finding.
 - `/prumo-assist:citation-support` — Classifica se cada citação de uma página sustenta a frase que a cita (Fully/Partially/Unsubstantiated) usando os extracts do acervo — SINALIZA apenas, nunca edita nem bloqueia. Roda `prumo paper verify-refs` antes (base determinística: existência/retração/título).
 - `/prumo-assist:formulate-picot` — Formaliza, propaga e versiona a PICOT do projeto em 3 destinos (.claude/picot.toml canônico, docs/studies/<slug>/writing/protocol.md operacional, docs/project_guide.md acadêmico) + ADR append-only quando muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado.
 - `/prumo-assist:paper-extract` — Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em docs/references/papers/<citekey>/_extract.md. Pressupõe /prumo-assist:paper-manager sync executado + symlinks via prumo paper sync-pdfs.

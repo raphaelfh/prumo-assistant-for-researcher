@@ -1,6 +1,6 @@
 ---
 name: active-learning
-description: "Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/wiki/study-sessions/. No Reflect, oferece arquivar insight como finding."
+description: "Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/studies/<slug>/notes/. No Reflect, oferece arquivar insight como finding."
 when_to_use: |
   Quando o usuário pedir "me ensina X", "estudar curvas ROC",
   "me coloca à prova sobre Y", "preciso fixar Z", ou ao terminar de ler
@@ -209,7 +209,7 @@ prumo wiki study-finish \
 
 ```
 Sessão concluída — `<topic>`
-- Log: docs/wiki/study-sessions/<slug>-<data>.md
+- Log: docs/studies/<escopo>/notes/session-<slug>-<data>.md
 - Citações usadas: N
 - Refs faltando: M (sugiro `prumo paper sync` em <descrições>)
 - Finding arquivado: <path ou —>
@@ -221,8 +221,8 @@ Sessão concluída — `<topic>`
   do projeto. Se a fonte não está no acervo, use `[REF FALTANTE: <desc>]`.
 - **Nunca** ultrapasse 5 steps. Se a sessão precisa de mais, sugira segunda sessão.
 - **Não** faça grade automatizado de "respondeu certo" — feedback é qualitativo.
-- **Não** edite arquivo fora de `docs/wiki/study-sessions/` e (se autorizado)
-  `docs/studies/<slug>/notes/`. `_index.md` e `_log.md` são atualizados pelo helper.
+- **Não** edite arquivo fora de `docs/studies/<slug>/notes/` (log da sessão e, se
+  autorizado, o finding). `_index.md` e `_log.md` são atualizados pelo helper.
 
 ## Erros comuns
 
