@@ -75,6 +75,22 @@ def test_paginas_homonimas_em_escopos_distintos_nao_se_anulam(tmp_path: Path) ->
     assert not any("studies/a/notes/metodo.md" in p for p in paginas)
 
 
+def test_dead_link_nao_resolve_por_homonimo_de_outro_escopo(tmp_path: Path) -> None:
+    """`related: ['[[metodo]]']` em b não deve resolver contra `notes/metodo.md`
+    de a. Mesma razão de `orphan_page`/`ambiguous_link`: resolução de link
+    acontece dentro do escopo que cita, não pela união global de stems."""
+    root = _project(tmp_path)
+    a = _scope(root, "a")
+    b = _scope(root, "b")
+    (a / "notes" / "metodo.md").write_text("---\ntype: note\n---\nx", encoding="utf-8")
+    (b / "notes" / "outra.md").write_text(
+        "---\ntype: note\nrelated:\n  - '[[metodo]]'\n---\n\nbody\n", encoding="utf-8"
+    )
+    report = lint(root)
+    dead = [i for i in report["issues"] if i["code"] == "dead_link"]
+    assert any(i["scope"] == "b" and "metodo" in i["message"] for i in dead)
+
+
 def test_multiple_primary_desligado_por_default(tmp_path: Path) -> None:
     root = _project(tmp_path)
     _scope(root, "a")

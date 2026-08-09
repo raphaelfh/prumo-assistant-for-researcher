@@ -15,9 +15,10 @@ Detecta problemas estruturais que LLM não precisa ver:
 - Bibliografia ausente SÓ quando há citação marcada em algum escopo
   (``bib_missing``) — projeto sem citação nenhuma não precisa de .bib.
 - Links mortos em campos de frontmatter ``links_to``/``sources``/``related``
-  (``dead_link``).
-- Conceitos citados ≥3× sem página correspondente (``concept_candidate``,
-  severity ``info``).
+  (``dead_link``) — resolvidos dentro do escopo que cita, um alvo só existe
+  se existir no MESMO escopo (homônimo de outro escopo não resolve).
+- Conceitos citados ≥3× sem página correspondente dentro do escopo
+  (``concept_candidate``, severity ``info``).
 
 ``check_single_primary`` (mais de uma nota com ``role: primary`` em
 ``docs/references/papers/``) é opt-in: só faz sentido quando o projeto
@@ -94,26 +95,17 @@ def lint(pj_path: Path) -> dict[str, Any]:
             )
         )
 
-    # Acumulado através dos escopos p/ os checks globais (dead_link,
-    # concept_candidate) — esses continuam por `stem`: são referências de
-    # frontmatter/prosa a um "nome de página", não ao caminho.
-    all_texts: dict[Path, str] = {}
     for scope in scopes:
-        scope_issues, scope_texts = _lint_scope(pj_path, scope, bib_keys, bib.is_file())
-        issues.extend(scope_issues)
-        all_texts.update(scope_texts)
+        issues.extend(_lint_scope(pj_path, scope, bib_keys, bib.is_file()))
 
     issues.extend(_check_log_prefixes(docs))
-    all_stems = {p.stem for p in all_texts}
-    issues.extend(_check_dead_frontmatter_links(all_texts, pj_path, all_stems))
-    issues.extend(_check_concept_candidates(all_texts, all_stems))
 
     return _report(issues)
 
 
 def _lint_scope(
     pj_path: Path, scope: Path, bib_keys: set[str], bib_exists: bool
-) -> tuple[list[WikiIssue], dict[Path, str]]:
+) -> list[WikiIssue]:
     """Checks de um escopo. Identidade de página é o caminho relativo ao escopo."""
     issues: list[WikiIssue] = []
     slug = scope.name
@@ -190,7 +182,11 @@ def _lint_scope(
                 )
             )
 
-    return issues, texts
+    page_stems = set(by_stem.keys())
+    issues.extend(_check_dead_frontmatter_links(texts, pj_path, page_stems, slug))
+    issues.extend(_check_concept_candidates(texts, page_stems, slug))
+
+    return issues
 
 
 def _link_stem(match: str | tuple[str, ...]) -> str:
@@ -301,8 +297,13 @@ def _check_dead_frontmatter_links(
     texts: dict[Path, str],
     pj_path: Path,
     page_stems: set[str],
+    scope: str,
 ) -> list[WikiIssue]:
-    """Wikilinks e links markdown em ``links_to``/``sources``/``related`` cujo alvo (de página) não existe."""
+    """Wikilinks e links markdown em ``links_to``/``sources``/``related`` cujo alvo (de página) não existe.
+
+    ``page_stems`` é o conjunto de stems do PRÓPRIO escopo — um alvo só
+    resolve dentro do escopo que o cita, nunca por homônimo de outro escopo.
+    """
     issues: list[WikiIssue] = []
     for page, text in texts.items():
         try:
@@ -325,6 +326,7 @@ def _check_dead_frontmatter_links(
                                 "dead_link",
                                 f"{field}: {target} não existe no vault",
                                 page=rel,
+                                scope=scope,
                             )
                         )
     return issues
@@ -333,8 +335,14 @@ def _check_dead_frontmatter_links(
 _CONCEPT_CANDIDATE_MIN = 3
 
 
-def _check_concept_candidates(texts: dict[Path, str], page_stems: set[str]) -> list[WikiIssue]:
-    """Wikilink ``[[termo]]`` citado ≥3× sem página correspondente → candidato a concept."""
+def _check_concept_candidates(
+    texts: dict[Path, str], page_stems: set[str], scope: str
+) -> list[WikiIssue]:
+    """Wikilink ``[[termo]]`` citado ≥3× sem página correspondente → candidato a concept.
+
+    Contagem por escopo — ``page_stems`` é local ao escopo, mesma razão de
+    ``_check_dead_frontmatter_links``.
+    """
     counts: dict[str, int] = {}
     for text in texts.values():
         for target in PAGE_LINK_RE.findall(text):
@@ -349,6 +357,7 @@ def _check_concept_candidates(texts: dict[Path, str], page_stems: set[str]) -> l
                     "info",
                     "concept_candidate",
                     f"'{name}' citado {count}× sem página (candidato a /wiki-ingest)",
+                    scope=scope,
                 )
             )
     return issues
