@@ -56,6 +56,24 @@
 | 3.1  | Hooks system (PII redaction, cost gates) | Houver ≥3 cross-cutting concerns |
 | 3.2  | Eval gate em CI | Drift de prompt observado em prod |
 
+## Achados da auditoria de estado da arte (2026-08-09)
+
+> Benchmark do layout do `pj_*` contra quatro tradições (compêndio reproduzível, toolchain de
+> escrita acadêmica, PKM+Zotero, repo agent-native), com refutação adversarial. Veredito: **atrás**
+> em compêndio reproduzível, **em paridade** nas outras três, à frente em nenhuma. Método e
+> evidência em [`docs/superpowers/specs/2026-08-08-layout-por-escopo-design.md`](docs/superpowers/specs/2026-08-08-layout-por-escopo-design.md).
+
+| Achado | Evidência | Trigger |
+|---|---|---|
+| **Safe outputs** — não há fronteira de confidencialidade. `.prumo/` não estava no `.gitignore` do `pj_base` (corrigido na spec de layout); falta `.claude/rules/safe_outputs.md` com limiar de célula mínima e checagem no `doctor` | `TraceWriter` grava payload de LLM em `.prumo/traces/`; nenhum controle de divulgação sobre saída. Ref.: Five Safes / SDC (UK Data Service) | **atingido** — o público-alvo trabalha com dado de paciente |
+| **Groundedness** — `citation-support` julga se a fonte sustenta a frase lendo `_extract.md`, artefato de LLM, nunca o PDF | `skills/citation-support/SKILL.md` passo 3; `references/pdfs/<citekey>.pdf` é caminho construível e `Read` lê PDF nativo (ADR-0013). Extract errado produz confirmação ativa, não silêncio | **atingido** — a skill está publicada |
+| **Proveniência ligada** — Princípio V está escrito e não ligado | `build_meta`/`TraceWriter` têm zero call sites fora de `core/provenance.py`; só `now_utc` é importado, por `domains/write/disclosure.py:20`, cujo docstring já admite o débito | **atingido** — é dívida declarada no próprio código |
+| **Figuras e tabelas** — sem endereço, sem numeração, sem proveniência | não há `pandoc-crossref` na cadeia de `_build_pandoc_cmd` (`domains/write/export.py`): o docx sai sem "Figura 1"/"Tabela 1" e sem referência cruzada | primeira submissão com figura |
+| **Registro de busca e triagem** — paper excluído é indistinguível de paper nunca encontrado | PRISMA 2020 itens 6, 7 e 16b; a skill `peer-review` já aplica PRISMA como mental model, sem estrutura para guardar o que ele cobra | primeira revisão sistemática |
+| **Módulos opcionais são meio reais** — 5 dos 7 são prosa | `find templates -name _module.toml` devolve só `clinical` e `ml`; os outros cinco vivem em `docs/Research Project Structure.md` | alguém tentar `prumo add <um dos cinco>` |
+| **`pj_base` sem LICENSE nem CITATION.cff** — três corpos com regimes jurídicos diferentes (código, prosa, dado clínico) e nenhum termo | o próprio repo tem `CITATION.cff`; o produto não gera nenhum. Ref.: rrtools (licença tripartite), FAIR4RS, CODECHECK | primeiro compartilhamento externo do `pj_*` |
+| **Multi-estudo** — `docs/studies/<slug>/` para projeto guarda-chuva | nenhum dos 11 `pj_*` tem dois estudos hoje. Restrições apuradas: ADR-0020 amarra um autoexport a um `.bib` por coleção; já existem árvores aninhadas legítimas a distinguir de estudo | segundo estudo no mesmo `pj_*` |
+
 ## Decisões deliberadas postergadas
 
 > Espelhadas em [ADR-0011](docs/adr/adr-0011-semver-por-visibilidade.md); promover qualquer item exige citar o trigger atingido.
