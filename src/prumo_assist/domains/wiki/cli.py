@@ -142,13 +142,13 @@ def finding_command(
     path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Arquiva um finding (corpo markdown via stdin) em docs/wiki/findings/."""
+    """Arquiva um finding (corpo markdown via stdin) em <escopo>/notes/, com type: finding."""
     with cli_run(json_mode=json_mode, catches=(ValueError, FileNotFoundError)) as console:
         body = read_stdin_text()
         tags_list = parse_json_list(tags, "--tags")
         sources_list = parse_json_list(sources, "--sources")
         out = findings.archive_as_finding(
-            pj_path=path.resolve(),
+            scope=path.resolve(),
             slug=slug,
             title=title,
             body=body,

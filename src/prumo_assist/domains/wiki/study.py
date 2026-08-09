@@ -12,6 +12,7 @@ from typing import Any, Literal
 
 import yaml
 
+from prumo_assist.core import pj_layout
 from prumo_assist.domains.wiki.schemas.v1 import SessionLog, StepLog
 
 _STEP_TITLES = {
@@ -24,13 +25,9 @@ _STEP_TITLES = {
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 
 
-def session_log_path(pj_path: Path, topic: str, date: str) -> Path:
-    """``docs/wiki/study-sessions/<topic>-<date>.md`` ou fallback ``docs/study-sessions/...``."""
-    extended = pj_path / "docs" / "wiki"
-    if extended.exists():
-        out = extended / "study-sessions" / f"{topic}-{date}.md"
-    else:
-        out = pj_path / "docs" / "study-sessions" / f"{topic}-{date}.md"
+def session_log_path(scope: Path, topic: str, date: str) -> Path:
+    """``<escopo>/notes/session-<topic>-<date>.md`` — sessão de estudo é nota do escopo."""
+    out = pj_layout.notes_dir(scope) / f"session-{topic}-{date}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     return out
 

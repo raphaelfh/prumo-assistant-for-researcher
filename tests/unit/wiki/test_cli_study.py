@@ -13,6 +13,8 @@ runner = CliRunner()
 
 
 def _pj(tmp_path: Path) -> Path:
+    (tmp_path / ".claude").mkdir(parents=True)
+    (tmp_path / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
     (tmp_path / "docs" / "wiki").mkdir(parents=True)
     return tmp_path
 
@@ -142,8 +144,9 @@ def test_finding_arquiva_corpo_do_stdin(tmp_path: Path) -> None:
     assert "Real-world evidence." in out.read_text(encoding="utf-8")
 
 
-def test_finding_sem_docs_falha_com_dica(tmp_path: Path) -> None:
-    # tmp_path não tem docs/ → archive_as_finding levanta FileNotFoundError acionável.
+def test_finding_sem_pj_config_falha_com_dica(tmp_path: Path) -> None:
+    # tmp_path não tem .claude/pj_config.toml em nenhum ancestral -> raiz não
+    # resolve; archive_as_finding levanta PjRootNotFoundError acionável.
     result = runner.invoke(
         app,
         [
@@ -161,4 +164,5 @@ def test_finding_sem_docs_falha_com_dica(tmp_path: Path) -> None:
         input="corpo",
     )
     assert result.exit_code == 1
-    assert "docs/" in result.output
+    assert "pj_config.toml" in result.output
+    assert "prumo init" in result.output
