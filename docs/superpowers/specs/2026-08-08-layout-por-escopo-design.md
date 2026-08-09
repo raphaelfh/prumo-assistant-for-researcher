@@ -1,7 +1,7 @@
 ---
 title: Layout — núcleo universal, camadas com gatilho, escopos para múltiplas escritas
 date: 2026-08-08
-status: draft
+status: approved
 tags: [layout, pj_base, references, scope, modules, zettlr, zotero, breaking, adr]
 ---
 

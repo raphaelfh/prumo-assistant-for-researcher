@@ -61,11 +61,12 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-07-26-citacao-pandoc-cidada-primeira-classe-design]] · draft
 - [[superpowers/specs/2026-07-26-domain-errors-prumoerror-design]] · draft
 - [[superpowers/specs/2026-07-26-prosa-idioma-citacao-design]] · approved
-- [[superpowers/specs/2026-08-08-layout-por-escopo-design]] · draft
+- [[superpowers/specs/2026-08-08-layout-por-escopo-design]] · approved
 
 **Plans ativos:**
 
 - [[superpowers/plans/2026-07-22-zettlr-front]] · draft
+- [[superpowers/plans/2026-08-09-layout-por-escopo]] · —
 
 **Plans arquivados:** 27 em `superpowers/plans/archive/`
 
