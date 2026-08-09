@@ -15,4 +15,4 @@ paths:
 ## Escopo do wiki
 - **Entidades principais** (datasets, ferramentas, instituições):
 - **Conceitos centrais** (métodos, abordagens):
-- **Decisões já tomadas** (viram ADR em `docs/decisions/`):
+- **Decisões já tomadas** (viram ADR em `docs/studies/<slug>/decisions/`):

@@ -31,7 +31,7 @@ _(fontes não-paper: blogs, tutoriais, docs, slides, transcrições; em `sources
 
 ## References
 
-Papers científicos do projeto → [`../references/_index.md`](../references/_index.md) (MOC mantido por `/prumo-assist:paper-manager`).
+Papers científicos do projeto → [`references/_index.md`](references/_index.md) (MOC mantido por `/prumo-assist:paper-manager`).
 
 ---
 

@@ -1,7 +1,6 @@
 ---
 paths:
   - "**/pj_*/docs/**"
-  - "**/pj_*/references/**"
 ---
 
 <!-- Esta rule é cópia inicial do template global em .claude/rules/documentation.md.
@@ -17,16 +16,17 @@ Contrato do que vive em cada `pj_*` para documentação de estudo e gestão de a
 
 | Pasta | Conteúdo |
 |-------|----------|
-| `docs/` | Documentação do estudo — `README.md`, `protocol.md`, `decisions/`, `templates/` (reference.docx + perfil Zettlr gerado) |
-| `references/` | Acervo bibliográfico — MOC, BibTeX, PDFs, notas, templates |
+| `docs/` | Wiki + `project_guide.md` + `templates/` (reference.docx + perfil Zettlr gerado) |
+| `docs/references/` | Acervo bibliográfico do PROJETO — MOC, BibTeX, PDFs, notas |
+| `docs/studies/<slug>/` | Escopo de escrita — `notes/`, `writing/` (inclusive `protocol.md`), `decisions/` (ADR) |
 
 ```
-pj_*/references/
+pj_*/docs/references/
 ├── _index.md             # MOC: paper primário, por tema, por status
 ├── _references.bib       # Zotero + Better BibTeX (auto-export)
+├── _note_template.md
 ├── pdfs/                 # PDFs gitignorados (copyright)
-├── templates/literature_note.md
-└── notes/<citekey>/_meta.md    # 1 pasta por paper (layout α)
+└── papers/<citekey>/_meta.md    # 1 pasta por paper (layout α)
 ```
 
 ## Citation key — fonte única de identidade
@@ -38,7 +38,7 @@ Ex.: `smith2024cohort`, `jones2023trial`, `jones2023triala` (desempate).
 A mesma string é usada em **todos** os artefatos:
 
 - nome do PDF: `pdfs/<citekey>.pdf`
-- nome da nota: `notes/<citekey>/_meta.md`
+- nome da nota: `papers/<citekey>/_meta.md`
 - entrada BibTeX: `@article{<citekey>, ...}`
 - citação no corpo: `[@<citekey>]` — sintaxe Pandoc; o Zettlr renderiza no editor e autocompleta ao digitar `@`
 
@@ -87,13 +87,13 @@ Destaques usam Markdown puro: parágrafo com **TL;DR** em negrito, blockquote `>
 
 | Intenção | Comando |
 |----------|---------|
-| Paper principal do projeto | `rg "^role: primary" references/notes/` |
+| Paper principal do projeto | `rg "^role: primary" docs/references/papers/` |
 | Fuzzy por autor/título | `/prumo-assist:paper-manager find "<query>"` ou `make cite Q="<query>"` |
-| Papers sobre um tema | `rg -l "combinado" references/notes/` |
-| O que um paper cita (grafo passivo) | `Read references/notes/<citekey>/_meta.md` (campo `cites:`, populado por `update-cites` ao fim de `sync`) |
-| Quem cita um paper | `rg "@<citekey>" references/notes/` ou `/prumo-assist:paper-manager graph <citekey>` |
-| Não lidos | `rg "^status: unread" references/notes/` |
-| Bibliografia formatada | `Read references/_references.bib` |
+| Papers sobre um tema | `rg -l "combinado" docs/references/papers/` |
+| O que um paper cita (grafo passivo) | `Read docs/references/papers/<citekey>/_meta.md` (campo `cites:`, populado por `update-cites` ao fim de `sync`) |
+| Quem cita um paper | `rg "@<citekey>" docs/references/papers/` ou `/prumo-assist:paper-manager graph <citekey>` |
+| Não lidos | `rg "^status: unread" docs/references/papers/` |
+| Bibliografia formatada | `Read docs/references/_references.bib` |
 
 ## Skill dedicada
 
@@ -103,4 +103,4 @@ Para extrair conteúdo estruturado do PDF (TL;DR, PICOT, Método, Resultados, Li
 
 ## PDFs e copyright
 
-`references/pdfs/*.pdf` é **gitignored**. Versionam-se apenas as notas `.md` e o `.bib`. Cada colaborador cuida do próprio diretório local de PDFs.
+`docs/references/pdfs/*.pdf` é **gitignored**. Versionam-se apenas as notas `.md` e o `.bib`. Cada colaborador cuida do próprio diretório local de PDFs.

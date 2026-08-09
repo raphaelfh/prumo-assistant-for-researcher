@@ -53,14 +53,13 @@ def test_init_creates_project_structure(tmp_path: Path) -> None:
 def test_init_substitutes_name_placeholders(tmp_path: Path) -> None:
     """Projeto novo carrega o nome real — nada de ``pj-NOME`` residual.
 
-    Bug: o pyproject ficava ``name = "pj-NOME"`` e o PyCharm/uv exibia o
-    placeholder em vez do nome do projeto.
-    """
+    Bug histórico: o pyproject ficava ``name = "pj-NOME"`` e o PyCharm/uv
+    exibia o placeholder em vez do nome do projeto (o pyproject.toml migrou
+    pro módulo `code` — ver ``test_add_code_substitutes_project_name``)."""
     target = tmp_path / "pj_demo"
     result = runner.invoke(app, ["init", str(target), "--json"])
     assert result.exit_code == 0, result.output
 
-    assert 'name = "pj_demo"' in (target / "pyproject.toml").read_text(encoding="utf-8")
     assert (target / "README.md").read_text(encoding="utf-8").startswith("# pj_demo")
     leftovers = [
         str(p.relative_to(target))

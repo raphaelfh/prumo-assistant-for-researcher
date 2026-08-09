@@ -15,8 +15,10 @@ Editor recomendado: [Zettlr](https://www.zettlr.com) ≥ 3.0 — preview vivo de
 
 ```
 pj_<nome>/
-├── docs/         Wiki + project_guide.md + decisions/ + templates/
-├── references/   Acervo bibliográfico (notas, .bib, pdfs) — Zotero
+├── docs/
+│   ├── ...            Wiki + project_guide.md + templates/
+│   ├── references/     Acervo bibliográfico do projeto (notas, .bib, pdfs) — Zotero
+│   └── studies/<slug>/ Escopo de escrita: notes/, writing/, decisions/
 └── .claude/      Rules, config, make/
 ```
 
