@@ -1,172 +1,224 @@
 ---
-title: references/ sob docs/ — um movimento, quatro consertos de código e adequação agêntica
+title: Layout por escopo — cinco entradas, repetíveis por estudo
 date: 2026-08-08
 status: draft
-tags: [layout, pj_base, references, zettlr, zotero, bbt, breaking, adr]
+tags: [layout, pj_base, references, scope, studies, writing, zettlr, zotero, breaking, adr]
 ---
 
-# `references/` sob `docs/` — um movimento, quatro consertos de código e adequação agêntica
+# Layout por escopo — cinco entradas, repetíveis por estudo
 
 ## Resumo executivo
 
-O `pj_*` tem dois topos de leitura: `docs/` (prosa) e `references/` (bibliografia). Esta spec unifica: **`references/` → `docs/references/`**, para que `docs/` seja o workspace do Zettlr. Nome preservado, conteúdo intacto, nenhum diretório novo, nenhuma taxonomia mexida.
+O `pj_*` tem dois topos de leitura (`docs/` e `references/`), o manuscrito não tem casa, e um projeto guarda-chuva com vários estudos não tem forma.
 
-**Corte limpo:** o código conhece **um** caminho. Sem fallback, sem alias, sem convivência.
+Esta spec define **o escopo**: cinco entradas, cada uma justificada por dono e ciclo de vida distintos. Um projeto de um artigo tem **um** escopo, em `docs/`. Um guarda-chuva tem o seu mais um por estudo, em `docs/studies/<slug>/`, com as mesmas cinco entradas. Um mecanismo, dois usos.
 
-**Adequação de projeto existente é conversa, não comando.** O CLI só **detecta** layout legado e falha com mensagem clara. Adequar um projeto real é heterogêneo — quatro formas diferentes de `.gitignore`, dois projetos sem git funcional, duas classes de link com regras opostas, scripts próprios do pesquisador, e um passo dentro do Zotero. Isso é julgamento, e julgamento fica agêntico, como manda a arquitetura híbrida do repo. Nenhum `prumo migrate` é especificado aqui.
+```
+picot.toml     máquina + humano   muda só com ADR          governa o resto
+references/    Zotero → sync      regenerável              a única coisa que não é sua
+notes/         humano             livre                    conhecimento
+writing/       humano; máquina exporta   por submissão     o produto
+decisions/     humano             append-only, imutável    contador determinístico
+```
 
-A evidência de que o movimento vale: o config vivo do Zettlr tem **uma** workspace aberta, `pj_piloto_genetica/docs`. A bibliografia está hoje fora do campo de visão do editor — o movimento leva de **0 para 223** os arquivos visíveis no `pj_piloto_ml`.
+`docs/` é o workspace do Zettlr, então a bibliografia migra para dentro dele: `docs/references/`, com `notes/<citekey>/` renomeado para **`papers/<citekey>/`** — a colisão com `notes/` do escopo desaparece e o nome passa a dizer o que a pasta é.
 
-Fase 1 = **0.65.0** (`⚠ Breaking`).
+Um argumento decisivo, achado só na terceira rodada de investigação: os quatro `skills/write-*/template.md` gravam `bibliography: ../references/_references.bib` no frontmatter de todo draft, e **nenhum código escreve esse campo** — esses literais *são* o mecanismo que dá autocomplete `@` ao Zettlr. Com `writing/` e `references/` irmãos dentro de cada escopo, o caminho fica **invariante em qualquer profundidade**. Sem escopo, bibliografia por estudo exigiria um literal por slug.
+
+**Fase 1 (0.65.0, `⚠ Breaking`)**: o escopo, com exatamente um. **Fase 2**: `docs/studies/<slug>/` e `prumo add study`.
 
 ## Contexto
 
-O dono: *"o diretório references deveria ficar dentro de docs"* — por navegação no Zettlr e consistência. Mandato de desenho: *"simplificar, manter só o necessário, menor curva de aprendizado"*. Corte limpo reafirmado depois de ver o preço: *"os projetos podem se readequar"*.
+### O pedido, e o erro que ele corrigiu
+
+O dono pediu três coisas, duas vezes: `references/` dentro de `docs/`; *"modular e enxuto — tem que ter um racional muito importante por trás de cada diretório para existir"*; e um lugar para sub-projetos de artigo num projeto guarda-chuva.
+
+Uma rodada anterior desta spec cortou `writing/` e `studies/` medindo **custo de migração** nos 11 `pj_*` existentes ("relocaria 10 arquivos em 3 de 11"). O dono rejeitou o raciocínio: a pergunta era qual estrutura é certa, não qual é barata de migrar. **Para projeto novo o custo de migração é zero.** Esta spec julga o desenho pelo projeto novo e trata migração como problema separado — agêntico, não comando.
 
 ### Três correções ao diagnóstico inicial
 
-Registradas porque versões anteriores desta spec construíram desenho em cima delas:
+1. Os diretórios "orgânicos" do `pj_piloto_ml` são **módulos documentados com gatilho** ([RPS:74-87](../../Research%20Project%20Structure.md)), não invenção.
+2. `entities/` e `sources/` com zero arquivos é módulo `extended-wiki` nunca disparado, não taxonomia rejeitada.
+3. ADR-0014 descreve o resolver desse módulo. Esta spec **o substitui** (ver Governança), mas ele não era letra morta.
 
-1. **Os diretórios "orgânicos" não são invenção.** `brainstorm/`, `comments/`, `qualification/`, `statistics/` e `superpowers/` no `pj_piloto_ml` são cinco **módulos documentados com gatilho** ([RPS:74-87](../../Research%20Project%20Structure.md)).
-2. **`entities/` e `sources/` com zero arquivos não é rejeição.** É o módulo `extended-wiki` — gatilho *"wiki passa de ~20 páginas"* — nunca disparado.
-3. **ADR-0014 não é letra morta.** `docs/wiki/findings/` é o caminho com o módulo ligado, `docs/findings/` com ele desligado. **Permanece.**
+## O escopo — o racional de cada entrada
 
-O repo já implementa "núcleo mínimo + módulos opt-in". Não há taxonomia para colapsar nem `writing/` para inventar.
+O teste: **quem escreve** · **o que acontece quando muda** · **o que quebra se juntar com o vizinho**.
+
+| entrada | quem escreve | quando muda | por que não cabe no vizinho |
+|---|---|---|---|
+| `picot.toml` | máquina + humano | exige ADR novo | é config que governa o resto; precisa viajar com o escopo num `git mv` |
+| `references/` | Zotero → `paper sync` | regenerável, descartável | é a única coisa que **não é sua**; tem regra de gitignore própria (`pdfs/` são symlinks) |
+| `notes/` | humano | livre | prosa mutável, sem procedência e sem entrega |
+| `writing/` | humano; máquina exporta | versionado **por submissão** | ciclo de entrega ≠ ciclo de conhecimento; recebe docx de coautor |
+| `decisions/` | humano | **append-only, imutável** | `adr.py` numera varrendo o diretório — único subdiretório com semântica de máquina |
+
+`_index.md`, `_log.md` e `project_guide.md` são **arquivos**, não diretórios.
+
+**`findings/` não existe.** Finding é output de máquina com procedência ([findings.py:26](../../../src/prumo_assist/domains/wiki/findings.py)), e vive como `type: finding` numa nota de `notes/`. Não é escrita — por isso não pertence a `writing/`; não merece pasta — por isso não é `findings/`.
 
 ## Layout
 
+**Projeto de um artigo** — nasce assim, nunca vê `studies/`:
+
 ```
 pj_<nome>/
-├── .claude/  content/  analyses/  build/     inalterados
-├── reviews/<slug>/             round-trip docx — já criado por export.py:653
-│                               e review.py; fora do workspace
-└── docs/                       ←── WORKSPACE DO ZETTLR
-    ├── _index.md  _log.md  project_guide.md  protocol.md
-    ├── decisions/   templates/   inalterados
-    └── references/             ←── ÚNICA MUDANÇA
-        ├── _references.bib  _index.md
-        ├── notes/<citekey>/    nome preservado
-        ├── pdfs/   templates/
+├── .claude/  content/  analyses/  code/
+├── build/exports/   reviews/<slug>/        saídas de máquina, gitignored
+└── docs/                                   ←── WORKSPACE DO ZETTLR = O ESCOPO
+    ├── _index.md  _log.md  project_guide.md
+    ├── picot.toml
+    ├── references/
+    │   ├── .gitignore          padrões NÃO ancorados — viaja com a pasta
+    │   ├── _references.bib  _index.md
+    │   ├── papers/<citekey>/   ex-notes/ — layout α (ADR-0008) preservado
+    │   ├── pdfs/  templates/
+    ├── notes/          suas páginas, inclusive findings (type: finding)
+    ├── writing/        protocol.md, paper.md, cep.md, sap.md
+    └── decisions/
 ```
+
+**Guarda-chuva com N estudos** — o de cima ganha `studies/`:
+
+```
+docs/
+├── _index.md  project_guide.md  picot.toml       pergunta ampla
+├── references/  notes/  writing/  decisions/     transversais
+└── studies/
+    ├── mortalidade-uti/    picot.toml  references/  notes/  writing/  decisions/
+    └── sepse-ml/           idem
+```
+
+Arrancar um estudo para repo próprio é `git mv` da pasta — é por isso que `picot.toml` e o `.gitignore` da bibliografia moram dentro dela.
+
+## Raiz e escopo são dois conceitos
+
+Hoje um resolvedor só responde às duas perguntas, e com aninhamento isso corrompe.
+
+```python
+find_pj_root(start)     # sentinela .claude/pj_config.toml — 1 por projeto
+find_scope_root(start)  # sentinela picot.toml — para no MAIS PRÓXIMO
+```
+
+- **`slugify` fica ancorada no pj root**, nunca no escopo. Senão `docs/writing/paper.md` e `docs/studies/x/writing/paper.md` geram o mesmo slug, os dois escrevem em `reviews/writing__paper/`, e um `write review ingest` do estudo carrega o `citemap.json` do guarda-chuva — o pareamento citação↔ocorrência casa contra o documento errado, em silêncio.
+- **`reviews/` e `build/exports/` resolvem contra o pj root**; bib, protocolo, `decisions/` e `notes/` contra o escopo.
+- **`pages:` do `compose`** resolve contra o diretório do índice quando ele está sob `writing/`, e contra o pj root caso contrário. Sem isso, um índice dentro de um estudo aponta para fora dele.
+- `find_scope_root` levanta `ScopeNotFoundError` em pt-BR com o comando embutido — não devolve `None` (`mypy --strict`).
+
+**`picot.toml` sai de `.claude/`.** [picot_io.py:22](../../../src/prumo_assist/domains/protocol/picot_io.py) devolve `pj_path/".claude"/"picot.toml"` — fora do workspace e não acompanha um `git mv`. Propaga em `ops.py:67,108`, `adr.py:30,45` e na skill `formulate-picot`.
 
 ## O que muda no código
 
-Quatro consertos. Cada um foi reproduzido nos 11 `pj_*` reais — sem eles o movimento corrompe em silêncio.
-
-### 1 · `core/pj_layout.py` — quatro símbolos, caminho único
+### 1 · `core/pj_layout.py`
 
 ```python
-REFERENCES_RELPATH = Path("docs") / "references"
-
-def bib_path(pj_path: Path) -> Path        # 13 call sites
-def notes_dir(pj_path: Path) -> Path       #  9 call sites + stats.py:14
-def pdfs_dir(pj_path: Path) -> Path        #  4 call sites
-def find_pj_root(start: Path) -> Path      # walk-up, só onde o comando recebe PÁGINA
+REFERENCES_RELPATH = Path("references")   # relativo ao ESCOPO
+def bib_path(scope) / papers_dir(scope) / pdfs_dir(scope)
+def notes_dir(scope) / writing_dir(scope) / decisions_dir(scope)
+def find_pj_root(start) / find_scope_root(start) / iter_scopes(pj_root)
 ```
 
-- **`notes/` mantém o nome.** [note_paths.py:71](../../../src/prumo_assist/core/note_paths.py) usa `meta.parent.name == "notes"` para distinguir o layout plano legado do α, e **311 das 438 notas ainda estão no plano** (phd 219, ovarian 92).
-- `find_pj_root` só em `export`, `compose` e `review` (6 call sites), que recebem uma página. Onde há `--path` ou cwd, o valor é literal — `doctor` nunca sobe. O sentinela é `docs/references/_references.bib` e devolve o **pai de `docs/`**; sem isso `export` gravaria em `docs/build/exports` e `compose` resolveria `pages:` contra a raiz errada.
-- Levanta `PjRootNotFoundError` em pt-BR — não devolve `None` (`mypy --strict` e regra de mensagens do repo).
-- Fora do inventário por desenho: `stats.py:36` (`out["by_type"]["references"]` é chave JSON de saída, não caminho) e os filtros Lua (`pandoc.utils.references`, terminologia CSL).
+`core/note_paths.py` constrói sobre `papers_dir()`. ADR-0008 segue válido: o layout α dentro da pasta do citekey não muda.
 
-### 2 · `wiki-lint` para de engolir a bibliografia
+### 2 · O lint vira por escopo
 
-[lint.py:69](../../../src/prumo_assist/domains/wiki/lint.py) faz `docs.rglob("*.md")`. Com a bibliografia sob `docs/`, as notas viram páginas: `pj_piloto_ml` vai de **23 páginas / 80 issues para 246 / 246**, `orphan_page` de 7 para 227.
+Cinco defeitos, todos silenciosos, todos medidos:
 
-Conserto: excluir `REFERENCES_RELPATH` da varredura. **Consequência assumida:** o literal `"references"` não desaparece do código — vira exclusão.
-
-### 3 · Três degradações silenciosas viram erro
-
-| onde | hoje, depois do movimento | medido |
+| onde | defeito | consequência |
 |---|---|---|
-| [lint.py:64](../../../src/prumo_assist/domains/wiki/lint.py) + `:88` | `.bib` não encontrado → checagem de citekey vira no-op | `broken_citekey` **54 → 0** |
-| [lint.py:177](../../../src/prumo_assist/domains/wiki/lint.py) | `notes_dir` ausente → `return []` → `multiple_primary` vira no-op | silencioso |
-| [stats.py:14](../../../src/prumo_assist/domains/wiki/stats.py) | caminho errado → a chave `references` **some** do JSON | viola [constitution.md:62](../../constitution.md), forward-only |
+| [lint.py:69](../../../src/prumo_assist/domains/wiki/lint.py) | `docs.rglob` engole a bibliografia | 23 → 246 páginas no `phd`; `orphan_page` 7 → 227 |
+| [lint.py:70](../../../src/prumo_assist/domains/wiki/lint.py) | identidade de página por `stem` | 22 `evaluation.md` distintos já colidem hoje; órfã de um estudo conta como linkada por homônima de outro |
+| [lint.py:64,87](../../../src/prumo_assist/domains/wiki/lint.py) | `.bib` ausente ou vazio desliga a checagem de citekey | `broken_citekey` 54 → 0; **5 dos 11 projetos já estão nesse estado** |
+| [lint.py:177](../../../src/prumo_assist/domains/wiki/lint.py) | `multiple_primary` global | N estudos com 1 primary cada viram falso positivo estrutural |
+| [lint.py:32,80](../../../src/prumo_assist/domains/wiki/lint.py) | tipagem por `parts[0]` contra `EXPECTED_DIRS` | com `studies/`, `no_frontmatter` nunca dispara |
 
-Os três resolvem pelo `pj_layout`, e ausência vira `WikiIssue("error", ...)` em pt-BR — nunca degradação muda. (`stats.py` não varre recursivamente; ali o defeito é só de caminho.)
+Conserto: `lint(scope)` chamado uma vez por escopo, mais `lint_all` que itera e etiqueta. Identidade por caminho relativo ao escopo; wikilink resolve por índice `stem → [paths]` dentro do escopo, com `ambiguous_link` novo quando houver mais de um alvo. `.bib` ausente num escopo que contém `[@key]` vira `WikiIssue("error", "bib_missing", ...)`. `WikiIssue` ganha campo opcional `scope` (default `None`, forward-only). **Nunca unir os `.bib` entre escopos** — a união destrói o autocontido e a citação cruzada só quebraria depois do `git mv`, longe da causa.
 
-### 4 · `doctor` ganha duas checagens
+[stats.py](../../../src/prumo_assist/domains/wiki/stats.py) ganha `by_scope` e mantém `by_type` — chave nova, nunca removida.
 
-- **Layout legado** — `references/` na raiz sem `docs/references/`: erro em pt-BR convidando à adequação.
-- **Autoexport não reconfigurado** — `docs/references/` existe **e** `references/` reapareceu na raiz. É a assinatura exata do defeito abaixo, e sem essa guarda ele é invisível.
+### 3 · Findings, nos dois lados
 
-> **O autoexport do Better BibTeX guarda caminho absoluto.** [connect.py:297](../../../src/prumo_assist/domains/paper/connect.py) grava `str(bib.resolve())` no Zotero. Depois do movimento, o BBT continua escrevendo em `<pj>/references/_references.bib`: recria o diretório na raiz e congela o `.bib` migrado, sem erro. O prumo não reconecta — `connect.py:289` recusa quando o bib tem entradas reais, e não existe `autoexport.remove`/`list` no código ([ADR-0020](../../adr/adr-0020-connect-autoexport-bbt.md) põe reconexão fora de escopo). **O conserto é manual, no Zotero.**
+[findings.py:16](../../../src/prumo_assist/domains/wiki/findings.py) **recria** o diretório que o desenho elimina (`mkdir` nos dois ramos) e indexa no `_index.md` do guarda-chuva. E [compose.py:178](../../../src/prumo_assist/domains/write/compose.py) só procura diretório: com findings virando `type:`, `ComposeInputs.findings == []` e `prumo write prep` entrega contexto **sem nenhum finding**, com exit 0.
 
-`doctor` e o próprio detector de layout legado são os **únicos** pontos que toleram o layout antigo. Todo o resto falha com a mensagem de adequação.
+Os dois mudam juntos: escrever em `<scope>/notes/<slug>.md` (o frontmatter já emite `type: finding`), varrer `<scope>/notes/**/*.md` filtrando por `type:` no `compose`, e mirar o `_index.md`/`_log.md` do escopo.
 
-### Fonte do template
+### 4 · Export nunca escreve irmão da fonte
 
-`templates/pj_base/`, três arquivos:
+[export.py:793](../../../src/prumo_assist/domains/write/export.py) não tem guarda de sobrescrita — diferente de [compose.py:322](../../../src/prumo_assist/domains/write/compose.py), que levanta `FileExistsError` sem `--force`. Hoje é inofensivo porque a saída cai em `build/exports`, que é scratch gitignored.
 
-- **`.gitignore`** — padrão de `pdfs/`; mais `~$*` e `**/_out/`, que consertam o lock do Word hoje versionado no `pj_piloto_imagem`; mais duas linhas vindas da auditoria de estado da arte (2026-08-09), baratas e no mesmo arquivo: **`.prumo/`** passa a ser ignorado (o `TraceWriter` grava payload de execução de LLM ali, e hoje isso iria para o histórico do git) e **`uv.lock` sai do ignore** (linha 28), restaurando a declaração de ambiente que o próprio repo já versiona para si.
-- **`docs/_index.md`** — link `../references/` → `references/`.
-- **`.claude/rules/documentation.md`** — auto-carregado toda sessão; sem conserto, reintroduz o caminho antigo em todo `prumo init`.
+Se a saída virasse irmã da página sob `writing/`, `prumo write export` seria a **única escrita destrutiva sem guarda** do domínio, mirando o artefato mais valioso do fluxo. No `pj_piloto_imagem`, `docs/study_protocol_oficial.docx` **é** o docx devolvido pelo coautor (36 de 38 campos `ADDIN ZOTERO_ITEM`, `comments.xml` de 6 KB), está untracked, e ocupa exatamente o stem que o export usaria.
 
-## Observação · adequação agêntica
+Decisão: **a saída permanece em `build/exports/`**, e `export()` ganha a mesma guarda de `compose()` de qualquer forma.
 
-Projeto fora do layout planejado **não é caso de comando**. Quando o `prumo` é invocado ali, a mensagem de erro convida à adequação, e um agente conduz a conversa: olha o projeto, mostra o que encontrou, propõe, e executa com o pesquisador. Nada é reescrito sem ele ver.
+### 5 · `references/.gitignore` próprio
 
-Isto é deliberado. Adequar os 11 projetos reais exigiria, em código, tratar quatro formas de `.gitignore`, dois projetos sem git funcional, duas classes de link com regras **opostas**, scripts próprios do pesquisador e um passo fora da ferramenta. Codificar isso seria mais máquina do que problema — e erraria, porque cada projeto é diferente.
+Padrões ancorados param de casar a cada nível novo — verificado com `git check-ignore` nas quatro formas que existem no parque. Um `references/.gitignore` com padrões **não ancorados** (`pdfs/*.pdf`, `!pdfs/.gitkeep`) viaja com a pasta e torna a promoção git-neutra. As duas linhas saem do `.gitignore` da raiz.
 
-**Briefing do agente** — o que a investigação encontrou nos 11 projetos, como conhecimento, não como algoritmo:
+### 6 · Fonte do template
 
-- **Zotero, primeiro e mais urgente.** Reconfigurar o autoexport do BBT para o caminho novo. Sem isso o movimento se desfaz sozinho.
-- **`.gitignore`, quatro estados.** `references/pdfs/*.pdf` + negação (7 projetos) · forma de diretório `references/pdfs/` (dois projetos) · sem padrão algum (outros dois) · extras `references/images/` e `references/_discover/` (um projeto). Prefixar toda linha `references/`, **inclusive as negações** — os `pdfs/` são 326 symlinks, e versioná-los grava caminhos absolutos da máquina.
-- **Git ausente.** `pj_piloto_ml` e `pj_piloto_genetica` têm gitlink de submódulo órfão: `git mv` não roda, `mv` roda.
-- **Links, duas regras opostas.** 46 wikilinks `[[references/...]]` (todos em `piloto_revisao/docs/screening/`) mudam de **prefixo**; 16 links markdown `../references/_index.md` em 8 projetos mudam de **profundidade** — uma substituição cega os manda para fora do projeto.
-- **Código do pesquisador.** 32 arquivos em `.claude/scripts/` (113 ocorrências), mais `piloto_revisao/.claude/skills/systematic-review-full-screening/` que **gera** caminhos antigos a cada avaliação. Nunca tocar `.claude/skills/*/references/` quando for o namespace da própria skill — só quando `references/` for seguido de `notes|pdfs|_references|templates|images|_discover`.
-- **Prosa obsoleta, não quebrada.** `Makefile` e `CLAUDE.md` citam `references` em 10 de 11 projetos, mas só em comentários; os alvos chamam `prumo`.
-- **Não descer** em `.git/`, `.venv/`, `.claude/worktrees/` nem em subdiretório com `docs/` próprio — `outro_projeto/` e os worktrees têm árvores completas próprias.
-- **Idempotência.** `docs/references/` já existente é no-op, nunca merge — `git mv` repetido aninha silenciosamente.
+`templates/pj_base/`: a árvore do escopo; `.gitignore` (mais `~$*`, `**/_out/`, `.prumo/`, e `uv.lock` **fora** do ignore); `docs/_index.md`; `.claude/rules/documentation.md`, auto-carregado toda sessão. E os **quatro `skills/write-*/template.md`**, cujo `bibliography: ../../references/...` vira `../references/...` — não são `SKILL.md` e escaparam de todos os inventários anteriores.
+
+## Bibliografia por escopo — o passo no Zotero
+
+[connect.py:296](../../../src/prumo_assist/domains/paper/connect.py) fixa o `.bib` na raiz do projeto e [connect.py:287](../../../src/prumo_assist/domains/paper/connect.py) recusa com `AlreadyConnectedError` quando o bib tem entradas reais. No dia do segundo escopo, a única porta de entrada de bibliografia se fecharia — não por política, por guarda. E ADR-0020 põe `autoexport.remove`/`list` fora de escopo.
+
+**Decisão do dono: N coleções no Zotero, feitas à mão.** `prumo paper connect --scope <slug>` ganha o argumento e para de recusar quando o alvo é escopo novo com bib placeholder. Cada estudo recebe sua subcoleção e seu autoexport, configurados pelo pesquisador. Zero RPC novo.
+
+Consequência que a spec assume: **`prumo add study` não move o `.bib`.** Ele cria o escopo com bib placeholder e imprime o passo do Zotero. Mover invalidaria o autoexport, que guarda caminho absoluto — o mesmo defeito que já obriga o passo manual na Fase 1.
+
+## Promoção — `prumo add study <slug>` (Fase 2)
+
+Quando o segundo artigo aparece, o primeiro também desce para `studies/`, senão os níveis ficam assimétricos.
+
+- **Recusa** worktree suja ou sem git, salvo `--force` explícito. Medido: 2 dos 11 projetos não têm git funcional e 5 estão sujos agora — `git checkout .` como desfazer destruiria trabalho.
+- Grava `docs/studies/_promotion.json` (origem→destino + sha256 por arquivo) **antes** de qualquer `mv`.
+- Idempotente: `docs/studies/` existente significa já promovido; nunca reencosta no guarda-chuva.
+- O guarda-chuva **mantém** `project_guide.md`, `decisions/` transversais e `references/` de background. O que desce é o que é do estudo.
+- Relatório com os links que mudam de profundidade e o passo do Zotero.
+
+## Adequação de projeto existente — agêntica
+
+Projeto fora do layout não é caso de comando. O CLI detecta e falha com mensagem clara; um agente conduz a conversa, mostra o que encontrou e executa com o pesquisador.
+
+Codificar isso seria mais máquina que problema: quatro formas de `.gitignore`, dois projetos sem git, duas classes de link com regras **opostas** (46 wikilinks mudam de prefixo, 16 links relativos mudam de profundidade), 32 scripts próprios em `.claude/scripts/`, uma skill geradora que emite caminhos antigos a cada avaliação, e um passo dentro do Zotero. O briefing completo dessa conversa está registrado no [ADR-0022](../../adr/) e no relatório da investigação.
 
 ## O contrato do pesquisador
 
-1. **Escreva `.md` onde quiser dentro de `docs/`.** Módulos opcionais têm lugar sugerido e gatilho; nenhum é obrigatório. O lint varre recursivamente.
-2. **A pasta do citekey em `docs/references/notes/` vem do Zotero — não mova nem renomeie.** O YAML de metadata e os blocos delimitados são da máquina; **o corpo da nota é seu** — as 7 seções humanas de [documentation.md:70-82](../../../templates/pj_base/.claude/rules/documentation.md) são preservadas por [sync.py:112](../../../src/prumo_assist/domains/paper/sync.py), que faz merge.
+1. **`notes/` é seu, `writing/` é o produto, `references/` vem do Zotero.** Três palavras, e a dúvida "isso é nota ou é escrita?" se resolve por "isso vai virar entrega?".
+2. **Não mova nem renomeie pasta de citekey.** O YAML de metadata e os blocos delimitados são da máquina; **o corpo da nota é seu** — as 7 seções humanas de [documentation.md:70-82](../../../templates/pj_base/.claude/rules/documentation.md) são preservadas por [sync.py:112](../../../src/prumo_assist/domains/paper/sync.py), que faz merge.
 
-Em projeto novo, nada a aprender. Em projeto existente, uma conversa de adequação e um passo no Zotero.
+Errar de escopo não quebra nada: o lint acusa e o arquivo continua legível. Quebra só quem move pasta de citekey ou edita dentro de bloco delimitado.
 
 ## Fora de escopo, com o número que justifica
 
 | descartado | por quê |
 |---|---|
-| rename `notes/` → `paper-notes/` | quebra [note_paths.py:71](../../../src/prumo_assist/core/note_paths.py) para **311 de 438** notas em layout plano; +46 wikilinks e 32 scripts |
-| colapsar `concepts\|entities\|sources\|findings` | o `pj_base` **já não os cria**; no legado são 9 `.md` em 4 projetos; o lint varre recursivo |
-| diretório `writing/` | relocaria 10 arquivos em 3 de 11 projetos; `export` já tem `--out`. O problema real são 2 linhas de `.gitignore` |
-| mover `picot.toml` | existe em **1 de 11** projetos |
-| filtrar findings por `type:` | `type:` está em **8 de 167** `.md` sob `docs/` — acharia menos, não mais |
-| substituir ADR-0014 | descreve o resolver do módulo `extended-wiki`. Permanece |
-| comando `prumo migrate` | adequação é julgamento heterogêneo; ver a observação acima |
-| alias / resolver com fallback | avaliado e descartado pelo dono: *"os projetos podem se readequar"* |
-| `autoexport.remove`/`list` | follow-up gated que o próprio ADR-0020 previu |
-
-## Fase 2 — registrada, não desenhada
-
-Projetos guarda-chuva com N estudos: nenhum dos 11 tem dois hoje. Restrições já apuradas: ADR-0020 amarra **um** autoexport a **um** `.bib` por coleção; já existem árvores aninhadas legítimas que qualquer descoberta multi-escopo precisa distinguir de estudo; o módulo `versioned-milestones` já cobre entrega formal versionada. Entrada no `ROADMAP.md`, não spec.
+| colapsar `concepts\|entities\|sources` | o `pj_base` já não os cria; `extended-wiki` é módulo opt-in com gatilho |
+| `writing/_out/` como terceiro destino | `build/exports` e `reviews/` já existem e bastam; um terceiro seria destrutivo (§4) |
+| unir os `.bib` entre escopos no lint | destrói o autocontido; a quebra apareceria só depois do `git mv` |
+| `autoexport.remove`/`list` | decisão do dono: N coleções à mão. Segue como follow-up gated do ADR-0020 |
+| convivência de layouts | corte limpo, reafirmado pelo dono: *"os projetos podem se readequar"* |
 
 ## Governança
 
-- **ADR-0022** (novo): `references/` sob `docs/`, caminho único sem convivência; a varredura do wiki exclui a bibliografia; o autoexport do BBT exige reconfiguração manual; adequação de projeto legado é agêntica. Não altera ADR-0008 nem ADR-0014.
-- **Emenda formal à constitution**: [constitution.md:65](../../constitution.md) cita `references/notes/` como exemplo do Princípio IV → `docs/references/notes/`, com Sync impact report. O princípio não muda. O relatório registra que o conserto de `stats.py:14` é o que impede a remoção da chave `references` do payload, proibida por `constitution.md:62`.
-- **Release**: 0.64.1 → **0.65.0**, MINOR por ser breaking ([ADR-0015](../../adr/adr-0015-pre-1-0-patch-para-releasavel.md)). CHANGELOG com `⚠ Breaking` e o passo do Zotero.
-- **Prosa**: 15 `SKILL.md` com 62 ocorrências, mais `ARCHITECTURE.md`, `README.md`, `Research Project Structure.md`, `actions-by-context.md`, `onboarding-pesquisador.md`, 3 canvases e `templates/pj_base/`.
+- **ADR-0022** — o escopo e suas cinco entradas; `references/` sob `docs/`; `papers/` no lugar de `notes/`; raiz e escopo como resolvedores distintos.
+- **ADR-0023** — findings como `type:` em `notes/`, **substituindo ADR-0014**. Exige atualização coordenada da prosa de todas as skills que citam findings, como o próprio 0014 previa.
+- **ADR-0024** (Fase 2) — `studies/`, promoção e uma coleção do Zotero por escopo.
+- **Emenda à constitution**: [constitution.md:65](../../constitution.md) cita `references/notes/` → `docs/references/papers/`, com Sync impact report.
+- **Release**: 0.64.1 → **0.65.0**, MINOR por ser breaking (ADR-0015).
 
 ## Testes
 
-TDD: `tests/unit/core/test_pj_layout.py` (novo) → `core/` → `domains/` → CLI → `tests/unit/test_pj_base_integration.py`. Fixtures de `tests/unit/conftest.py:45-62` passam a montar a raiz sobre `docs/references/`.
+TDD: `test_pj_layout.py` (novo) → `core/` → `domains/` → CLI → `test_pj_base_integration.py`. Fixtures de `tests/unit/conftest.py:45-62` montam a raiz sobre o escopo.
 
-- Lint sobre projeto migrado devolve o mesmo número de páginas que antes.
-- `.bib` ausente vira `error`, não silêncio; citekey quebrada e `multiple_primary` continuam detectadas; `stats()` mantém a chave `references` com o mesmo valor.
-- `export` a partir de uma página resolve a raiz como o **pai de `docs/`**.
-- `doctor` erra em layout legado, e erra quando `references/` reaparece na raiz de projeto migrado.
-- Todo comando exceto `doctor` falha em pt-BR convidando à adequação, em projeto legado.
-- As 124 ocorrências em 30 arquivos de teste migram junto.
+Um teste por defeito medido: lint devolve a mesma contagem de páginas depois do movimento · `.bib` ausente vira `error` e não silêncio · duas páginas homônimas em escopos diferentes recebem issues distintas · `multiple_primary` conta por escopo · `stats` mantém `by_type` e ganha `by_scope` · `compose` acha findings por `type:` · `export` recusa sobrescrever sem `--force` · `git check-ignore` confirma o PDF ignorado em qualquer profundidade · `slugify` de dois escopos não colide · comando em projeto legado falha em pt-BR convidando à adequação.
 
 ## Critérios de aceitação
 
-1. Inventário **nominal** de literais de layout autorizados fora de `core/pj_layout.py` — lista, não `grep` vazio. `stats.py:36` e a exclusão do conserto 2 estão nela por desenho.
-2. `prumo init` produz `docs/references/` e nenhum diretório novo em relação ao `pj_base` de hoje.
-3. Lint e `stats` sobre `pj_piloto_imagem` migrado devolvem os mesmos números de antes.
-4. Em projeto não migrado, `prumo paper sync` falha com a mensagem de adequação e `prumo doctor` funciona.
-5. `uv run pytest`, `uv run ruff check .`, `uv run mypy` limpos.
-6. *(manual, fora do CI)* Zettlr com workspace em `docs/` mostra as notas de bibliografia — hoje mostra zero.
+1. Inventário **nominal** de literais de layout autorizados fora de `core/pj_layout.py` — lista, não `grep` vazio.
+2. `prumo init` produz o escopo completo e nenhum `studies/`.
+3. Um `.md` sob `docs/writing/` exporta com o `bibliography` do frontmatter resolvendo, sem edição manual.
+4. Lint e `stats` sobre projeto migrado devolvem os mesmos números de antes.
+5. Em projeto não migrado, todo comando exceto `doctor` falha convidando à adequação; `doctor` funciona.
+6. `uv run pytest`, `uv run ruff check .`, `uv run mypy` limpos.
+7. *(manual)* Zettlr com workspace em `docs/` mostra bibliografia, notas e manuscritos numa árvore só.
