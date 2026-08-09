@@ -109,6 +109,19 @@ class CiteMapMismatchError(WriteError):
     """
 
 
+class OutputExistsError(WriteError):
+    """``out`` já existe e ``force`` não foi passado.
+
+    Descende de ``WriteError`` (não do ``FileExistsError`` builtin, que não
+    é ``PrumoError`` e vazaria como traceback cru através de ``cli_run`` —
+    achado da própria Task 8) para que a fachada capture e mostre mensagem
+    pt-BR limpa. Guarda compartilhada por :func:`export` e :func:`compose`:
+    evita sobrescrever em silêncio um export anterior — em particular o
+    docx que pode ter voltado do coautor com revisões (ver
+    ``review.ingest``).
+    """
+
+
 def _check_pandoc() -> str:
     pandoc = shutil.which("pandoc")
     if not pandoc:
@@ -839,9 +852,10 @@ def export(
         / f"{slugify(page, project_root)}.{EXT_BY_FORMAT[to]}"
     )
     if out.exists() and not force:
-        raise FileExistsError(
-            f"{out} já existe. Use `--force` para sobrescrever — atenção: se este for o "
-            "docx que voltou do coautor, sobrescrever perde a revisão."
+        raise OutputExistsError(
+            f"{out} já existe. Rode `prumo write export {page} --force` para "
+            "sobrescrever — atenção: se este for o docx que voltou do coautor, "
+            "sobrescrever perde a revisão."
         )
     out.parent.mkdir(parents=True, exist_ok=True)
 
@@ -907,6 +921,7 @@ def compose(
     template: Path | None = None,
     reference_doc: Path | None = None,
     project_root: Path | None = None,
+    force: bool = False,
 ) -> Path:
     """Compõe várias páginas listadas no frontmatter ``pages:`` de um index.
 
@@ -914,7 +929,8 @@ def compose(
     ``abstract``, ``pages: [list]``. O body do index é prepended ao conteúdo
     das páginas (serve de introdução/abstract). ``out`` fixa o caminho
     completo; ``out_dir`` troca só o diretório, mantendo a regra de nome
-    default (stem do index sem ``.idx``).
+    default (stem do index sem ``.idx``). ``force`` autoriza sobrescrever um
+    ``out`` já existente (default recusa — mesma guarda de :func:`export`).
     """
     project_root = project_root or detect_project_root(index)
     text = index.read_text()
@@ -941,6 +957,12 @@ def compose(
         (out_dir or project_root / "build" / "exports")
         / f"{index.stem.removesuffix('.idx')}.{EXT_BY_FORMAT[to]}"
     )
+    if out.exists() and not force:
+        raise OutputExistsError(
+            f"{out} já existe. Rode `prumo write compose --index {index} --force` "
+            "para sobrescrever — atenção: se este for o docx que voltou do coautor, "
+            "sobrescrever perde a revisão."
+        )
     out.parent.mkdir(parents=True, exist_ok=True)
 
     pandoc_bin = _check_pandoc()

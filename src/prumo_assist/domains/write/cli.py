@@ -64,6 +64,10 @@ def export_command(
             help="Template .docx (estilos/cabeçalho/rodapé) — somente formato docx.",
         ),
     ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Sobrescreve a saída se já existir."),
+    ] = False,
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Exporta uma página Markdown via Pandoc + CSL → DOCX/Typst/PDF/HTML."""
@@ -78,6 +82,7 @@ def export_command(
             bib=bib.resolve() if bib else None,
             template=template.resolve() if template else None,
             reference_doc=reference_doc.resolve() if reference_doc else None,
+            force=force,
         )
         console.success(f"exportado: {result}")
         if to == "docx":
@@ -103,6 +108,10 @@ def compose_command(
             help="Template .docx (estilos/cabeçalho/rodapé) — somente formato docx.",
         ),
     ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Sobrescreve a saída se já existir."),
+    ] = False,
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Compõe múltiplas páginas (frontmatter ``pages: [...]``) em um documento único."""
@@ -117,6 +126,7 @@ def compose_command(
             bib=bib.resolve() if bib else None,
             template=template.resolve() if template else None,
             reference_doc=reference_doc.resolve() if reference_doc else None,
+            force=force,
         )
         console.success(f"composto: {result}")
         if to == "docx":

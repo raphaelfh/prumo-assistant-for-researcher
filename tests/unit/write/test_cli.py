@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -173,7 +174,11 @@ def _pj_with_bib(tmp_path: Path) -> tuple[Path, Path]:
     (pj / "docs" / "references").mkdir(parents=True)
     (pj / "docs" / "references" / "_references.bib").write_text("@article{k2020, title={T}}\n")
     page = pj / "docs" / "p.md"
-    page.parent.mkdir(parents=True)
+    # `docs/references` acima já cria `docs` como efeito colateral — sem
+    # `exist_ok=True` esta chamada batia em `FileExistsError` (mesmo bug
+    # pré-existente já corrigido em `_fake_project`, de
+    # test_export_docx_validation.py, na Task 8).
+    page.parent.mkdir(parents=True, exist_ok=True)
     page.write_text("Texto.\n")
     return pj, page
 
@@ -187,6 +192,42 @@ def _pj_with_review_dir(tmp_path: Path) -> tuple[Path, Path, Path]:
     review_dir = pj / "reviews" / "p"
     review_dir.mkdir(parents=True)
     return pj, page, review_dir
+
+
+def _pj_with_root(tmp_path: Path) -> tuple[Path, Path]:
+    """`_pj_with_bib` + sentinela de projeto (`.claude/pj_config.toml`).
+
+    Os testes de guarda de sobrescrita abaixo chamam `export.export`/
+    `export.compose` DE VERDADE via CLI (sem mock da função inteira, senão
+    não provariam a fiação `--force` → `force=`). Sem o sentinel,
+    `pj_layout.find_pj_root` (chamado quando a fachada não passa
+    `project_root`, o caso real do CLI) levanta `PjRootNotFoundError` antes
+    de a guarda entrar em jogo."""
+    pj, page = _pj_with_bib(tmp_path)
+    (pj / ".claude").mkdir(parents=True, exist_ok=True)
+    (pj / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    return pj, page
+
+
+def _stub_pandoc_seams(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Mocka só os seams externos (binário, CSL, subprocess) — a guarda de
+    sobrescrita e o resto de `export()`/`compose()` rodam de verdade.
+    `--to html` evita a checagem de BBT (só exigida para docx) e a
+    validação estrutural do zip docx, mantendo o teste focado na guarda."""
+    csl = tmp_path / "apa.csl"
+    csl.write_text("<style/>")
+    monkeypatch.setattr(export, "_check_pandoc", lambda: "pandoc")
+    monkeypatch.setattr(export, "resolve_csl", lambda style: csl)
+
+    def fake_run(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        output_flags = [a for a in cmd if a.startswith("--output=")]
+        if output_flags:
+            target = Path(output_flags[0].split("=", 1)[1])
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("<html>ok</html>")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake_run)
 
 
 def test_write_export_docx_prints_first_use_note(
@@ -264,6 +305,85 @@ def test_write_compose_docx_prints_first_use_note(
     result = runner.invoke(app, ["write", "compose", "--index", str(index), "--to", "docx"])
     assert result.exit_code == 0, result.output
     assert "Primeiro uso no Word" in result.output
+
+
+def test_write_export_twice_without_force_fails_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Achado da revisão da Task 8: `export_command` não passava `force=`
+    nem tinha flag `--force`, e a guarda levantava `FileExistsError` cru
+    (não é `PrumoError`) — todo re-export de rotina quebrava com traceback.
+    Roda `export.export` DE VERDADE (só os seams externos são mockados) pra
+    provar a fiação ponta a ponta: exit code de erro, sem traceback, com o
+    `--force` de saída, e sem mexer no arquivo existente."""
+    pj, page = _pj_with_root(tmp_path)
+    out = pj / "build" / "exports" / "p.html"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo do coautor")
+    _stub_pandoc_seams(monkeypatch, tmp_path)
+
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "html"])
+
+    assert result.exit_code != 0
+    assert "Traceback" not in result.output
+    assert "--force" in result.output
+    assert out.read_bytes() == b"conteudo do coautor"
+
+
+def test_write_export_force_overwrites_existing_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, page = _pj_with_root(tmp_path)
+    out = pj / "build" / "exports" / "p.html"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo antigo")
+    _stub_pandoc_seams(monkeypatch, tmp_path)
+
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "html", "--force"])
+
+    assert result.exit_code == 0, result.output
+    assert out.read_bytes() == b"<html>ok</html>"
+
+
+def test_write_compose_twice_without_force_fails_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`compose()` tinha o mesmo buraco de `export()` antes desta correção:
+    nenhuma guarda — `compose_command` sobrescrevia em silêncio. Mesma
+    fiação `--force`, mesmo teste ponta a ponta pela consistência."""
+    pj, _page = _pj_with_root(tmp_path)
+    index = pj / "docs" / "index.md"
+    index.write_text("---\npages: [docs/p.md]\n---\n")
+    out = pj / "build" / "exports" / "index.html"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo do coautor")
+    _stub_pandoc_seams(monkeypatch, tmp_path)
+
+    result = runner.invoke(app, ["write", "compose", "--index", str(index), "--to", "html"])
+
+    assert result.exit_code != 0
+    assert "Traceback" not in result.output
+    assert "--force" in result.output
+    assert out.read_bytes() == b"conteudo do coautor"
+
+
+def test_write_compose_force_overwrites_existing_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, _page = _pj_with_root(tmp_path)
+    index = pj / "docs" / "index.md"
+    index.write_text("---\npages: [docs/p.md]\n---\n")
+    out = pj / "build" / "exports" / "index.html"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo antigo")
+    _stub_pandoc_seams(monkeypatch, tmp_path)
+
+    result = runner.invoke(
+        app, ["write", "compose", "--index", str(index), "--to", "html", "--force"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert out.read_bytes() == b"<html>ok</html>"
 
 
 def test_zettlr_entry_calls_canonical_docx_export(

@@ -20,6 +20,7 @@ import pytest
 import prumo_assist.domains.write.export as export_mod
 from prumo_assist.core.obsidian import SpanFragment, normalize_markdown_with_map, split_frontmatter
 from prumo_assist.core.pj_layout import PjRootNotFoundError
+from prumo_assist.domains.write.errors import WriteError
 from prumo_assist.domains.write.export import (
     CorruptDocxError,
     MissingFieldLockError,
@@ -740,14 +741,19 @@ def test_export_html_embute_figura_presente_via_resource_path(
 def test_export_recusa_sobrescrever_sem_force(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """A guarda tem que descender de ``WriteError``/``PrumoError`` — não do
+    ``FileExistsError`` builtin — senão ``core/cli_op.cli_run`` não a captura
+    e o usuário toma traceback cru (regressão de CLI achada na revisão da
+    Task 8, corrigida aqui)."""
     root, page = _fake_project(tmp_path)
     _patch_export_seams(monkeypatch, tmp_path)
     out = root / "build" / "exports" / "pagina.docx"
     out.parent.mkdir(parents=True)
     out.write_bytes(b"conteudo do coautor")
 
-    with pytest.raises(FileExistsError) as exc:
+    with pytest.raises(export_mod.OutputExistsError) as exc:
         export_mod.export(page, to="docx", out=out, project_root=root)
+    assert isinstance(exc.value, WriteError)
     assert "--force" in str(exc.value)
     assert out.read_bytes() == b"conteudo do coautor"  # nao mexeu no arquivo
 
@@ -763,6 +769,45 @@ def test_export_sobrescreve_com_force(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
 
     result = export_mod.export(page, to="docx", out=out, project_root=root, force=True)
+
+    assert result == out
+    assert len(calls) == 1
+
+
+def test_compose_recusa_sobrescrever_sem_force(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``compose()`` tinha o mesmo buraco: nenhuma guarda de sobrescrita,
+    silenciosa (pior que o crash de ``export()`` — nem avisava). Mesma
+    exceção/mensagem de ``export()`` por consistência dentro do arquivo."""
+    root, _page = _fake_project(tmp_path)
+    index = root / "docs" / "index.md"
+    index.write_text("---\npages: [docs/page.md]\n---\n")
+    _patch_export_seams(monkeypatch, tmp_path)
+    out = root / "build" / "exports" / "index.docx"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo do coautor")
+
+    with pytest.raises(export_mod.OutputExistsError) as exc:
+        export_mod.compose(index=index, to="docx", out=out, project_root=root)
+    assert isinstance(exc.value, WriteError)
+    assert "--force" in str(exc.value)
+    assert out.read_bytes() == b"conteudo do coautor"
+
+
+def test_compose_sobrescreve_com_force(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root, _page = _fake_project(tmp_path)
+    index = root / "docs" / "index.md"
+    index.write_text("---\npages: [docs/page.md]\n---\n")
+    _patch_export_seams(monkeypatch, tmp_path)
+    out = root / "build" / "exports" / "index.docx"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo antigo")
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([_docx_bytes_for_export_wiring(tmp_path, [])], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+
+    result = export_mod.compose(index=index, to="docx", out=out, project_root=root, force=True)
 
     assert result == out
     assert len(calls) == 1
