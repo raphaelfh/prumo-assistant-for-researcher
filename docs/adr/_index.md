@@ -21,7 +21,7 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0011-semver-por-visibilidade]] — SemVer por visibilidade ao consumidor; deferrals com trigger · aceito
 - [[adr/adr-0012-remocao-agents-ml]] — Remoção dos agents ML pré-pivot · aceito
 - [[adr/adr-0013-pdf-via-read-nativo]] — PDFs lidos com a tool Read nativa; sem MCP pdf-reader · aceito
-- [[adr/adr-0014-findings-canonico]] — Caminho canônico de findings: `docs/wiki/findings/` com fallback · aceito
+- [[adr/adr-0014-findings-canonico]] — Caminho canônico de findings: `docs/wiki/findings/` com fallback · substituído por [ADR-0023](adr-0023-finding-como-type.md)
 - [[adr/adr-0015-pre-1-0-patch-para-releasavel]] — Pré-1.0: PATCH para todo release; MINOR reservado a breaking/marco · aceito
 - [[adr/adr-0016-criticmarkup-conservacao-ooxml]] — CriticMarkup como representação de revisão + conservação de citações contada no OOXML · aceito
 - [[adr/adr-0017-prumo-mcp-reconciliador]] — prumo-MCP local e reconciliador que propõe marcas · aceito
@@ -29,4 +29,7 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0019-preflight-uniforme-skills]] — Preflight uniforme gerado nas skills a partir de `requires:` · aceito
 - [[adr/adr-0020-connect-autoexport-bbt]] — `prumo paper connect` via `autoexport.add` do Better BibTeX, guardas anti-fantasma · aceito
 - [[adr/adr-0021-idioma-de-escrita-cascata-e-default]] — Idioma de escrita por cascata, default `en-US`, e contrato de prosa gerado · aceito
+- [[adr/adr-0022-layout-por-escopo]] — Layout por escopo: `docs/` como raiz única de leitura · aceito
+- [[adr/adr-0023-finding-como-type]] — Finding como `type: finding` em `notes/`, não diretório próprio · aceito
+- [[adr/adr-0024-escopo-desde-o-init]] — Escopo presente desde o `init`; sem máquina de promoção · aceito
 <!-- prumo:adr-index:end -->
