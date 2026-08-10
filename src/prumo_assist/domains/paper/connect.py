@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.bib import parse_bib
 from prumo_assist.domains.paper import zotero
 from prumo_assist.domains.paper.errors import PaperError
@@ -256,7 +257,7 @@ def bib_is_placeholder(pj_path: Path) -> bool:
     Condições: arquivo ausente, vazio, ou primeira linha começando com
     ``"% Bibliografia do projeto"`` E ``parse_bib`` não encontra entradas.
     """
-    bib = pj_path / "references" / "_references.bib"
+    bib = pj_layout.bib_path(pj_path)
     if not bib.exists():
         return True
     text = bib.read_text(encoding="utf-8")
@@ -286,14 +287,14 @@ def connect_collection(
     """
     if not bib_is_placeholder(pj_path):
         raise AlreadyConnectedError(
-            "references/_references.bib já tem entradas reais — reconectar às cegas "
+            "docs/references/_references.bib já tem entradas reais — reconectar às cegas "
             "duplicaria o export automático. Confira no Zotero: Preferences → Better "
             "BibTeX → Automatic export."
         )
 
     ref = find_collection(name, library=library)
 
-    bib = pj_path / "references" / "_references.bib"
+    bib = pj_layout.bib_path(pj_path)
     resp = _rpc("autoexport.add", [ref.bbt_path, BETTER_BIBLATEX_GUID, str(bib.resolve())])
     if "error" in resp:
         raise ZoteroOfflineError(

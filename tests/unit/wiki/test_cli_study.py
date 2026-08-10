@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from prumo_assist.cli import app
@@ -12,12 +13,25 @@ from prumo_assist.cli import app
 runner = CliRunner()
 
 
-def _pj(tmp_path: Path) -> Path:
-    (tmp_path / "docs" / "wiki").mkdir(parents=True)
+def _pj(tmp_path: Path, *scopes: str) -> Path:
+    """Raiz do pj_* com escopo(s) sob `docs/studies/`.
+
+    `study-start` e `finding` gravam NOTA DE ESCOPO — o `--path` recebido é
+    resolvido por `pj_layout.find_scope_root`, então o projeto precisa ter um
+    escopo de verdade (não só `docs/`)."""
+    (tmp_path / ".claude").mkdir(parents=True)
+    (tmp_path / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    for slug in scopes or ("principal",):
+        for sub in ("notes", "writing", "decisions"):
+            (tmp_path / "docs" / "studies" / slug / sub).mkdir(parents=True)
     return tmp_path
 
 
-def test_study_start_cria_log_e_emite_path(tmp_path: Path) -> None:
+def test_study_start_cria_log_sob_o_escopo(tmp_path: Path) -> None:
+    """Regressão (Crítico #1 da review final): `--path <raiz do pj_*>` era
+    repassado cru como `scope=`, e o log caía em `<pj>/notes/` — FORA de
+    `docs/`, invisível pra `compose`, `wiki lint`/`stats` e o índice qmd, com
+    exit 0. Assertar só `log_path.exists()` deixava o bug passar."""
     pj = _pj(tmp_path)
     result = runner.invoke(
         app,
@@ -38,6 +52,31 @@ def test_study_start_cria_log_e_emite_path(tmp_path: Path) -> None:
     log_path = Path(payload["log_path"])
     assert log_path.exists()
     assert "2026-06-14" in log_path.name
+    assert log_path.parent == pj / "docs" / "studies" / "principal" / "notes"
+
+
+def test_study_start_sem_path_da_raiz_do_projeto(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Invocação bare da skill `active-learning` (`skills/active-learning/SKILL.md`
+    chama sem `--path`, do cwd do agente = raiz do pj_*)."""
+    pj = _pj(tmp_path)
+    monkeypatch.chdir(pj)
+    result = runner.invoke(app, ["wiki", "study-start", "Tópico", "--date", "2026-06-14", "--json"])
+    assert result.exit_code == 0, result.output
+    log_path = Path(json.loads(result.stdout)["log_path"])
+    assert log_path.parent == pj / "docs" / "studies" / "principal" / "notes"
+
+
+def test_study_start_com_varios_escopos_exige_escolha(tmp_path: Path) -> None:
+    pj = _pj(tmp_path, "artigo-a", "artigo-b")
+    result = runner.invoke(
+        app,
+        ["wiki", "study-start", "Tópico", "--date", "2026-06-14", "--path", str(pj)],
+    )
+    assert result.exit_code == 1
+    assert "artigo-a" in result.output
+    assert "artigo-b" in result.output
 
 
 def test_study_step_anexa_step_do_stdin(tmp_path: Path) -> None:
@@ -114,7 +153,11 @@ def test_study_finish_status_invalido_falha(tmp_path: Path) -> None:
     assert "--status deve ser completed|abandoned|partial" in result.output
 
 
-def test_finding_arquiva_corpo_do_stdin(tmp_path: Path) -> None:
+def test_finding_arquiva_corpo_do_stdin_sob_o_escopo(tmp_path: Path) -> None:
+    """Regressão (Crítico #1 da review final): `--path <raiz do pj_*>` gravava o
+    finding em `<pj>/notes/`, fora de `docs/` — invisível pra
+    `compose._read_findings(<pj>/docs/studies/<slug>)`, enquanto
+    `_append_to_index` já cunhava um wikilink morto em `docs/_index.md`."""
     pj = _pj(tmp_path)
     body = "## Pergunta\n\nO que é RWE?\n\n## Resposta\n\nReal-world evidence."
     result = runner.invoke(
@@ -140,10 +183,60 @@ def test_finding_arquiva_corpo_do_stdin(tmp_path: Path) -> None:
     out = Path(json.loads(result.stdout)["finding_path"])
     assert out.exists()
     assert "Real-world evidence." in out.read_text(encoding="utf-8")
+    assert out == pj / "docs" / "studies" / "principal" / "notes" / "rwe-definicao.md"
 
 
-def test_finding_sem_docs_falha_com_dica(tmp_path: Path) -> None:
-    # tmp_path não tem docs/ → archive_as_finding levanta FileNotFoundError acionável.
+def test_finding_sem_path_da_raiz_do_projeto_cai_sob_o_escopo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Invocação bare das skills `wiki-query` e `active-learning` (nenhuma passa
+    `--path`; o cwd do agente é a raiz do pj_*). O finding tem de ser visível
+    pra `compose`, `wiki lint`/`stats` e o índice qmd."""
+    pj = _pj(tmp_path)
+    monkeypatch.chdir(pj)
+    result = runner.invoke(
+        app,
+        ["wiki", "finding", "--slug", "rwe", "--title", "RWE", "--date", "2026-06-14", "--json"],
+        input="corpo",
+    )
+    assert result.exit_code == 0, result.output
+    out = Path(json.loads(result.stdout)["finding_path"])
+    assert out == pj / "docs" / "studies" / "principal" / "notes" / "rwe.md"
+
+    # A prova que fecha o repro do revisor: o finding entra no contexto de
+    # escrita em vez de virar arquivo invisível com exit 0.
+    from prumo_assist.domains.write.compose import _read_findings
+
+    encontrados = _read_findings(pj / "docs" / "studies" / "principal")
+    assert [f.path for f in encontrados] == [out]
+
+
+def test_finding_com_varios_escopos_exige_escolha(tmp_path: Path) -> None:
+    pj = _pj(tmp_path, "artigo-a", "artigo-b")
+    result = runner.invoke(
+        app,
+        [
+            "wiki",
+            "finding",
+            "--slug",
+            "x",
+            "--title",
+            "X",
+            "--date",
+            "2026-06-14",
+            "--path",
+            str(pj),
+        ],
+        input="corpo",
+    )
+    assert result.exit_code == 1
+    assert "artigo-a" in result.output
+    assert "artigo-b" in result.output
+
+
+def test_finding_sem_pj_config_falha_com_dica(tmp_path: Path) -> None:
+    # tmp_path não tem .claude/pj_config.toml em nenhum ancestral -> raiz não
+    # resolve; archive_as_finding levanta PjRootNotFoundError acionável.
     result = runner.invoke(
         app,
         [
@@ -161,4 +254,5 @@ def test_finding_sem_docs_falha_com_dica(tmp_path: Path) -> None:
         input="corpo",
     )
     assert result.exit_code == 1
-    assert "docs/" in result.output
+    assert "pj_config.toml" in result.output
+    assert "prumo init" in result.output

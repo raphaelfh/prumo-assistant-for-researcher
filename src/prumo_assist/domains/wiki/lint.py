@@ -1,15 +1,29 @@
-"""Auditoria determinística do wiki em ``docs/``.
+"""Auditoria determinística do wiki, um escopo (``docs/studies/<slug>/``) por vez.
 
 Detecta problemas estruturais que LLM não precisa ver:
 
 - Citekeys marcados (``[@key]``) ausentes do .bib.
-- Páginas órfãs (sem links de entrada).
-- Frontmatter ausente em páginas tipadas (``concepts/``, ``entities/``, etc.).
+- Páginas órfãs (sem links de entrada) — identidade de página é o CAMINHO
+  relativo ao escopo, não o ``stem``: duas páginas homônimas em escopos
+  diferentes são páginas diferentes.
+- Wikilink ``[[termo]]`` ambíguo dentro do escopo (mais de uma página com o
+  mesmo ``stem``).
+- Frontmatter ausente em páginas direto sob ``notes/``, ``writing/`` ou
+  ``decisions/`` do escopo.
 - ``_index.md`` ou ``_log.md`` ausentes.
 - Entradas de ``_log.md`` fora do padrão de prefixo (``broken_log_prefix``).
-- Mais de uma nota com ``role: primary`` (``multiple_primary``).
-- Links mortos em campos de frontmatter ``links_to``/``sources``/``related`` (``dead_link``).
-- Conceitos citados ≥3× sem página correspondente (``concept_candidate``, severity ``info``).
+- Bibliografia ausente SÓ quando há citação marcada em algum escopo
+  (``bib_missing``) — projeto sem citação nenhuma não precisa de .bib.
+- Links mortos em campos de frontmatter ``links_to``/``sources``/``related``
+  (``dead_link``) — resolvidos dentro do escopo que cita, um alvo só existe
+  se existir no MESMO escopo (homônimo de outro escopo não resolve).
+- Conceitos citados ≥3× sem página correspondente dentro do escopo
+  (``concept_candidate``, severity ``info``).
+
+``check_single_primary`` (mais de uma nota com ``role: primary`` em
+``docs/references/papers/``) é opt-in: só faz sentido quando o projeto
+declara ter um paper principal, então não é chamado por ``lint()`` — rode
+explicitamente quando aplicável.
 
 Contradições e stale claims permanecem semânticas — trabalho da skill
 ``wiki-lint`` (modo agêntico via host), não deste módulo determinístico.
@@ -25,11 +39,14 @@ from typing import Any
 
 import yaml
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.bib import parse_bib
 from prumo_assist.core.citations import scan_marked_citekeys
 from prumo_assist.core.obsidian import split_frontmatter
 
-EXPECTED_DIRS = ("concepts", "entities", "findings", "sources", "decisions")
+# Subdiretórios do ESCOPO onde frontmatter é esperado — não é mais taxonomia
+# de docs/, é a estrutura fixa de todo `docs/studies/<slug>/` (ADR-0022/0024).
+EXPECTED_DIRS = pj_layout.SCOPE_DIRS
 PAGE_LINK_RE = re.compile(r"\[\[([^\]@\|]+)(?:\|[^\]]+)?\]\]")
 # Links markdown padrão [texto](alvo) — projetos Pandoc-puros não usam
 # wikilink de página; sem isto, toda página nova viraria "órfã".
@@ -45,10 +62,12 @@ class WikiIssue:
     code: str
     message: str
     page: str | None = None
+    scope: str | None = None
 
 
 def lint(pj_path: Path) -> dict[str, Any]:
-    """Roda checks do wiki. Retorna ``{"ok": bool, "issues": [...], "summary": ...}``."""
+    """Roda os checks do wiki, um escopo por vez. Retorna ``{"ok", "issues", "summary"}``."""
+    pj_layout.assert_current_layout(pj_path)
     issues: list[WikiIssue] = []
     docs = pj_path / "docs"
 
@@ -61,56 +80,113 @@ def lint(pj_path: Path) -> dict[str, Any]:
     if not (docs / "_log.md").is_file():
         issues.append(WikiIssue("warning", "no_log", "docs/_log.md ausente"))
 
-    bib_path = pj_path / "references" / "_references.bib"
+    bib = pj_layout.bib_path(pj_path)
     bib_keys: set[str] = set()
-    if bib_path.is_file():
-        bib_keys = {e.citekey for e in parse_bib(bib_path.read_text())}
+    if bib.is_file():
+        bib_keys = {e.citekey for e in parse_bib(bib.read_text())}
 
-    pages: list[Path] = sorted(docs.rglob("*.md"))
-    page_stems = {p.stem for p in pages}
-    # Lê cada página uma vez (evita 3-4 leituras/parses redundantes por arquivo).
-    texts = {page: page.read_text(encoding="utf-8") for page in pages}
+    scopes = pj_layout.iter_scopes(pj_path)
+    if not scopes:
+        issues.append(
+            WikiIssue(
+                "warning",
+                "no_scope",
+                "nenhum escopo em docs/studies/. Crie um com `prumo add study <slug>`.",
+            )
+        )
 
-    incoming: dict[str, int] = dict.fromkeys(page_stems, 0)
+    for scope in scopes:
+        issues.extend(_lint_scope(pj_path, scope, bib_keys, bib.is_file()))
+
+    issues.extend(_check_log_prefixes(docs))
+
+    return _report(issues)
+
+
+def _lint_scope(
+    pj_path: Path, scope: Path, bib_keys: set[str], bib_exists: bool
+) -> list[WikiIssue]:
+    """Checks de um escopo. Identidade de página é o caminho relativo ao escopo."""
+    issues: list[WikiIssue] = []
+    slug = scope.name
+    pages = sorted(scope.rglob("*.md"))
+    texts = {p: p.read_text(encoding="utf-8") for p in pages}
+    # Identidade por CAMINHO — `stem` funde homônimas de escopos diferentes.
+    keys = {p: p.relative_to(scope).as_posix() for p in pages}
+    incoming: dict[str, int] = dict.fromkeys(keys.values(), 0)
+    # Índice stem -> caminhos, para resolver wikilink dentro do escopo.
+    by_stem: dict[str, list[str]] = {}
+    for p in pages:
+        by_stem.setdefault(p.stem, []).append(keys[p])
+
+    cited = False
     for page in pages:
         text = texts[page]
         rel = page.relative_to(pj_path).as_posix()
 
-        # Frontmatter check em páginas tipadas
-        parts = page.relative_to(docs).parts
-        if parts and parts[0] in EXPECTED_DIRS and not text.startswith("---"):
-            issues.append(WikiIssue("warning", "no_frontmatter", "sem frontmatter", page=rel))
+        parent = page.parent.name
+        if parent in EXPECTED_DIRS and not text.startswith("---"):
+            issues.append(
+                WikiIssue("warning", "no_frontmatter", "sem frontmatter", page=rel, scope=slug)
+            )
 
-        # Citekeys quebrados — formas marcadas (`[@key]`); narrativa solta
-        # fica fora de propósito (handle @fulano em prosa não é citação).
         for ck in scan_marked_citekeys(text):
-            if bib_keys and ck not in bib_keys:
+            cited = True
+            if bib_exists and ck not in bib_keys:
                 issues.append(
                     WikiIssue(
                         "warning",
                         "broken_citekey",
                         f"@{ck} não existe no .bib",
                         page=rel,
+                        scope=slug,
                     )
                 )
 
-        # Links de entrada (para detectar páginas órfãs)
         for stem in _page_link_targets(text):
-            if stem in incoming:
-                incoming[stem] += 1
+            targets = by_stem.get(stem, [])
+            if len(targets) > 1:
+                issues.append(
+                    WikiIssue(
+                        "warning",
+                        "ambiguous_link",
+                        f"[[{stem}]] casa {len(targets)} páginas neste escopo",
+                        page=rel,
+                        scope=slug,
+                    )
+                )
+            for t in targets:
+                incoming[t] += 1
 
-    for stem, count in sorted(incoming.items()):
+    if cited and not bib_exists:
+        issues.append(
+            WikiIssue(
+                "warning",
+                "bib_missing",
+                "há citação `[@key]` e nenhuma bibliografia em docs/references/_references.bib. "
+                "Aponte o .bib do seu gerenciador ou rode `prumo paper connect <coleção>`.",
+                scope=slug,
+            )
+        )
+
+    for key, count in sorted(incoming.items()):
+        stem = Path(key).stem
         if count == 0 and not stem.startswith("_") and stem not in {"README", "protocol"}:
             issues.append(
-                WikiIssue("warning", "orphan_page", "página sem links de entrada", page=stem)
+                WikiIssue(
+                    "warning",
+                    "orphan_page",
+                    "página sem links de entrada",
+                    page=(scope / key).relative_to(pj_path).as_posix(),
+                    scope=slug,
+                )
             )
 
-    issues.extend(_check_log_prefixes(docs))
-    issues.extend(_check_single_primary(pj_path))
-    issues.extend(_check_dead_frontmatter_links(texts, pj_path, page_stems))
-    issues.extend(_check_concept_candidates(texts, page_stems))
+    page_stems = set(by_stem.keys())
+    issues.extend(_check_dead_frontmatter_links(texts, pj_path, page_stems, slug))
+    issues.extend(_check_concept_candidates(texts, page_stems, slug))
 
-    return _report(issues)
+    return issues
 
 
 def _link_stem(match: str | tuple[str, ...]) -> str:
@@ -172,14 +248,19 @@ def _report(issues: list[WikiIssue]) -> dict[str, Any]:
 _ROLE_PRIMARY_RE = re.compile(r"^role:\s*primary\s*$", re.MULTILINE)
 
 
-def _check_single_primary(pj_path: Path) -> list[WikiIssue]:
-    """``role: primary`` deve aparecer em no máximo 1 nota de ``references/notes/``."""
-    notes_dir = pj_path / "references" / "notes"
-    if not notes_dir.is_dir():
+def check_single_primary(pj_path: Path) -> list[WikiIssue]:
+    """Opt-in: ``role: primary`` deve aparecer em no máximo 1 paper de ``docs/references/papers/``.
+
+    Não é chamado por ``lint()``. Um revisor sistemático tem N papers
+    incluídos e zero paper principal; o check só faz sentido quando o
+    projeto declara ter um — rode explicitamente nesse caso.
+    """
+    papers = pj_layout.papers_dir(pj_path)
+    if not papers.is_dir():
         return []
     primaries = [
         meta.parent.name
-        for meta in sorted(notes_dir.rglob("_meta.md"))
+        for meta in sorted(papers.rglob("_meta.md"))
         if _ROLE_PRIMARY_RE.search(meta.read_text(encoding="utf-8"))
     ]
     if len(primaries) >= 2:
@@ -216,8 +297,13 @@ def _check_dead_frontmatter_links(
     texts: dict[Path, str],
     pj_path: Path,
     page_stems: set[str],
+    scope: str,
 ) -> list[WikiIssue]:
-    """Wikilinks e links markdown em ``links_to``/``sources``/``related`` cujo alvo (de página) não existe."""
+    """Wikilinks e links markdown em ``links_to``/``sources``/``related`` cujo alvo (de página) não existe.
+
+    ``page_stems`` é o conjunto de stems do PRÓPRIO escopo — um alvo só
+    resolve dentro do escopo que o cita, nunca por homônimo de outro escopo.
+    """
     issues: list[WikiIssue] = []
     for page, text in texts.items():
         try:
@@ -240,6 +326,7 @@ def _check_dead_frontmatter_links(
                                 "dead_link",
                                 f"{field}: {target} não existe no vault",
                                 page=rel,
+                                scope=scope,
                             )
                         )
     return issues
@@ -248,8 +335,14 @@ def _check_dead_frontmatter_links(
 _CONCEPT_CANDIDATE_MIN = 3
 
 
-def _check_concept_candidates(texts: dict[Path, str], page_stems: set[str]) -> list[WikiIssue]:
-    """Wikilink ``[[termo]]`` citado ≥3× sem página correspondente → candidato a concept."""
+def _check_concept_candidates(
+    texts: dict[Path, str], page_stems: set[str], scope: str
+) -> list[WikiIssue]:
+    """Wikilink ``[[termo]]`` citado ≥3× sem página correspondente → candidato a concept.
+
+    Contagem por escopo — ``page_stems`` é local ao escopo, mesma razão de
+    ``_check_dead_frontmatter_links``.
+    """
     counts: dict[str, int] = {}
     for text in texts.values():
         for target in PAGE_LINK_RE.findall(text):
@@ -264,6 +357,7 @@ def _check_concept_candidates(texts: dict[Path, str], page_stems: set[str]) -> l
                     "info",
                     "concept_candidate",
                     f"'{name}' citado {count}× sem página (candidato a /wiki-ingest)",
+                    scope=scope,
                 )
             )
     return issues

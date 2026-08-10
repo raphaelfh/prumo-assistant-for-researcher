@@ -29,6 +29,7 @@ from typing import Any, cast
 from urllib.parse import quote
 
 from prumo_assist._version import __version__
+from prumo_assist.core import pj_layout
 from prumo_assist.core.bib import BibEntry, extract_field, parse_bib
 from prumo_assist.core.citations import scan_marked_citekeys
 from prumo_assist.core.uvx import PinnedTool, run_pinned
@@ -564,7 +565,7 @@ def verify_refs(
     Com ``page``, restringe às citekeys da página (``[@key]``/``@key``) —
     recomendado: sem chave de API o pool público é lento.
     """
-    bib_path = pj_path / "references" / "_references.bib"
+    bib_path = pj_layout.bib_path(pj_path)
     if not bib_path.exists():
         raise FileNotFoundError(
             f"{bib_path} não existe — Better BibTeX export? Rode `prumo paper lint` "

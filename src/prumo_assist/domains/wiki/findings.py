@@ -1,9 +1,13 @@
-"""``archive_as_finding`` — cria docs/wiki/findings/<slug>.md (ou fallback).
+"""``archive_as_finding`` — cria ``<escopo>/notes/<slug>.md`` com ``type: finding``.
 
 Extraído da prose inline do ``wiki-query`` SKILL.md pra reuso pela skill
 ``active-learning``. Pattern: YAML frontmatter (id, type, title, added,
 status, tags, sources) + body com seções fixas. Atualiza ``_index.md`` e
-``_log.md``.
+``_log.md`` do PROJETO.
+
+Não existe diretório ``findings/`` (nem ``docs/wiki/`` nem fallback
+``docs/``): o finding é uma nota comum de ``notes/`` distinguida pelo
+``type:`` do frontmatter (ADR-0023).
 """
 
 from __future__ import annotations
@@ -12,21 +16,12 @@ from pathlib import Path
 
 import yaml
 
-
-def _resolve_findings_dir(pj_path: Path) -> Path:
-    """Prefere ``docs/wiki/findings/`` se ``docs/wiki/`` existe; senão ``docs/findings/``."""
-    extended = pj_path / "docs" / "wiki" / "findings"
-    if extended.parent.exists():
-        extended.mkdir(parents=True, exist_ok=True)
-        return extended
-    fallback = pj_path / "docs" / "findings"
-    fallback.mkdir(parents=True, exist_ok=True)
-    return fallback
+from prumo_assist.core import pj_layout
 
 
 def archive_as_finding(
     *,
-    pj_path: Path,
+    scope: Path,
     slug: str,
     title: str,
     body: str,
@@ -35,20 +30,22 @@ def archive_as_finding(
     tags: list[str] | None = None,
     generator: str = "wiki-query",
 ) -> Path:
-    """Cria/sobrescreve docs/.../findings/<slug>.md, atualiza _index.md e _log.md.
+    """Cria/sobrescreve ``<escopo>/notes/<slug>.md``, atualiza ``_index.md`` e ``_log.md``.
 
     ``body`` é texto markdown livre que vai abaixo do frontmatter.
     ``sources`` é lista de âncoras: citação Pandoc (``"[@key]"``) ou alvo de
     página (wikilink ``"[[page]]"`` ou link markdown ``"[texto](page.md)"``).
     ``generator`` identifica quem chamou (``"wiki-query"`` ou ``"active-learning"``).
-    """
-    if not (pj_path / "docs").exists():
-        raise FileNotFoundError(
-            f"{pj_path}/docs/ não existe. Rode `prumo init` ou crie manualmente."
-        )
 
-    findings_dir = _resolve_findings_dir(pj_path)
-    finding_path = findings_dir / f"{slug}.md"
+    Raises:
+        PjRootNotFoundError: se ``scope`` não estiver dentro de um projeto
+            com ``.claude/pj_config.toml`` (mensagem já traz `prumo init`).
+    """
+    pj_root = pj_layout.find_pj_root(scope)
+
+    notes = pj_layout.notes_dir(scope)
+    notes.mkdir(parents=True, exist_ok=True)
+    finding_path = notes / f"{slug}.md"
 
     fm = {
         "id": slug,
@@ -64,15 +61,15 @@ def archive_as_finding(
     text = f"---\n{yaml_block}\n---\n\n# {title}\n\n{body.strip()}\n"
     finding_path.write_text(text, encoding="utf-8")
 
-    _append_to_index(pj_path, slug, title)
-    _append_to_log(pj_path, slug, generator, date)
+    _append_to_index(pj_root, slug, title)
+    _append_to_log(pj_root, slug, generator, date)
 
     return finding_path
 
 
-def _append_to_index(pj_path: Path, slug: str, title: str) -> None:
-    """Adiciona linha ``- [[<slug>]] — <title>`` em § Findings do _index.md."""
-    index = pj_path / "docs" / "_index.md"
+def _append_to_index(pj_root: Path, slug: str, title: str) -> None:
+    """Adiciona linha ``- [[<slug>]] — <title>`` em § Findings do ``_index.md`` do projeto."""
+    index = pj_root / "docs" / "_index.md"
     if not index.exists():
         index.write_text("# Wiki\n\n## Findings\n\n", encoding="utf-8")
 
@@ -86,9 +83,9 @@ def _append_to_index(pj_path: Path, slug: str, title: str) -> None:
     index.write_text(text, encoding="utf-8")
 
 
-def _append_to_log(pj_path: Path, slug: str, generator: str, date: str) -> None:
-    """Anexa entrada ao topo de _log.md."""
-    log = pj_path / "docs" / "_log.md"
+def _append_to_log(pj_root: Path, slug: str, generator: str, date: str) -> None:
+    """Anexa entrada ao topo de ``_log.md`` do projeto."""
+    log = pj_root / "docs" / "_log.md"
     if not log.exists():
         log.write_text("# Log\n", encoding="utf-8")
 

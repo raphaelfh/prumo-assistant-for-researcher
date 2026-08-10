@@ -1,6 +1,6 @@
 ---
 name: wiki-lint
-description: "Health-check do wiki de um pj_*: detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos sem página, links mortos, prefixo de log inválido, múltiplos role:primary. Gera relatório timestamped em docs/wiki/findings/_lint_<data>.md (fallback: docs/findings/)."
+description: "Health-check do wiki de um pj_*: detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos sem página, links mortos, prefixo de log inválido, múltiplos role:primary. Gera relatório timestamped como finding (type: finding) em docs/studies/<slug>/notes/_lint_<data>.md."
 when_to_use: |
   Quando o usuário pedir "audite o wiki", "health check", "encontre páginas órfãs",
   "o wiki está consistente?", "o que está quebrado?", ou periodicamente após
@@ -32,7 +32,7 @@ prumo:
 >    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
 >    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
 >    pule este passo em silêncio.
-> 3. **Estrutura:** se o diretório não tiver `references/` + `docs/` de um `pj_*`,
+> 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
 >    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
 >
@@ -44,7 +44,7 @@ Aplica as regras de integridade listadas em `/docs/wiki-schema.md` do monorepo. 
 
 ## Pressupostos
 
-- cwd é um `pj_*` com a estrutura padrão do wiki (`docs/_index.md`, `docs/_log.md`, subdirs, `references/`).
+- cwd é um `pj_*` com a estrutura padrão do wiki (`docs/_index.md`, `docs/_log.md`, subdirs, `docs/references/`).
 - Se o wiki é recém-criado e vazio, a skill retorna "Wiki vazio — nada a auditar" e sai.
 
 ## Checklist (ordem fixa)
@@ -74,7 +74,7 @@ Implementação sugerida:
 Glob docs/{concepts,entities,findings,sources}/*.md
 
 # Conjunto linkado via rg (não usar Grep direto — usar a ferramenta Grep)
-Grep "\\[\\[([^@][^\\]]+)\\]\\]" docs/ references/notes/ -o --multiline
+Grep "\\[\\[([^@][^\\]]+)\\]\\]" docs/ docs/references/papers/ -o --multiline
 # + parse de _index.md
 ```
 
@@ -82,7 +82,7 @@ Reportar lista de órfãs com caminho relativo.
 
 ### 2. Citekeys quebradas
 
-Toda citação `[@foo]` (marcada) ou `@foo` (narrativa) deve ter entrada `@<tipo>{foo,…}` em `references/_references.bib`.
+Toda citação `[@foo]` (marcada) ou `@foo` (narrativa) deve ter entrada `@<tipo>{foo,…}` em `docs/references/_references.bib`.
 
 Não reimplemente a extração de citekey em grep: `prumo wiki lint` já usa a
 gramática única (`core/citations.py`), tratando corretamente grupo (`[@a; @b]`)
@@ -107,10 +107,10 @@ Reportar linhas que não batem o regex.
 
 ### 4. Múltiplos `role: primary`
 
-Em `references/notes/`, o campo `role: primary` deve aparecer no frontmatter de **exatamente 1** nota.
+Em `docs/references/papers/`, o campo `role: primary` deve aparecer no frontmatter de **exatamente 1** nota.
 
 ```
-Grep "^role: primary" references/notes/ -c
+Grep "^role: primary" docs/references/papers/ -c
 ```
 
 Reportar violação (0 ou ≥2).
@@ -125,7 +125,7 @@ Reportar findings em violação.
 
 Delegar à inteligência do LLM (não é regex):
 
-1. Ler `docs/wiki/findings/*.md` (ou `docs/findings/*.md` como fallback) e `docs/concepts/*.md` (limite: 30 arquivos por rodada — se maior, reportar "coverage parcial" e listar quais foram analisados).
+1. Ler as notas `type: finding` em `docs/studies/*/notes/*.md` e `docs/concepts/*.md` (limite: 30 arquivos por rodada — se maior, reportar "coverage parcial" e listar quais foram analisados).
 2. Identificar claims conflitantes entre páginas (ex.: "AUROC >= 0.85 em coorte X" vs "AUROC 0.72 em coorte X").
 3. Reportar pares `[[a]] ↔ [[b]]` com o conflito sumarizado.
 
@@ -165,7 +165,7 @@ Reportar pares (página origem, link morto).
 
 ## Relatório
 
-Gerar `docs/wiki/findings/_lint_<YYYY-MM-DD>.md`:
+Gerar como finding (`type: finding`) em `docs/studies/<slug>/notes/_lint_<YYYY-MM-DD>.md`:
 
 ```yaml
 ---
@@ -236,7 +236,7 @@ Anexar ao topo de `docs/_log.md`:
 
 ```
 ✓ Lint completo — <N> issues encontradas
-  Relatório: docs/wiki/findings/_lint_YYYY-MM-DD.md
+  Relatório: docs/studies/<slug>/notes/_lint_YYYY-MM-DD.md
   Log:       docs/_log.md atualizado
 
 Sugestão de próximas ações:

@@ -24,19 +24,18 @@ Thumbs.db
 # Ruff
 .ruff_cache/
 
-# uv
-uv.lock
-
 # Checkpoints e artefatos de treino
 checkpoints/
 logs/
 wandb/
 mlruns/
 
-# Artigos (copyright) — notas e .bib versionadas, PDFs não
-references/pdfs/*.pdf
-!references/pdfs/.gitkeep
-
 # qmd — índice local (hybrid BM25 + vector) reconstruível via `qmd embed`
 .qmd_index/
 .qmd-cache/
+
+# Trace local de execução (saída de LLM — nunca no histórico)
+.prumo/
+
+# Lixo de editor de texto (lock do Word)
+~$*

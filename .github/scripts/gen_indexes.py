@@ -117,7 +117,7 @@ _PF_DRIFT = (
 )
 
 _PF_INIT = (
-    "**Estrutura:** se o diretório não tiver `references/` + `docs/` de um `pj_*`,\n"
+    "**Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,\n"
     "oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente\n"
     "não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor."
 )

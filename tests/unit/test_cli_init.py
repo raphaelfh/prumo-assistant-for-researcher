@@ -14,6 +14,23 @@ from prumo_assist.core.paths import resolve_resource
 runner = CliRunner()
 
 
+def _project(tmp_path: Path) -> Path:
+    """Raiz do projeto no layout ATUAL: só o marcador `.claude/pj_config.toml`."""
+    root = tmp_path / "pj_x"
+    (root / ".claude").mkdir(parents=True)
+    (root / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    (root / "docs").mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _scope(root: Path, slug: str) -> Path:
+    """Escopo `docs/studies/<slug>/{notes,writing,decisions}`."""
+    scope = root / "docs" / "studies" / slug
+    for sub in ("notes", "writing", "decisions"):
+        (scope / sub).mkdir(parents=True)
+    return scope
+
+
 def test_init_creates_project_structure(tmp_path: Path) -> None:
     target = tmp_path / "pj_demo"
     result = runner.invoke(
@@ -29,21 +46,20 @@ def test_init_creates_project_structure(tmp_path: Path) -> None:
     # Estrutura essencial existe
     assert (target / "CLAUDE.md").is_file()
     assert (target / "docs" / "_index.md").is_file()
-    assert (target / "references" / "_references.bib").is_file()
+    assert (target / "docs" / "references" / "_references.bib").is_file()
     assert (target / ".claude" / "pj_config.toml").is_file()
 
 
 def test_init_substitutes_name_placeholders(tmp_path: Path) -> None:
     """Projeto novo carrega o nome real — nada de ``pj-NOME`` residual.
 
-    Bug: o pyproject ficava ``name = "pj-NOME"`` e o PyCharm/uv exibia o
-    placeholder em vez do nome do projeto.
-    """
+    Bug histórico: o pyproject ficava ``name = "pj-NOME"`` e o PyCharm/uv
+    exibia o placeholder em vez do nome do projeto (o pyproject.toml migrou
+    pro módulo `code` — ver ``test_add_code_substitutes_project_name``)."""
     target = tmp_path / "pj_demo"
     result = runner.invoke(app, ["init", str(target), "--json"])
     assert result.exit_code == 0, result.output
 
-    assert 'name = "pj_demo"' in (target / "pyproject.toml").read_text(encoding="utf-8")
     assert (target / "README.md").read_text(encoding="utf-8").startswith("# pj_demo")
     leftovers = [
         str(p.relative_to(target))
@@ -186,7 +202,8 @@ def test_init_with_modules_applies_them(tmp_path: Path) -> None:
     target = tmp_path / "pj_full"
     result = runner.invoke(app, ["init", str(target), "--with", "clinical,ml", "--json"])
     assert result.exit_code == 0, result.output
-    assert (target / "docs" / "protocol.md").is_file()  # clinical
+    # clinical
+    assert (target / "docs" / "studies" / "principal" / "writing" / "protocol.md").is_file()
     assert (target / ".claude" / "rules" / "ml_stack.md").is_file()  # ml
     payload = json.loads(result.stdout)
     assert sorted(payload["modules_applied"]) == ["clinical", "ml"]
@@ -216,7 +233,7 @@ def test_init_scaffold_is_pandoc_pure(tmp_path: Path) -> None:
     target = tmp_path / "pj_demo"
     assert runner.invoke(app, ["init", str(target), "--json"]).exit_code == 0
     assert not (target / ".obsidian").exists()
-    assert not (target / "references" / "views").exists()
+    assert not (target / "docs" / "references" / "views").exists()
     assert not (target / "docs" / "canvas").exists()
     offenders: list[str] = []
     for md in target.rglob("*.md"):
@@ -230,6 +247,26 @@ def test_init_scaffold_is_pandoc_pure(tmp_path: Path) -> None:
         if "[[@" in text or "![[" in text or "> [!" in text:
             offenders.append(str(rel))
     assert offenders == []
+
+
+def test_add_study_cria_pasta_irma_sem_tocar_no_resto(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    _scope(root, "principal")
+    antes = sorted(p.relative_to(root).as_posix() for p in root.rglob("*"))
+    result = runner.invoke(app, ["add", "study", "sepse", "--target", str(root)])
+    assert result.exit_code == 0, result.output
+    for sub in ("notes", "writing", "decisions"):
+        assert (root / "docs" / "studies" / "sepse" / sub).is_dir()
+    depois = sorted(p.relative_to(root).as_posix() for p in root.rglob("*"))
+    assert set(antes).issubset(set(depois))
+
+
+def test_add_study_recusa_slug_existente(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    _scope(root, "principal")
+    result = runner.invoke(app, ["add", "study", "principal", "--target", str(root)])
+    assert result.exit_code != 0
+    assert "já existe" in result.output
 
 
 def test_templates_nao_usam_ancora_bibliografica_sem_arroba() -> None:

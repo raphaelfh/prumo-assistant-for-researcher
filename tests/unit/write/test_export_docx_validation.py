@@ -1,6 +1,12 @@
 """Validação estrutural do docx gerado (Fase 1 do zero-friction onboarding).
 
 Fixtures construídas com zipfile em tmp_path — nenhum pandoc/Zotero real.
+``subprocess.run`` é sempre mockado (seam ``_patch_export_seams`` +
+``_fake_run_writing_output_flag``/``fake_run`` locais), inclusive na seção
+"Task 8": o CI (``ubuntu-latest``) não tem pandoc instalado, então nenhum
+teste deste arquivo pode depender do binário real (regra de
+``.claude/rules/code.md`` — dependências externas são sempre mockadas nos
+seams).
 """
 
 from __future__ import annotations
@@ -15,6 +21,8 @@ import pytest
 
 import prumo_assist.domains.write.export as export_mod
 from prumo_assist.core.obsidian import SpanFragment, normalize_markdown_with_map, split_frontmatter
+from prumo_assist.core.pj_layout import PjRootNotFoundError
+from prumo_assist.domains.write.errors import WriteError
 from prumo_assist.domains.write.export import (
     CorruptDocxError,
     MissingFieldLockError,
@@ -176,10 +184,12 @@ def test_prefs_not_required_without_citations(tmp_path: Path) -> None:
 
 def _fake_project(tmp_path: Path) -> tuple[Path, Path]:
     root = tmp_path / "pj_demo"
-    (root / "references").mkdir(parents=True)
-    (root / "references" / "_references.bib").write_text("@article{smith2020, title={X}}\n")
+    (root / "docs" / "references").mkdir(parents=True)
+    (root / "docs" / "references" / "_references.bib").write_text(
+        "@article{smith2020, title={X}}\n"
+    )
     page = root / "docs" / "page.md"
-    page.parent.mkdir(parents=True)
+    page.parent.mkdir(parents=True, exist_ok=True)
     page.write_text("Texto sem citação.\n")
     return root, page
 
@@ -604,3 +614,279 @@ def test_fields_locked_missing_lock_raises(tmp_path: Path) -> None:
 def test_fields_locked_not_required_without_citations(tmp_path: Path) -> None:
     docx = _write_minimal_docx_with_payloads(tmp_path / "sem_campo.docx", [], locked=False)
     _assert_fields_locked(_docx_texts(docx)[0])  # não levanta (0 citações, lock irrelevante)
+
+
+# --- Task 8: raiz via pj_layout, --resource-path (figuras), guarda de
+# sobrescrita ------------------------------------------------------------
+
+
+def test_detect_project_root_delegates_to_pj_layout(tmp_path: Path) -> None:
+    root = tmp_path / "pj_demo"
+    (root / ".claude").mkdir(parents=True)
+    (root / ".claude" / "pj_config.toml").write_text("")
+    page = root / "docs" / "studies" / "estudo1" / "writing" / "pagina.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("Texto.\n")
+
+    assert export_mod.detect_project_root(page).resolve() == root.resolve()
+
+
+def test_detect_project_root_raises_pj_root_not_found(tmp_path: Path) -> None:
+    page = tmp_path / "solto.md"
+    page.write_text("Texto.\n")
+
+    with pytest.raises(PjRootNotFoundError):
+        export_mod.detect_project_root(page)
+
+
+def test_assert_no_missing_resource_raises_with_target() -> None:
+    stderr = "[WARNING] Could not fetch resource figures/ausente.png\n"
+    with pytest.raises(export_mod.MissingResourceError) as exc:
+        export_mod._assert_no_missing_resource(stderr)
+    assert "figures/ausente.png" in str(exc.value)
+
+
+def test_assert_no_missing_resource_silent_when_absent() -> None:
+    export_mod._assert_no_missing_resource("[WARNING] Duplicate link reference `foo`.\n")
+
+
+def test_build_pandoc_cmd_includes_resource_path(tmp_path: Path) -> None:
+    page_dir = tmp_path / "docs"
+    cmd = export_mod._build_pandoc_cmd(
+        pandoc_bin="pandoc",
+        input_md=tmp_path / "input.md",
+        output=tmp_path / "out.html",
+        bib=tmp_path / "refs.bib",
+        csl=tmp_path / "apa.csl",
+        style="apa",
+        metadata_file=None,
+        template=None,
+        reference_doc=None,
+        to_format="html",
+        resource_path=page_dir,
+    )
+    assert "--resource-path" in cmd
+    assert cmd[cmd.index("--resource-path") + 1] == str(page_dir)
+
+
+def test_build_pandoc_cmd_omits_resource_path_by_default(tmp_path: Path) -> None:
+    cmd = export_mod._build_pandoc_cmd(
+        pandoc_bin="pandoc",
+        input_md=tmp_path / "input.md",
+        output=tmp_path / "out.html",
+        bib=tmp_path / "refs.bib",
+        csl=tmp_path / "apa.csl",
+        style="apa",
+        metadata_file=None,
+        template=None,
+        reference_doc=None,
+        to_format="html",
+    )
+    assert "--resource-path" not in cmd
+
+
+def test_export_falha_alto_quando_figura_falta(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Prova a FIAÇÃO (não repete a prova pura de ``_assert_no_missing_resource``,
+    já coberta acima por ``test_assert_no_missing_resource_raises_with_target``):
+    quando o pandoc — mockado via ``subprocess.run``, sem depender do binário
+    instalado — sai 0 com ``[WARNING] Could not fetch resource`` no stderr,
+    ``export()`` propaga ``MissingResourceError`` até o chamador em vez de
+    completar em silêncio com a figura ausente."""
+    root, page = _fake_project(tmp_path)
+    page.write_text("Texto\n\n![Fig](figures/ausente.png)\n")
+    _patch_export_seams(monkeypatch, tmp_path)
+
+    def fake_run(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            cmd,
+            0,
+            stdout="",
+            stderr="[WARNING] Could not fetch resource figures/ausente.png\n",
+        )
+
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake_run)
+
+    with pytest.raises(export_mod.MissingResourceError) as exc:
+        export_mod.export(page, to="html", project_root=root)
+    assert "figures/ausente.png" in str(exc.value)
+
+
+def test_export_html_usa_resource_path_do_diretorio_da_pagina(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Prova a FIAÇÃO (complementa, sem repetir, ``test_build_pandoc_cmd_includes_resource_path``
+    acima, que testa ``_build_pandoc_cmd`` isolada): o comando que ``export()``
+    de fato monta e executa (capturado do ``subprocess.run`` mockado) carrega
+    ``--resource-path`` com o VALOR do diretório da página FONTE
+    (``page.parent``) — não o tempdir onde o markdown normalizado é gravado.
+    Checar só a presença da flag não provaria nada (um valor errado, ex.
+    apontando pro tempdir, passaria) — por isso asserta o valor exato."""
+    root, page = _fake_project(tmp_path)
+    page.write_text("Texto\n\n![Fig](figures/x.png)\n")
+    _patch_export_seams(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([b"<html>ok</html>"], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+
+    result = export_mod.export(page, to="html", project_root=root)
+
+    assert result.is_file()
+    assert len(calls) == 1
+    cmd = calls[0]
+    assert "--resource-path" in cmd
+    idx = cmd.index("--resource-path")
+    assert cmd[idx + 1] == str(page.parent)
+    assert cmd[idx + 1] != str(page.parent.parent)  # não aponta pro projeto inteiro
+
+
+def test_export_recusa_sobrescrever_sem_force(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A guarda tem que descender de ``WriteError``/``PrumoError`` — não do
+    ``FileExistsError`` builtin — senão ``core/cli_op.cli_run`` não a captura
+    e o usuário toma traceback cru (regressão de CLI achada na revisão da
+    Task 8, corrigida aqui)."""
+    root, page = _fake_project(tmp_path)
+    _patch_export_seams(monkeypatch, tmp_path)
+    out = root / "build" / "exports" / "pagina.docx"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo do coautor")
+
+    with pytest.raises(export_mod.OutputExistsError) as exc:
+        export_mod.export(page, to="docx", out=out, project_root=root)
+    assert isinstance(exc.value, WriteError)
+    assert "--force" in str(exc.value)
+    assert out.read_bytes() == b"conteudo do coautor"  # nao mexeu no arquivo
+
+
+def test_export_sobrescreve_com_force(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root, page = _fake_project(tmp_path)
+    _patch_export_seams(monkeypatch, tmp_path)
+    out = root / "build" / "exports" / "pagina.docx"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo antigo")
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([_docx_bytes_for_export_wiring(tmp_path, [])], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+
+    result = export_mod.export(page, to="docx", out=out, project_root=root, force=True)
+
+    assert result == out
+    assert len(calls) == 1
+
+
+def test_zettlr_export_entry_overwrites_on_second_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``zettlr_export_entry`` (o entrypoint `prumo-zettlr-export` chamado
+    pelo Zettlr) sempre passa ``force=True`` — decisão de produto: ali é
+    sempre o autor reexportando a própria fonte pra scratch gitignored,
+    nunca o docx do coautor com tracked changes. Prova ponta a ponta (export
+    real, seams externos mockados) que reexportar o MESMO arquivo pelo
+    entrypoint do Zettlr sobrescreve sem levantar ``OutputExistsError``."""
+    from prumo_assist.domains.write.cli import zettlr_export_entry
+
+    root, page = _fake_project(tmp_path)
+    (root / ".claude").mkdir(parents=True, exist_ok=True)
+    (root / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    _patch_export_seams(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+    payload = _docx_bytes_for_export_wiring(tmp_path, [])
+    fake = _fake_run_writing_output_flag([payload, payload], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("sys.argv", ["prumo-zettlr-export", str(page)])
+
+    zettlr_export_entry()  # 1a exportação: cria o docx
+    zettlr_export_entry()  # 2a exportação do MESMO arquivo: sobrescreve sem erro
+
+    out = root / "build" / "exports" / f"{export_mod.slugify(page, root)}.docx"
+    assert out.is_file()
+    assert len(calls) == 2
+
+
+def test_compose_recusa_sobrescrever_sem_force(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``compose()`` tinha o mesmo buraco: nenhuma guarda de sobrescrita,
+    silenciosa (pior que o crash de ``export()`` — nem avisava). Mesma
+    exceção/mensagem de ``export()`` por consistência dentro do arquivo."""
+    root, _page = _fake_project(tmp_path)
+    index = root / "docs" / "index.md"
+    index.write_text("---\npages: [docs/page.md]\n---\n")
+    _patch_export_seams(monkeypatch, tmp_path)
+    out = root / "build" / "exports" / "index.docx"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo do coautor")
+
+    with pytest.raises(export_mod.OutputExistsError) as exc:
+        export_mod.compose(index=index, to="docx", out=out, project_root=root)
+    assert isinstance(exc.value, WriteError)
+    assert "--force" in str(exc.value)
+    assert out.read_bytes() == b"conteudo do coautor"
+
+
+def test_compose_sobrescreve_com_force(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root, _page = _fake_project(tmp_path)
+    index = root / "docs" / "index.md"
+    index.write_text("---\npages: [docs/page.md]\n---\n")
+    _patch_export_seams(monkeypatch, tmp_path)
+    out = root / "build" / "exports" / "index.docx"
+    out.parent.mkdir(parents=True)
+    out.write_bytes(b"conteudo antigo")
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([_docx_bytes_for_export_wiring(tmp_path, [])], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+
+    result = export_mod.compose(index=index, to="docx", out=out, project_root=root, force=True)
+
+    assert result == out
+
+
+def test_compose_resource_path_multiplos_diretorios_sem_duplicata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regressão do fix round 1 da Task 8: ``compose()`` nunca recebeu
+    ``resource_path`` nenhum, mas ficou sob a mesma checagem
+    ``_assert_no_missing_resource`` compartilhada com ``export()`` via
+    ``_run_pandoc_checked`` — qualquer figura em página composta passou a
+    falhar sempre. Prova o conserto: o comando real carrega
+    ``--resource-path`` com o diretório de CADA página combinada (index +
+    ``pages:``), sem duplicata (duas páginas no MESMO diretório — A e A2 —
+    só contam uma vez), na ordem estável em que entram no ``combined``."""
+    root, _page = _fake_project(tmp_path)
+    index = root / "docs" / "index.md"
+    index.write_text(
+        "---\npages: [docs/estudoA/pagA.md, docs/estudoA/pagA2.md, docs/estudoB/pagB.md]\n---\n"
+    )
+
+    page_a = root / "docs" / "estudoA" / "pagA.md"
+    page_a.parent.mkdir(parents=True)
+    (page_a.parent / "figures").mkdir()
+    (page_a.parent / "figures" / "a.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    page_a.write_text("Página A\n\n![Fig A](figures/a.png)\n")
+
+    page_a2 = root / "docs" / "estudoA" / "pagA2.md"
+    page_a2.write_text("Página A2, mesmo diretório de A.\n")
+
+    page_b = root / "docs" / "estudoB" / "pagB.md"
+    page_b.parent.mkdir(parents=True)
+    (page_b.parent / "figures").mkdir()
+    (page_b.parent / "figures" / "b.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    page_b.write_text("Página B\n\n![Fig B](figures/b.png)\n")
+
+    _patch_export_seams(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+    fake = _fake_run_writing_output_flag([b"<html>ok</html>"], calls)
+    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+
+    export_mod.compose(index=index, to="html", project_root=root)
+
+    assert len(calls) == 1
+    cmd = calls[0]
+    assert "--resource-path" in cmd
+    idx = cmd.index("--resource-path")
+    dirs = cmd[idx + 1].split(":")
+    assert dirs == [str(index.parent), str(page_a.parent), str(page_b.parent)]
+    assert len(calls) == 1

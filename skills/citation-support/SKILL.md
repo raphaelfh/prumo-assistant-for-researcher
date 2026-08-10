@@ -34,7 +34,7 @@ prumo:
 >    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
 >    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
 >    pule este passo em silêncio.
-> 3. **Estrutura:** se o diretório não tiver `references/` + `docs/` de um `pj_*`,
+> 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
 >    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
 >
@@ -60,7 +60,7 @@ caminho é humano (ou o fluxo review-reconcile → `prumo write review apply`).
 2. **Inventário**: extraia da página cada par (frase → citekeys marcadas
    `[@key]`). Frase = sentença completa que contém a(s) marca(s).
 3. **Evidência do acervo**: para cada citekey, leia
-   `references/notes/<citekey>/_extract.md` (e `_meta.md` para
+   `docs/references/papers/<citekey>/_extract.md` (e `_meta.md` para
    título/autores/DOI). Sem extract → classifique como **Sem-extract** (não
    invente conteúdo do paper; sugira `/prumo-assist:paper-extract <citekey>`).
 4. **Classifique cada par** (3 vias do spec):

@@ -1,6 +1,6 @@
 ---
 name: paper-manager
-description: "Gerencia o acervo bibliográfico do pj_* (references/): sincroniza .bib do Zotero/BBT, atualiza grafo de citação passivo, marca paper principal, lista bibliografia, busca por palavra-chave, vê quem cita quem, audita consistência .bib↔notas."
+description: "Gerencia o acervo bibliográfico do pj_* (docs/references/): sincroniza .bib do Zotero/BBT, atualiza grafo de citação passivo, marca paper principal, lista bibliografia, busca por palavra-chave, vê quem cita quem, audita consistência .bib↔notas."
 when_to_use: |
   Quando o usuário pedir para sincronizar bibliografia, importar anotações
   ou child notes do Zotero, atualizar grafo, marcar paper principal, listar
@@ -20,7 +20,7 @@ prumo:
   requires: [cli, zotero]
 ---
 
-# Paper Manager — acervo bibliográfico de `pj_*/references/`
+# Paper Manager — acervo bibliográfico de `pj_*/docs/references/`
 
 <!-- prumo:preflight:begin -->
 > **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
@@ -34,7 +34,7 @@ prumo:
 >    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
 >    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
 >    pule este passo em silêncio.
-> 3. **Estrutura:** se o diretório não tiver `references/` + `docs/` de um `pj_*`,
+> 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
 >    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
 > 4. **Zotero:** confira `prumo doctor --json` → `external_deps[name=zotero].present`;
@@ -47,18 +47,18 @@ prumo:
 
 Skill para manter o acervo de papers como motor file-based: 1 `.md` por paper, 1 BibTeX central, PDFs em `pdfs/` (gitignored). Todas as operações são feitas via `WebFetch` + `Read`/`Edit`/`Write` — sem novas deps Python.
 
-Pressuposto: o diretório corrente é um `pj_*` com a estrutura padrão em `references/`. Se `references/` não existir, orientar `prumo init pj_<nome>` (via /prumo-assist:start se o CLI não existir) — nunca retrofit manual.
+Pressuposto: o diretório corrente é um `pj_*` com a estrutura padrão em `docs/references/`. Se `docs/references/` não existir, orientar `prumo init pj_<nome>` (via /prumo-assist:start se o CLI não existir) — nunca retrofit manual.
 
 ## Layout esperado
 
 ```
-pj_*/references/
+pj_*/docs/references/
+├── .gitignore
 ├── _index.md
+├── _note_template.md            # template base (vai virar _meta.md)
 ├── _references.bib
 ├── pdfs/<citekey>.pdf           # gitignored
-├── templates/literature_note.md # template base (vai virar _meta.md)
-├── views/papers.base
-└── notes/<citekey>/             # 1 PASTA por paper (layout α)
+└── papers/<citekey>/            # 1 PASTA por paper (layout α)
     ├── _meta.md                 # YAML CSL-JSON + body humano
     ├── _extract.md              # callout estruturado (gerado pela skill paper-extract)
     ├── _annotations.md          # highlights do Zotero (gerado pelo prumo paper sync-annotations)
@@ -66,7 +66,7 @@ pj_*/references/
 ```
 
 > [!info]
-> Layout legado (`notes/<key>.md` plano) ainda é lido por compatibilidade durante transição. Para migrar: `prumo paper migrate-layout`.
+> Layout legado (`notes/<key>.md` plano, na raiz de `references/`) ainda é lido por compatibilidade durante transição. Para migrar: `prumo paper migrate-layout`.
 
 ## Citation key — Better BibTeX
 
@@ -78,7 +78,7 @@ Regras:
 - Sobrenome do **primeiro autor** em minúsculo ASCII.
 - Ano de publicação (issued.date-parts[0][0] no CSL-JSON).
 - Primeira palavra "significativa" do título (ignorar `a`, `an`, `the`, `on`, `of`, `and`, `in`).
-- Se a nota `notes/<citekey>/_meta.md` já existir, adicionar sufixo: `smith2024combinadoa`, `smith2024combinadob`, etc.
+- Se a nota `papers/<citekey>/_meta.md` já existir, adicionar sufixo: `smith2024combinadoa`, `smith2024combinadob`, etc.
 
 ## Operações
 
@@ -87,7 +87,7 @@ Regras:
 
 ### 1. `sync`
 
-Propaga o estado do `_references.bib` (exportado pelo Better BibTeX do Zotero) para `references/notes/<key>/_meta.md` (layout α). Idempotente; pode ser rodado a qualquer momento.
+Propaga o estado do `_references.bib` (exportado pelo Better BibTeX do Zotero) para `docs/references/papers/<key>/_meta.md` (layout α). Idempotente; pode ser rodado a qualquer momento.
 
 Passos:
 1. Executar via `Bash`:
@@ -108,11 +108,11 @@ Passos:
    Para extrair conteúdo dos PDFs: /prumo-assist:paper-extract-all (ou make extract-paper-all)
    ```
 
-4. **Órfãs** (citekey em `notes/` mas ausente do `.bib`) **não são deletadas** automaticamente — é aviso para o usuário renomear no Zotero ou deletar a nota à mão.
+4. **Órfãs** (citekey em `papers/` mas ausente do `.bib`) **não são deletadas** automaticamente — é aviso para o usuário renomear no Zotero ou deletar a nota à mão.
 
 ### 1b. `sync-annotations`
 
-Importa highlights + comentários do PDF do Zotero pra `references/notes/<key>/_annotations.md` (arquivo dedicado). Read-only Zotero → repo.
+Importa highlights + comentários do PDF do Zotero pra `docs/references/papers/<key>/_annotations.md` (arquivo dedicado). Read-only Zotero → repo.
 
 ```bash
 prumo paper sync-annotations <pj_path_absoluto>
@@ -122,7 +122,7 @@ Requer **Zotero 9 aberto** + Better BibTeX instalado (API local em `http://local
 
 ### 1c. `sync-notes`
 
-Projeta cada **child note** do Zotero (rascunhos de leitura: "ideias da intro", "crítica metodológica") num arquivo próprio `references/notes/<key>/note__<itemKey>__<slug>.md`. Um arquivo por nota; identificador estável é o `itemKey` do Zotero.
+Projeta cada **child note** do Zotero (rascunhos de leitura: "ideias da intro", "crítica metodológica") num arquivo próprio `docs/references/papers/<key>/note__<itemKey>__<slug>.md`. Um arquivo por nota; identificador estável é o `itemKey` do Zotero.
 
 ```bash
 prumo paper sync-notes <pj_path_absoluto>
@@ -153,9 +153,9 @@ prumo paper graph <pj_path_absoluto>
 Marca um paper como `role: primary` (apenas 1 por projeto).
 
 Passos:
-1. `rg "^role: primary" references/notes/` para achar o `primary` atual.
+1. `rg "^role: primary" docs/references/papers/` para achar o `primary` atual.
 2. Se existir, editar esse `.md` trocando `role: primary` → `role: supporting`.
-3. Editar `notes/<citekey>/_meta.md` trocando `role: supporting` (ou `background`/`replaced`) → `role: primary`.
+3. Editar `papers/<citekey>/_meta.md` trocando `role: supporting` (ou `background`/`replaced`) → `role: primary`.
 4. Atualizar a seção "Paper principal" do `_index.md` com a citação `[@<citekey>]` + título + venue + ano.
 5. Confirmar ao usuário com diff das mudanças.
 
@@ -164,18 +164,17 @@ Passos:
 Lista tabular dos papers do acervo.
 
 Passos:
-1. `Glob references/notes/*/_meta.md`.
+1. `Glob docs/references/papers/*/_meta.md`.
 2. Para cada nota, `Read` e extrair do YAML: `id`, `role`, `status`, `year`, `tldr`, `tags`.
 3. Imprimir tabela markdown: `| citekey | role | status | year | tldr |`.
-4. Lembrar: no Obsidian a view `references/views/papers.base` já mostra isso com filtros interativos.
 
 ### 5. `graph <citekey>`
 
 Mostra vizinhos do paper no grafo de citações.
 
 Passos:
-1. `Read references/notes/<citekey>/_meta.md` → campo `cites: [...]` → lista de quem este paper cita (dentro do acervo).
-2. `rg "@<citekey>\b" references/notes/ -l` (gramática Pandoc: `[@k]` e `@k`) + `rg "^\s*-\s*<citekey>\s*$" references/notes/ -l` (campo `cites:`, que o `_NotaDumper` serializa em bloco) → quem cita este paper.
+1. `Read docs/references/papers/<citekey>/_meta.md` → campo `cites: [...]` → lista de quem este paper cita (dentro do acervo).
+2. `rg "@<citekey>\b" docs/references/papers/ -l` (gramática Pandoc: `[@k]` e `@k`) + `rg "^\s*-\s*<citekey>\s*$" docs/references/papers/ -l` (campo `cites:`, que o `_NotaDumper` serializa em bloco) → quem cita este paper.
 
    > O `\b` final evita colisão de prefixo (`@smith2025review` casaria também
    > `@smith2025reviewX`). Citekey Pandoc admite `-`, `.`, `:` e `_`, então
@@ -185,10 +184,10 @@ Passos:
 
 ### 6. `sync-bib`
 
-Audita consistência entre `notes/*/_meta.md` e `_references.bib`.
+Audita consistência entre `papers/*/_meta.md` e `_references.bib`.
 
 Passos:
-1. Coletar citekeys em `notes/`: `rg "^id: " notes/ -N` → set A.
+1. Coletar citekeys em `papers/`: `rg "^id: " papers/ -N` → set A.
 2. Coletar citekeys em `_references.bib`: `rg "^@\w+\{([^,]+)," _references.bib -o -r '$1'` → set B.
 3. Reportar:
    - Notas sem entrada BibTeX: A \ B.
@@ -241,11 +240,11 @@ Regras duras:
 ## Erros comuns
 
 - **Citekey colide**: adicionar sufixo `a/b/c` automaticamente (ex.: `smith2024combinado` já existe → `smith2024combinadoa`).
-- **`references/` não existe**: orientar `mkdir` do layout mínimo + copiar template (ou rodar scaffold em novo projeto).
+- **`docs/references/` não existe**: orientar `mkdir` do layout mínimo + copiar template (ou rodar scaffold em novo projeto).
 - **PDF presente mas sem nota**: usar o plugin Zotero Integration no Obsidian para gerar a nota a partir da entrada Zotero correspondente; o campo `pdf:` vai apontar para o arquivo correto.
 
 ## Boundaries
 
-- Skill **não** edita o `.gitignore`, `.obsidian/`, nem arquivos fora de `references/`.
+- Skill **não** edita o `.gitignore`, `.obsidian/`, nem arquivos fora de `docs/references/`.
 - Skill **não** faz commits — deixa isso para o usuário (e para `/project-manager` quando for registrar ref no monorepo).
 - Skill respeita a rule `.claude/rules/documentation.md`: YAML-only, citekey BBT, seções fixas.

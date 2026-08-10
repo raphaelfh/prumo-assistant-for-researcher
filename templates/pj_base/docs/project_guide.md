@@ -16,9 +16,9 @@ O front humano deste projeto é o [Zettlr](https://www.zettlr.com) (≥ 3.0 — 
 
 1. **Workspace:** File → Open Workspace → raiz deste projeto.
 2. **Preview de citação:** Settings → Display → ligar "Render citations".
-3. **Autocomplete:** digite `@` — as chaves vêm do `bibliography:` no frontmatter dos drafts (`references/_references.bib`, mantido pelo Better BibTeX com "Keep updated").
+3. **Autocomplete:** digite `@` — as chaves vêm do `bibliography:` no frontmatter dos drafts (`docs/references/_references.bib`, mantido pelo Better BibTeX com "Keep updated").
 4. **Perfil docx de trabalho:** Settings → Assets Manager → defaults files → importar `docs/templates/prumo-docx.yaml`. Produz docx estilizado com campos Zotero vivos — sem URIs de relink e sem guardas: bom para leitura/compartilhamento, NUNCA para entrega.
-5. **Docx canônico (entrega/coautores):** Settings → Import/Export → Custom export commands → nome "prumo docx (canônico)", comando `prumo-zettlr-export`. Ou no terminal: `prumo write export docs/drafts/<arquivo>.md`.
+5. **Docx canônico (entrega/coautores):** Settings → Import/Export → Custom export commands → nome "prumo docx (canônico)", comando `prumo-zettlr-export`. Ou no terminal: `prumo write export docs/studies/<slug>/writing/<arquivo>.md`.
 6. **Convivência com agentes:** ativar o reload automático de mudanças externas ("Always load remote changes to the current file").
 7. Prumo reinstalado e o export do perfil quebrou? `prumo write zettlr-profile` regenera (o `prumo doctor` avisa).
 

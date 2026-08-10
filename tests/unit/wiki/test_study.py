@@ -19,23 +19,16 @@ def _bootstrap(tmp_path: Path) -> Path:
     return pj
 
 
-def test_session_log_path_extended_wiki(tmp_path: Path) -> None:
-    pj = _bootstrap(tmp_path)
-    (pj / "docs" / "wiki").mkdir()
-    out = session_log_path(pj, "curvas-roc", "2026-05-03")
-    assert out == pj / "docs" / "wiki" / "study-sessions" / "curvas-roc-2026-05-03.md"
-
-
-def test_session_log_path_fallback(tmp_path: Path) -> None:
-    pj = _bootstrap(tmp_path)
-    out = session_log_path(pj, "curvas-roc", "2026-05-03")
-    assert out == pj / "docs" / "study-sessions" / "curvas-roc-2026-05-03.md"
+def test_session_log_path_no_escopo(tmp_path: Path) -> None:
+    scope = _bootstrap(tmp_path)
+    out = session_log_path(scope, "curvas-roc", "2026-05-03")
+    assert out == scope / "notes" / "session-curvas-roc-2026-05-03.md"
 
 
 def test_create_session_log_writes_yaml_frontmatter(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     out = create_session_log(
-        pj_path=pj,
+        scope=pj,
         topic="curvas-roc",
         date="2026-05-03",
         sources_consulted=["[@hanley1982roc]", "[[concepts/curvas-roc]]"],
@@ -53,7 +46,7 @@ def test_create_session_log_writes_yaml_frontmatter(tmp_path: Path) -> None:
 def test_append_step_adds_section(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     log_path = create_session_log(
-        pj_path=pj,
+        scope=pj,
         topic="x",
         date="2026-05-03",
         sources_consulted=[],
@@ -78,7 +71,7 @@ def test_append_step_adds_section(tmp_path: Path) -> None:
 def test_append_multiple_steps_sequentially_numbered(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     log_path = create_session_log(
-        pj_path=pj,
+        scope=pj,
         topic="x",
         date="2026-05-03",
         sources_consulted=[],
@@ -97,7 +90,7 @@ def test_append_multiple_steps_sequentially_numbered(tmp_path: Path) -> None:
 def test_finalize_session_updates_yaml(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     log_path = create_session_log(
-        pj_path=pj,
+        scope=pj,
         topic="x",
         date="2026-05-03",
         sources_consulted=[],

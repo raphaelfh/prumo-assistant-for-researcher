@@ -1,0 +1,3 @@
+description = "Código de análise: src/ importável, tests/ espelhado, pyproject.toml."
+when_to_use = "O projeto vai ter script ou pacote Python próprio."
+anchor = "pyproject.toml"

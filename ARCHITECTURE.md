@@ -109,7 +109,7 @@ despacha subagent que lê o PDF com a tool Read
         ▼
 O JSON extraído é aplicado pelo backend determinístico
 (domains/paper/callout.py) dentro do bloco delimitado (ADR-0009) em
-references/notes/smith2024/_extract.md  — layout α (ADR-0008)
+docs/references/papers/smith2024/_extract.md  — layout α (ADR-0008)
         ▼
 _meta.md ganha extracted_at / extracted_template_hash (staleness por hash)
 ```
@@ -127,5 +127,5 @@ _meta.md ganha extracted_at / extracted_template_hash (staleness por hash)
 - **Integration** — adapter do formato canônico pro layout de um agent-host.
 - **`pj_*`** — projeto de pesquisa do usuário; vault Zettlr (novos) / Obsidian (legado) + `.claude/` scaffoldado por `prumo init`.
 - **Determinismo** — `agentic` | `deterministic` | `hybrid` (frontmatter `prumo.determinism`).
-- **Layout α** — `references/notes/<citekey>/` com `_meta/_extract/_annotations/note__*` (ADR-0008).
+- **Layout α** — `docs/references/papers/<citekey>/` com `_meta/_extract/_annotations/note__*` (ADR-0008).
 - **Bloco delimitado** — região machine-owned `<!-- x:begin -->…<!-- x:end -->` (ADR-0009).

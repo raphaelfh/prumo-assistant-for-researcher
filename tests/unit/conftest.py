@@ -45,16 +45,19 @@ class InitProject(Protocol):
 
 @pytest.fixture
 def init_project(tmp_path: Path) -> InitProject:
-    """Monta `project_root` mínimo (`references/_references.bib`, invariante
-    exigido por `export.detect_project_root`) + `pagina.md` com `body`;
-    devolve `(project_root, page)`. `project_root` é o próprio `tmp_path` do
-    teste — caminhos auxiliares (docx sintético etc.) podem continuar usando
+    """Monta `project_root` mínimo (`.claude/pj_config.toml` — marcador exigido
+    por `pj_layout.find_pj_root`/`export.detect_project_root` — e
+    `docs/references/_references.bib`) + `pagina.md` com `body`; devolve
+    `(project_root, page)`. `project_root` é o próprio `tmp_path` do teste —
+    caminhos auxiliares (docx sintético etc.) podem continuar usando
     `tmp_path` diretamente."""
 
     def _init(*, body: str = "Corpo da pagina de teste.") -> tuple[Path, Path]:
         project_root = tmp_path
-        (project_root / "references").mkdir(parents=True, exist_ok=True)
-        (project_root / "references" / "_references.bib").write_text("")
+        (project_root / ".claude").mkdir(parents=True, exist_ok=True)
+        (project_root / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+        (project_root / "docs" / "references").mkdir(parents=True, exist_ok=True)
+        (project_root / "docs" / "references" / "_references.bib").write_text("")
         page = project_root / "pagina.md"
         page.write_text(body)
         return project_root, page

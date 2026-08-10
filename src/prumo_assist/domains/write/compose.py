@@ -22,6 +22,7 @@ from pathlib import Path
 
 import yaml
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.bib import extract_field, extract_year, parse_bib
 from prumo_assist.core.citations import scan_citekeys
 from prumo_assist.core.note_paths import extract_path
@@ -37,15 +38,20 @@ from prumo_assist.domains.write.schemas.v1 import (
 )
 
 
-def read_inputs(pj_path: Path) -> ComposeInputs:
-    """Carrega ``ComposeInputs`` lendo ``pj_path``. Cada parte é graceful (None/empty)."""
+def read_inputs(scope: Path) -> ComposeInputs:
+    """Carrega ``ComposeInputs`` a partir de um ESCOPO. Cada parte é graceful.
+
+    A bibliografia e o guia do projeto vêm do pj root; protocolo e findings
+    vêm do escopo (ADR-0022).
+    """
+    pj_root = pj_layout.find_pj_root(scope)
     return ComposeInputs(
-        picot=_read_picot(pj_path),
-        citekeys=_read_citekeys(pj_path),
-        papers=_read_papers(pj_path),
-        protocol=_read_text(pj_path / "docs" / "protocol.md"),
-        project=_read_text(pj_path / "docs" / "project_guide.md"),
-        findings=_read_findings(pj_path),
+        picot=_read_picot(pj_root),
+        citekeys=_read_citekeys(pj_root),
+        papers=_read_papers(pj_root),
+        protocol=_read_text(pj_layout.writing_dir(scope) / "protocol.md"),
+        project=_read_text(pj_root / "docs" / "project_guide.md"),
+        findings=_read_findings(scope),
     )
 
 
@@ -123,11 +129,15 @@ def _declares_writing_language(pj_path: Path) -> bool:
     return isinstance(writing, dict) and "language" in writing
 
 
-def prep(pj_path: Path, *, kind: WriteKind, lang: str | None = None) -> WritePrep:
-    """Compõe ``read_inputs`` + ``resolve_template`` + idioma num só passo de contexto."""
+def prep(scope: Path, *, kind: WriteKind, lang: str | None = None) -> WritePrep:
+    """Compõe ``read_inputs`` + ``resolve_template`` + idioma num só passo de contexto.
+
+    Recebe o ESCOPO; o pj root é derivado dele (ADR-0022).
+    """
+    pj_path = pj_layout.find_pj_root(scope)
     language, language_source = resolve_language(pj_path, kind=kind, lang=lang)
     return WritePrep(
-        inputs=read_inputs(pj_path),
+        inputs=read_inputs(scope),
         template_path=resolve_template(pj_path=pj_path, kind=kind),
         language=language,
         language_source=language_source,
@@ -146,16 +156,16 @@ def _read_picot(pj_path: Path):  # type: ignore[no-untyped-def]
         return None
 
 
-def _read_citekeys(pj_path: Path) -> list[str]:
-    bib = pj_path / "references" / "_references.bib"
+def _read_citekeys(pj_root: Path) -> list[str]:
+    bib = pj_layout.bib_path(pj_root)
     if not bib.exists():
         return []
     return [e.citekey for e in parse_bib(bib.read_text(encoding="utf-8"))]
 
 
-def _read_papers(pj_path: Path) -> dict[str, PaperSummary]:
+def _read_papers(pj_root: Path) -> dict[str, PaperSummary]:
     """Combina ``.bib`` (metadata) + ``_extract.md`` (callout body) por citekey."""
-    bib = pj_path / "references" / "_references.bib"
+    bib = pj_layout.bib_path(pj_root)
     if not bib.exists():
         return {}
     out: dict[str, PaperSummary] = {}
@@ -164,7 +174,7 @@ def _read_papers(pj_path: Path) -> dict[str, PaperSummary]:
         year_raw = extract_year(entry.body)
         year = int(year_raw) if year_raw else None
         authors = (extract_field(entry.body, "author") or "").strip()
-        extract_content = _read_text(extract_path(pj_path, entry.citekey))
+        extract_content = _read_text(extract_path(pj_root, entry.citekey))
         out[entry.citekey] = PaperSummary(
             citekey=entry.citekey,
             title=title,
@@ -175,18 +185,20 @@ def _read_papers(pj_path: Path) -> dict[str, PaperSummary]:
     return out
 
 
-def _read_findings(pj_path: Path) -> list[FindingSummary]:
-    """Tenta ``docs/wiki/findings/`` primeiro, fallback ``docs/findings/``."""
-    candidates = [
-        pj_path / "docs" / "wiki" / "findings",
-        pj_path / "docs" / "findings",
-    ]
-    findings_dir = next((c for c in candidates if c.exists()), None)
-    if findings_dir is None:
+def _read_findings(scope: Path) -> list[FindingSummary]:
+    """Varre ``<escopo>/notes/`` e devolve as notas com ``type: finding``.
+
+    Finding não tem diretório próprio: é uma nota com procedência,
+    distinguida pelo ``type:`` do frontmatter (ADR-0023).
+    """
+    notes = pj_layout.notes_dir(scope)
+    if not notes.is_dir():
         return []
     out: list[FindingSummary] = []
-    for md in sorted(findings_dir.glob("*.md")):
+    for md in sorted(notes.rglob("*.md")):
         text = md.read_text(encoding="utf-8")
+        if _extract_yaml_field(text, "type") != "finding":
+            continue
         title = _extract_yaml_field(text, "title") or md.stem
         body = _strip_frontmatter(text)
         out.append(FindingSummary(path=md, title=title, body=body))
@@ -254,7 +266,7 @@ def resolve_template(
 
 def compose_path(
     *,
-    pj_path: Path,
+    scope: Path,
     kind: WriteKind,
     date: str,
     slug: str,
@@ -268,7 +280,7 @@ def compose_path(
         return into
     if out is not None:
         return out
-    drafts = pj_path / "docs" / "drafts"
+    drafts = pj_layout.writing_dir(scope)
     drafts.mkdir(parents=True, exist_ok=True)
     return drafts / f"{kind}-{date}-{slug}.md"
 
@@ -276,7 +288,7 @@ def compose_path(
 def write_output(
     *,
     content: str,
-    pj_path: Path,
+    scope: Path,
     kind: WriteKind,
     mode: WriteMode,
     date: str,
@@ -290,7 +302,7 @@ def write_output(
 ) -> WriteOutput:
     """Escreve ``content`` no destino conforme ``mode`` e retorna ``WriteOutput``."""
     target = compose_path(
-        pj_path=pj_path,
+        scope=scope,
         kind=kind,
         date=date,
         slug=slug,

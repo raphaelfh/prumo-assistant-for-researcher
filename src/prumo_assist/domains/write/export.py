@@ -38,6 +38,7 @@ from typing import Any, cast
 
 import yaml
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.citations import iter_marked_citation_spans, scan_citekeys
 from prumo_assist.core.csl import list_zotero_styles, resolve_csl
 from prumo_assist.core.obsidian import (
@@ -73,6 +74,16 @@ class PandocFailedError(WriteError):
     """Pandoc terminou com exit ≠ 0 — stderr embutido na mensagem."""
 
 
+class MissingResourceError(WriteError):
+    """Pandoc não encontrou um recurso referenciado (imagem, tabela incluída).
+
+    O pandoc sai com exit 0 e só avisa no stderr (``[WARNING] Could not
+    fetch resource ...``) — sem isso, o docx/html/typst sai sem a figura,
+    sem avisar o usuário (achado medido com pandoc 3.9.0.2). Ver
+    :func:`_assert_no_missing_resource`.
+    """
+
+
 class ZoteroCitekeyNotFoundError(WriteError):
     """``zotero.lua`` não encontrou uma ou mais citekeys na biblioteca ativa."""
 
@@ -95,6 +106,19 @@ class CiteMapMismatchError(WriteError):
     Dois motivos possíveis: (1) a contagem de campos ``ZOTERO_ITEM`` no docx
     diverge da contagem de grupos de citação ``[@...]`` no texto normalizado;
     (2) um campo Zotero carrega JSON inválido em ``word/document.xml``.
+    """
+
+
+class OutputExistsError(WriteError):
+    """``out`` já existe e ``force`` não foi passado.
+
+    Descende de ``WriteError`` (não do ``FileExistsError`` builtin, que não
+    é ``PrumoError`` e vazaria como traceback cru através de ``cli_run`` —
+    achado da própria Task 8) para que a fachada capture e mostre mensagem
+    pt-BR limpa. Guarda compartilhada por :func:`export` e :func:`compose`:
+    evita sobrescrever em silêncio um export anterior — em particular o
+    docx que pode ter voltado do coautor com revisões (ver
+    ``review.ingest``).
     """
 
 
@@ -269,6 +293,26 @@ def _assert_no_citeproc_missing(stderr: str) -> None:
         )
 
 
+_MISSING_RESOURCE_RE = re.compile(r"Could not fetch resource ([^\s:]+)")
+
+
+def _assert_no_missing_resource(stderr: str) -> None:
+    """Promove o warning do pandoc (recurso não encontrado, ex. figura) a erro.
+
+    Mesmo padrão de :func:`_assert_no_citeproc_missing`: o pandoc sai com
+    exit 0 e só avisa no stderr — sem isso, ``![](figures/x.png)`` some do
+    docx/html/typst em silêncio quando o markdown normalizado é gravado num
+    diretório diferente do da página (ex. o tempdir de :func:`export`).
+    """
+    faltando = _MISSING_RESOURCE_RE.findall(stderr)
+    if faltando:
+        alvos = ", ".join(sorted(set(faltando)))
+        raise MissingResourceError(
+            f"Recurso não encontrado no export: {alvos}. "
+            "Confira o caminho relativo à página (ex.: `figures/x.png` ao lado do .md)."
+        )
+
+
 def _docx_texts(docx_path: Path) -> tuple[str, str]:
     """``word/document.xml`` e ``docProps/custom.xml`` decodificados, zip aberto UMA vez.
 
@@ -336,12 +380,16 @@ def _run_pandoc_checked(cmd: list[str]) -> subprocess.CompletedProcess[str]:
 
     O stderr capturado alimenta ``_assert_no_citeproc_missing`` no caminho
     docx (o pandoc sai com exit 0 em citekey ausente — só avisa no stderr).
+    Também roda :func:`_assert_no_missing_resource` aqui — vale pra TODOS os
+    formatos (docx/html/typst/pdf), não só docx, porque um recurso ausente
+    (figura) é silencioso do mesmo jeito em qualquer um deles.
     """
     proc = subprocess.run(cmd, text=True, capture_output=True)
     if proc.returncode != 0:
         raise PandocFailedError(
             f"pandoc falhou (exit {proc.returncode}):\n{proc.stderr.strip()[-2000:]}"
         )
+    _assert_no_missing_resource(proc.stderr)
     return proc
 
 
@@ -695,6 +743,7 @@ def _build_pandoc_cmd(
     reference_doc: Path | None,
     to_format: str,
     zotero_lookup_file: Path | None = None,
+    resource_path: Path | str | None = None,
 ) -> list[str]:
     """Monta o comando do pandoc.
 
@@ -703,6 +752,16 @@ def _build_pandoc_cmd(
     embrulha cada Cite/Div#refs em campo do Word reconhecido pelo plugin
     Zotero, com o display já formatado. Para os demais formatos usa
     apenas ``--citeproc``.
+
+    ``resource_path``, quando dado, vira ``--resource-path`` — necessário
+    porque ``input_md`` é o markdown normalizado gravado num diretório
+    TEMPORÁRIO (nunca o diretório da página): sem isso, ``![](figures/x.png)``
+    resolve relativo ao tempdir, nunca encontra o arquivo, e o pandoc some
+    com a figura em silêncio (exit 0, só um warning no stderr — achado
+    medido com pandoc 3.9.0.2). Aceita um ``Path`` único (:func:`export`,
+    uma página só) ou uma ``str`` já no formato do pandoc — múltiplos
+    diretórios separados por ``:`` (:func:`compose`, que combina páginas de
+    diretórios potencialmente diferentes).
     """
     cmd = [
         pandoc_bin,
@@ -713,6 +772,8 @@ def _build_pandoc_cmd(
         f"--bibliography={bib}",
         f"--csl={csl}",
     ]
+    if resource_path is not None:
+        cmd += ["--resource-path", str(resource_path)]
     if to_format == "docx":
         cmd += [
             "--to=docx",
@@ -736,22 +797,18 @@ def _build_pandoc_cmd(
 
 
 def detect_project_root(page: Path) -> Path:
-    """Sobe da página até achar ``references/_references.bib``."""
-    cur = page.resolve().parent
-    for _ in range(10):
-        if (cur / "references" / "_references.bib").is_file():
-            return cur
-        if cur.parent == cur:
-            break
-        cur = cur.parent
-    raise FileNotFoundError(
-        f"Raiz do projeto não localizada (procurando references/_references.bib) a partir de {page}"
-    )
+    """Delegação para ``pj_layout.find_pj_root`` — sentinela é ``.claude/pj_config.toml``.
+
+    Nome preservado (não ``pj_layout.find_pj_root`` direto) porque
+    ``review.py`` e os testes importam ``export.detect_project_root`` — trocar
+    a chamada por dentro evita quebrar esses callers.
+    """
+    return pj_layout.find_pj_root(page)
 
 
 def export(
-    *,
     page: Path,
+    *,
     style: str = "apa",
     to: str = "docx",
     out: Path | None = None,
@@ -760,12 +817,15 @@ def export(
     template: Path | None = None,
     reference_doc: Path | None = None,
     project_root: Path | None = None,
+    force: bool = False,
 ) -> Path:
     """Exporta uma página `.md` para o formato escolhido. Retorna caminho do output.
 
     ``out`` fixa o caminho completo; ``out_dir`` troca só o diretório,
     mantendo a regra de nome default (``slugify(page)`` + extensão) — a
-    regra vive AQUI, nunca recomputada pela fachada.
+    regra vive AQUI, nunca recomputada pela fachada. ``force`` autoriza
+    sobrescrever um ``out`` já existente (default recusa — ver a guarda
+    logo abaixo).
     """
     if to not in EXT_BY_FORMAT:
         raise ValueError(f"--to deve ser um de {list(EXT_BY_FORMAT)}, recebeu {to}")
@@ -782,7 +842,7 @@ def export(
     if to == "docx":
         _check_bbt_running()
     csl = resolve_csl(style)
-    bib = bib or (project_root / "references" / "_references.bib")
+    bib = bib or pj_layout.bib_path(project_root)
     if not bib.is_file():
         raise FileNotFoundError(f"bibliografia não encontrada: {bib}")
 
@@ -794,6 +854,12 @@ def export(
         (out_dir or project_root / "build" / "exports")
         / f"{slugify(page, project_root)}.{EXT_BY_FORMAT[to]}"
     )
+    if out.exists() and not force:
+        raise OutputExistsError(
+            f"{out} já existe. Rode `prumo write export {page} --force` para "
+            "sobrescrever — atenção: se este for o docx que voltou do coautor, "
+            "sobrescrever perde a revisão."
+        )
     out.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as td:
@@ -823,6 +889,7 @@ def export(
             reference_doc=reference_doc,
             to_format=to,
             zotero_lookup_file=zotero_lookup_file,
+            resource_path=page.parent,
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
         if to == "docx":
@@ -857,6 +924,7 @@ def compose(
     template: Path | None = None,
     reference_doc: Path | None = None,
     project_root: Path | None = None,
+    force: bool = False,
 ) -> Path:
     """Compõe várias páginas listadas no frontmatter ``pages:`` de um index.
 
@@ -864,7 +932,17 @@ def compose(
     ``abstract``, ``pages: [list]``. O body do index é prepended ao conteúdo
     das páginas (serve de introdução/abstract). ``out`` fixa o caminho
     completo; ``out_dir`` troca só o diretório, mantendo a regra de nome
-    default (stem do index sem ``.idx``).
+    default (stem do index sem ``.idx``). ``force`` autoriza sobrescrever um
+    ``out`` já existente (default recusa — mesma guarda de :func:`export`).
+
+    Figuras (``![](figures/x.png)``) resolvem via ``--resource-path`` com o
+    diretório de CADA página combinada (index + toda página listada em
+    ``pages:``), sem duplicatas, na ordem em que entram no ``combined`` —
+    o pandoc aceita múltiplos diretórios separados por ``:`` (achado do fix
+    round 3 da Task 8: sem isso, ``_assert_no_missing_resource`` compartilhado
+    com :func:`export` via :func:`_run_pandoc_checked` fazia TODA figura em
+    página composta falhar sempre, já que ``compose()`` nunca passava
+    ``resource_path`` nenhum).
     """
     project_root = project_root or detect_project_root(index)
     text = index.read_text()
@@ -876,6 +954,7 @@ def compose(
     style = style or meta.get("style") or "apa"
 
     parts: list[str] = []
+    resource_dirs: list[Path] = [index.parent]
     if intro_body.strip():
         parts.append(normalize_markdown(intro_body, page_dir=index.parent))
     for rel in pages_meta:
@@ -884,6 +963,8 @@ def compose(
             raise FileNotFoundError(f"Página listada no index não existe: {page}")
         _meta_p, body = split_frontmatter(page.read_text())
         parts.append(normalize_markdown(body, page_dir=page.parent))
+        if page.parent not in resource_dirs:
+            resource_dirs.append(page.parent)
 
     combined = "\n\n".join(parts)
 
@@ -891,6 +972,12 @@ def compose(
         (out_dir or project_root / "build" / "exports")
         / f"{index.stem.removesuffix('.idx')}.{EXT_BY_FORMAT[to]}"
     )
+    if out.exists() and not force:
+        raise OutputExistsError(
+            f"{out} já existe. Rode `prumo write compose --index {index} --force` "
+            "para sobrescrever — atenção: se este for o docx que voltou do coautor, "
+            "sobrescrever perde a revisão."
+        )
     out.parent.mkdir(parents=True, exist_ok=True)
 
     pandoc_bin = _check_pandoc()
@@ -899,7 +986,7 @@ def compose(
     if to == "docx":
         _check_bbt_running()
     csl = resolve_csl(style)
-    bib = bib or (project_root / "references" / "_references.bib")
+    bib = bib or pj_layout.bib_path(project_root)
     if not bib.is_file():
         raise FileNotFoundError(f"bibliografia não encontrada: {bib}")
 
@@ -931,6 +1018,7 @@ def compose(
             reference_doc=reference_doc,
             to_format=to,
             zotero_lookup_file=zotero_lookup_file,
+            resource_path=":".join(str(d) for d in resource_dirs),
         )
         if meta.get("toc"):
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]

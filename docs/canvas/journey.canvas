@@ -14,7 +14,7 @@
 		{"id":"p1-faz-picot","type":"text","text":"PICOT na cabeça (ou no caderno avulso). Não volta pra revisão sistemática quando o estudo amadurece.","x":-540,"y":-140,"width":312,"height":160,"color":"1"},
 		{"id":"p1-faz-focada","type":"text","text":"DOI cai no Zotero; anota separado; perde rastro de por que importou. Acervo cresce sem trilha.","x":0,"y":-140,"width":312,"height":160,"color":"1"},
 		{"id":"p1-prumo","type":"text","text":"`/prumo-assist:wiki-query` *o que sei sobre X?*\n\n`prumo paper find \"keyword\"`","x":-1000,"y":80,"width":312,"height":220,"color":"4"},
-		{"id":"p1-prumo-picot","type":"text","text":"Editar `docs/protocol.md` + `docs/project.md` + ADR em `decisions/`\n\n*candidata futura: `/prumo-assist:formulate-picot`*","x":-540,"y":80,"width":312,"height":220,"color":"4"},
+		{"id":"p1-prumo-picot","type":"text","text":"Editar `docs/studies/<slug>/writing/protocol.md` + `docs/project.md` + ADR em `docs/studies/<slug>/decisions/`\n\n*candidata futura: `/prumo-assist:formulate-picot`*","x":-540,"y":80,"width":312,"height":220,"color":"4"},
 		{"id":"p1-prumo-focada","type":"text","text":"`/prumo-assist:wiki-ingest <DOI>` *(batch)*\n\n`/prumo-assist:paper-extract --batch`\n\n`prumo paper graph`","x":0,"y":80,"width":312,"height":220,"color":"4"},
 		{"id":"p2-precisa","type":"text","text":"Extrair PICOT, método e limitações de cada fonte. Conectar achados num grafo navegável.","x":748,"y":-340,"width":397,"height":160,"color":"5"},
 		{"id":"c95deaba749a6cb6","type":"text","text":"Leitura com Zotero, marcação e criação de notas.\nEscrita em Markdown sobre insights.\nAjustes sobre informações extraídas dos artigos.","x":1220,"y":-340,"width":397,"height":160,"color":"5"},

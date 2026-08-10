@@ -10,6 +10,7 @@ import typer
 from pydantic import ValidationError
 
 from prumo_assist import PrumoError
+from prumo_assist.core import pj_layout
 from prumo_assist.core.cli_io import read_stdin_json
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.domains.protocol import ops
@@ -22,14 +23,19 @@ protocol_app = typer.Typer(
 )
 
 
+_PATH_HELP = "Escopo de escrita (docs/studies/<slug>/) ou um caminho dentro dele."
+
+
 @protocol_app.command("propagate")
 def propagate_command(
-    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    path: Annotated[Path, typer.Argument(help=_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Regenera blocos ``<!-- picot:begin -->`` em ``protocol.md`` e ``project_guide.md``."""
+    """Regenera blocos ``<!-- picot:begin -->`` em ``protocol.md`` (do escopo) e
+    ``project_guide.md`` (do projeto)."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
-        report = ops.propagate(path.resolve())
+        scope = pj_layout.find_scope_root(path.resolve())
+        report = ops.propagate(scope)
         console.success(
             f"protocol.md: {report.protocol_status} · project_guide.md: {report.project_status} "
             f"(hash {report.hash8})"
@@ -39,12 +45,13 @@ def propagate_command(
 
 @protocol_app.command("diff")
 def diff_command(
-    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    path: Annotated[Path, typer.Argument(help=_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Compara ``picot.toml`` atual contra snapshot do último ADR ``picot-v<N>``."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
-        diff = ops.diff_against_last_adr(path.resolve())
+        scope = pj_layout.find_scope_root(path.resolve())
+        diff = ops.diff_against_last_adr(scope)
         if diff is None:
             console.warn("`.claude/picot.toml` não encontrado.")
             console.emit({"changes": [], "has_structural": False, "missing": True})
@@ -70,12 +77,13 @@ def diff_command(
 
 @protocol_app.command("detect-mode")
 def detect_mode_command(
-    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    path: Annotated[Path, typer.Argument(help=_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Imprime o modo da skill (init|formalize|propagate|diff) pelo estado do projeto."""
     with cli_run(json_mode=json_mode) as console:
-        console.emit(ops.detect_mode(path.resolve()))
+        scope = pj_layout.find_scope_root(path.resolve())
+        console.emit(ops.detect_mode(scope))
 
 
 @protocol_app.command("init")
@@ -84,7 +92,7 @@ def init_command(
     motivation: Annotated[
         str, typer.Option("--motivation", help="Motivação do ADR-0001.")
     ] = "versão inicial — primeira formalização",
-    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    path: Annotated[Path, typer.Option("--path", help=_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Cria o PicotSpec inicial (JSON via stdin), propaga blocos e grava o ADR-0001."""
@@ -99,7 +107,8 @@ def init_command(
                 '{"hypothesis": {"statement": "...", "rationale": "...", "metrics": ["AUROC"]}, ...}'
             )
         spec = PicotSpec(**payload, hypothesis=Hypothesis(**hypothesis_data))
-        result = ops.init_picot_spec(path.resolve(), spec=spec, motivation=motivation, date=date)
+        scope = pj_layout.find_scope_root(path.resolve())
+        result = ops.init_picot_spec(scope, spec=spec, motivation=motivation, date=date)
         console.success(f"PicotSpec v{spec.version} inicializado; ADR em {result.adr_path}")
         console.emit({"adr_path": str(result.adr_path), "propagate": asdict(result.report)})
 
@@ -109,12 +118,13 @@ def adr_command(
     motivation: Annotated[str, typer.Option("--motivation", help="Motivação do ADR.")],
     slug: Annotated[str, typer.Option("--slug", help="Slug kebab-case curto.")],
     date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
-    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    path: Annotated[Path, typer.Option("--path", help=_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Registra o ADR-N para a versão atual do picot.toml (após bump) e propaga blocos."""
     with cli_run(json_mode=json_mode, catches=(ValueError, FileNotFoundError)) as console:
-        result = ops.create_picot_adr(path.resolve(), motivation=motivation, slug=slug, date=date)
+        scope = pj_layout.find_scope_root(path.resolve())
+        result = ops.create_picot_adr(scope, motivation=motivation, slug=slug, date=date)
         console.success(f"ADR criado: {result.adr_path}")
         console.emit({"adr_path": str(result.adr_path), "propagate": asdict(result.report)})
 

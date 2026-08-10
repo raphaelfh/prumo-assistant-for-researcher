@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from prumo_assist.core import pj_layout
 from prumo_assist.core.config import load_project_config
 
 
@@ -30,14 +31,14 @@ def extract_prep(pj_path: Path, citekey: str) -> ExtractPrep:
     ``ConfigError`` (``paper_extract.language`` inválido).
     """
     template_path = pj_path / ".claude" / "paper_extraction.md"
-    bib_path = pj_path / "references" / "_references.bib"
-    pdf_path = pj_path / "references" / "pdfs" / f"{citekey}.pdf"
-    meta_path = pj_path / "references" / "notes" / citekey / "_meta.md"
+    bib_path = pj_layout.bib_path(pj_path)
+    pdf_path = pj_layout.pdfs_dir(pj_path) / f"{citekey}.pdf"
+    meta_path = pj_layout.paper_dir(pj_path, citekey) / "_meta.md"
 
     checks: list[tuple[str, Path, str]] = [
         ("template .claude/paper_extraction.md", template_path, "rode o scaffold do pj_*"),
-        ("references/_references.bib", bib_path, "exporte pelo BBT"),
-        (f"PDF references/pdfs/{citekey}.pdf", pdf_path, "rode `prumo paper sync-pdfs`"),
+        ("docs/references/_references.bib", bib_path, "exporte pelo BBT"),
+        (f"PDF docs/references/pdfs/{citekey}.pdf", pdf_path, "rode `prumo paper sync-pdfs`"),
         (f"_meta.md de {citekey}", meta_path, "rode `prumo paper sync`"),
     ]
     # `.exists()` é False para symlink quebrado — intencional: as dicas de

@@ -9,6 +9,7 @@ import typer
 from pydantic import ValidationError
 
 from prumo_assist import PrumoError
+from prumo_assist.core import pj_layout
 from prumo_assist.core.cli_io import parse_json_list, read_stdin_json, read_stdin_text
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.core.note_paths import slugify
@@ -19,6 +20,13 @@ wiki_app = typer.Typer(
     name="wiki",
     help="Conhecimento: lint, index, stats. Skills agênticas (ingest/query) vivem no host.",
     no_args_is_help=True,
+)
+
+# `study-start` e `finding` gravam NOTA DE ESCOPO (`<escopo>/notes/`), não
+# arquivo de raiz — o caminho recebido é resolvido por `find_scope_root`, que
+# aceita tanto a raiz do pj_* (escopo único) quanto o escopo explícito.
+_SCOPE_PATH_HELP = (
+    "Escopo de escrita (docs/studies/<slug>/), a raiz do pj_* ou caminho dentro dela."
 )
 
 
@@ -72,15 +80,16 @@ def study_start_command(
     topic: Annotated[str, typer.Argument(help="Tópico da sessão (texto livre; vira slug).")],
     date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
     sources: Annotated[str, typer.Option("--sources", help="Array JSON de wikilinks.")] = "[]",
-    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    path: Annotated[Path, typer.Option("--path", help=_SCOPE_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Cria o log de uma sessão de estudo (slugifica o tópico) e imprime o caminho."""
     with cli_run(json_mode=json_mode, catches=(ValueError,)) as console:
         sources_list = parse_json_list(sources, "--sources")
         slug = slugify(topic)
+        scope = pj_layout.find_scope_root(path.resolve())
         log_path = study.create_session_log(
-            pj_path=path.resolve(), topic=slug, date=date, sources_consulted=sources_list
+            scope=scope, topic=slug, date=date, sources_consulted=sources_list
         )
         console.success(f"Sessão criada: {log_path}")
         console.emit({"log_path": str(log_path), "slug": slug})
@@ -139,16 +148,17 @@ def finding_command(
     tags: Annotated[str, typer.Option("--tags", help="Array JSON de tags.")] = "[]",
     sources: Annotated[str, typer.Option("--sources", help="Array JSON de wikilinks.")] = "[]",
     generator: Annotated[str, typer.Option("--generator", help="Skill geradora.")] = "wiki-query",
-    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    path: Annotated[Path, typer.Option("--path", help=_SCOPE_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Arquiva um finding (corpo markdown via stdin) em docs/wiki/findings/."""
+    """Arquiva um finding (corpo markdown via stdin) em <escopo>/notes/, com type: finding."""
     with cli_run(json_mode=json_mode, catches=(ValueError, FileNotFoundError)) as console:
         body = read_stdin_text()
         tags_list = parse_json_list(tags, "--tags")
         sources_list = parse_json_list(sources, "--sources")
+        scope = pj_layout.find_scope_root(path.resolve())
         out = findings.archive_as_finding(
-            pj_path=path.resolve(),
+            scope=scope,
             slug=slug,
             title=title,
             body=body,

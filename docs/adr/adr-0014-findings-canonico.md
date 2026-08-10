@@ -1,6 +1,6 @@
 # ADR-0014 — Caminho canônico de findings: `docs/wiki/findings/` com fallback
 
-- Status: aceito
+- Status: substituído por [ADR-0023](adr-0023-finding-como-type.md)
 - Data: 2026-06-11
 - Origem: [[2026-06-11-repo-organization-redesign-design]] (D10); `domains/wiki/findings.py:_resolve_findings_dir`
 

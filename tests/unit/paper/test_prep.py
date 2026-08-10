@@ -14,11 +14,11 @@ def _bootstrap(tmp_path: Path, citekey: str = "smith2020") -> Path:
     pj = tmp_path / "pj_demo"
     (pj / ".claude").mkdir(parents=True)
     (pj / ".claude" / "paper_extraction.md").write_text("# Template\n", encoding="utf-8")
-    refs = pj / "references"
+    refs = pj / "docs" / "references"
     (refs / "pdfs").mkdir(parents=True)
     (refs / "_references.bib").write_text("@article{smith2020,}\n", encoding="utf-8")
     (refs / "pdfs" / f"{citekey}.pdf").write_text("%PDF-1.4\n", encoding="utf-8")
-    notes = refs / "notes" / citekey
+    notes = refs / "papers" / citekey
     notes.mkdir(parents=True)
     (notes / "_meta.md").write_text("---\nid: smith2020\n---\n", encoding="utf-8")
     return pj
@@ -36,7 +36,7 @@ def test_extract_prep_returns_language_and_paths(tmp_path: Path) -> None:
 
 def test_extract_prep_missing_meta_raises(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
-    (pj / "references" / "notes" / "smith2020" / "_meta.md").unlink()
+    (pj / "docs" / "references" / "papers" / "smith2020" / "_meta.md").unlink()
     with pytest.raises(FileNotFoundError, match=r"_meta\.md"):
         extract_prep(pj, "smith2020")
 

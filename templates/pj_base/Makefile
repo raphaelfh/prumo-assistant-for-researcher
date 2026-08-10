@@ -1,7 +1,7 @@
 .PHONY: wiki-index wiki-search sync-pdfs sync-paper sync-pdf-paper sync-annotations extract-paper-all cite cite-styles export preview help
 
 # === Wiki / busca (qmd) ===
-wiki-index:  ## Indexa docs/ + references/ via qmd
+wiki-index:  ## Indexa docs/ (inclusive references/ e studies/) via qmd
 	@qmd collection add . --name $(notdir $(CURDIR)) 2>/dev/null || true
 	@qmd embed
 
@@ -10,7 +10,7 @@ wiki-search:  ## Busca híbrida no wiki (uso: make wiki-search Q="termo")
 	@qmd query "$(Q)"
 
 # === Bibliografia (Zotero + Better BibTeX) ===
-sync-pdfs:  ## Cria symlinks references/pdfs/<citekey>.pdf -> Zotero
+sync-pdfs:  ## Cria symlinks docs/references/pdfs/<citekey>.pdf -> Zotero
 	@prumo paper sync-pdfs
 
 sync-paper:  ## Sync .bib -> notas + grafo passivo de citação

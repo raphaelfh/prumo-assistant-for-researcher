@@ -14,6 +14,7 @@ from pathlib import Path
 
 import tomli_w
 
+from prumo_assist.core import pj_layout
 from prumo_assist.domains.protocol.diff import PicotDiff
 from prumo_assist.domains.protocol.picot_io import spec_to_toml_payload
 from prumo_assist.domains.protocol.schemas.v1 import PicotSpec
@@ -25,9 +26,9 @@ _ADR_FILE_RE = re.compile(r"^adr-(\d{4})-")
 _PICOT_ADR_RE = re.compile(r"^adr-\d{4}-picot-v\d+")
 
 
-def next_adr_number(pj_path: Path) -> int:
-    """Próximo número livre em ``docs/decisions/``."""
-    decisions = pj_path / "docs" / "decisions"
+def next_number(scope: Path) -> int:
+    """Próximo número livre em ``<escopo>/decisions/`` (numeração é por escopo)."""
+    decisions = pj_layout.decisions_dir(scope)
     if not decisions.exists():
         return 1
     used: list[int] = []
@@ -40,9 +41,9 @@ def next_adr_number(pj_path: Path) -> int:
     return (max(used) + 1) if used else 1
 
 
-def find_last_picot_adr(pj_path: Path) -> Path | None:
-    """Acha o ADR picot-v<N> mais recente (maior número), ou ``None``."""
-    decisions = pj_path / "docs" / "decisions"
+def find_last_picot_adr(scope: Path) -> Path | None:
+    """Acha o ADR picot-v<N> mais recente (maior número) no escopo, ou ``None``."""
+    decisions = pj_layout.decisions_dir(scope)
     if not decisions.exists():
         return None
     candidates = [c for c in decisions.iterdir() if c.is_file() and _PICOT_ADR_RE.match(c.name)]

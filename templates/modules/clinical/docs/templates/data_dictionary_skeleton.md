@@ -344,7 +344,7 @@ $$\text{<SCORE>} = \frac{\text{<numerador>}}{\text{<denominador>}}$$
 
 ## Anexo A — Bibliografia das regras
 
-### Já em `references/_references.bib`
+### Já em `docs/references/_references.bib`
 
 | Citekey | Uso na Camada 2 / Camada 1 |
 |---|---|
@@ -353,7 +353,7 @@ $$\text{<SCORE>} = \frac{\text{<numerador>}}{\text{<denominador>}}$$
 | `benchimol2015reporting` | Aderência RECORD para reporte do dataset |
 | `vonelm2007strengthening` | Aderência STROBE |
 
-### A adicionar a `references/_references.bib` (via Zotero + Better BibTeX)
+### A adicionar a `docs/references/_references.bib` (via Zotero + Better BibTeX)
 
 | Citekey | Paper / Documento | Necessário para |
 |---|---|---|

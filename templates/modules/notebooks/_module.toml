@@ -1,0 +1,3 @@
+description = "Exploração interativa: notebooks/ fora do workspace de leitura."
+when_to_use = "Primeira análise exploratória em notebook."
+anchor = "notebooks/.gitkeep"

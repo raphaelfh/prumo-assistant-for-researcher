@@ -385,8 +385,10 @@ _BIB_TEXT = """@article{guan2020clinical,
 
 class TestVerifyRefs:
     def _pj(self, tmp_path: Path) -> Path:
-        (tmp_path / "references").mkdir(parents=True)
-        (tmp_path / "references" / "_references.bib").write_text(_BIB_TEXT, encoding="utf-8")
+        (tmp_path / "docs" / "references").mkdir(parents=True)
+        (tmp_path / "docs" / "references" / "_references.bib").write_text(
+            _BIB_TEXT, encoding="utf-8"
+        )
         return tmp_path
 
     def test_bib_ausente_hard_fail(self, tmp_path: Path) -> None:
@@ -488,8 +490,8 @@ class TestVerifyRefs:
             verify.verify_refs(pj, page=tmp_path / "nao-existe.md", cache_path=tmp_path / "c.json")
 
     def test_bib_vazio_emite_info_orientadora(self, tmp_path: Path) -> None:
-        (tmp_path / "references").mkdir(parents=True)
-        (tmp_path / "references" / "_references.bib").write_text("", encoding="utf-8")
+        (tmp_path / "docs" / "references").mkdir(parents=True)
+        (tmp_path / "docs" / "references" / "_references.bib").write_text("", encoding="utf-8")
         report = verify.verify_refs(tmp_path, cache_path=tmp_path / "c.json")
         assert report["checked"] == 0
         [finding] = report["findings"]
@@ -509,8 +511,10 @@ class TestDuplicateCitekey:
 """
 
     def _pj(self, tmp_path: Path) -> Path:
-        (tmp_path / "references").mkdir(parents=True)
-        (tmp_path / "references" / "_references.bib").write_text(self._DUP_BIB, encoding="utf-8")
+        (tmp_path / "docs" / "references").mkdir(parents=True)
+        (tmp_path / "docs" / "references" / "_references.bib").write_text(
+            self._DUP_BIB, encoding="utf-8"
+        )
         return tmp_path
 
     def test_duplicata_vira_error_e_pula_checks(
@@ -657,8 +661,10 @@ class TestDeepLayer:
     def test_verify_refs_deep_mescla_warnings(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        (tmp_path / "references").mkdir()
-        (tmp_path / "references" / "_references.bib").write_text(_BIB_TEXT, encoding="utf-8")
+        (tmp_path / "docs" / "references").mkdir(parents=True)
+        (tmp_path / "docs" / "references" / "_references.bib").write_text(
+            _BIB_TEXT, encoding="utf-8"
+        )
         monkeypatch.setattr(
             "prumo_assist.domains.paper.verify._http_get_json",
             _fake_http(
@@ -686,8 +692,10 @@ class TestDeepLayer:
     def test_verify_refs_sem_deep_nao_roda_subprocess(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        (tmp_path / "references").mkdir()
-        (tmp_path / "references" / "_references.bib").write_text(_BIB_TEXT, encoding="utf-8")
+        (tmp_path / "docs" / "references").mkdir(parents=True)
+        (tmp_path / "docs" / "references" / "_references.bib").write_text(
+            _BIB_TEXT, encoding="utf-8"
+        )
         monkeypatch.setattr(
             "prumo_assist.domains.paper.verify._http_get_json",
             _fake_http(
@@ -710,8 +718,8 @@ class TestDeepLayer:
     ) -> None:
         # emenda pós-review T3: escopo 100% duplicado não pode disparar
         # subprocess real contra um .bib derivado vazio
-        (tmp_path / "references").mkdir()
-        (tmp_path / "references" / "_references.bib").write_text(
+        (tmp_path / "docs" / "references").mkdir(parents=True)
+        (tmp_path / "docs" / "references" / "_references.bib").write_text(
             "@article{dup2020,\n  title = {A},\n}\n@article{dup2020,\n  title = {B},\n}\n",
             encoding="utf-8",
         )

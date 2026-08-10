@@ -11,7 +11,7 @@ def test_all_write_templates_declare_bibliography() -> None:
     skills = resolve_resource("skills")
     for kind in KINDS:
         text = (skills / f"write-{kind}" / "template.md").read_text(encoding="utf-8")
-        assert "bibliography: ../../references/_references.bib" in text, kind
+        assert "bibliography: ../../../references/_references.bib" in text, kind
 
 
 def test_manuscript_templates_have_refs_placeholder() -> None:

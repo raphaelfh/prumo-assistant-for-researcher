@@ -1,6 +1,6 @@
 ---
 name: active-learning
-description: "Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/wiki/study-sessions/. No Reflect, oferece arquivar insight como finding."
+description: "Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/studies/<slug>/notes/. No Reflect, oferece arquivar insight como finding."
 when_to_use: |
   Quando o usuário pedir "me ensina X", "estudar curvas ROC",
   "me coloca à prova sobre Y", "preciso fixar Z", ou ao terminar de ler
@@ -32,7 +32,7 @@ prumo:
 >    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
 >    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
 >    pule este passo em silêncio.
-> 3. **Estrutura:** se o diretório não tiver `references/` + `docs/` de um `pj_*`,
+> 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
 >    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
 > 4. **Busca semântica (qmd):** se as tools MCP do `qmd` não estiverem no seu
@@ -53,7 +53,7 @@ ou num wikilink interno**. Se a fonte não está no acervo, emita
 
 ## Pressupostos
 
-- cwd é um `pj_*` com `docs/_index.md` e `references/_references.bib` (mesmo que vazios).
+- cwd é um `pj_*` com `docs/_index.md` e `docs/references/_references.bib` (mesmo que vazios).
 - A parte determinística (criar log, anexar steps, arquivar finding) é exposta
   via `prumo wiki *` (study-start/step/finish, finding). Você só cuida do agêntico.
 - O CLI `prumo` precisa estar no PATH (rode `prumo doctor`; se ausente:
@@ -159,7 +159,8 @@ Aguarde resposta do usuário.
 
 Em seguida, ofereça arquivamento (1 vez):
 
-> Quer arquivar a definição operacional/insight desta sessão como finding em `docs/wiki/findings/<sugestao-de-slug>.md`?
+> Quer arquivar a definição operacional/insight desta sessão como finding
+> (`type: finding`) em `docs/studies/<slug>/notes/<sugestao-de-slug>.md`?
 
 Se **sim**, executar:
 
@@ -208,7 +209,7 @@ prumo wiki study-finish \
 
 ```
 Sessão concluída — `<topic>`
-- Log: docs/wiki/study-sessions/<slug>-<data>.md
+- Log: docs/studies/<escopo>/notes/session-<slug>-<data>.md
 - Citações usadas: N
 - Refs faltando: M (sugiro `prumo paper sync` em <descrições>)
 - Finding arquivado: <path ou —>
@@ -220,8 +221,8 @@ Sessão concluída — `<topic>`
   do projeto. Se a fonte não está no acervo, use `[REF FALTANTE: <desc>]`.
 - **Nunca** ultrapasse 5 steps. Se a sessão precisa de mais, sugira segunda sessão.
 - **Não** faça grade automatizado de "respondeu certo" — feedback é qualitativo.
-- **Não** edite arquivo fora de `docs/wiki/study-sessions/` e (se autorizado)
-  `docs/wiki/findings/`. `_index.md` e `_log.md` são atualizados pelo helper.
+- **Não** edite arquivo fora de `docs/studies/<slug>/notes/` (log da sessão e, se
+  autorizado, o finding). `_index.md` e `_log.md` são atualizados pelo helper.
 
 ## Erros comuns
 

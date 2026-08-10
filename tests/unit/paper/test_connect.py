@@ -46,7 +46,7 @@ def _fake_rpc(
 
 
 def _pj(tmp_path: Path, *, bib_text: str | None) -> Path:
-    refs = tmp_path / "references"
+    refs = tmp_path / "docs" / "references"
     refs.mkdir(parents=True)
     if bib_text is not None:
         (refs / "_references.bib").write_text(bib_text, encoding="utf-8")
@@ -108,7 +108,7 @@ class TestBibPlaceholder:
 class TestConnectCollection:
     def test_happy_path_add_e_export(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
-        bib = pj / "references" / "_references.bib"
+        bib = pj / "docs" / "references" / "_references.bib"
 
         def fake(url: str, payload: dict[str, Any], timeout: float = 10.0) -> object:
             if payload["method"] == "user.groups":
@@ -264,7 +264,7 @@ class TestPollZero:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
-        bib = pj / "references" / "_references.bib"
+        bib = pj / "docs" / "references" / "_references.bib"
 
         def fake(url: str, payload: dict[str, Any], timeout: float = 10.0) -> object:
             if payload["method"] == "user.groups":

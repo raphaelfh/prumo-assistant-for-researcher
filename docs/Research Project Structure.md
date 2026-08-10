@@ -16,6 +16,10 @@ Visualizações:
 ## Núcleo mínimo
 
 Sempre presente, qualquer que seja o projeto (paper único, exploratório, tese).
+`docs/` é a **raiz única de leitura** — bibliografia e escopos de escrita vivem
+todos abaixo dela (ADR-0022). Saída de máquina fica fora de `docs/`, na raiz do
+projeto: `build/exports/` (docx/pdf exportados, gitignorado) e `reviews/<slug>/`
+(estado de trabalho do ciclo de revisão docx↔CriticMarkup).
 
 ```
 pj_<nome>/
@@ -23,23 +27,28 @@ pj_<nome>/
 ├── CLAUDE.md                    ← persona + escopo + deps do plugin
 ├── pyproject.toml               ← deps Python
 ├── .claude/                     ← infra automática (gerada por `prumo init`)
-│   ├── rules/project_context.md
-│   ├── pj_config.toml
+│   ├── pj_config.toml           ← sentinela do projeto (`find_pj_root`)
 │   ├── paper_extraction.md
+│   ├── rules/{documentation.md, project_context.md}
 │   └── skills/                  ← cópia local das skills do plugin
-├── .obsidian/                   ← config base do vault
-├── docs/
-│   ├── _index.md                ← MOC content-oriented (catálogo)
-│   ├── _log.md                  ← append-only (ingests, decisões, queries)
-│   ├── project_guide.md         ← guia enxuto (Objetivo/Hipótese/Research Questions)
-│   ├── decisions/               ← ADRs (governança imutável)
-│   └── canvas/
-│       └── project.canvas       ← whiteboard panorâmico
-└── references/
-    ├── _index.md                ← MOC do acervo (mantido por paper-manager)
-    ├── _references.bib          ← BBT auto-export
-    ├── notes/                   ← 1 nota por paper (`<citekey>.md`)
-    └── pdfs/                    ← symlinks pro Zotero (gitignored)
+├── build/exports/               ← saída de `prumo write export` (docx/pdf), gitignorada
+├── reviews/<slug>/              ← estado do ciclo `prumo write review` (review.md, events.yaml)
+└── docs/                        ← RAIZ ÚNICA DE LEITURA
+    ├── _index.md                ← MOC content-oriented (catálogo)
+    ├── _log.md                  ← append-only (ingests, decisões, queries)
+    ├── project_guide.md         ← guia enxuto (Objetivo/Hipótese/Research Questions)
+    ├── templates/                ← modelos (ex.: `reference.docx` do Pandoc)
+    ├── references/                ← DO PROJETO — bibliografia (ADR-0022)
+    │   ├── .gitignore
+    │   ├── _index.md             ← MOC do acervo (mantido por paper-manager)
+    │   ├── _note_template.md     ← modelo de nota de leitura
+    │   ├── _references.bib       ← BBT auto-export
+    │   ├── papers/<citekey>/     ← 1 pasta por paper (layout α, ADR-0008/ADR-0023)
+    │   └── pdfs/<citekey>.pdf    ← symlinks pro Zotero (gitignorado)
+    └── studies/<slug>/            ← O ESCOPO — unidade de escrita (ADR-0024)
+        ├── notes/                 ← prosa humana, inclusive findings (`type: finding`)
+        ├── writing/               ← o produto (drafts; `protocol.md` quando `clinical` ativo)
+        └── decisions/             ← ADRs do escopo, append-only
 ```
 
 ### Papel de cada elemento (mínimo)
@@ -48,14 +57,18 @@ pj_<nome>/
 |---|---|---|
 | `README.md` | Tour de 1 página pra humano externo | Pesquisador (raro) |
 | `CLAUDE.md` | Persona, stack, dependências, hierarquia de instruções | Pesquisador |
+| `.claude/pj_config.toml` | Sentinela do projeto — é o que `find_pj_root` procura subindo o filesystem | `prumo init` |
 | `project_guide.md` | Guia enxuto do projeto — **Objetivo**, **Hipótese**, **Research Questions**. Orienta o trabalho, não é a entrega final (escrita formal vive nos módulos `peer-review-loop`/`versioned-milestones`). | Pesquisador |
 | `docs/_index.md` | Catálogo do wiki — uma linha por página existente | Skill `wiki-ingest` |
 | `docs/_log.md` | Diário append-only de eventos (ingest, decisão, query) | Skill `wiki-ingest` + manual |
-| `docs/decisions/` | ADRs numeradas (`adr-NNNN-*.md`); imutável após aceito | Pesquisador |
-| `docs/canvas/project.canvas` | Whiteboard panorâmico (tese, RQs, datasets, ADRs, papers) | Pesquisador |
-| `references/_references.bib` | Acervo bibliográfico — fonte única é o Zotero, BBT auto-export | Zotero + BBT |
-| `references/notes/<key>.md` | Nota por paper, com callout estruturado (PICOT, método, …) | Skills `paper-manager`, `paper-extract` |
-| `.claude/`, `.obsidian/` | Infra técnica (Claude Code + Obsidian leem daqui) | `prumo init` + plugin |
+| `docs/references/_references.bib` | Acervo bibliográfico — fonte única é o Zotero, BBT auto-export | Zotero + BBT |
+| `docs/references/papers/<key>/` | Pasta por paper, com `_meta.md` (callout estruturado: PICOT, método, …), `_extract.md`, `_annotations.md` | Skills `paper-manager`, `paper-extract` |
+| `docs/studies/<slug>/notes/` | Prosa humana do escopo, inclusive findings (nota com `type: finding` — ADR-0023) | Pesquisador + skills `wiki-query`/`active-learning`/`paper-extract` |
+| `docs/studies/<slug>/writing/` | O produto do escopo — drafts (`bibliography:` sempre `../../../references/_references.bib`) | Pesquisador + família `write-*` |
+| `docs/studies/<slug>/decisions/` | ADRs do escopo (`adr-NNNN-*.md`); imutável após aceito | Pesquisador |
+| `build/exports/` | Saída de `prumo write export` (docx/pdf) — gitignorada, regenerável | `prumo write export` |
+| `reviews/<slug>/` | Estado do ciclo `prumo write review` (`review.md`, `events.yaml`, `review-comments.yaml`) | `prumo write review` |
+| `.claude/` | Infra técnica (Claude Code lê daqui) | `prumo init` + plugin |
 
 ### `.claude/skills/` — infraestrutura, não área de trabalho
 
@@ -70,34 +83,47 @@ Não é um "fluxo" paralelo no sentido de área de trabalho do pesquisador — �
 
 ## Módulos opcionais
 
+Duas categorias bem diferentes — não confundir uma com a outra:
+
+- **Módulos com `_module.toml`** — ativados por `prumo add <nome>` (overlay não-destrutivo), com `anchor` que o CLI usa pra detectar se já estão ativos. São os únicos cinco que existem hoje.
+- **Convenções documentadas** — padrões que o pesquisador aplica à mão quando o trigger acontece; não têm `_module.toml` nem comando `prumo add`. Se uma convenção aparecer em ≥2 projetos com a mesma forma, ela é candidata a virar módulo formal.
+
+### Módulos (`prumo add <nome>`)
+
 Cada módulo é independente. Ative quando o trigger acontecer; não ative antes (YAGNI).
 
 | Módulo | Localização | Trigger |
 |---|---|---|
-| `extended-wiki` | `docs/wiki/{concepts, entities, sources, findings, <dominio>}/` | Wiki passa de ~20 páginas; há área teórica que merece pasta própria (ex.: `docs/wiki/statistics/`) |
+| `code` | `src/` importável + `tests/` espelhado + `pyproject.toml` — ative com `prumo add code` | O projeto vai ter script ou pacote Python próprio |
+| `data` | `content/01_raw/` (somente leitura) + `content/02_processed/` — ative com `prumo add data` | Entra o primeiro dataset no projeto |
+| `notebooks` | `notebooks/` (fora da raiz de leitura `docs/`) — ative com `prumo add notebooks` | Primeira análise exploratória em notebook |
+| `ml` | `.claude/rules/ml_stack.md` (stack, governança de código) + notebook de EDA — ative com `prumo add ml` | Vai treinar modelos ou fazer análise tabular/de imagem |
+| `clinical` | `docs/studies/<slug>/writing/protocol.md` + `docs/templates/` (projeto CEP, plano estatístico/SAP, dicionário de dados) — ative com `prumo add clinical` (`--scope <slug>` se houver mais de um escopo) | Estudo clínico/empírico com coorte e submissão a CEP |
+
+### Convenções documentadas (sem `_module.toml`)
+
+| Convenção | Localização | Trigger |
+|---|---|---|
+| `extended-wiki` | `docs/{concepts, entities, sources, <domínio>}/` | Wiki passa de ~20 páginas; há área teórica que merece pasta própria (ex.: `docs/statistics/`) |
 | `brainstorm-pipeline` | `docs/brainstorm/{daily, topics}/` | Projeto ≥3 meses; ideação volumosa; precisa de pipeline `daily → topic → ADR` |
 | `peer-review-loop` | `docs/comments/` | Vai submeter / receberá feedback de orientador ou revisor |
 | `versioned-milestones` | `docs/<marco>/{<doc>.md, versions/, README.md}` | Há entregas formais (banca, submissão de paper, capítulo de tese) |
-| `ml` | `content/{01_raw, 02_processed}/` + `eda.ipynb` + `.claude/rules/` (stack, governança, código) — ative com `prumo add ml` | Vai treinar modelos ou fazer análise tabular/de imagem |
-| `clinical` | `docs/protocol.md` + `docs/templates/` (projeto CEP, plano estatístico/SAP, dicionário de dados) — ative com `prumo add clinical` | Estudo clínico/empírico com coorte e submissão a CEP |
-| `obsidian-power` | `references/{templates, views}/` + plugins zotero/pandoc/linter | Vault Obsidian é a ferramenta principal de trabalho |
 | `specify-workflow` | `docs/superpowers/{specs, plans}/` | Usa skills `superpowers:brainstorming` / `writing-plans` pra design formal |
 
-### Detalhamento dos módulos mais densos
+### Detalhamento das convenções mais densas
 
 **`brainstorm-pipeline`** — pipeline `daily → topic → ADR → project_guide.md` :
 
 - `daily/YYYY-MM-DD.md` — escrita livre, sem schema, sem lint. Captura e segue.
 - `topics/<kebab-case>.md` — promovido quando uma ideia aparece em ≥2 dailies. Tem **tese**, **contras**, **perguntas em aberto**, **status** (aberto/amadurecendo/pronto-para-ADR/arquivado).
-- Quando topic fecha → ADR em `docs/decisions/adr-NNNN-*.md`.
+- Quando topic fecha → ADR em `docs/studies/<slug>/decisions/adr-NNNN-*.md`.
 - Quando decisão pesa → seção atualizada em `docs/project_guide.md`.
 
-**`extended-wiki`** — quatro tipos canônicos + domínios custom:
+**`extended-wiki`** — três tipos canônicos + domínios custom (findings **não** é diretório — é `type: finding` numa nota de `docs/studies/<slug>/notes/`, ADR-0023):
 
 - `concepts/` — métodos, abordagens, ideias.
 - `entities/` — modelos, datasets, coortes, ferramentas, instituições.
 - `sources/` — fontes não-paper (blogs, tutoriais, slides, transcrições).
-- `findings/` — resultados arquivados, respostas de `wiki-query` que valeram parar.
 - `<dominio>/` — área teórica custom (ex.: `statistics/`, `radiology/`) com `README.md` próprio.
 
 **`versioned-milestones`** — padrão genérico de entrega formal:
@@ -119,7 +145,7 @@ Pj_piloto_ml usa esse padrão pra `qualification/`. Outros projetos podem usar p
 | Nível | Quem é | Mínimo + módulos |
 |---|---|---|
 | **L0 — exploratório curto** (≤3 meses) | Estudo de viabilidade, PoC, scoping review rápido | só núcleo mínimo |
-| **L1 — paper único** | Submissão única, sem multi-marco | + `peer-review-loop` + `obsidian-power` |
+| **L1 — paper único** | Submissão única, sem multi-marco | + `peer-review-loop` |
 | **L2 — paper com leitura profunda** | Paper que exige RSL ou benchmark amplo | L1 + `extended-wiki` + `ml` |
 | **L3 — tese / dissertação** | Multi-ano, multi-paper, banca, capítulos | tudo + `brainstorm-pipeline` + `versioned-milestones` + `specify-workflow` |
 

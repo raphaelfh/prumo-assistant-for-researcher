@@ -1,7 +1,7 @@
 ---
 title: "Plano de análise estatística"
 revisao: 1
-bibliography: ../../references/_references.bib
+bibliography: ../../../references/_references.bib
 ---
 
 # Plano de análise estatística (PAE)

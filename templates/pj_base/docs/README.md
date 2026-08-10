@@ -8,15 +8,15 @@ Documentação do projeto. Preencha conforme o estudo evolui — este README é 
 |---|---|
 | [`_index.md`](_index.md) | Catálogo content-oriented do wiki (mantido pela `/prumo-assist:wiki-ingest`) |
 | [`_log.md`](_log.md) | Append-only chronological (ingests, queries, lints, decisões) |
-| [`protocol.md`](protocol.md) | Protocolo clínico, coorte, critérios, labels, métricas |
-| [`decisions/`](decisions/) | ADRs do estudo — congelar escolhas com motivação |
+| [`studies/<slug>/writing/protocol.md`](studies/) | Protocolo clínico, coorte, critérios, labels, métricas — por escopo de escrita |
+| [`studies/<slug>/decisions/`](studies/) | ADRs do escopo — congelar escolhas com motivação |
 | [`concepts/`](concepts/) | Ideias, métodos, abordagens (1 `.md` por conceito) |
 | [`entities/`](entities/) | Modelos, datasets, coortes, ferramentas, instituições |
 | [`findings/`](findings/) | Resultados arquivados (análises, respostas de `/prumo-assist:wiki-query`) |
 | [`sources/`](sources/) | Fontes não-paper: blogs, tutoriais, docs, slides, videos, transcripts, decisões |
-| [`../references/_index.md`](../references/_index.md) | Acervo bibliográfico (papers). Paper principal marcado `role: primary`. |
+| [`references/_index.md`](references/_index.md) | Acervo bibliográfico (papers). Paper principal marcado `role: primary`. |
 
-**Schema canônico**: frontmatter, convenções de link e formato de `_log.md` estão documentados nas próprias skills `/prumo-assist:wiki-*` e nos templates de cada subpasta (`concepts/`, `entities/`, `findings/`, `sources/`, `decisions/`).
+**Schema canônico**: frontmatter, convenções de link e formato de `_log.md` estão documentados nas próprias skills `/prumo-assist:wiki-*` e nos templates de cada subpasta (`concepts/`, `entities/`, `findings/`, `sources/`, `studies/<slug>/decisions/`).
 
 ## Operações wiki
 

@@ -39,7 +39,7 @@ prumo:
 >    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
 >    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
 >    pule este passo em silêncio.
-> 3. **Estrutura:** se o diretório não tiver `references/` + `docs/` de um `pj_*`,
+> 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
 >    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
 >
@@ -92,11 +92,11 @@ template, usando os inputs estruturados do projeto.
 
 ## Regras invioláveis
 
-1. **Citação strict.** Só `[@citekey]` que existe em `references/_references.bib`. Se a claim precisa de paper fora do acervo, escreva `[REF FALTANTE: <descrição curta>]`. Nunca invente citekey ou escreva `[Smith et al., 2024]` sem citekey.
+1. **Citação strict.** Só `[@citekey]` que existe em `docs/references/_references.bib`. Se a claim precisa de paper fora do acervo, escreva `[REF FALTANTE: <descrição curta>]`. Nunca invente citekey ou escreva `[Smith et al., 2024]` sem citekey.
 2. **Não toca `## References`.** Lista bibliográfica é gerada por export Pandoc.
 3. **Use PicotSpec do projeto** se existir (`.claude/picot.toml`). Population = coorte; Intervention = método; Comparison = baseline; Outcome = métrica primária; Hypothesis.statement = hipótese formal.
 4. **Use callouts `_extract.md`** dos papers como insumo. Extract content tem PICOT/Método/Resultados/Limitações estruturados.
-5. **Modo de output**: default `drafts/`; `--into` requer `--section`; `--out` ad-hoc.
+5. **Modo de output**: default `drafts` (grava em `writing/` do escopo); `--into` requer `--section`; `--out` ad-hoc.
 
 ## Fluxo
 
@@ -142,7 +142,7 @@ Cada `[@<key>]` deve estar em `inputs.citekeys` (conforme JSON do passo 1). Se n
 ### 5. Escrever output
 
 Modos:
-- **drafts** (default): `docs/drafts/paper-<data>-<slug>.md`
+- **drafts** (default): `docs/studies/<escopo>/writing/paper-<data>-<slug>.md`
 - **into** (`--into <path> --section <name>`): bloco delimitado em arquivo existente
 - **out** (`--out <path>`): caminho livre
 

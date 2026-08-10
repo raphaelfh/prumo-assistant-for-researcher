@@ -39,27 +39,39 @@ def _spec(version: int = 1, population: str = "DS_A") -> PicotSpec:
     )
 
 
-def _bootstrap_pj(tmp_path: Path) -> Path:
+def _mk_project(tmp_path: Path, slug: str = "principal") -> tuple[Path, Path]:
+    """Cria a raiz do projeto (marcador ``.claude/pj_config.toml``) e um escopo
+    vazio (``notes/``, ``writing/``, ``decisions/``). Devolve ``(pj_root, scope)``.
+    """
     pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
-    (pj / "docs" / "protocol.md").write_text(
+    (pj / ".claude").mkdir(parents=True)
+    (pj / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    scope = pj / "docs" / "studies" / slug
+    for sub in ("notes", "writing", "decisions"):
+        (scope / sub).mkdir(parents=True)
+    return pj, scope
+
+
+def _bootstrap_pj(tmp_path: Path, slug: str = "principal") -> tuple[Path, Path]:
+    """``_mk_project`` + ``protocol.md`` (escopo) e ``project_guide.md`` (projeto)."""
+    pj, scope = _mk_project(tmp_path, slug)
+    (scope / "writing" / "protocol.md").write_text(
         "# Protocolo do estudo\n\n## Contexto da pesquisa\n\nProse humana inicial.\n"
     )
     (pj / "docs" / "project_guide.md").write_text(
         "---\ntitle: Projeto\n---\n\n# Projeto\n\nIntro.\n"
     )
-    (pj / "docs" / "decisions").mkdir()
-    return pj
+    return pj, scope
 
 
 def test_propagate_inserts_blocks_when_absent(tmp_path: Path) -> None:
-    pj = _bootstrap_pj(tmp_path)
+    pj, scope = _bootstrap_pj(tmp_path)
     write_picot(pj, _spec())
-    report = propagate(pj)
+    report = propagate(scope)
     assert isinstance(report, PropagateReport)
     assert report.protocol_status == "inserted"
     assert report.project_status == "inserted"
-    protocol_text = (pj / "docs" / "protocol.md").read_text()
+    protocol_text = (scope / "writing" / "protocol.md").read_text()
     project_text = (pj / "docs" / "project_guide.md").read_text()
     assert "<!-- picot:begin" in protocol_text
     assert "<!-- picot:begin" in project_text
@@ -68,37 +80,37 @@ def test_propagate_inserts_blocks_when_absent(tmp_path: Path) -> None:
 
 
 def test_propagate_replaces_blocks_when_present(tmp_path: Path) -> None:
-    pj = _bootstrap_pj(tmp_path)
+    pj, scope = _bootstrap_pj(tmp_path)
     write_picot(pj, _spec(population="DS_A"))
-    propagate(pj)
+    propagate(scope)
     write_picot(pj, _spec(population="DS_A + DS_BB"))
-    propagate(pj)
-    text = (pj / "docs" / "protocol.md").read_text()
+    propagate(scope)
+    text = (scope / "writing" / "protocol.md").read_text()
     assert "DS_A + DS_BB" in text
     assert text.count("<!-- picot:begin") == 1
 
 
 def test_propagate_unchanged_when_hash_matches(tmp_path: Path) -> None:
-    pj = _bootstrap_pj(tmp_path)
+    pj, scope = _bootstrap_pj(tmp_path)
     write_picot(pj, _spec())
-    propagate(pj)
-    report = propagate(pj)
+    propagate(scope)
+    report = propagate(scope)
     assert report.protocol_status == "unchanged"
     assert report.project_status == "unchanged"
 
 
 def test_propagate_raises_when_picot_missing(tmp_path: Path) -> None:
-    pj = _bootstrap_pj(tmp_path)
+    _pj, scope = _bootstrap_pj(tmp_path)
     with pytest.raises(FileNotFoundError):
-        propagate(pj)
+        propagate(scope)
 
 
 def test_diff_against_last_adr_no_baseline_returns_diff_with_no_changes(
     tmp_path: Path,
 ) -> None:
-    pj = _bootstrap_pj(tmp_path)
+    pj, scope = _bootstrap_pj(tmp_path)
     write_picot(pj, _spec())
-    out = diff_against_last_adr(pj)
+    out = diff_against_last_adr(scope)
     assert out is not None
     assert out.changes == []
     assert out.has_structural is False
@@ -106,15 +118,15 @@ def test_diff_against_last_adr_no_baseline_returns_diff_with_no_changes(
 
 def test_diff_against_last_adr_detects_structural_change(tmp_path: Path) -> None:
     """Após ADR inicial, mudar campo estrutural produz diff structural."""
-    from prumo_assist.domains.protocol.adr import compose_adr, next_adr_number
+    from prumo_assist.domains.protocol.adr import compose_adr, next_number
     from prumo_assist.domains.protocol.diff import PicotDiff
 
-    pj = _bootstrap_pj(tmp_path)
+    pj, scope = _bootstrap_pj(tmp_path)
     spec_v1 = _spec(version=1, population="DS_A")
     write_picot(pj, spec_v1)
-    decisions = pj / "docs" / "decisions"
+    decisions = scope / "decisions"
     body = compose_adr(
-        adr_number=next_adr_number(pj),
+        adr_number=next_number(scope),
         spec=spec_v1,
         diff=PicotDiff(changes=[]),
         motivation="versão inicial",
@@ -125,46 +137,43 @@ def test_diff_against_last_adr_detects_structural_change(tmp_path: Path) -> None
 
     spec_v2 = _spec(version=2, population="DS_A + DS_BB")
     write_picot(pj, spec_v2)
-    diff = diff_against_last_adr(pj)
+    diff = diff_against_last_adr(scope)
     assert diff is not None
     assert diff.has_structural is True
     assert any(c.field == "population" for c in diff.changes)
 
 
 def test_detect_mode_init_when_nothing(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
-    assert detect_mode(pj) == "init"
+    _pj, scope = _mk_project(tmp_path)
+    assert detect_mode(scope) == "init"
 
 
 def test_detect_mode_formalize_when_protocol_prose(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
-    (pj / "docs" / "protocol.md").write_text("# Protocolo\n\nprosa humana.\n", encoding="utf-8")
-    assert detect_mode(pj) == "formalize"
+    _pj, scope = _mk_project(tmp_path)
+    (scope / "writing" / "protocol.md").write_text(
+        "# Protocolo\n\nprosa humana.\n", encoding="utf-8"
+    )
+    assert detect_mode(scope) == "formalize"
 
 
 def test_detect_mode_propagate_when_picot_no_adr(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
+    pj, scope = _mk_project(tmp_path)
     write_picot(pj, _spec())
-    assert detect_mode(pj) == "propagate"
+    assert detect_mode(scope) == "propagate"
 
 
 def test_detect_mode_diff_when_baseline_adr(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / "docs" / "decisions").mkdir(parents=True)
+    pj, scope = _mk_project(tmp_path)
     write_picot(pj, _spec())
-    (pj / "docs" / "decisions" / "adr-0001-picot-v1-versao-inicial.md").write_text(
+    (scope / "decisions" / "adr-0001-picot-v1-versao-inicial.md").write_text(
         "# adr\n", encoding="utf-8"
     )
-    assert detect_mode(pj) == "diff"
+    assert detect_mode(scope) == "diff"
 
 
 def test_init_picot_spec_writes_toml_and_adr(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / "docs").mkdir(parents=True)
-    result = init_picot_spec(pj, spec=_spec(), motivation="inicial", date="2026-06-14")
+    pj, scope = _mk_project(tmp_path)
+    result = init_picot_spec(scope, spec=_spec(), motivation="inicial", date="2026-06-14")
     assert isinstance(result, InitResult)
     assert picot_path(pj).exists()
     assert result.adr_path.exists()
@@ -173,9 +182,11 @@ def test_init_picot_spec_writes_toml_and_adr(tmp_path: Path) -> None:
 
 
 def test_create_picot_adr_writes_and_propagates(tmp_path: Path) -> None:
-    pj = _bootstrap_pj(tmp_path)
+    pj, scope = _bootstrap_pj(tmp_path)
     write_picot(pj, _spec(version=2, population="DS_A + DS_BB"))
-    result = create_picot_adr(pj, motivation="novo dataset", slug="novo-dataset", date="2026-06-14")
+    result = create_picot_adr(
+        scope, motivation="novo dataset", slug="novo-dataset", date="2026-06-14"
+    )
     assert isinstance(result, AdrResult)
     assert result.adr_path.exists()
     assert "picot-v2-novo-dataset" in result.adr_path.name

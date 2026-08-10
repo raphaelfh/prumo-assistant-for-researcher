@@ -1,0 +1,3 @@
+description = "Dado do projeto: content/01_raw (somente leitura) e content/02_processed."
+when_to_use = "Entra o primeiro dataset no projeto."
+anchor = "content/01_raw/.gitkeep"

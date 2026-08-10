@@ -3,7 +3,7 @@ title: ""
 authors: []
 ciaap: ""             # CAAE quando aprovado
 plataforma_brasil: "" # link ou ID
-bibliography: ../../references/_references.bib
+bibliography: ../../../references/_references.bib
 ---
 
 # Resumo

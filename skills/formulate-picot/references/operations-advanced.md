@@ -7,7 +7,7 @@ basta — não precisa abrir este arquivo.
 ## Operação 3 — ``propagate``
 
 **Quando**: ``.claude/picot.toml`` existe e há ADR baseline, mas os blocos
-delimitados ``<!-- picot:begin -->`` em ``docs/protocol.md`` e
+delimitados ``<!-- picot:begin -->`` em ``docs/studies/<slug>/writing/protocol.md`` e
 ``docs/project_guide.md`` estão stale (hash mismatch). Sem mudança estrutural.
 
 Executar:
@@ -76,7 +76,7 @@ A saída em stdout é JSON com ``adr_path`` e ``propagate``.
 ### Passo 6. Reportar
 
 ```
-✓ ADR gerado: docs/decisions/adr-NNNN-picot-v<N>-<slug>.md
+✓ ADR gerado: docs/studies/<slug>/decisions/adr-NNNN-picot-v<N>-<slug>.md
   Propagate: protocol=<status> · project=<status>
 ```
 

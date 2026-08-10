@@ -8,6 +8,7 @@ from typing import Annotated, cast
 import typer
 
 from prumo_assist import PrumoError
+from prumo_assist.core import pj_layout
 from prumo_assist.core.cli_io import parse_json_list, read_stdin_text
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.domains.write import comments, compose, export, review
@@ -64,6 +65,10 @@ def export_command(
             help="Template .docx (estilos/cabeçalho/rodapé) — somente formato docx.",
         ),
     ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Sobrescreve a saída se já existir."),
+    ] = False,
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Exporta uma página Markdown via Pandoc + CSL → DOCX/Typst/PDF/HTML."""
@@ -78,6 +83,7 @@ def export_command(
             bib=bib.resolve() if bib else None,
             template=template.resolve() if template else None,
             reference_doc=reference_doc.resolve() if reference_doc else None,
+            force=force,
         )
         console.success(f"exportado: {result}")
         if to == "docx":
@@ -103,6 +109,10 @@ def compose_command(
             help="Template .docx (estilos/cabeçalho/rodapé) — somente formato docx.",
         ),
     ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Sobrescreve a saída se já existir."),
+    ] = False,
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Compõe múltiplas páginas (frontmatter ``pages: [...]``) em um documento único."""
@@ -117,6 +127,7 @@ def compose_command(
             bib=bib.resolve() if bib else None,
             template=template.resolve() if template else None,
             reference_doc=reference_doc.resolve() if reference_doc else None,
+            force=force,
         )
         console.success(f"composto: {result}")
         if to == "docx":
@@ -210,7 +221,12 @@ def prep_command(
     kind: Annotated[
         str, typer.Option("--kind", help="paper|projeto-cep|statistics|scientific.")
     ] = "paper",
-    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    path: Annotated[
+        Path,
+        typer.Option(
+            "--path", help="Escopo de escrita (docs/studies/<slug>/) ou caminho dentro dele."
+        ),
+    ] = Path("."),
     lang: Annotated[
         str | None, typer.Option("--lang", help="pt-BR|en-US. Omitido resolve pela cascata.")
     ] = None,
@@ -220,7 +236,8 @@ def prep_command(
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         if kind not in _WRITE_KINDS:
             raise PrumoError(f"--kind deve ser um de {list(_WRITE_KINDS)}.")
-        result = compose.prep(path.resolve(), kind=cast(WriteKind, kind), lang=lang)
+        scope = pj_layout.find_scope_root(path.resolve())
+        result = compose.prep(scope, kind=cast(WriteKind, kind), lang=lang)
         console.success(
             f"Contexto pronto (template {result.template_path.name}, idioma {result.language})."
         )
@@ -249,7 +266,12 @@ def draft_command(
     into: Annotated[str, typer.Option("--into", help="Caminho destino (modo into).")] = "",
     out: Annotated[str, typer.Option("--out", help="Caminho destino (modo out).")] = "",
     force: Annotated[bool, typer.Option("--force", help="Sobrescreve no modo out.")] = False,
-    path: Annotated[Path, typer.Option("--path", help="Diretório do pj_*.")] = Path("."),
+    path: Annotated[
+        Path,
+        typer.Option(
+            "--path", help="Escopo de escrita (docs/studies/<slug>/) ou caminho dentro dele."
+        ),
+    ] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Grava o draft (markdown via stdin) conforme o modo; reporta o WriteOutput."""
@@ -260,11 +282,12 @@ def draft_command(
             raise PrumoError(f"--kind deve ser um de {list(_WRITE_KINDS)}.")
         if mode not in _WRITE_MODES:
             raise PrumoError(f"--mode deve ser um de {list(_WRITE_MODES)}.")
+        scope = pj_layout.find_scope_root(path.resolve())
         content = read_stdin_text()
         sections_list = parse_json_list(sections, "--sections")
         result = compose.write_output(
             content=content,
-            pj_path=path.resolve(),
+            scope=scope,
             kind=cast(WriteKind, kind),
             mode=cast(WriteMode, mode),
             section=section or None,
@@ -475,7 +498,11 @@ def zettlr_export_entry() -> None:
             if len(sys.argv) != 2:
                 raise PrumoError("uso: prumo-zettlr-export <arquivo.md>")
             page = Path(sys.argv[1]).resolve()
-            result = export.export(page=page, to="docx")
+            # force=True: aqui é sempre o autor reexportando a própria fonte pra
+            # build/exports/ (gitignored, regenerável) — o docx do coautor com
+            # tracked changes nunca mora ali, então a guarda de sobrescrita não
+            # protege nada neste caminho e só quebraria o re-export de rotina.
+            result = export.export(page=page, to="docx", force=True)
             console.success(f"exportado: {result}")
     except typer.Exit as e:
         # Entrypoint fora do dispatch do Click (é um `[project.scripts]` cru,

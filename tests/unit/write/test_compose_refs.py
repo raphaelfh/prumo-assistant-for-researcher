@@ -20,7 +20,7 @@ def test_write_output_reports_citations_in_both_flavors(tmp_path: Path) -> None:
     content = "Intro [@smith2024cohort] e bracketed [@jones2023trial] e narrativa @lee2025core.\n"
     result = write_output(
         content=content,
-        pj_path=tmp_path,
+        scope=tmp_path,
         kind="paper",
         mode="drafts",
         date="2026-07-22",
@@ -32,7 +32,7 @@ def test_write_output_reports_citations_in_both_flavors(tmp_path: Path) -> None:
 def test_write_output_does_not_truncate_composite_keys(tmp_path: Path) -> None:
     result = write_output(
         content="[@vanDijk2019:pt2]\n",
-        pj_path=tmp_path,
+        scope=tmp_path,
         kind="paper",
         mode="drafts",
         date="2026-07-22",
