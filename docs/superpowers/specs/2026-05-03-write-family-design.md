@@ -372,8 +372,8 @@ Cada PR independente; PR-W1 e PR-W2 podem rodar em paralelo. PR-W5 (templates) p
 
 ## Referências
 
-- [`docs/canvas/journey.canvas`](../../canvas/journey.canvas) — Fase 3 ESCRITA p3-prumo-finalidade "Família `/prumo-assist:write-*`"
-- [`docs/canvas/project-flow.canvas`](../../canvas/project-flow.canvas) — sub-fluxo agente especializado em escrita acadêmica
+- `docs/canvas/journey.canvas` (removido do repo; conteúdo na tag `v0.65.0`) — Fase 3 ESCRITA p3-prumo-finalidade "Família `/prumo-assist:write-*`"
+- `docs/canvas/project-flow.canvas` (removido do repo; conteúdo na tag `v0.65.0`) — sub-fluxo agente especializado em escrita acadêmica
 - [`docs/actions-by-context.md`](../../actions-by-context.md) — gatilhos "Vou submeter pro CEP", "Vou montar artigo pra venue", "Vou escrever a seção de métodos estatísticos"
 - [`docs/superpowers/specs/2026-05-03-formulate-picot-design.md`](2026-05-03-formulate-picot-design.md) — produtor da PicotSpec consumida por essa família
 - [`docs/superpowers/specs/2026-05-03-zotero-notes-integration-design.md`](2026-05-03-zotero-notes-integration-design.md) — produtor de `_extract.md` consumido por essa família

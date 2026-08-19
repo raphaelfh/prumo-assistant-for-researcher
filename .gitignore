@@ -12,11 +12,7 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Obsidian — UI/local state (per-machine, not vault config)
-docs/.obsidian/workspace.json
-docs/.obsidian/graph.json
-
-# Obsidian — accidental "Untitled" stubs (qualquer variante: Untitled.canvas, Untitled Kanban.md, ...)
+# stubs "Untitled" acidentais do editor (qualquer variante)
 docs/Untitled*
 
 # graphify — grafo de conhecimento local (regenerável)

@@ -7,10 +7,6 @@ tags: [structure, template, journey]
 
 > Modelo **"mínimo + módulos"** pros projetos `pj_*`. Núcleo único pra todos; módulos ativados por necessidade real, coerente com [[constitution#VI · YAGNI militante]]. Documento vivo — ajuste conforme os projetos forem ensinando.
 
-Visualizações:
-- [[canvas/project-structure|Canvas estrutural — núcleo + módulos por composição]]
-- [[canvas/project-flow|Canvas de fluxo — como ideia e citação atravessam o repo]]
-
 ---
 
 ## Núcleo mínimo

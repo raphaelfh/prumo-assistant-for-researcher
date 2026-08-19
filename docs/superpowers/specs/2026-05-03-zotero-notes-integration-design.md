@@ -285,7 +285,7 @@ Todo arquivo gerado tem YAML com no mínimo:
 
 ## Consumers downstream (informativo, fora do escopo desta spec)
 
-Os arquivos gerados em `references/notes/<citekey>/` alimentam, além de Obsidian e qmd, uma **família de skills de escrita por finalidade** desenhada em [[canvas/project-flow]] mas ainda não implementada:
+Os arquivos gerados em `references/notes/<citekey>/` alimentam, além de Obsidian e qmd, uma **família de skills de escrita por finalidade** desenhada em `docs/canvas/project-flow.canvas` (removido do repo; conteúdo na tag `v0.65.0`) mas ainda não implementada:
 
 - `/prumo-assist:write-projeto-cep` — projeto de Comitê de Ética em Pesquisa
 - `/prumo-assist:write-paper` — paper acadêmico

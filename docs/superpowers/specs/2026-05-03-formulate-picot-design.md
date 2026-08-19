@@ -349,7 +349,7 @@ Cada PR independente; PR-P1 e PR-P2 podem rodar em paralelo (PR-P2 mocka PicotSp
 
 ## Referências
 
-- [`docs/canvas/journey.canvas`](../../canvas/journey.canvas) — Fase 1 (Discover+Define) p1-precisa "Formular pergunta em PICOT" + p1-prumo-picot "candidata futura: `/prumo-assist:formulate-picot`"
+- `docs/canvas/journey.canvas` (removido do repo; conteúdo na tag `v0.65.0`) — Fase 1 (Discover+Define) p1-precisa "Formular pergunta em PICOT" + p1-prumo-picot "candidata futura: `/prumo-assist:formulate-picot`"
 - [`docs/actions-by-context.md`](../../actions-by-context.md) — gatilhos "Preciso fechar um PICOT antes de prosseguir" e "PICOT fechado — busca focada"
 - [`templates/pj_base/docs/protocol.md`](../../../templates/pj_base/docs/protocol.md) — template atual da seção operacional
 - `monorepo-anterior/pj_piloto_ml/docs/protocol.md` + `qualification/projeto.md` + `decisions/adr-*.md` — projeto-referência com PICOT evoluindo (várias RQs → 1 hipótese formal)
