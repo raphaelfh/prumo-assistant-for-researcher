@@ -32,4 +32,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0022-layout-por-escopo]] — Layout por escopo: `docs/` como raiz única de leitura · aceito
 - [[adr/adr-0023-finding-como-type]] — Finding como `type: finding` em `notes/`, não diretório próprio · aceito
 - [[adr/adr-0024-escopo-desde-o-init]] — Escopo presente desde o `init`; sem máquina de promoção · aceito
+- [[adr/adr-0025-tipo-de-pagina-no-frontmatter]] — Tipo de página é campo do frontmatter, não diretório · aceito
 <!-- prumo:adr-index:end -->

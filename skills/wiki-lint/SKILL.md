@@ -40,11 +40,15 @@ prumo:
 > operação exata nunca é simulada.
 <!-- prumo:preflight:end -->
 
-Aplica as regras de integridade listadas em `/docs/wiki-schema.md` do monorepo. Gera relatório; não corrige automaticamente.
+Aplica as regras de integridade descritas neste checklist, uma por seção. Gera relatório;
+não corrige automaticamente.
 
 ## Pressupostos
 
-- cwd é um `pj_*` com a estrutura padrão do wiki (`docs/_index.md`, `docs/_log.md`, subdirs, `docs/references/`).
+- cwd é um `pj_*` com a estrutura padrão (`docs/_index.md`, `docs/_log.md`, `docs/references/` e
+  ao menos um escopo `docs/studies/<escopo>/` com `notes/`, `writing/` e `decisions/`).
+- Cada escopo é auditado por vez: a identidade de uma página é o caminho relativo ao escopo, e
+  um wikilink só resolve dentro do escopo que o cita — homônimo de outro escopo não resolve.
 - Se o wiki é recém-criado e vazio, a skill retorna "Wiki vazio — nada a auditar" e sai.
 
 ## Checklist (ordem fixa)
@@ -58,7 +62,7 @@ Aplica as regras de integridade listadas em `/docs/wiki-schema.md` do monorepo. 
 
 ### 1. Páginas órfãs
 
-Uma página é órfã se está em `docs/{concepts,entities,findings,sources}/` mas **não** é linkada de nenhum lugar.
+Uma página é órfã se está sob um escopo (`docs/studies/<escopo>/`) mas **não** é linkada de nenhum lugar.
 
 ```bash
 # Universo: todos os arquivos markdown do wiki (exceto _index, _log, README, protocol).
@@ -70,11 +74,11 @@ Uma página é órfã se está em `docs/{concepts,entities,findings,sources}/` m
 Implementação sugerida:
 
 ```bash
-# Listar todos os slugs (stem sem .md)
-Glob docs/{concepts,entities,findings,sources}/*.md
+# Listar todas as páginas do escopo (identidade = caminho relativo ao escopo)
+Glob docs/studies/<escopo>/**/*.md
 
 # Conjunto linkado via rg (não usar Grep direto — usar a ferramenta Grep)
-Grep "\\[\\[([^@][^\\]]+)\\]\\]" docs/ docs/references/papers/ -o --multiline
+Grep "\\[\\[([^@][^\\]]+)\\]\\]" docs/studies/<escopo>/ docs/references/papers/ -o --multiline
 # + parse de _index.md
 ```
 
@@ -125,7 +129,7 @@ Reportar findings em violação.
 
 Delegar à inteligência do LLM (não é regex):
 
-1. Ler as notas `type: finding` em `docs/studies/*/notes/*.md` e `docs/concepts/*.md` (limite: 30 arquivos por rodada — se maior, reportar "coverage parcial" e listar quais foram analisados).
+1. Ler as notas `type: finding` e `type: concept` em `docs/studies/*/notes/*.md` (limite: 30 arquivos por rodada — se maior, reportar "coverage parcial" e listar quais foram analisados).
 2. Identificar claims conflitantes entre páginas (ex.: "AUROC >= 0.85 em coorte X" vs "AUROC 0.72 em coorte X").
 3. Reportar pares `[[a]] ↔ [[b]]` com o conflito sumarizado.
 
@@ -142,10 +146,11 @@ Heurística:
 
 ### 8. Conceitos candidatos a página
 
-Conceito mencionado em wikilinks `[[termo]]` **sem** arquivo correspondente em `docs/concepts/` e **citado ≥ 3 vezes**.
+Conceito mencionado em wikilinks `[[termo]]` **sem** nota correspondente no `notes/` do escopo
+(uma nota `type: concept`) e **citado ≥ 3 vezes** dentro do mesmo escopo.
 
 ```
-Grep "\\[\\[[^\\]]+\\]\\]" docs/ -o   # todos wikilinks
+Grep "\\[\\[[^\\]]+\\]\\]" docs/studies/<escopo>/ -o   # todos wikilinks do escopo
 # Agregar, filtrar por frequência >=3, remover os que já têm arquivo.
 ```
 

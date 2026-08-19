@@ -85,7 +85,7 @@ tags: [journey, playbook]
 ### "Quero estudar conceito X usando minhas próprias fontes"
 *Claude como tutor metacognitivo. Sessão Socrática em 5 steps ancorada no acervo.*
 1. `/prumo-assist:active-learning <topic>` — skill conduz: Recall → Anchor → Connect → Apply → Reflect.
-2. Skill cria log em `docs/wiki/study-sessions/<topic>-<data>.md`.
+2. Skill cria log em `docs/studies/<escopo>/notes/session-<topic>-<data>.md`.
 3. No step Reflect, skill oferece arquivar insight como finding.
 4. Citação strict — só citekeys do acervo. Refs faltantes viram `[REF FALTANTE]`.
 
@@ -104,7 +104,7 @@ tags: [journey, playbook]
 ## Fase 3 · Escrita  *(Deliver)*
 
 ### "Vou começar um draft"
-1. Criar `.md` em `docs/studies/<slug>/notes/` (`type: finding`) ou `docs/sources/` com frontmatter (ou editar `docs/project.md` direto).
+1. Criar o `.md` do draft em `docs/studies/<slug>/writing/` — nota de apoio (`type: finding`, `type: source`) vai em `docs/studies/<slug>/notes/`, com frontmatter.
 2. Escrever — usando `[@key]` (ou `@key` narrativa) pra citações inline.
 3. `/prumo-assist:scientific-writing` — passe editorial (pontuação, citação, superlativos).
 

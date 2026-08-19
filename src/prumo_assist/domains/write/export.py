@@ -722,7 +722,7 @@ def _check_bbt_running(timeout: float = 2.0) -> None:
 
 
 def slugify(path: Path, project_root: Path) -> str:
-    """``docs/findings/foo.md`` → ``findings__foo``."""
+    """``docs/studies/principal/notes/foo.md`` → ``studies__principal__notes__foo``."""
     rel = path.relative_to(project_root) if path.is_absolute() else path
     parts = list(rel.with_suffix("").parts)
     if parts and parts[0] == "docs":

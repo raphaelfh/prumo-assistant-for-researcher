@@ -105,7 +105,8 @@ def classify(raw: str) -> CaptureRoute:
             canonical=s,
             suggestion=(
                 "URL não-acadêmica. Use a skill `wiki-ingest` no seu agent-host "
-                "pra adicionar como source no wiki (`docs/sources/`)."
+                "pra adicionar como nota `type: source` no escopo "
+                "(`docs/studies/<escopo>/notes/`)."
             ),
             next_command="(no agent-host: /prumo-assist:wiki-ingest <url>)",
         )

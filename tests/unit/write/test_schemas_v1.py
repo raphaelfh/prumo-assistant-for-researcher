@@ -46,7 +46,7 @@ def test_compose_inputs_default_empty() -> None:
 
 def test_compose_inputs_with_data() -> None:
     paper = PaperSummary(citekey="a", title="T", authors="A")
-    finding = FindingSummary(path=Path("docs/findings/x.md"), title="F", body="B")
+    finding = FindingSummary(path=Path("docs/studies/principal/notes/x.md"), title="F", body="B")
     c = ComposeInputs(
         citekeys=["a"],
         papers={"a": paper},
