@@ -6,6 +6,7 @@ __pycache__/
 
 # git worktrees
 .worktrees/
+.claude/worktrees/
 
 # coverage
 .coverage

@@ -1,7 +1,9 @@
 ---
 title: Plano de implementação — Zettlr como front humano
 date: 2026-07-22
-status: draft
+status: implemented
+verified: 2026-07-22
+release: "0.62.1"
 spec: ../specs/2026-07-22-zettlr-front-design.md
 tags: [zettlr, write, citations, pj-base, release-policy, plan]
 ---

@@ -65,9 +65,9 @@ Vault Obsidian de orientação de uso do plugin/CLI. Material complementar ao [R
 
 **Plans ativos:**
 
-- [[superpowers/plans/2026-07-22-zettlr-front]] · draft
+- (nenhum)
 
-**Plans arquivados:** 28 em `superpowers/plans/archive/`
+**Plans arquivados:** 29 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->
