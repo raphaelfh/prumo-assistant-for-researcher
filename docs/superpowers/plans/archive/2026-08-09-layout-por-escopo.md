@@ -1,3 +1,17 @@
+---
+status: implemented
+verified: 2026-08-19
+release: "0.65.0"
+spec: "[[2026-08-08-layout-por-escopo-design]]"
+---
+
+> **Nota de arquivamento (2026-08-19).** Tasks 1–12, 14 e 15 saíram na 0.65.0. A Task 13
+> (prosa) ficou incompleta: a tabela de substituição do Step 3 cobria `references/notes/`,
+> `docs/wiki/findings/`, `docs/protocol.md` e `docs/decisions/`, mas não os quatro tipos de
+> página do wiki (`concepts`, `entities`, `findings`, `sources`), que sobreviveram em
+> `wiki-ingest`, em três seções de `wiki-lint` e nos templates do `pj_base`. Fechada na
+> 0.65.1, com [[adr-0025-tipo-de-pagina-no-frontmatter]] e um guard test mais largo.
+
 # Layout por escopo — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -34,7 +48,7 @@
 - Consumes: nada (é a base).
 - Produces: `PJ_CONFIG_RELPATH`, `REFERENCES_RELPATH`, `STUDIES_RELPATH`, `find_pj_root(start: Path) -> Path`, `find_scope_root(start: Path) -> Path`, `iter_scopes(pj_root: Path) -> list[Path]`, `bib_path(pj_root: Path) -> Path`, `papers_dir(pj_root: Path) -> Path`, `paper_dir(pj_root: Path, citekey: str) -> Path`, `pdfs_dir(pj_root: Path) -> Path`, `notes_dir(scope: Path) -> Path`, `writing_dir(scope: Path) -> Path`, `decisions_dir(scope: Path) -> Path`, `is_legacy_layout(pj_root: Path) -> bool`, `PjRootNotFoundError`, `LegacyLayoutError`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/unit/core/test_pj_layout.py`:
 
@@ -120,12 +134,12 @@ def test_is_legacy_layout_detecta_references_na_raiz(tmp_path: Path) -> None:
     assert L.is_legacy_layout(_mk_project(tmp_path / "pj_novo")) is False
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/unit/core/test_pj_layout.py -v`
 Expected: FAIL com `ModuleNotFoundError: No module named 'prumo_assist.core.pj_layout'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `src/prumo_assist/core/pj_layout.py`:
 
@@ -256,17 +270,17 @@ def assert_current_layout(pj_root: Path) -> None:
         )
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `uv run pytest tests/unit/core/test_pj_layout.py -v`
 Expected: PASS, 8 passed
 
-- [ ] **Step 5: Verify types and lint**
+- [x] **Step 5: Verify types and lint**
 
 Run: `uv run mypy && uv run ruff check . && uv run ruff format --check .`
 Expected: exit 0
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/prumo_assist/core/pj_layout.py tests/unit/core/test_pj_layout.py
@@ -286,7 +300,7 @@ git commit -m "feat(core): pj_layout como autoridade unica de caminho"
 - Consumes: `pj_layout.paper_dir`, `pj_layout.papers_dir`, `pj_layout.pdfs_dir`.
 - Produces: `note_paths.note_dir(pj_path, citekey)` inalterado na assinatura; `citekey_from_meta_path` passa a reconhecer `papers` como pasta-mãe do layout plano legado.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescente a `tests/unit/core/test_note_paths.py`:
 
@@ -307,12 +321,12 @@ def test_citekey_from_meta_path_reconhece_papers_plano(tmp_path: Path) -> None:
     assert note_paths.citekey_from_meta_path(alfa) == "silva2020"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/unit/core/test_note_paths.py -v`
 Expected: FAIL — o caminho devolvido ainda é `references/notes/...`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `src/prumo_assist/core/note_paths.py`, troque as três linhas:
 
@@ -341,12 +355,12 @@ Em `src/prumo_assist/core/obsidian.py`, troque as linhas 133-134:
 
 com `from prumo_assist.core import pj_layout` no topo.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `uv run pytest tests/unit/core/ -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/prumo_assist/core/note_paths.py src/prumo_assist/core/obsidian.py tests/unit/core/test_note_paths.py
@@ -373,7 +387,7 @@ git commit -m "refactor(core): note_paths e obsidian sobre pj_layout"
 - Consumes: `pj_layout.bib_path`, `papers_dir`, `pdfs_dir`, `references_dir`, `assert_current_layout`.
 - Produces: nenhuma assinatura pública muda — só os caminhos internos.
 
-- [ ] **Step 1: Escreva o teste de guarda de layout legado**
+- [x] **Step 1: Escreva o teste de guarda de layout legado**
 
 Crie `tests/unit/paper/test_legacy_guard.py`:
 
@@ -400,12 +414,12 @@ def test_sync_recusa_layout_legado_com_convite(tmp_path: Path) -> None:
     assert "adeque este projeto" in str(exc.value)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/unit/paper/test_legacy_guard.py -v`
 Expected: FAIL — hoje `sync_pj` não levanta
 
-- [ ] **Step 3: Substituir os literais e acrescentar a guarda**
+- [x] **Step 3: Substituir os literais e acrescentar a guarda**
 
 Em cada módulo listado, importe `from prumo_assist.core import pj_layout` e aplique:
 
@@ -424,7 +438,7 @@ Na primeira linha do corpo de `sync.sync_pj`, `zotero.sync_annotations_pj`, `pdf
     pj_layout.assert_current_layout(pj_path)
 ```
 
-- [ ] **Step 4: Atualizar as fixtures dos testes do domínio**
+- [x] **Step 4: Atualizar as fixtures dos testes do domínio**
 
 Em cada teste de `tests/unit/paper/` que monta `references/`, troque o prefixo por `docs/references/` e `notes/` por `papers/`. Comando de apoio para localizar:
 
@@ -432,12 +446,12 @@ Em cada teste de `tests/unit/paper/` que monta `references/`, troque o prefixo p
 grep -rn '"references"\|references/' tests/unit/paper/
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `uv run pytest tests/unit/paper/ -v`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/prumo_assist/domains/paper tests/unit/paper
@@ -457,7 +471,7 @@ git commit -m "refactor(paper): caminhos via pj_layout + guarda de layout legado
 - Consumes: `pj_layout.decisions_dir`, `pj_layout.writing_dir`, `pj_layout.find_scope_root`.
 - Produces: `adr.next_number(scope: Path) -> int` e `adr.write_adr(scope: Path, ...)` — **assinatura muda de `pj_path` para `scope`**. `ops.propagate(scope: Path, ...)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescente a `tests/unit/protocol/test_adr.py`:
 
@@ -476,12 +490,12 @@ def test_numeracao_de_adr_e_por_escopo(tmp_path: Path) -> None:
     assert adr.next_number(b.parent) == 1
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/unit/protocol/test_adr.py::test_numeracao_de_adr_e_por_escopo -v`
 Expected: FAIL — `next_number` recebe `pj_path` e monta `pj_path/"docs"/"decisions"`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `adr.py`, as duas ocorrências de `decisions = pj_path / "docs" / "decisions"` viram:
 
@@ -507,12 +521,12 @@ Em `ops.py`:
 
 `project_guide.md` é do PROJETO, não do escopo — por isso resolve por `find_pj_root`.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `uv run pytest tests/unit/protocol/ -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/prumo_assist/domains/protocol tests/unit/protocol
@@ -533,7 +547,7 @@ Esta é a mudança de comportamento mais visível. Cinco defeitos, todos silenci
 - Consumes: `pj_layout.iter_scopes`, `bib_path`, `papers_dir`, `references_dir`.
 - Produces: `lint(pj_path: Path) -> dict[str, Any]` (assinatura preservada, agora itera escopos); `WikiIssue` ganha campo `scope: str | None = None`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Acrescente a `tests/unit/wiki/test_lint.py`:
 
@@ -623,12 +637,12 @@ def test_multiple_primary_desligado_por_default(tmp_path: Path) -> None:
     assert "multiple_primary" not in codes
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/wiki/test_lint.py -v -k "bibliografia or bib_ausente or homonimas or multiple_primary"`
 Expected: FAIL nos cinco
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `src/prumo_assist/domains/wiki/lint.py`:
 
@@ -773,12 +787,12 @@ def check_single_primary(pj_path: Path) -> list[WikiIssue]:
     ...
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `uv run pytest tests/unit/wiki/test_lint.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/prumo_assist/domains/wiki/lint.py tests/unit/wiki/test_lint.py
@@ -797,7 +811,7 @@ git commit -m "feat(wiki): lint por escopo, bib_missing como warning, multiple_p
 - Consumes: `pj_layout.iter_scopes`, `papers_dir`.
 - Produces: `stats(pj_path)` devolve `{"by_type": {...}, "by_scope": {...}, "totals": {...}}`. **`by_type["references"]` continua existindo** — remover violaria forward-only (`constitution.md:62`).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_stats_mantem_by_type_e_ganha_by_scope(tmp_path: Path) -> None:
@@ -815,12 +829,12 @@ def test_stats_mantem_by_type_e_ganha_by_scope(tmp_path: Path) -> None:
     assert out["by_scope"]["a"]["notes"]["pages"] == 1
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/unit/wiki/test_stats.py -v`
 Expected: FAIL — `KeyError: 'by_scope'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 from prumo_assist.core import pj_layout
@@ -866,7 +880,7 @@ def stats(pj_path: Path) -> dict[str, Any]:
 
 `rglob` no lugar de `glob` conserta de passagem os 85 papers em layout α que o `glob` raso não via.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 ```bash
 uv run pytest tests/unit/wiki/ -v
@@ -888,7 +902,7 @@ git commit -m "feat(wiki): stats por escopo, references por rglob"
 - Consumes: `pj_layout.notes_dir`, `find_scope_root`.
 - Produces: `archive_as_finding(*, scope: Path, slug, title, body, sources, date, tags, generator) -> Path` — **`pj_path` vira `scope`**. `compose._read_findings(scope: Path) -> list[...]`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_finding_nasce_em_notes_com_type(tmp_path: Path) -> None:
@@ -920,12 +934,12 @@ def test_compose_acha_finding_por_type(tmp_path: Path) -> None:
     assert len(achados) == 1
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/wiki/test_findings.py tests/unit/write/test_compose_inputs.py -v`
 Expected: FAIL — `archive_as_finding` ainda recebe `pj_path` e cria diretório
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `findings.py`, apague `_resolve_findings_dir` inteiro e troque a assinatura:
 
@@ -983,7 +997,7 @@ Em `study.py:29,33`, a sessão de estudo passa a gravar em `<escopo>/notes/`:
     out = pj_layout.notes_dir(scope) / f"session-{topic}-{date}.md"
 ```
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 ```bash
 uv run pytest tests/unit/wiki/ tests/unit/write/ -v
@@ -1003,7 +1017,7 @@ git commit -m "feat(wiki): finding vira type: em notes/, sem diretorio proprio"
 - Consumes: `pj_layout.find_pj_root`, `find_scope_root`, `bib_path`.
 - Produces: `export(page, *, force: bool = False, ...)` — parâmetro novo `force`; `detect_project_root` é substituída por `pj_layout.find_pj_root`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_export_recusa_sobrescrever_sem_force(tmp_path: Path, init_project) -> None:
@@ -1028,12 +1042,12 @@ def test_export_falha_alto_quando_figura_falta(tmp_path: Path, init_project) -> 
     assert "figures/ausente.png" in str(exc.value)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/write/test_export_docx_validation.py -v -k "sobrescrever or figura"`
 Expected: FAIL — hoje sobrescreve em silêncio e o pandoc sai 0 sem imagem
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Substitua `detect_project_root` por delegação (mantendo o nome para não quebrar callers internos):
 
@@ -1087,7 +1101,7 @@ Guarda de sobrescrita em `export()`, antes de invocar o pandoc:
         )
 ```
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 ```bash
 uv run pytest tests/unit/write/ -v
@@ -1108,7 +1122,7 @@ git commit -m "feat(write): resource-path para figuras, guarda de sobrescrita, r
 - Consumes: `pj_layout.bib_path`, `writing_dir`, `find_pj_root`, `find_scope_root`.
 - Produces: `compose.read_inputs(scope: Path)` — **`pj_path` vira `scope`**.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_compose_le_protocolo_do_escopo(tmp_path: Path) -> None:
@@ -1124,12 +1138,12 @@ def test_compose_le_protocolo_do_escopo(tmp_path: Path) -> None:
     assert got.project == "GUIA"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/unit/write/test_compose_inputs.py -v -k protocolo`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # compose.py:46-47
@@ -1143,7 +1157,7 @@ Expected: FAIL
     bib = pj_layout.bib_path(pj_path)
 ```
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 ```bash
 uv run pytest tests/unit/write/ -v
@@ -1164,7 +1178,7 @@ git commit -m "refactor(write): compose e zettlr por escopo"
 - Consumes: `pj_layout.*`.
 - Produces: `prumo add study <slug>`; `doctor` com códigos `legacy_layout` e `references_ressuscitado`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_doctor_acusa_layout_legado(tmp_path: Path) -> None:
@@ -1195,12 +1209,12 @@ def test_add_study_cria_pasta_irma_sem_tocar_no_resto(tmp_path: Path) -> None:
     assert set(antes).issubset(set(depois))
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/test_cli_doctor.py tests/unit/test_cli_init.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `doctor`, linha 572:
 
@@ -1259,7 +1273,7 @@ No `_wizard`, acrescente a pergunta do slug do primeiro escopo, com default deri
     scope_slug = console.ask("Slug do primeiro escopo de escrita", default=slug_default)
 ```
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 ```bash
 uv run pytest tests/unit/ -v
@@ -1282,7 +1296,7 @@ git commit -m "feat(cli): doctor de layout, add study, wizard com escopo"
 - Consumes: nada.
 - Produces: a árvore que `prumo init` copia.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_pj_base_e_o_nucleo_universal() -> None:
@@ -1310,12 +1324,12 @@ def test_gitignore_da_bibliografia_e_local_e_nao_ancorado() -> None:
     assert texto.splitlines()[:2] == ["pdfs/*.pdf", "!pdfs/.gitkeep"]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/unit/test_pj_base_integration.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Reestruturar o template**
+- [x] **Step 3: Reestruturar o template**
 
 ```bash
 cd templates/pj_base
@@ -1352,7 +1366,7 @@ Em `docs/_index.md`, o link `[`../references/_index.md`](../references/_index.md
 
 Em `.claude/rules/documentation.md`, `CLAUDE.md` e `Makefile`: substitua `references/notes/` por `docs/references/papers/`, `references/pdfs/` por `docs/references/pdfs/`, `references/_references.bib` por `docs/references/_references.bib`.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 ```bash
 uv run pytest tests/unit/test_pj_base_integration.py -v
@@ -1376,7 +1390,7 @@ git commit -m "feat(template): pj_base vira o nucleo universal"
 - Consumes: `core/scaffold.overlay`, `discover_modules`.
 - Produces: três módulos novos descobertos por `prumo add --list`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_modulos_do_nucleo_existem_e_sao_descobriveis() -> None:
@@ -1394,12 +1408,12 @@ def test_add_clinical_nao_cria_protocolo_fora_do_escopo(tmp_path: Path) -> None:
     assert not (root / "docs" / "protocol.md").exists()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/unit/test_modules.py -v`
 Expected: FAIL — só `clinical` e `ml` existem
 
-- [ ] **Step 3: Criar os módulos**
+- [x] **Step 3: Criar os módulos**
 
 `templates/modules/code/_module.toml`:
 
@@ -1435,7 +1449,7 @@ anchor = "docs/studies/principal/writing/protocol.md"
 
 E mova o payload: `templates/modules/clinical/docs/protocol.md` → `templates/modules/clinical/docs/studies/principal/writing/protocol.md`; idem para `statistical_analysis_plan_skeleton.md` e `projeto-cep.md`, que saem de `docs/templates/` para `docs/studies/principal/writing/`.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 ```bash
 uv run pytest tests/unit/test_modules.py -v
@@ -1457,7 +1471,7 @@ git commit -m "feat(modules): camadas code/data/notebooks e anchor do clinical n
 - Consumes: nada.
 - Produces: prosa coerente com o layout.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_templates_de_escrita_apontam_a_bibliografia_do_escopo() -> None:
@@ -1478,12 +1492,12 @@ def test_nenhuma_skill_cita_o_caminho_antigo() -> None:
         assert "docs/wiki/findings" not in texto, skill.name
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/unit/test_guidelines_present.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Substituições**
+- [x] **Step 3: Substituições**
 
 Nos quatro `template.md`, o campo `bibliography` passa a `../../../references/_references.bib` — três níveis, invariante porque todo draft mora em `docs/studies/<slug>/writing/`.
 
@@ -1500,7 +1514,7 @@ Nos `SKILL.md` e docs do repo:
 
 Em `docs/Research Project Structure.md`, atualize a tabela de módulos para os fatos do repo: `code`, `data`, `notebooks`, `ml`, `clinical` existem; `extended-wiki`, `brainstorm-pipeline`, `peer-review-loop`, `versioned-milestones`, `specify-workflow` são convenção documentada sem `_module.toml`. Remova a promessa de `findings/` como diretório.
 
-- [ ] **Step 4: Regenerar índices, rodar e commitar**
+- [x] **Step 4: Regenerar índices, rodar e commitar**
 
 ```bash
 uv run python .github/scripts/gen_indexes.py
@@ -1521,7 +1535,7 @@ git commit -m "docs: prosa das skills e do repo alinhada ao layout por escopo"
 
 **Interfaces:** documentação de governança.
 
-- [ ] **Step 1: Escrever ADR-0022**
+- [x] **Step 1: Escrever ADR-0022**
 
 ```markdown
 # ADR-0022 — Layout por escopo: `docs/` como raiz única de leitura
@@ -1547,12 +1561,12 @@ lint. `paper connect` segue exclusivo do Better BibTeX; o contrato do núcleo é
 Projeto legado exige reconfigurar o autoexport do BBT, que guarda caminho absoluto.
 ```
 
-- [ ] **Step 2: Escrever ADR-0023 e ADR-0024**
+- [x] **Step 2: Escrever ADR-0023 e ADR-0024**
 
 ADR-0023 registra finding como `type:` em `notes/` e marca **ADR-0014 como substituído**.
 ADR-0024 registra o escopo presente desde o `init` e a promoção que deixou de existir.
 
-- [ ] **Step 3: Emendar a constitution**
+- [x] **Step 3: Emendar a constitution**
 
 `docs/constitution.md:65`: `references/notes/` → `docs/references/papers/`. Acrescente ao PR
 um **Sync impact report** registrando que o conserto de `stats.py` é o que impede a remoção
@@ -1561,7 +1575,7 @@ da chave `references` do payload, proibida por `constitution.md:62`.
 Em `docs/adr/adr-0014-findings-canonico.md`, acrescente ao topo:
 `- Status: substituído por [ADR-0023](adr-0023-finding-como-type.md)`
 
-- [ ] **Step 4: Regenerar índices e commitar**
+- [x] **Step 4: Regenerar índices e commitar**
 
 ```bash
 uv run python .github/scripts/gen_indexes.py
@@ -1578,7 +1592,7 @@ git commit -m "docs: ADR-0022/0023/0024 + emenda da constitution"
 - Modify: `CHANGELOG.md`, `CITATION.cff`
 - Modify: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (via script, nunca à mão)
 
-- [ ] **Step 1: Bump e propagação**
+- [x] **Step 1: Bump e propagação**
 
 ```bash
 sed -i '' 's/__version__ = "0.64.1"/__version__ = "0.65.0"/' src/prumo_assist/_version.py
@@ -1587,7 +1601,7 @@ uv run python .github/scripts/validate_manifests.py
 uv run python .github/scripts/sync_manifest_version.py --check
 ```
 
-- [ ] **Step 2: CHANGELOG**
+- [x] **Step 2: CHANGELOG**
 
 Entrada `## [0.65.0] - 2026-08-09` com seção `⚠ Breaking` citando: a bibliografia sob
 `docs/references/`, `papers/` no lugar de `notes/`, o escopo `docs/studies/<slug>/`, o
@@ -1595,11 +1609,11 @@ Entrada `## [0.65.0] - 2026-08-09` com seção `⚠ Breaking` citando: a bibliog
 BibTeX → Automatic export) sem o qual o BBT recria `references/` na raiz. Referencie
 ADR-0022, ADR-0023, ADR-0024 e o Princípio VI da constitution.
 
-- [ ] **Step 3: `CITATION.cff`**
+- [x] **Step 3: `CITATION.cff`**
 
 Campo `version: 0.65.0`.
 
-- [ ] **Step 4: Verificação final**
+- [x] **Step 4: Verificação final**
 
 ```bash
 uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run mypy
@@ -1607,7 +1621,7 @@ uv run python .github/scripts/gen_indexes.py --check
 ```
 Expected: tudo verde.
 
-- [ ] **Step 5: Commit e PR**
+- [x] **Step 5: Commit e PR**
 
 ```bash
 git add -A

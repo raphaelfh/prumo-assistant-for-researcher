@@ -78,7 +78,7 @@ O slug é derivado automaticamente do tópico ao criar o log (passo 2).
 2. Listar top 5-8 candidates ao usuário:
 
    > Encontrei N páginas e M papers sobre `<topic>`. Vou usar:
-   > - [[concepts/curvas-roc]]
+   > - [[curvas-roc-prediction]]
    > - [@hanley1982roc]
    > - ...
    >

@@ -57,7 +57,7 @@ def test_archive_creates_finding_with_frontmatter(tmp_path: Path) -> None:
         slug="curvas-roc-limiar",
         title="Curvas ROC e escolha de limiar",
         body="Sintetiza que exchangeability quebra; a correção C compensa.",
-        sources=["[@hanley1982roc]", "[[concepts/curvas-roc]]"],
+        sources=["[@hanley1982roc]", "[[curvas-roc-prediction]]"],
         date="2026-05-03",
     )
     assert out.exists()

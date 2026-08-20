@@ -7,6 +7,44 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.65.1] - 2026-08-19
+
+### Corrigido
+
+- **Taxonomia plana sobreviveu à migração do layout por escopo.** `wiki-ingest`
+  gravava a fonte em `docs/sources/<slug>.md` e as páginas relacionadas em
+  `docs/{concepts,entities}/` — diretórios que o núcleo do `pj_base` não cria e que
+  `prumo wiki lint` e `prumo wiki stats` não enxergam (ambos varrem escopos, ADR-0022).
+  Toda página do wiki passa a ser nota de `docs/studies/<escopo>/notes/`, distinguida
+  pelo `type:` do frontmatter — `concept`, `entity`, `finding`, `source`
+  ([ADR-0025](docs/adr/adr-0025-tipo-de-pagina-no-frontmatter.md), generaliza
+  [ADR-0023](docs/adr/adr-0023-finding-como-type.md)). A skill também pergunta em qual
+  escopo ingerir quando o projeto tem mais de um.
+- **`wiki-lint` auditava dois layouts ao mesmo tempo:** frontmatter e relatório já
+  apontavam para o escopo, mas as seções 1 (órfãs), 6 (contradições) e 8 (conceitos
+  candidatos) ainda globavam `docs/{concepts,entities,findings,sources}/`. As três
+  passam a operar por escopo, alinhadas ao que a metade determinística
+  (`prumo wiki lint`) já fazia.
+- **`templates/pj_base/` prometia quatro pastas que o núcleo não cria** (`concepts/`,
+  `entities/`, `findings/`, `sources/`) em `docs/README.md`, `docs/_index.md` e
+  `CLAUDE.md` — contradizendo a própria suíte (`test_pj_base_integration` afirma que
+  esses diretórios **não** devem existir). `docs/_index.md` segue agrupado por tipo:
+  é catálogo por `type:`, não espelho de diretório.
+- Mensagem de `prumo capture` para URL não-acadêmica citava `docs/sources/`; docstrings
+  de `write/schemas/v1.py`, `write/export.py` e `wiki/__init__.py` descreviam o layout
+  anterior.
+- Ponteiro morto para `/docs/wiki-schema.md` (arquivo que não existe) na abertura de
+  `wiki-ingest` e `wiki-lint` — o frontmatter canônico de cada tipo está nas próprias
+  skills.
+
+### Adicionado
+
+- Guard test `test_nenhuma_skill_cita_a_taxonomia_plana` /
+  `test_pj_base_nao_promete_pasta_de_taxonomia_plana`: rejeita `docs/concepts/`,
+  `docs/{concepts,entities}/` e afins em qualquer `SKILL.md` e em qualquer markdown de
+  `templates/pj_base/`. O guard anterior só cobria `references/notes/` e
+  `docs/wiki/findings`, e por isso a taxonomia plana passou batida no 0.65.0.
+
 ## [0.65.0] - 2026-08-09
 
 ### Adicionado
@@ -809,7 +847,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.1...HEAD
+[0.65.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.0...v0.65.1
 [0.65.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.1...v0.65.0
 [0.64.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.0...v0.64.1
 [0.64.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.63.0...v0.64.0

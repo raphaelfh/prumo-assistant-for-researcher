@@ -33,8 +33,9 @@ pj_<nome>/
 └── .claude/{rules/, make/, pj_config.toml, paper_extraction.md}
 ```
 
-Pastas de wiki (`concepts/`, `entities/`, `findings/`, `sources/`) nascem quando você
-ingere a primeira fonte. Para mais estrutura: `prumo add <módulo>` (ex.: `clinical`, `ml`).
+Não há pasta por tipo de página: conceito, entidade, finding e fonte são todos notas de
+`studies/<escopo>/notes/`, distinguidas pelo `type:` do frontmatter. Para mais estrutura:
+`prumo add <módulo>` (ex.: `clinical`, `ml`); para uma segunda escrita: `prumo add study <slug>`.
 
 ## Hierarquia de instruções
 

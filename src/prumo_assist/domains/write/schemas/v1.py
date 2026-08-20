@@ -24,7 +24,7 @@ class PaperSummary(BaseModel):
 
 
 class FindingSummary(BaseModel):
-    """Achado canônico (``docs/wiki/findings/*.md`` ou ``docs/findings/*.md``)."""
+    """Achado canônico: nota ``type: finding`` de ``docs/studies/<escopo>/notes/`` (ADR-0023)."""
 
     path: Path
     title: str

@@ -1,6 +1,6 @@
 ---
 name: wiki-ingest
-description: "Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria docs/sources/<slug>.md, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /prumo-assist:paper-manager."
+description: "Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria a nota da fonte (type: source) em docs/studies/<escopo>/notes/, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /prumo-assist:paper-manager."
 when_to_use: |
   Quando o usuário pedir "adicionar fonte", "ingerir paper", "registrar tutorial",
   "salvar este link no wiki", "indexar artigo", ou ao colar URL/DOI/arXiv/PDF
@@ -33,11 +33,16 @@ prumo:
 > operação exata nunca é simulada.
 <!-- prumo:preflight:end -->
 
-Opera sobre o schema canônico em `/docs/wiki-schema.md` do monorepo. Não reescreve regras — aplica.
+Toda página do wiki é uma nota de `docs/studies/<escopo>/notes/` distinguida pelo `type:` do
+frontmatter — não existe diretório por tipo (ADR-0022/0023). O frontmatter canônico de cada
+tipo está nos passos 4 e 5 desta skill.
 
 ## Pressupostos
 
-- cwd é um `pj_*` com scaffold padrão (`docs/_index.md`, `docs/_log.md`, `docs/{concepts,entities,sources}/`, `docs/references/`).
+- cwd é um `pj_*` com scaffold padrão (`docs/_index.md`, `docs/_log.md`, `docs/references/` e ao
+  menos um escopo `docs/studies/<escopo>/` com `notes/`, `writing/` e `decisions/`).
+- Se o projeto tiver mais de um escopo, perguntar em qual ingerir **antes** do passo 4 — nunca
+  escolher sozinho. Escopo único resolve sozinho.
 - Se faltar estrutura, orientar `prumo init pj_<nome>` (via /prumo-assist:start se o CLI não existir). NUNCA criar o scaffold manualmente — o agente não simula trabalho do CLI.
 
 ## Fluxo
@@ -47,7 +52,7 @@ Opera sobre o schema canônico em `/docs/wiki-schema.md` do monorepo. Não reesc
 | Input | Caminho |
 |---|---|
 | DOI, arXiv ID, URL de journal | **Orientar o usuário a adicionar o paper no Zotero** e rodar `/prumo-assist:paper-manager sync`. A skill não resolve metadata diretamente; Zotero é a fonte de verdade. |
-| URL de blog, tutorial, doc, slide, vídeo, transcript | Continuar nesta skill. Cria `docs/sources/<slug>.md`. |
+| URL de blog, tutorial, doc, slide, vídeo, transcript | Continuar nesta skill. Cria `docs/studies/<escopo>/notes/<slug>.md` com `type: source`. |
 | PDF local que não é paper acadêmico (relatório, white paper, slide deck) | Continuar nesta skill. Ler com a tool `Read` (lê PDF nativamente; use o parâmetro de páginas se >10). |
 | Decisão clínica ou editorial (memo, ata) | Continuar nesta skill. `kind: decision`. |
 
@@ -64,16 +69,16 @@ Se houver dúvida, perguntar ao usuário uma vez antes de escolher o caminho.
 Antes de escrever qualquer arquivo, responder com:
 
 1. **3–5 pontos-chave** da fonte.
-2. **Páginas candidatas a tocar**: usar `Glob docs/{concepts,entities}/*.md` + `qmd search "<termo>"` (via `mcp__qmd__*` se disponível, senão `Bash("qmd search ...")`) para checar o que já existe.
+2. **Páginas candidatas a tocar**: usar `Glob docs/studies/<escopo>/notes/*.md` + `qmd search "<termo>"` (via `mcp__qmd__*` se disponível, senão `Bash("qmd search ...")`) para checar o que já existe.
 3. **Páginas novas sugeridas**: conceitos centrais da fonte que ainda não têm arquivo.
 
 Esperar confirmação/direcionamento do usuário antes do passo 4.
 
-### 4. Criar `docs/sources/<slug>.md`
+### 4. Criar a nota da fonte em `docs/studies/<escopo>/notes/<slug>.md`
 
 Slug: kebab-case do título, ASCII minúsculo, sem stopwords. Colisão → sufixo numérico.
 
-Frontmatter (ver schema canônico):
+Frontmatter:
 
 ```yaml
 ---
@@ -105,7 +110,7 @@ Corpo (seções fixas):
 <bullets ou parágrafos curtos; 1 seção por ponto-chave identificado no passo 3>
 
 ## Aplicação neste projeto
-<como isso muda decisões no pj_*; apontar para concepts/entities ou para uma nota `type: finding`>
+<como isso muda decisões no pj_*; apontar para notas `type: concept`/`type: entity` ou para uma nota `type: finding`>
 
 ## Notas
 <links complementares, leituras futuras>
@@ -115,14 +120,15 @@ Corpo (seções fixas):
 
 Até **10–15 páginas** por ingest. Para cada conceito/entidade central:
 
-- Se já existe `docs/concepts/<slug>.md` ou `docs/entities/<slug>.md`: `Edit` para acrescentar a fonte em `sources:` e um bullet em `## Evidências`.
-- Se não existe e o usuário confirmou no passo 3: criar o arquivo com frontmatter apropriado (ver schema para `concept`/`entity`) e seção `## Evidências` com bullet apontando para `[[<slug-da-source>]]`.
+- Se já existe nota com `type: concept` ou `type: entity` para o termo (mesmo `notes/` do escopo): `Edit` para acrescentar a fonte em `sources:` e um bullet em `## Evidências`.
+- Se não existe e o usuário confirmou no passo 3: criar `docs/studies/<escopo>/notes/<slug>.md` com o mesmo frontmatter do passo 4, trocando `type:` para `concept` (métodos, abordagens, ideias) ou `entity` (modelos, datasets, coortes, ferramentas, instituições) e omitindo `url`/`kind`; seção `## Evidências` com bullet apontando para `[[<slug-da-fonte>]]`.
 
 Voltar ao arquivo do passo 4 e preencher `links_to:` com a lista final de wikilinks tocados.
 
 ### 6. Atualizar `docs/_index.md`
 
-Na seção correta (`## Sources`, `## Concepts`, `## Entities`), inserir em ordem alfabética:
+O `_index.md` é catálogo por `type:`, não espelho de diretório. Na seção correspondente ao tipo
+da página (`## Sources`, `## Concepts`, `## Entities`), inserir em ordem alfabética:
 
 ```
 - [[<slug>]] — <tldr curto>
@@ -159,8 +165,8 @@ qmd embed
 
 ```
 ✓ Ingest: <título> (<kind>)
-  Fonte:   docs/sources/<slug>.md
-  Páginas: docs/concepts/x.md, docs/entities/y.md  (+N novas)
+  Fonte:   docs/studies/<escopo>/notes/<slug>.md  (type: source)
+  Páginas: docs/studies/<escopo>/notes/{x,y}.md   (+N novas)
   Log:     docs/_log.md (entrada de YYYY-MM-DD)
   Index:   docs/_index.md (+1 em Sources, +N em Concepts/Entities)
   qmd:     reindexado (ou: rode `qmd embed`)

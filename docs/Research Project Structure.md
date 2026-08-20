@@ -104,7 +104,7 @@ Cada módulo é independente. Ative quando o trigger acontecer; não ative antes
 
 | Convenção | Localização | Trigger |
 |---|---|---|
-| `extended-wiki` | `docs/{concepts, entities, sources, <domínio>}/` | Wiki passa de ~20 páginas; há área teórica que merece pasta própria (ex.: `docs/statistics/`) |
+| `extended-wiki` | `docs/studies/<escopo>/notes/<domínio>/` | Uma área temática do escopo junta páginas suficientes pra merecer subpasta própria (ex.: `notes/statistics/`) |
 | `brainstorm-pipeline` | `docs/brainstorm/{daily, topics}/` | Projeto ≥3 meses; ideação volumosa; precisa de pipeline `daily → topic → ADR` |
 | `peer-review-loop` | `docs/comments/` | Vai submeter / receberá feedback de orientador ou revisor |
 | `versioned-milestones` | `docs/<marco>/{<doc>.md, versions/, README.md}` | Há entregas formais (banca, submissão de paper, capítulo de tese) |
@@ -119,12 +119,10 @@ Cada módulo é independente. Ative quando o trigger acontecer; não ative antes
 - Quando topic fecha → ADR em `docs/studies/<slug>/decisions/adr-NNNN-*.md`.
 - Quando decisão pesa → seção atualizada em `docs/project_guide.md`.
 
-**`extended-wiki`** — três tipos canônicos + domínios custom (findings **não** é diretório — é `type: finding` numa nota de `docs/studies/<slug>/notes/`, ADR-0023):
+**`extended-wiki`** — subpasta temática dentro do `notes/` de um escopo. Não há pasta por tipo de página: `concept`, `entity`, `finding` e `source` são o campo `type:` do frontmatter (ADR-0025), então o que sobra pra agrupar é assunto, não taxonomia.
 
-- `concepts/` — métodos, abordagens, ideias.
-- `entities/` — modelos, datasets, coortes, ferramentas, instituições.
-- `sources/` — fontes não-paper (blogs, tutoriais, slides, transcrições).
-- `<dominio>/` — área teórica custom (ex.: `statistics/`, `radiology/`) com `README.md` próprio.
+- `docs/studies/<escopo>/notes/<domínio>/` — área teórica custom (ex.: `statistics/`, `radiology/`) com `README.md` próprio.
+- Continua sob o alcance das ferramentas: `prumo wiki stats` conta essas páginas no `notes/` do escopo e `prumo wiki lint` audita citekey, link morto e órfã dentro delas. A única checagem que não desce é `no_frontmatter`, que olha só os filhos diretos de `notes/`, `writing/` e `decisions/`.
 
 **`versioned-milestones`** — padrão genérico de entrega formal:
 
