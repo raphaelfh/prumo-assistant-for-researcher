@@ -336,7 +336,7 @@ Cada PR independente; PR-A1 destrava DRY pro PR-A2/A3.
 
 ## Referências
 
-- [`docs/canvas/journey.canvas`](../../canvas/journey.canvas) — Fase 2 EVIDÊNCIA (Study and Develop), sub-precisa "Pergunta usando Claude para aprender com fontes internas + citação"
+- `docs/canvas/journey.canvas` (removido do repo; conteúdo na tag `v0.65.0`) — Fase 2 EVIDÊNCIA (Study and Develop), sub-precisa "Pergunta usando Claude para aprender com fontes internas + citação"
 - [`docs/actions-by-context.md`](../../actions-by-context.md) — gatilho "Quero estudar conceito X usando minhas próprias fontes"
 - [`skills/wiki-query/SKILL.md`](../../../skills/wiki-query/SKILL.md) — Q&A one-shot; pattern de finding archival reutilizado aqui
 - [`docs/superpowers/specs/2026-05-03-write-family-design.md`](2026-05-03-write-family-design.md) — pattern de citação strict + `[REF FALTANTE]` reutilizado

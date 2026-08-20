@@ -93,7 +93,7 @@ prumo-assist/
 │   └── modules/{clinical,ml}/ ← overlays opt-in (`prumo add`), self-describing (_module.toml)
 │
 ├── tests/unit/                ← espelha domains/ 1:1
-└── docs/                      ← vault Obsidian: constitution · adr/ · canvases ·
+└── docs/                      ← vault Markdown: constitution · adr/ ·
     └── superpowers/           ← specs/ (não-perecíveis) + plans/ + plans/archive/
 ```
 
