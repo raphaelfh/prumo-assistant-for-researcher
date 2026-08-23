@@ -120,7 +120,7 @@ Camadas opcionais com gatilho (`prumo add <módulo>`): `code`, `data`, `notebook
 - **Tabular:** Polars/pandas, Pandera, scikit-learn `Pipeline`; opcional XGBoost/LightGBM
 - **Deep learning:** PyTorch Lightning + timm + TorchMetrics + albumentations
 - **Visualização:** seaborn + matplotlib (padrão de publicação); Plotly apenas em dashboards
-- **Bibliografia:** Zotero + Better BibTeX + Obsidian (Zotero Integration + Templater + Linter)
+- **Bibliografia:** Zotero + Better BibTeX (auto-export do `.bib`); notas e PDFs sincronizados pelo `prumo paper`
 
 ## Releases
 
