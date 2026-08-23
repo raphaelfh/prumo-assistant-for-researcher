@@ -7,6 +7,42 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Corrigido
+
+- **`templates/pj_base/docs/_index.md` prometia cinco alvos que o núcleo não entrega.**
+  A seção "Administrative templates" listava `templates/README.md`,
+  `Template submissão Plataforma Brasil.docx`, `projeto-cep.md`,
+  `data_dictionary_example.csv` e `statistical_analysis_plan_skeleton.md` — todos
+  conteúdo do módulo `clinical`, nenhum criado por `prumo init`. Num projeto sem
+  `prumo add clinical` os cinco links nasciam mortos; com o módulo aplicado, dois
+  caminhos seguiam errados (`projeto-cep.md` e `statistical_analysis_plan_skeleton.md`
+  vivem em `docs/studies/<slug>/writing/` desde o layout por escopo,
+  [ADR-0022](docs/adr/adr-0022-layout-por-escopo.md)). Mesma classe de resíduo
+  corrigida em 0.65.1 para os diretórios por tipo. O catálogo volta a ser só do wiki,
+  como o próprio cabeçalho declara; o módulo `clinical` já documenta seus modelos, com
+  os caminhos certos, em `docs/templates/README.md`.
+- Documentação de topo desatualizada no front do wiki: tagline de `ARCHITECTURE.md` e
+  stack de bibliografia do `README.md` ainda descreviam o Obsidian como front corrente,
+  e `docs/actions-by-context.md` mandava abrir um grafo que o Zettlr não tem
+  (`Ctrl/Cmd + G`).
+
+- `skills/peer-review/examples/sample_report.json` era distribuído no wheel sem nenhum
+  ponteiro — nem o `SKILL.md` o citava. Passa a ser linkado logo abaixo do shape do
+  `PeerReviewReport/v1`, como os demais assets de skill já fazem.
+
+### Removido
+
+- **Dependências de runtime declaradas e nunca importadas:** `jinja2` (o único vestígio
+  era a palavra "Jinja2" num comentário de `core/skills.py`) e `pydantic-settings`
+  (nenhum `BaseSettings` no pacote — a config é lida à mão em `core/config.py` via
+  `tomllib`; quem precisa dela é o `mcp`, que a traz transitivamente). Toda instalação
+  do plugin fica mais leve, sem mudança de comportamento.
+
+### Adicionado
+
+- Teste de regressão `test_projeto_novo_nao_nasce_com_link_morto`: varre os `.md` de um
+  projeto recém-criado e falha se algum link relativo apontar para arquivo inexistente.
+
 ## [0.65.1] - 2026-08-19
 
 ### Corrigido

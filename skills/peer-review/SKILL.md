@@ -123,6 +123,9 @@ O JSON segue este shape (`PeerReviewReport/v1`):
 }
 ```
 
+Relatório completo preenchido, com os campos em contexto:
+[`examples/sample_report.json`](examples/sample_report.json).
+
 ## O que NÃO fazer
 
 - Não corrija ortografia ou estilo de linguagem (ferramentas dedicadas fazem

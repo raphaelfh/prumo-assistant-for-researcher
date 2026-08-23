@@ -91,7 +91,7 @@ tags: [journey, playbook]
 
 ### "Quero navegar pelas conexões do meu acervo"
 1. `prumo paper graph` — popula `cites:` no YAML de cada nota.
-2. Abrir o grafo do Obsidian (`Ctrl/Cmd + G`).
+2. Navegar pelos `cites:` seguindo os wikilinks das notas (o Zettlr não tem visualização de grafo; em vault Obsidian legado, `Ctrl/Cmd + G`).
 3. `prumo paper find "<seed>"` quando o grafo for grande demais.
 
 ### "Suspeito que o wiki está degradando"

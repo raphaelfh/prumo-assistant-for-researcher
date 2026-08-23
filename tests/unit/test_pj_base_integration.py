@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
+from urllib.parse import unquote
 
 from typer.testing import CliRunner
 
@@ -10,6 +12,9 @@ from prumo_assist.cli import app
 from prumo_assist.core.paths import resolve_resource
 
 runner = CliRunner()
+
+#: Link Markdown inline — captura só o alvo, ignorando o texto.
+_MD_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
 
 def test_pj_base_e_o_nucleo_universal() -> None:
@@ -35,6 +40,33 @@ def test_gitignore_da_bibliografia_e_local_e_nao_ancorado() -> None:
     base = resolve_resource("templates") / "pj_base"
     texto = (base / "docs" / "references" / ".gitignore").read_text(encoding="utf-8")
     assert texto.splitlines()[:2] == ["pdfs/*.pdf", "!pdfs/.gitkeep"]
+
+
+def test_projeto_novo_nao_nasce_com_link_morto(tmp_path: Path) -> None:
+    """Todo link relativo dos `.md` do núcleo aponta pra algo que existe.
+
+    Regressão: `docs/_index.md` listava os modelos administrativos do módulo
+    `clinical` (`templates/README.md` e companhia) como se fossem do núcleo —
+    num projeto sem `prumo add clinical` os cinco alvos eram mortos.
+    """
+    target = tmp_path / "pj_links"
+    assert runner.invoke(app, ["init", str(target), "--json"]).exit_code == 0
+
+    quebrados: list[str] = []
+    for md in target.rglob("*.md"):
+        # `.claude/skills/` vem do plugin, não do template — escopo alheio.
+        if ".claude/skills" in md.relative_to(target).as_posix():
+            continue
+        for alvo in _MD_LINK_RE.findall(md.read_text(encoding="utf-8")):
+            if alvo.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            destino = unquote(alvo).split("#", 1)[0]
+            if not destino:
+                continue
+            if not (md.parent / destino).exists():
+                quebrados.append(f"{md.relative_to(target)} -> {alvo}")
+
+    assert not quebrados, "link(s) morto(s) no projeto recém-criado: " + "; ".join(quebrados)
 
 
 def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
