@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.65.2] - 2026-08-23
+
 ### Corrigido
 
 - **`templates/pj_base/docs/_index.md` prometia cinco alvos que o núcleo não entrega.**
@@ -25,7 +27,6 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   stack de bibliografia do `README.md` ainda descreviam o Obsidian como front corrente,
   e `docs/actions-by-context.md` mandava abrir um grafo que o Zettlr não tem
   (`Ctrl/Cmd + G`).
-
 - `skills/peer-review/examples/sample_report.json` era distribuído no wheel sem nenhum
   ponteiro — nem o `SKILL.md` o citava. Passa a ser linkado logo abaixo do shape do
   `PeerReviewReport/v1`, como os demais assets de skill já fazem.
@@ -883,7 +884,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.1...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.2...HEAD
+[0.65.2]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.1...v0.65.2
 [0.65.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.0...v0.65.1
 [0.65.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.1...v0.65.0
 [0.64.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.0...v0.64.1
