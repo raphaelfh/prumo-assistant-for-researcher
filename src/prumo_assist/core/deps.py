@@ -18,7 +18,6 @@ import http.client
 import os
 import re
 import shutil
-import socket
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -54,13 +53,26 @@ def _binary_on_path(name: str) -> str | None:
     return shutil.which(name)
 
 
-def _port_open(host: str, port: int, timeout: float = 0.5) -> bool:
-    """``True`` se há algo escutando em ``host:port``. Seam testável."""
+def _zotero_api_root(timeout: float = 2.0) -> int | None:
+    """Status HTTP de ``GET {base}/api/``, ou ``None`` se nada respondeu.
+
+    Seam testável. ``/api/`` é o endpoint no-op da API local, e o gate da
+    preferência roda ANTES dele: com o app aberto e a API local **desligada**
+    responde ``403 Local API is not enabled``; com ela ligada, ``2xx``. É
+    também o único endpoint isento da checagem de versão da API, então serve
+    de sonda em qualquer major do Zotero.
+
+    Sondar a porta crua ou ``/connector/ping`` não distingue os dois casos: o
+    connector server sobe junto com o app, independentemente da API local.
+    """
+    base = os.environ.get("PRUMO_ZOTERO_BASE", _DEFAULT_ZOTERO_BASE)
     try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
-    except OSError:
-        return False
+        with urllib.request.urlopen(f"{base}/api/", timeout=timeout) as resp:
+            return int(resp.status)
+    except urllib.error.HTTPError as exc:
+        return int(exc.code)
+    except (OSError, http.client.HTTPException):
+        return None
 
 
 def _zotero_host_port() -> tuple[str, int]:
@@ -88,23 +100,16 @@ def _zotero_version_header(host: str, port: int, timeout: float = 2.0) -> str | 
 
 
 def zotero_local_api_up(timeout: float = 2.0) -> bool:
-    """``True`` se a API local do Zotero responde em ``/connector/ping``.
+    """``True`` se a **API local** do Zotero responde — não só se o app está aberto.
 
     Sonda o mesmo endpoint que ``check_external_deps`` (o ``doctor``) para que
-    doctor e domínios nunca discordem sobre "o Zotero está rodando". Qualquer
-    resposta HTTP conta como de pé — inclusive status de erro: só existe
-    servidor HTTP nessa porta com o app aberto. Sondar a raiz (``/``) daria
-    falso-negativo, porque ela responde 404 com o Zotero rodando.
+    doctor e domínios nunca discordem. Só ``2xx`` conta: a API local é opt-in
+    (Settings → Advanced) e, desligada, o app aberto responde ``403`` — tratar
+    isso como "de pé" fazia o guard passar e os comandos de anotação tomarem
+    403 em série.
     """
-    host, port = _zotero_host_port()
-    url = f"http://{host}:{port}/connector/ping"
-    try:
-        with urllib.request.urlopen(url, timeout=timeout):
-            return True
-    except urllib.error.HTTPError:
-        return True
-    except (OSError, http.client.HTTPException):
-        return False
+    code = _zotero_api_root(timeout=timeout)
+    return code is not None and 200 <= code < 300
 
 
 def _zotero_major(version: str | None) -> int | None:
@@ -134,17 +139,29 @@ def check_external_deps() -> list[DepStatus]:
     )
 
     host, port = _zotero_host_port()
-    zotero_up = _port_open(host, port)
-    version = _zotero_version_header(host, port) if zotero_up else None
+    api_code = _zotero_api_root()
+    responded = api_code is not None
+    api_enabled = responded and 200 <= (api_code or 0) < 300
+    version = _zotero_version_header(host, port) if responded else None
     major = _zotero_major(version)
     supported = major is None or major >= _SUPPORTED_ZOTERO_MAJOR
 
-    if not zotero_up:
+    if not responded:
         detail = f"nada escutando em {host}:{port}"
         hint = (
             f"Abra o Zotero {_SUPPORTED_ZOTERO_MAJOR} (com Better BibTeX instalado) — "
             f"ele expõe a API local em {host}:{port}. Só é necessário pros comandos "
             f"que leem anotações/notas; o resto do prumo funciona sem ele."
+        )
+    elif not api_enabled:
+        detail = (
+            f"Zotero aberto em {host}:{port}, mas a API local está DESLIGADA "
+            f"(HTTP {api_code} em /api/)"
+        )
+        hint = (
+            "Ligue a API local: Zotero → Settings → Advanced → marque "
+            '"Allow other applications on this computer to communicate with Zotero", '
+            "e rode `prumo doctor` de novo."
         )
     elif not supported:
         detail = (
@@ -167,7 +184,7 @@ def check_external_deps() -> list[DepStatus]:
     statuses.append(
         DepStatus(
             name="zotero",
-            present=zotero_up and supported,
+            present=api_enabled and supported,
             required_by=["paper sync-annotations", "paper sync-notes", "write export --to docx"],
             detail=detail,
             hint=hint,

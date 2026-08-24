@@ -467,8 +467,9 @@ def test_fetch_annotations_index_survives_ignored_start_param() -> None:
 class _FakePingResponse:
     """Resposta mínima do ``urlopen``: context manager com ``headers``."""
 
-    def __init__(self, headers: dict[str, str]) -> None:
+    def __init__(self, headers: dict[str, str], status: int = 200) -> None:
         self.headers = headers
+        self.status = status
 
     def __enter__(self) -> _FakePingResponse:
         return self
@@ -478,16 +479,37 @@ class _FakePingResponse:
 
 
 def _zotero_running_urlopen(url: object, timeout: float = 0.0) -> _FakePingResponse:
-    """Zotero rodando: só ``/connector/ping`` responde 200; a raiz devolve 404."""
+    """Zotero rodando com a API local LIGADA: ``/api/`` e ``/connector/ping`` respondem."""
     target = url.full_url if isinstance(url, urllib.request.Request) else str(url)
     if target.endswith("/connector/ping"):
         return _FakePingResponse({"X-Zotero-Version": "9.0.6"})
+    if target.endswith("/api/"):
+        return _FakePingResponse({})
     raise urllib.error.HTTPError(target, 404, "Not Found", email.message.Message(), None)
 
 
-def test_check_zotero_running_true_when_root_404_but_ping_ok() -> None:
+def test_check_zotero_running_true_when_local_api_answers() -> None:
     with patch("urllib.request.urlopen", _zotero_running_urlopen):
         assert check_zotero_running() is True
+
+
+def test_check_zotero_running_false_when_app_open_but_local_api_disabled() -> None:
+    """Regressão: o app aberto responde ``/connector/ping``, mas ``/api/`` dá 403.
+
+    Antes isso contava como "rodando" e o guard deixava o comando seguir pra
+    tomar 403 em série na primeira chamada de verdade.
+    """
+
+    def _api_disabled(url: object, timeout: float = 0.0) -> _FakePingResponse:
+        target = url.full_url if isinstance(url, urllib.request.Request) else str(url)
+        if target.endswith("/connector/ping"):
+            return _FakePingResponse({"X-Zotero-Version": "9.0.6"})
+        raise urllib.error.HTTPError(
+            target, 403, "Local API is not enabled", email.message.Message(), None
+        )
+
+    with patch("urllib.request.urlopen", _api_disabled):
+        assert check_zotero_running() is False
 
 
 def test_check_zotero_running_false_on_connection_refused() -> None:
