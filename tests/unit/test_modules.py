@@ -111,13 +111,40 @@ def test_add_list_marca_clinical_aplicado_apos_resolucao_de_escopo(tmp_path: Pat
     assert by_name["clinical"]["applied"] is True
 
 
-def test_add_code_cria_camada_de_codigo(tmp_path: Path) -> None:
-    root = _project(tmp_path)
+def test_add_code_cria_pacote_instalavel_com_nome(tmp_path: Path) -> None:
+    """O módulo `code` entrega um PACOTE, não um `src/` vazio (ADR-0027): o
+    nome vem do projeto sem o prefixo `pj_`, e o pyproject declara
+    `[build-system]` — sem ele o uv nunca instala o projeto no `.venv`."""
+    root = _project(tmp_path)  # pj_x
     result = runner.invoke(app, ["add", "code", "--target", str(root)])
     assert result.exit_code == 0, result.output
-    assert (root / "src").is_dir()
+    assert (root / "src" / "x" / "__init__.py").is_file()
+    assert not (root / "src" / "__pkg__").exists()
     assert (root / "tests").is_dir()
-    assert (root / "pyproject.toml").is_file()
+
+    text = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert "[build-system]" in text
+    assert 'packages = ["src/x"]' in text
+    assert "__pkg__" not in text
+
+
+def test_add_code_resolve_o_marcador_de_pacote_na_rule(tmp_path: Path) -> None:
+    """A rule do módulo mostra `from <pkg>.… import …` — com o nome real."""
+    root = _project(tmp_path)
+    assert runner.invoke(app, ["add", "code", "--target", str(root)]).exit_code == 0
+    rule = (root / ".claude" / "rules" / "code_layout.md").read_text(encoding="utf-8")
+    assert "from x.cohort import load_raw" in rule
+    assert "__pkg__" not in rule
+
+
+def test_add_code_recusa_projeto_cujo_nome_nao_vira_pacote(tmp_path: Path) -> None:
+    root = tmp_path / "pj_2024"
+    (root / ".claude").mkdir(parents=True)
+    (root / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    result = runner.invoke(app, ["add", "code", "--target", str(root)])
+    assert result.exit_code == 1
+    assert "não é um nome de pacote Python válido" in result.output
+    assert not (root / "src").exists(), "nada pode ser copiado quando o nome é recusado"
 
 
 def test_add_code_substitutes_project_name(tmp_path: Path) -> None:
@@ -141,11 +168,22 @@ def test_add_data_cria_camadas_de_dado(tmp_path: Path) -> None:
     assert (root / "content" / "02_processed").is_dir()
 
 
-def test_add_notebooks_cria_pasta_de_notebooks(tmp_path: Path) -> None:
+def test_add_notebooks_cria_pasta_por_escopo(tmp_path: Path) -> None:
+    """`notebooks` virou módulo por-escopo (ADR-0027, D5): o notebook fica ao
+    lado do estudo a que pertence, e some o tree paralelo `studies/<slug>/`."""
     root = _project(tmp_path)
+    _scope(root, "01_estudo")
     result = runner.invoke(app, ["add", "notebooks", "--target", str(root)])
     assert result.exit_code == 0, result.output
-    assert (root / "notebooks").is_dir()
+    assert (root / "notebooks" / "01_estudo").is_dir()
+    assert not (root / "notebooks" / "__scope__").exists()
+
+
+def test_add_notebooks_sem_escopo_recusa_com_o_comando_de_correcao(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    result = runner.invoke(app, ["add", "notebooks", "--target", str(root)])
+    assert result.exit_code == 1
+    assert "prumo add study" in result.output
 
 
 def test_add_nao_deixa_manifesto_do_modulo_no_projeto(tmp_path: Path) -> None:
@@ -155,11 +193,12 @@ def test_add_nao_deixa_manifesto_do_modulo_no_projeto(tmp_path: Path) -> None:
     descrevendo o módulo aplicado PRIMEIRO (os seguintes o viam existir e
     pulavam), o que dava a impressão de um marcador de módulo que não é."""
     root = _project(tmp_path)
+    _scope(root, "principal")
     for modulo in ("data", "code", "notebooks"):
         result = runner.invoke(app, ["add", modulo, "--target", str(root)])
         assert result.exit_code == 0, result.output
         assert not (root / "_module.toml").exists(), f"`add {modulo}` vazou o manifesto"
     # o payload real continua chegando
     assert (root / "content" / "01_raw").is_dir()
-    assert (root / "src").is_dir()
-    assert (root / "notebooks").is_dir()
+    assert (root / "src" / "x").is_dir()
+    assert (root / "notebooks" / "principal").is_dir()

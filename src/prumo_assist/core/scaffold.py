@@ -6,6 +6,7 @@ Extraído do ``cli.py`` para que ``init`` e ``add`` reusem a mesma lógica
 
 from __future__ import annotations
 
+import re
 import shutil
 import tomllib
 from collections.abc import Iterable
@@ -33,14 +34,69 @@ MODULE_MANIFEST = "_module.toml"
 #: (escopo é resolvido por posição em ``docs/studies/<slug>/``, sem sentinela).
 SCOPE_MARKER = "__scope__"
 
+#: Segmento (e placeholder de conteúdo) usado por módulos cujo payload é o
+#: pacote Python do projeto (ex.: ``code``). ``overlay`` substitui em CAMINHO;
+#: :func:`apply_pkg_name` substitui em CONTEÚDO — o ``pyproject.toml`` precisa
+#: do nome real em ``[tool.hatch.build.targets.wheel] packages``. Ver ADR-0027.
+PKG_MARKER = "__pkg__"
+
+#: Prefixo de diretório de projeto. Marca o `pj_*` para humano e agente, e é
+#: ruído em `import` — some do nome do pacote (ADR-0027, D2).
+_PJ_PREFIX = "pj_"
+
+#: Prefixo numérico de slug de escopo (`01_estudo`, `02-triage`). Ordena
+#: a leitura em `docs/studies/` e não pode abrir um identificador Python.
+_NUMERIC_PREFIX_RE = re.compile(r"^\d+[_-]")
+
 
 def _substitute_scope(rel: Path, scope: str) -> Path:
     """Troca o segmento ``__scope__`` de ``rel`` pelo slug real do escopo."""
     return Path(*(scope if part == SCOPE_MARKER else part for part in rel.parts))
 
 
+def _substitute_pkg(rel: Path, pkg: str) -> Path:
+    """Troca o segmento ``__pkg__`` de ``rel`` pelo nome real do pacote."""
+    return Path(*(pkg if part == PKG_MARKER else part for part in rel.parts))
+
+
+def pkg_name(project_name: str) -> str:
+    """Nome do pacote de import a partir do nome do projeto (ADR-0027, D2).
+
+    ``pj_piloto_genetica`` → ``piloto_genetica``. O ``[project]
+    name`` do ``pyproject.toml`` continua sendo o nome do projeto; só o pacote
+    de import perde o prefixo.
+    """
+    candidate = (
+        project_name[len(_PJ_PREFIX) :] if project_name.startswith(_PJ_PREFIX) else project_name
+    )
+    if not candidate.isidentifier():
+        raise PrumoError(
+            f"O projeto {project_name!r} não é um nome de pacote Python válido "
+            f"(viraria {candidate!r}). Renomeie o diretório para `pj_<letra>...`, "
+            "usando apenas [a-z0-9_] e sem começar por dígito."
+        )
+    return candidate
+
+
+def scope_pkg_name(slug: str) -> str:
+    """Nome do subpacote a partir do slug de escopo (ADR-0027, D3).
+
+    ``01_estudo`` → ``estudo``; ``mortalidade-uti`` →
+    ``mortalidade_uti``. O slug de `docs/studies/` NÃO muda — a numeração
+    ordena a leitura e é ruído no import.
+    """
+    candidate = _NUMERIC_PREFIX_RE.sub("", slug).replace("-", "_")
+    if not candidate.isidentifier():
+        raise PrumoError(
+            f"O escopo {slug!r} não vira um nome de pacote Python válido "
+            f"(viraria {candidate!r}). Renomeie o escopo em `docs/studies/` para "
+            "que sobre ao menos uma letra depois do prefixo numérico."
+        )
+    return candidate
+
+
 def overlay(
-    template: Path, target: Path, *, scope: str | None = None
+    template: Path, target: Path, *, scope: str | None = None, pkg: str | None = None
 ) -> tuple[list[str], list[str]]:
     """Copia ``template/*`` para ``target/`` sem sobrescrever arquivos existentes.
 
@@ -50,7 +106,8 @@ def overlay(
     Quando o payload do template usa o marcador :data:`SCOPE_MARKER` no
     caminho (módulos por-escopo, ex. ``clinical``), ``scope`` é obrigatório
     — o chamador resolve o slug real (via CLI ou pelo escopo recém-criado no
-    ``init``) antes de chamar ``overlay``.
+    ``init``) antes de chamar ``overlay``. Idem :data:`PKG_MARKER` e ``pkg``
+    para o módulo ``code``, cujo payload é o pacote Python do projeto.
     """
     copied: list[str] = []
     skipped: list[str] = []
@@ -65,6 +122,13 @@ def overlay(
                 f"{src} usa o marcador de escopo `{SCOPE_MARKER}` mas nenhum escopo foi "
                 "resolvido antes do overlay (defeito interno do chamador)."
             )
+        if pkg is not None:
+            rel = _substitute_pkg(rel, pkg)
+        elif PKG_MARKER in rel.parts:
+            raise PrumoError(
+                f"{src} usa o marcador de pacote `{PKG_MARKER}` mas nenhum nome de pacote "
+                "foi resolvido antes do overlay (defeito interno do chamador)."
+            )
         dst = target / rel
         if src.is_dir():
             dst.mkdir(parents=True, exist_ok=True)
@@ -78,8 +142,10 @@ def overlay(
     return copied, skipped
 
 
-def apply_project_name(target: Path, name: str, rel_paths: Iterable[str]) -> list[str]:
-    """Substitui os placeholders de nome do template pelo nome real do projeto.
+def _apply_placeholders(
+    target: Path, rel_paths: Iterable[str], placeholders: Iterable[str], value: str
+) -> list[str]:
+    """Troca ``placeholders`` por ``value`` no conteúdo de ``rel_paths``.
 
     Opera apenas sobre ``rel_paths`` (arquivos recém-copiados do scaffold) —
     arquivos preservados do usuário em ``--merge`` nunca são reescritos.
@@ -93,12 +159,27 @@ def apply_project_name(target: Path, name: str, rel_paths: Iterable[str]) -> lis
         except (UnicodeDecodeError, OSError):
             continue
         new_text = text
-        for placeholder in _NAME_PLACEHOLDERS:
-            new_text = new_text.replace(placeholder, name)
+        for placeholder in placeholders:
+            new_text = new_text.replace(placeholder, value)
         if new_text != text:
             path.write_text(new_text, encoding="utf-8")
             changed.append(rel)
     return changed
+
+
+def apply_project_name(target: Path, name: str, rel_paths: Iterable[str]) -> list[str]:
+    """Substitui os placeholders de nome do template pelo nome real do projeto."""
+    return _apply_placeholders(target, rel_paths, _NAME_PLACEHOLDERS, name)
+
+
+def apply_pkg_name(target: Path, pkg: str, rel_paths: Iterable[str]) -> list[str]:
+    """Substitui :data:`PKG_MARKER` no CONTEÚDO pelo nome real do pacote.
+
+    O caminho já foi resolvido por ``overlay``; o que sobra é o corpo dos
+    arquivos — ``[tool.hatch.build.targets.wheel] packages`` e os exemplos de
+    ``import`` na rule do módulo ``code``.
+    """
+    return _apply_placeholders(target, rel_paths, (PKG_MARKER,), pkg)
 
 
 @dataclass(frozen=True)
@@ -152,6 +233,15 @@ def module_requires_scope(module: ModuleInfo) -> bool:
     (``docs/studies/<slug>/``) antes de ``overlay`` — ver ``add_command``.
     """
     return any(SCOPE_MARKER in p.relative_to(module.path).parts for p in module.path.rglob("*"))
+
+
+def module_requires_pkg(module: ModuleInfo) -> bool:
+    """``True`` se o payload do módulo usa :data:`PKG_MARKER` no caminho.
+
+    Módulos assim (ex. ``code``) precisam do nome do pacote resolvido a partir
+    do nome do projeto antes de ``overlay`` — ver ``add_command``.
+    """
+    return any(PKG_MARKER in p.relative_to(module.path).parts for p in module.path.rglob("*"))
 
 
 def is_applied(target: Path, module: ModuleInfo) -> bool:

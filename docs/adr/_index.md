@@ -34,4 +34,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0024-escopo-desde-o-init]] — Escopo presente desde o `init`; sem máquina de promoção · aceito
 - [[adr/adr-0025-tipo-de-pagina-no-frontmatter]] — Tipo de página é campo do frontmatter, não diretório · aceito
 - [[adr/adr-0026-mcp-prumo-dominio-paper]] — Servidor MCP cobre o domínio `paper` e passa a se chamar `prumo` · aceito
+- [[adr/adr-0027-pj-instalavel]] — O `pj_*` é pacote instalável; código compartilhado tem nome · aceito
 <!-- prumo:adr-index:end -->

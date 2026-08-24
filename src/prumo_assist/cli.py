@@ -39,14 +39,18 @@ from prumo_assist.core import pj_layout
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.core.deps import check_external_deps
 from prumo_assist.core.output import Console
+from prumo_assist.core.packaging import packaging_issues
 from prumo_assist.core.paths import find_resource, resolve_resource
 from prumo_assist.core.scaffold import (
     ModuleInfo,
+    apply_pkg_name,
     apply_project_name,
     discover_modules,
     get_module,
     is_applied,
+    module_requires_pkg,
     module_requires_scope,
+    pkg_name,
 )
 from prumo_assist.core.scaffold import overlay as _overlay
 from prumo_assist.core.skills import load_skill_registry
@@ -527,7 +531,12 @@ def init_command(
             # `scope_slug` já é o slug real deste projeto (renomeado acima, se
             # o usuário pediu outro) — módulos por-escopo (ex. `clinical`)
             # caem direto nele; módulos sem marcador de escopo ignoram o kwarg.
-            _overlay(_info.path, target, scope=scope_slug)
+            # Idem `pkg` para o módulo `code` (ADR-0027).
+            _pkg = pkg_name(target.name) if module_requires_pkg(_info) else None
+            _mod_copied, _ = _overlay(_info.path, target, scope=scope_slug, pkg=_pkg)
+            apply_project_name(target, target.name, _mod_copied)
+            if _pkg is not None:
+                apply_pkg_name(target, _pkg, _mod_copied)
             modules_applied.append(_name)
 
         # Perfil de export do Zettlr — caminhos absolutos por máquina,
@@ -611,6 +620,10 @@ def doctor_command(
             "na raiz — assinatura do autoexport do Better BibTeX apontando para o caminho "
             "antigo. Corrija em Zotero → Preferences → Better BibTeX → Automatic export."
         )
+
+    # Empacotamento do projeto: instalável? pacote nomeado? sobrou sys.path?
+    # (ADR-0027 — só fala quando o módulo `code` está aplicado.)
+    issues.extend(packaging_issues(target))
 
     for adapter_cls in INTEGRATIONS.values():
         adapter = adapter_cls()
@@ -769,17 +782,27 @@ def add_command(
         raise typer.Exit(code=1)
 
     scope_slug: str | None = None
-    if module_requires_scope(info):
-        try:
+    pkg: str | None = None
+    try:
+        if module_requires_scope(info):
             scope_slug = _resolve_module_scope(target, module, scope)
-        except PrumoError as e:
-            console.error(str(e))
-            raise typer.Exit(code=1) from e
+        if module_requires_pkg(info):
+            # O nome do pacote vem do nome do PROJETO, sem o prefixo `pj_`
+            # (ADR-0027). Nome de diretório impróprio falha aqui, antes de
+            # copiar qualquer arquivo.
+            pkg = pkg_name(target.name)
+    except PrumoError as e:
+        console.error(str(e))
+        raise typer.Exit(code=1) from e
 
-    copied, skipped = _overlay(info.path, target, scope=scope_slug)
+    copied, skipped = _overlay(info.path, target, scope=scope_slug, pkg=pkg)
     # Mesma substituição de placeholder de nome do `init` (ex.: `code/pyproject.toml`
     # ainda carrega `pj-NOME`) — só nos arquivos recém-copiados deste módulo.
     apply_project_name(target, target.name, copied)
+    if pkg is not None:
+        # `overlay` resolveu o marcador no CAMINHO; falta o CONTEÚDO
+        # (`[tool.hatch.build.targets.wheel] packages` e os exemplos da rule).
+        apply_pkg_name(target, pkg, copied)
     payload = {
         "module": module,
         "target": str(target),

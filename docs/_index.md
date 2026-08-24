@@ -56,12 +56,13 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-07-26-prosa-idioma-citacao-design]] · approved
 - [[superpowers/specs/2026-08-08-layout-por-escopo-design]] · approved
 - [[superpowers/specs/2026-08-23-ponte-zotero-auditoria-design]] · approved
+- [[superpowers/specs/2026-08-24-pj-instalavel-design]] · approved
 
 **Plans ativos:**
 
 - (nenhum)
 
-**Plans arquivados:** 29 em `superpowers/plans/archive/`
+**Plans arquivados:** 30 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->

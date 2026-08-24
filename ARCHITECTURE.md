@@ -90,7 +90,8 @@ prumo-assist/
 ├── skills/                    ← 16 skills (SKILL.md = única metadata, ADR-0003)
 ├── templates/
 │   ├── pj_base/               ← núcleo mínimo copiado por `prumo init`
-│   └── modules/{clinical,ml}/ ← overlays opt-in (`prumo add`), self-describing (_module.toml)
+│   └── modules/             ← overlays opt-in (`prumo add`), self-describing (_module.toml):
+│       {clinical,ml,data,notebooks,code}/ — `code` traz o pacote instalável (ADR-0027)
 │
 ├── tests/unit/                ← espelha domains/ 1:1
 └── docs/                      ← vault Markdown: constitution · adr/ ·

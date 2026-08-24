@@ -90,11 +90,44 @@ Cada módulo é independente. Ative quando o trigger acontecer; não ative antes
 
 | Módulo | Localização | Trigger |
 |---|---|---|
-| `code` | `src/` importável + `tests/` espelhado + `pyproject.toml` — ative com `prumo add code` | O projeto vai ter script ou pacote Python próprio |
+| `code` | **pacote instalável** em `src/<pkg>/` + `tests/` espelhado + `pyproject.toml` com `[build-system]` — ative com `prumo add code` | O projeto vai ter script ou pacote Python próprio |
 | `data` | `content/01_raw/` (somente leitura) + `content/02_processed/` — ative com `prumo add data` | Entra o primeiro dataset no projeto |
-| `notebooks` | `notebooks/` (fora da raiz de leitura `docs/`) — ative com `prumo add notebooks` | Primeira análise exploratória em notebook |
+| `notebooks` | `notebooks/<escopo>/` (fora da raiz de leitura `docs/`) — ative com `prumo add notebooks` (`--scope <slug>` se houver mais de um escopo) | Primeira análise exploratória em notebook |
 | `ml` | `.claude/rules/ml_stack.md` (stack, governança de código) + notebook de EDA — ative com `prumo add ml` | Vai treinar modelos ou fazer análise tabular/de imagem |
 | `clinical` | `docs/studies/<slug>/writing/protocol.md` + `docs/templates/` (projeto CEP, plano estatístico/SAP, dicionário de dados) — ative com `prumo add clinical` (`--scope <slug>` se houver mais de um escopo) | Estudo clínico/empírico com coorte e submissão a CEP |
+
+### Onde o código mora (módulo `code`)
+
+O `pj_*` com o módulo `code` é um **pacote instalável** ([ADR-0027](adr/adr-0027-pj-instalavel.md)):
+`uv sync` instala o projeto em editable no `.venv`, e o import de código próprio resolve por
+instalação — não por `cwd` nem por `sys.path`.
+
+```
+pj_piloto_genetica/
+├── src/piloto_genetica/     ← pacote de import (nome do projeto sem `pj_`)
+│   ├── cohort.py                  ← COMPARTILHADO entre estudos e notebooks
+│   └── estudo/prep.py       ← só deste estudo
+├── tests/                         ← espelha src/
+├── notebooks/estudo/        ← notebook do estudo
+└── docs/studies/01_estudo/  ← prosa, draft, ADR
+```
+
+| O que | Onde |
+|---|---|
+| Código usado por ≥2 estudos ou notebooks | `src/<pkg>/<modulo>.py` |
+| Código de um estudo só | `src/<pkg>/<estudo>/<modulo>.py` |
+| Notebook | `notebooks/<estudo>/` |
+| Prosa, draft, ADR | `docs/studies/<slug>/` |
+
+A raiz do pacote é o compartilhado de propósito: o caminho curto pertence ao código
+reutilizável. O nome do subpacote sai do slug de `docs/studies/` sem o prefixo numérico
+(`01_estudo` → `estudo`); o slug da escrita não muda.
+
+**Não** existe `scripts/` nem um segundo tree `studies/` na raiz — código auxiliar de um
+estudo é `src/<pkg>/<estudo>/`. E **não** há configuração de IDE a versionar: com o pacote
+instalado, PyCharm e VS Code resolvem pelo interpretador do `.venv`, sem source root e sem
+`python.analysis.extraPaths`. `prumo doctor` acusa `projeto_nao_instalavel`,
+`pacote_sem_nome`, `sys_path_hack` e `projeto_nao_sincronizado`.
 
 ### Convenções documentadas (sem `_module.toml`)
 
