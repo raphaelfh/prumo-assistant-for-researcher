@@ -137,3 +137,37 @@ def test_doctor_acusa_references_ressuscitado_pelo_zotero(tmp_path: Path) -> Non
     (root / "references").mkdir()
     result = runner.invoke(app, ["doctor", str(root), "--json"])
     assert "references_ressuscitado" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# Empacotamento (ADR-0027)
+# ---------------------------------------------------------------------------
+
+
+def test_doctor_acusa_projeto_com_codigo_e_sem_build_system(tmp_path: Path) -> None:
+    """O caso que motivou a ADR-0027: `src/` com código, pyproject sem
+    `[build-system]`, e notebooks recorrendo a `sys.path.insert`."""
+    pj = _project(tmp_path)
+    (pj / "pyproject.toml").write_text(
+        '[project]\nname = "pj_x"\nversion = "0.1.0"\n', encoding="utf-8"
+    )
+    (pj / "src" / "x").mkdir(parents=True)
+    (pj / "src" / "x" / "prep.py").write_text("x = 1\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["doctor", str(pj), "--json"])
+
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert any("projeto_nao_instalavel" in i for i in payload["issues"])
+
+
+def test_doctor_nao_opina_sobre_projeto_sem_o_modulo_code(tmp_path: Path) -> None:
+    """`pj_*` de revisão sistemática não tem código — o doctor fica quieto."""
+    pj = _project(tmp_path)
+
+    result = runner.invoke(app, ["doctor", str(pj), "--json"])
+
+    payload = json.loads(result.stdout)
+    assert not any("projeto_nao_instalavel" in i for i in payload["issues"])
+    assert not any("sys_path_hack" in i for i in payload["issues"])

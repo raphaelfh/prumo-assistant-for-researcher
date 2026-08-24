@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from prumo_assist import PrumoError
 from prumo_assist.core import scaffold
 
 
@@ -143,3 +144,112 @@ def test_is_applied_false_when_anchor_missing_or_none(tmp_path: Path) -> None:
     no_anchor = scaffold.ModuleInfo("x", "", "", None, tmp_path)
     assert scaffold.is_applied(target, with_anchor) is False
     assert scaffold.is_applied(target, no_anchor) is False
+
+
+# ---------------------------------------------------------------------------
+# Nome de pacote e marcador `__pkg__` (ADR-0027)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("projeto", "esperado"),
+    [
+        ("pj_piloto_genetica", "piloto_genetica"),
+        ("pj_piloto_rwd", "piloto_rwd"),
+        ("pj_piloto_ml", "piloto_ml"),
+    ],
+)
+def test_pkg_name_remove_o_prefixo_pj(projeto: str, esperado: str) -> None:
+    """O `pj_` marca diretório de projeto; em import é ruído (ADR-0027, D2)."""
+    assert scaffold.pkg_name(projeto) == esperado
+
+
+def test_pkg_name_recusa_resultado_que_nao_e_identificador() -> None:
+    with pytest.raises(PrumoError, match="não é um nome de pacote Python válido"):
+        scaffold.pkg_name("pj_2024")
+
+
+def test_pkg_name_recusa_projeto_que_vira_vazio() -> None:
+    with pytest.raises(PrumoError, match="não é um nome de pacote Python válido"):
+        scaffold.pkg_name("pj_")
+
+
+@pytest.mark.parametrize(
+    ("slug", "esperado"),
+    [
+        ("01_estudo", "estudo"),
+        ("mortalidade-uti", "mortalidade_uti"),
+        ("principal", "principal"),
+        ("02-triage-cohort", "triage_cohort"),
+    ],
+)
+def test_scope_pkg_name_normaliza_slug_de_escopo(slug: str, esperado: str) -> None:
+    """Slug de escrita é bom slug e não é identificador Python (ADR-0027, D3)."""
+    assert scaffold.scope_pkg_name(slug) == esperado
+
+
+def test_scope_pkg_name_recusa_slug_so_numerico() -> None:
+    with pytest.raises(PrumoError, match="não vira um nome de pacote Python válido"):
+        scaffold.scope_pkg_name("2024")
+
+
+def test_overlay_substitui_marcador_de_pacote_no_caminho(tmp_path: Path) -> None:
+    template = tmp_path / "tpl"
+    (template / "src" / scaffold.PKG_MARKER).mkdir(parents=True)
+    (template / "src" / scaffold.PKG_MARKER / "__init__.py").write_text("")
+    target = tmp_path / "tgt"
+    target.mkdir()
+
+    copied, _ = scaffold.overlay(template, target, pkg="piloto_genetica")
+
+    assert copied == ["src/piloto_genetica/__init__.py"]
+    assert (target / "src" / "piloto_genetica" / "__init__.py").is_file()
+    assert not (target / "src" / scaffold.PKG_MARKER).exists()
+
+
+def test_overlay_sem_pkg_falha_alto_quando_o_template_usa_o_marcador(tmp_path: Path) -> None:
+    """Defeito do chamador nunca vira arquivo `__pkg__` órfão no projeto."""
+    template = tmp_path / "tpl"
+    (template / "src" / scaffold.PKG_MARKER).mkdir(parents=True)
+    (template / "src" / scaffold.PKG_MARKER / "__init__.py").write_text("")
+    target = tmp_path / "tgt"
+    target.mkdir()
+
+    with pytest.raises(PrumoError, match=scaffold.PKG_MARKER):
+        scaffold.overlay(template, target)
+
+
+def test_overlay_substitui_marcador_de_pacote_no_conteudo(tmp_path: Path) -> None:
+    """`[tool.hatch.build.targets.wheel] packages` precisa do nome real."""
+    template = tmp_path / "tpl"
+    template.mkdir()
+    (template / "pyproject.toml").write_text(
+        f'[tool.hatch.build.targets.wheel]\npackages = ["src/{scaffold.PKG_MARKER}"]\n'
+    )
+    target = tmp_path / "tgt"
+    target.mkdir()
+
+    copied, _ = scaffold.overlay(template, target, pkg="piloto_genetica")
+    scaffold.apply_pkg_name(target, "piloto_genetica", copied)
+
+    text = (target / "pyproject.toml").read_text()
+    assert 'packages = ["src/piloto_genetica"]' in text
+    assert scaffold.PKG_MARKER not in text
+
+
+def test_module_requires_pkg(tmp_path: Path) -> None:
+    com_pkg = tmp_path / "com"
+    (com_pkg / "src" / scaffold.PKG_MARKER).mkdir(parents=True)
+    (com_pkg / "src" / scaffold.PKG_MARKER / "__init__.py").write_text("")
+    sem_pkg = tmp_path / "sem"
+    (sem_pkg / "notebooks").mkdir(parents=True)
+    (sem_pkg / "notebooks" / ".gitkeep").write_text("")
+
+    assert scaffold.module_requires_pkg(_module_info(com_pkg))
+    assert not scaffold.module_requires_pkg(_module_info(sem_pkg))
+
+
+def _module_info(path: Path) -> scaffold.ModuleInfo:
+    return scaffold.ModuleInfo(
+        name=path.name, description="", when_to_use="", anchor=None, path=path
+    )

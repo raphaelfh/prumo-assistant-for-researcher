@@ -7,6 +7,21 @@ dependencies = [
     "ipykernel>=7.2.0",
 ]
 
+# O projeto é um PACOTE INSTALÁVEL (ADR-0027): `uv sync` o instala em editable
+# no `.venv`, e o import de código próprio passa a resolver por instalação em
+# vez de `cwd` + `sys.path`. É o que mata o `sys.path.insert` nos notebooks, o
+# `# noqa: E402` e o unresolved import do PyCharm/VS Code de uma vez só.
+# NÃO remova este bloco: sem ele o uv trata o projeto como *virtual project* e
+# `src/__pkg__/` deixa de ser importável.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# O nome do PROJETO mantém o prefixo `pj_` (marca diretório de projeto); o
+# nome do PACOTE DE IMPORT não (em `import` o prefixo é ruído).
+[tool.hatch.build.targets.wheel]
+packages = ["src/__pkg__"]
+
 # Ativar os grupos conforme necessidade do projeto:
 #   uv sync --group tabular --group viz
 # Grupos opcionais — não instalam nada até `uv sync --group <nome>`.

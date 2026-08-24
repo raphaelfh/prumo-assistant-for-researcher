@@ -7,6 +7,79 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **O `pj_*` com o módulo `code` é um pacote instalável.** O `pyproject.toml` gerado
+  passa a declarar `[build-system]` com hatchling, e `prumo add code` entrega
+  `src/<pkg>/__init__.py` — um pacote **nomeado** — em vez de um `src/` vazio. O nome sai
+  do nome do projeto sem o prefixo `pj_` (`pj_piloto_genetica` →
+  `piloto_genetica`): o prefixo marca diretório de projeto e em `import` é ruído.
+  Com `uv sync` o projeto é instalado em editable no `.venv`, e o import de código próprio
+  resolve **por instalação** em vez de `cwd` + `sys.path` — o que mata de uma vez o
+  `sys.path.insert` nos notebooks, o `# noqa: E402` permanente e o unresolved import do
+  PyCharm/VS Code. [ADR-0027](docs/adr/adr-0027-pj-instalavel.md) registra também por que
+  a pergunta de configuração de IDE **se dissolve** em vez de ser respondida: com o pacote
+  instalado, os dois editores resolvem pelo interpretador do `.venv`, sem source root, sem
+  `python.analysis.extraPaths` e sem `.idea/` versionado.
+- **Convenção de onde o código mora:** a raiz do pacote é o **compartilhado**
+  (`src/<pkg>/cohort.py`, usado por vários estudos e notebooks) e um **subpacote por
+  estudo** guarda o específico (`src/<pkg>/estudo/prep.py`). A assimetria é
+  deliberada — o caminho curto pertence ao código reutilizável, que é o caso a incentivar.
+  O nome do subpacote vem do slug de `docs/studies/` sem o prefixo numérico
+  (`01_estudo` → `estudo`); o slug da escrita não muda. Isso elimina o motivo
+  do tree paralelo `studies/<slug>/{notebooks,scripts}/` que projetos reais inventaram
+  para preencher o vazio que o módulo `code` deixava.
+- **Quatro checks de empacotamento no `prumo doctor`** (`core/packaging.py`), todos
+  determinísticos e sem LLM (Princípio II), todos com o comando de correção embutido:
+  `projeto_nao_instalavel` (há código em `src/` e falta `[build-system]`),
+  `pacote_sem_nome` (módulo solto na raiz de `src/`, ou um `src/src/` — o caso do
+  `from src.x import y`), `sys_path_hack` (`sys.path.insert`/`append` em notebook ou
+  módulo) e `projeto_nao_sincronizado` (é instalável, há `.venv/`, e o pacote não está
+  lá). A migração de projeto legado é **agêntica**, no molde exato do check
+  `legacy_layout` da [ADR-0022](docs/adr/adr-0022-layout-por-escopo.md): o CLI detecta e
+  convida, o agente adequa — não há comando de migração porque o estado de partida de cada
+  projeto é arbitrário e um migrador determinístico erraria onde o agente acerta.
+- `scaffold.PKG_MARKER` (`__pkg__`), resolvido em **caminho** por `overlay(pkg=...)` e em
+  **conteúdo** por `apply_pkg_name` — o `pyproject.toml` precisa do nome real em
+  `[tool.hatch.build.targets.wheel] packages`. Marcador não resolvido falha alto, em vez de
+  virar diretório `__pkg__` órfão no projeto do pesquisador.
+- Rule `.claude/rules/code_layout.md` no módulo `code`: onde o código mora, por que não se
+  usa `sys.path`, como apontar o interpretador do editor, e por que bundle `joblib` guarda
+  **dado + versão de schema** e nunca objeto cujo `__module__` importe.
+- `tests/unit/core/test_packaging.py` (13 casos) e cobertura nova em
+  `test_scaffold.py`, `test_modules.py` e `test_cli_doctor.py`.
+
+### Alterado
+
+- ⚠ **Breaking — `prumo add code` muda de forma.** Passa a criar `src/<pkg>/__init__.py` e
+  a emitir `[build-system]`. Projetos que já rodaram `add code` não são tocados (o overlay
+  nunca sobrescreve), mas passam a acusar `projeto_nao_instalavel` no `doctor` — que é o
+  ponto: o defeito aparece antes do `ModuleNotFoundError` de daqui a três meses.
+- ⚠ **Breaking — o módulo `notebooks` virou por-escopo.** `notebooks/<escopo>/` em vez de
+  `notebooks/` plano, e o `anchor` mudou de `notebooks/.gitkeep` para
+  `notebooks/__scope__/.gitkeep`. Consequência prática: projeto que já rodou
+  `add notebooks` volta a aparecer como **não-aplicado** em `prumo add --list`, e um
+  `prumo add notebooks` novo cria `notebooks/<escopo>/` ao lado do `notebooks/` existente.
+  É ruído, não perda — nada é sobrescrito e o `doctor` não reclama.
+- `apply_project_name` foi extraído para `_apply_placeholders`, agora compartilhado com
+  `apply_pkg_name`.
+
+### Notas
+
+- **O que isto NÃO conserta:** o pickle. `joblib` continua gravando
+  `<pkg>.<estudo>.prep` no bundle, e mover o módulo continua quebrando a desserialização.
+  O que muda é que o caminho passa a ser **estável** (não depende mais de `cwd` nem da
+  ordem do `sys.path`) e que sobra **um** movimento perigoso — promover de subpacote de
+  estudo para a raiz do pacote — em vez de vários. A mitigação é orientação na rule, não
+  código.
+- **Corte deliberado:** o check "import top-level de módulo que não é dependência
+  declarada" **não** entrou. Exigiria resolver o grafo de imports contra os
+  `[dependency-groups]`, que são opt-in (`uv sync --group tabular`), tornando o
+  falso-positivo o caso comum. Isso é trabalho de `deptry` ou do `ruff`.
+- `uv sync` passa a ser pré-requisito para importar código próprio: invisível em projeto
+  que já usa o `.venv` como kernel do notebook, e um passo novo em projeto que importava
+  por `sys.path` — que é o que o check `projeto_nao_sincronizado` nomeia.
+
 ## [0.66.0] - 2026-08-24
 
 ### Adicionado
