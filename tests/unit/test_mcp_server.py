@@ -1,4 +1,4 @@
-"""Servidor MCP `prumo-review` (stdio) — tools do ciclo de revisão.
+"""Servidor MCP `prumo` (stdio) — tools de revisão e do domínio paper.
 
 Task 1 da Fase 3 da ponte
 (`docs/superpowers/plans/2026-07-24-ponte-fase3-mcp-reconciliador.md`):
@@ -25,12 +25,15 @@ transporte MCP/validação de schema, que este módulo não testa em unidade
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
 from prumo_assist import mcp_server
+from prumo_assist._version import __version__
 from prumo_assist.cli import app
+from prumo_assist.domains.write.schemas import v1
 from prumo_assist.domains.write.schemas.v1 import ReviewComment, ReviewEvent
 from tests.unit.conftest import InitProject, WriteReviewArtifacts
 
@@ -83,9 +86,10 @@ def test_review_events_lists_kinds(
 
     result = mcp_server.review_events(str(page))
 
-    assert [event["kind"] for event in result] == ["citation-drop", "non-identity-span"]
-    assert result[0]["occ_id"] == "00000001"
-    assert result[0]["citekeys"] == ["smith2020"]
+    events = result["events"]
+    assert [event["kind"] for event in events] == ["citation-drop", "non-identity-span"]
+    assert events[0]["occ_id"] == "00000001"
+    assert events[0]["citekeys"] == ["smith2020"]
 
 
 # --- 3. review_worklist: conteúdo == review.md gravado ----------------------
@@ -186,14 +190,30 @@ def test_review_status_with_malformed_comments_yaml_raises_corrupt_sidecar_error
 # --- 5. server registra exatamente as tools read-only + a de proposta ------
 
 
-def test_server_registers_exactly_the_read_only_and_proposal_tools() -> None:
+def test_server_registers_exactly_the_review_and_paper_tools() -> None:
     tools = asyncio.run(mcp_server.server.list_tools())
     assert {tool.name for tool in tools} == {
         "review_status",
         "review_events",
         "review_worklist",
         "propose_prose_edit",
+        "paper_sync",
+        "paper_find",
+        "paper_lint",
+        "paper_graph",
+        "paper_verify_refs",
+        "paper_sync_all",
+        "paper_connect",
     }
+
+
+def test_paper_connect_is_the_only_mutating_paper_tool() -> None:
+    """`connect` chama `autoexport.add` no Zotero do usuário (ADR-0020).
+
+    Guarda de desenho: qualquer tool `paper_*` nova que mute estado externo
+    tem de ser adicionada aqui conscientemente, não por descuido.
+    """
+    assert {"propose_prose_edit", "paper_connect"} == mcp_server.MUTATING_TOOLS
 
 
 # --- 6. CLI `prumo mcp serve` chama run_stdio (fachada) ---------------------
@@ -327,3 +347,93 @@ def test_propose_prose_edit_propagates_author_injection_guard_error(
 
     assert "author inválido" in str(exc.value)
     assert (review_dir / "review.md").read_text() == "Frase-alvo para a proposta aqui."
+
+
+# --- Dívida de versionamento da ADR-0017 (quitada em 2026-08-23) -----------
+
+
+def test_server_reports_the_prumo_version_not_the_sdk_version() -> None:
+    """`serverInfo.version` do handshake tem de identificar o prumo.
+
+    O FastMCP não aceita versão no construtor, então o SDK cai em
+    `pkg_version("mcp")` e o agent-host via a versão do SDK — inútil pra
+    detectar incompatibilidade de contrato. O `Server` de baixo nível expõe
+    `version` como atributo público, que é exatamente o que ele lê.
+    """
+    options = mcp_server.server._mcp_server.create_initialization_options()
+
+    assert options.server_version == __version__
+
+
+def test_review_status_carries_a_schema_version() -> None:
+    assert v1.ReviewStatus.model_fields["schema_version"].default == "ReviewStatus/v1"
+
+
+def test_review_status_result_is_versioned(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    project_root, page = init_project()
+    write_review_artifacts(project_root, page, review_md="x", events=[], comments=[])
+
+    status = mcp_server.review_status(str(page))
+
+    assert status["schema_version"] == "ReviewStatus/v1"
+
+
+def test_review_events_returns_the_versioned_envelope(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """Alinha a tool com o `--json` do CLI, que já carrega o envelope."""
+    project_root, page = init_project()
+    events = [ReviewEvent(kind="citation-drop", detail="d1", occ_id="00000001")]
+    write_review_artifacts(project_root, page, review_md="x", events=events, comments=[])
+
+    result = mcp_server.review_events(str(page))
+
+    assert result["schema_version"] == "ReviewEventsFile/v1"
+    assert [event["kind"] for event in result["events"]] == ["citation-drop"]
+
+
+# --- Domínio paper exposto como tools (ADR emendando a 0017) ---------------
+
+
+def _bootstrap_pj(tmp_path: Path, bib_text: str) -> Path:
+    pj = tmp_path / "pj_demo"
+    refs = pj / "docs" / "references"
+    refs.mkdir(parents=True)
+    (refs / "_references.bib").write_text(bib_text, encoding="utf-8")
+    return pj
+
+
+def test_paper_sync_creates_meta_and_returns_report(tmp_path: Path) -> None:
+    pj = _bootstrap_pj(tmp_path, "@article{smith2024,\n  title = {Fusion},\n  year = 2024\n}\n")
+
+    report = mcp_server.paper_sync(str(pj))
+
+    assert report["created"] == 1
+    assert (pj / "docs" / "references" / "papers" / "smith2024" / "_meta.md").is_file()
+
+
+def test_paper_find_returns_the_same_shape_as_the_cli(tmp_path: Path) -> None:
+    pj = _bootstrap_pj(tmp_path, "@article{smith2024,\n  title = {Combinado Fusion}\n}\n")
+
+    result = mcp_server.paper_find(str(pj), "combinado")
+
+    assert result["query"] == "combinado"
+    assert [r["citekey"] for r in result["results"]] == ["smith2024"]
+
+
+def test_paper_tool_translates_domain_error_to_value_error(tmp_path: Path) -> None:
+    """Mesmo contrato de erro das tools de review: pt-BR acionável, nunca traceback."""
+    vazio = tmp_path / "sem_bib"
+    vazio.mkdir()
+
+    with pytest.raises(ValueError, match=r"_references\.bib"):
+        mcp_server.paper_sync(str(vazio))
+
+
+def test_server_is_named_prumo_not_prumo_review() -> None:
+    """O servidor deixou de ser só do ciclo de revisão quando ganhou o
+    domínio `paper` — o nome tem de acompanhar, e ele é o prefixo das tools
+    no agent-host (`mcp__prumo__paper_find`)."""
+    assert mcp_server.server.name == "prumo"

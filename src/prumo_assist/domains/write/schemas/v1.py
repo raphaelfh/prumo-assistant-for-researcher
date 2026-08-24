@@ -161,3 +161,22 @@ class ReviewEventsFile(BaseModel):
     schema_version: Literal["ReviewEventsFile/v1"] = "ReviewEventsFile/v1"
     page: str
     events: list[ReviewEvent] = []
+
+
+class ReviewStatus(BaseModel):
+    """Contagens agregadas do ciclo de revisão de uma página.
+
+    Diferente dos demais schemas deste módulo, NÃO é um arquivo sidecar: é o
+    retorno de :func:`domains.write.review.status`, consumido pela tool MCP
+    ``review_status``. Ganha ``schema_version`` porque atravessa a fronteira
+    de protocolo — um agent-host precisa detectar mudança de contrato sem
+    inferir pelo shape ([ADR-0017](../../adr/adr-0017-prumo-mcp-reconciliador.md),
+    dívida quitada em 2026-08-23).
+    """
+
+    schema_version: Literal["ReviewStatus/v1"] = "ReviewStatus/v1"
+    page: str
+    pending_marks: int
+    events_by_kind: dict[str, int] = {}
+    comments: int
+    pending_drops: int

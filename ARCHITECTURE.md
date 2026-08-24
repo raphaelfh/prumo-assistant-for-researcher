@@ -64,7 +64,7 @@ prumo-assist/
 ├── ROADMAP.md · CHANGELOG.md · RELEASING.md · README.md · CITATION.cff · LICENSE
 │
 ├── .claude-plugin/            ← plugin.json + marketplace.json (self-hosting, ADR-0010)
-├── .mcp.json                  ← MCP qmd + prumo-review — config do projeto E do plugin distribuído
+├── .mcp.json                  ← MCP qmd + prumo — config do projeto E do plugin distribuído
 ├── .github/
 │   ├── workflows/             ← ci.yml (lint+types+test+índices) · validate-manifests.yml
 │   ├── schemas/               ← schemas vivos do validador de plugin (ADR-0010)
@@ -76,7 +76,7 @@ prumo-assist/
 │                                 bases por domínio em domains/<X>/errors.py)
 │   ├── api.py                 ← Python API pública (SemVer)
 │   ├── cli.py                 ← Typer root: init · doctor · skills · add · mcp (+ capture)
-│   ├── mcp_server.py          ← servidor MCP local (stdio) `prumo-review`; vive no TOPO
+│   ├── mcp_server.py          ← servidor MCP local (stdio) `prumo`; vive no TOPO
 │                                 do pacote por design (nunca em domains/) — importa
 │                                 domains/ livremente (ADR-0017)
 │   ├── _filters/              ← filtros Lua vendorados do Pandoc (zotero_live_docx.lua)

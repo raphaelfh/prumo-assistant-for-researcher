@@ -10,7 +10,7 @@ when_to_use: |
   (`citation-touched-prose`/`citation-drop`) nem para aplicar decisões — isso é
   sempre `prumo write review apply`, rodado pelo humano.
 argument-hint: "--page <page.md>"
-allowed-tools: Read Glob Grep Bash(prumo write review events *) Bash(prumo doctor *) mcp__prumo-review__review_status mcp__prumo-review__review_events mcp__prumo-review__review_worklist mcp__prumo-review__propose_prose_edit
+allowed-tools: Read Glob Grep Bash(prumo write review events *) Bash(prumo doctor *) mcp__prumo__review_status mcp__prumo__review_events mcp__prumo__review_worklist mcp__prumo__propose_prose_edit
 prumo:
   version: 1.0.0
   determinism: hybrid
@@ -47,7 +47,7 @@ Opera sobre o ciclo de revisão docx↔CriticMarkup (`prumo write review ingest`
 `reviews/<slug>/{review.md,events.yaml,review-comments.yaml}`). Fecha os
 eventos que o transplante determinístico não conseguiu localizar sozinho —
 **propõe, nunca decide**: só insere marcas CriticMarkup pendentes no worklist
-(`review.md`), com autoria `agente`, via o servidor MCP `prumo-review`
+(`review.md`), com autoria `agente`, via o servidor MCP `prumo`
 (`propose_prose_edit`). Quem aceita ou rejeita — inclusive as propostas desta
 skill — é sempre o humano, com `prumo write review apply`.
 
@@ -59,9 +59,9 @@ skill — é sempre o humano, com `prumo write review apply`.
   (`prumo write review ingest ...`).
 - O CLI `prumo` está no PATH (`prumo doctor`; senão `uv tool install
   git+https://github.com/raphaelfh/prumo-assist`).
-- O servidor MCP `prumo-review` (tools `review_status`, `review_events`,
+- O servidor MCP `prumo` (tools `review_status`, `review_events`,
   `review_worklist`, `propose_prose_edit`) pode ou não estar conectado nesta
-  sessão (registrado em `.mcp.json` como `"prumo-review"`, roda via `prumo mcp
+  sessão (registrado em `.mcp.json` como `"prumo"`, roda via `prumo mcp
   serve`). O fluxo abaixo usa MCP quando disponível e cai para `prumo write
   review events --page <page> --json/--checklist` quando não — **`propose_prose_edit`
   não tem equivalente CLI** (fora de escopo criar um); sem MCP, o Passo 2 vira
@@ -219,7 +219,7 @@ qualquer coisa. Trate cada recusa como esperada, não como bug a contornar:
 - **`events.yaml`/`review.md` ausentes** → o ciclo de revisão ainda não foi
   iniciado para essa página; rode `prumo write review ingest <reviewed.docx>
   --page <page>` primeiro.
-- **Ferramentas `mcp__prumo-review__*` não aparecem disponíveis** → o
+- **Ferramentas `mcp__prumo__*` não aparecem disponíveis** → o
   servidor precisa estar registrado em `.mcp.json` (roda via `prumo mcp
   serve`) e conectado nesta sessão; sem ele, use o fallback CLI do Passo 1 e
   a orientação em prosa do Passo 2 (item 5).

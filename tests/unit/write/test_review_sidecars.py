@@ -168,6 +168,7 @@ def test_status_aggregates_counts_from_the_three_artifacts(
     result = review.status(page.resolve())
 
     assert result == {
+        "schema_version": "ReviewStatus/v1",
         "page": "pagina.md",
         "pending_marks": 2,
         "events_by_kind": {"citation-drop": 2, "unanchored-mark": 1},

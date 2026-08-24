@@ -901,7 +901,7 @@ app.add_typer(mcp_app)
 
 @mcp_app.command("serve")
 def mcp_serve_command() -> None:
-    """Inicia o servidor MCP ``prumo-review`` via stdio.
+    """Inicia o servidor MCP ``prumo`` via stdio.
 
     Usado por agent-hosts (Claude Code/Desktop) via ``.mcp.json``. Bloqueia
     a chamada: o transporte stdio consome stdin/stdout inteiros para o
