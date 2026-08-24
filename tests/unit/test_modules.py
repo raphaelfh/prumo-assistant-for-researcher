@@ -146,3 +146,20 @@ def test_add_notebooks_cria_pasta_de_notebooks(tmp_path: Path) -> None:
     result = runner.invoke(app, ["add", "notebooks", "--target", str(root)])
     assert result.exit_code == 0, result.output
     assert (root / "notebooks").is_dir()
+
+
+def test_add_nao_deixa_manifesto_do_modulo_no_projeto(tmp_path: Path) -> None:
+    """`overlay` fazia `rglob("*")` sobre `templates/modules/<nome>/` sem excluir
+    o `_module.toml` — metadata do módulo (description/when_to_use/anchor), não
+    payload. Todo `prumo add` deixava um `_module.toml` órfão na raiz do `pj_*`,
+    descrevendo o módulo aplicado PRIMEIRO (os seguintes o viam existir e
+    pulavam), o que dava a impressão de um marcador de módulo que não é."""
+    root = _project(tmp_path)
+    for modulo in ("data", "code", "notebooks"):
+        result = runner.invoke(app, ["add", modulo, "--target", str(root)])
+        assert result.exit_code == 0, result.output
+        assert not (root / "_module.toml").exists(), f"`add {modulo}` vazou o manifesto"
+    # o payload real continua chegando
+    assert (root / "content" / "01_raw").is_dir()
+    assert (root / "src").is_dir()
+    assert (root / "notebooks").is_dir()

@@ -395,3 +395,22 @@ def test_lint_ambiguous_link_within_scope(tmp_path: Path) -> None:
     report = lint(root)
     codes = {i["code"] for i in report["issues"]}
     assert "ambiguous_link" in codes
+
+
+def test_lint_ignora_cabecalho_de_log_dentro_de_code_fence(tmp_path: Path) -> None:
+    """O `_log.md` do `pj_base` documenta o formato das entradas num code fence
+    (`## [YYYY-MM-DD] <action> | <título curto>`). O check lia o arquivo linha a
+    linha, então esse exemplo virava `broken_log_prefix` e TODO projeto novo
+    nascia com um warning — falso positivo que ensinava a ignorar o lint."""
+    root = _project(tmp_path)
+    (root / "docs" / "_log.md").write_text(
+        "# Log\n\n"
+        "**Formato fixo:**\n\n"
+        "```\n"
+        "## [YYYY-MM-DD] <action> | <título curto>\n"
+        "```\n\n"
+        "## [2026-05-30] ingest | added smith2024\n",
+        encoding="utf-8",
+    )
+    report = lint(root)
+    assert not [i for i in report["issues"] if i["code"] == "broken_log_prefix"]

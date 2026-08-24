@@ -54,7 +54,7 @@ CITEKEY_RE = re.compile(r"(?<!@)(?<![^\W_])@(" + CITEKEY_BODY + r")")
 _BRACKET_SPAN_RE = re.compile(r"\[[^\[\]]*\]")
 
 
-def _body_lines(markdown_text: str) -> Iterator[str]:
+def body_lines(markdown_text: str) -> Iterator[str]:
     """Linhas fora de fenced code blocks."""
     in_code_block = False
     for line in markdown_text.splitlines():
@@ -70,7 +70,7 @@ def _body_lines(markdown_text: str) -> Iterator[str]:
 def iter_citekeys(markdown_text: str) -> Iterator[str]:
     """Citekeys em ordem de 1ª ocorrência, sem repetição (captura ampla)."""
     seen: set[str] = set()
-    for line in _body_lines(markdown_text):
+    for line in body_lines(markdown_text):
         for match in CITEKEY_RE.finditer(line):
             key = match.group(1)
             if key not in seen:
@@ -95,7 +95,7 @@ def iter_marked_citation_spans(text: str) -> Iterator[tuple[int, int]]:
     um citekey — ``[@a]`` e ``[@a; @b, p. 3]`` cada um conta como UM span.
     É o nível-span da mesma gramática de :func:`scan_marked_citekeys`; NÃO
     filtra code blocks — responsabilidade do chamador (linha a linha via
-    :func:`_body_lines`, ou por span-map no export).
+    :func:`body_lines`, ou por span-map no export).
     """
     for match in _BRACKET_SPAN_RE.finditer(text):
         if CITEKEY_RE.search(match.group(0)):
@@ -156,7 +156,7 @@ def scan_marked_citekeys(markdown_text: str) -> list[str]:
     propósito — ver docstring do módulo.
     """
     keys: set[str] = set()
-    for line in _body_lines(markdown_text):
+    for line in body_lines(markdown_text):
         for start, end in iter_marked_citation_spans(line):
             for match in CITEKEY_RE.finditer(line[start:end]):
                 keys.add(match.group(1))

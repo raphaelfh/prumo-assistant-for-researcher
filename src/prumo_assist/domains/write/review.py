@@ -3209,7 +3209,7 @@ def _citation_atom_spans(body: str) -> Iterator[tuple[int, int]]:
     a escolha de ALTITUDE do consumidor, abaixo.
 
     Roda sobre o corpo CRU, sem filtrar code fences (ao contrário de
-    ``scan_marked_citekeys``, que passa por ``_body_lines``): super-proteção
+    ``scan_marked_citekeys``, que passa por ``body_lines``): super-proteção
     deliberada — um ``@key`` dentro de bloco de código vira átomo protegido
     e o agente leva recusa. É o lado certo do trade-off (fail-toward-human):
     o custo do falso positivo é o humano decidir uma edição; o do falso

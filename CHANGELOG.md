@@ -7,8 +7,12 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.66.0] - 2026-08-24
+
 ### Adicionado
 
+- Testes de regressão `test_add_nao_deixa_manifesto_do_modulo_no_projeto` e
+  `test_lint_ignora_cabecalho_de_log_dentro_de_code_fence`.
 - **O servidor MCP cobre o domínio `paper`:** sete tools novas (`paper_sync`, `paper_find`,
   `paper_lint`, `paper_graph`, `paper_verify_refs`, `paper_sync_all`, `paper_connect`),
   fachadas finas sobre `domains/paper/api.py` sem lógica nova (Princípio I), com o mesmo
@@ -49,6 +53,21 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Corrigido
 
+- **`prumo add <módulo>` deixava um `_module.toml` órfão na raiz do `pj_*`.**
+  `overlay()` varria `templates/modules/<nome>/` com `rglob("*")` sem excluir o
+  manifesto do módulo — que é metadata pro próprio `add` (`description`,
+  `when_to_use`, `anchor`), não payload de projeto. O arquivo copiado era o do
+  módulo aplicado PRIMEIRO (os seguintes o viam existir e pulavam), então a raiz
+  do projeto ficava com um descritor que não descreve o projeto e não é lido por
+  nada. `MODULE_MANIFEST` passa a ser constante única, usada pelo skip do
+  `overlay` e pelo `discover_modules`.
+- **`prumo wiki lint` acusava `broken_log_prefix` em todo projeto recém-criado.**
+  O `_log.md` do `pj_base` documenta o formato das entradas num code fence
+  (`## [YYYY-MM-DD] <action> | <título curto>`); `_check_log_prefixes` lia o
+  arquivo linha a linha, sem filtrar fence, e tratava o exemplo como entrada
+  quebrada. Um warning que nasce com o projeto e não tem conserto ensina a
+  ignorar o lint. Passa a usar `citations.body_lines` (o filtro de fence que já
+  existia, agora público em vez de `_body_lines`).
 - **`prumo paper sync-pdfs` perdia PDFs por dois defeitos no parser do campo `file`.**
   O Better BibTeX escapa três caracteres (`\\`, `\;`, `\:`) e o parser desfazia só o
   último: um anexo cujo nome de arquivo contém `;` — comum em export automático, do tipo
@@ -949,7 +968,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.2...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.66.0...HEAD
+[0.66.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.2...v0.66.0
 [0.65.2]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.1...v0.65.2
 [0.65.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.0...v0.65.1
 [0.65.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.1...v0.65.0
