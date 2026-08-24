@@ -41,7 +41,7 @@ import yaml
 
 from prumo_assist.core import pj_layout
 from prumo_assist.core.bib import parse_bib
-from prumo_assist.core.citations import scan_marked_citekeys
+from prumo_assist.core.citations import body_lines, scan_marked_citekeys
 from prumo_assist.core.obsidian import split_frontmatter
 
 # Subdiretórios do ESCOPO onde frontmatter é esperado — não é mais taxonomia
@@ -275,12 +275,17 @@ def check_single_primary(pj_path: Path) -> list[WikiIssue]:
 
 
 def _check_log_prefixes(docs: Path) -> list[WikiIssue]:
-    """Cada ``## `` em ``_log.md`` deve casar ``[YYYY-MM-DD] <verbo> | <texto>``."""
+    """Cada ``## `` em ``_log.md`` deve casar ``[YYYY-MM-DD] <verbo> | <texto>``.
+
+    Só prosa: o cabeçalho do próprio ``_log.md`` do template documenta o
+    formato num code fence (``## [YYYY-MM-DD] <action> | <título curto>``), e
+    lê-lo como entrada fazia todo projeto recém-criado nascer com um warning.
+    """
     log = docs / "_log.md"
     if not log.is_file():
         return []
     issues: list[WikiIssue] = []
-    for line in log.read_text(encoding="utf-8").splitlines():
+    for line in body_lines(log.read_text(encoding="utf-8")):
         if line.startswith("## ") and not LOG_PREFIX_RE.match(line):
             issues.append(
                 WikiIssue(

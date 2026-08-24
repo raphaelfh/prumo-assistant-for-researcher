@@ -21,6 +21,12 @@ from prumo_assist.core.paths import resolve_resource
 #: (``pj-NOME`` no pyproject.toml, ``pj_<NOME>`` nos títulos markdown).
 _NAME_PLACEHOLDERS: tuple[str, ...] = ("pj_<NOME>", "pj-NOME")
 
+#: Nome do manifesto de módulo em ``templates/modules/<nome>/``. É metadata
+#: pro ``prumo add`` (description/when_to_use/anchor), NÃO payload do projeto:
+#: ``overlay`` o ignora, senão todo ``prumo add`` deixava um ``_module.toml``
+#: órfão na raiz do ``pj_*``.
+MODULE_MANIFEST = "_module.toml"
+
 #: Segmento de caminho usado por módulos cujo payload é por-escopo (ex.:
 #: ``clinical``). ``overlay`` substitui esse segmento pelo slug real antes de
 #: copiar; ``is_applied`` faz o mesmo antes de checar o anchor. Ver ADR-0024
@@ -50,6 +56,8 @@ def overlay(
     skipped: list[str] = []
     for src in template.rglob("*"):
         rel = src.relative_to(template)
+        if rel == Path(MODULE_MANIFEST):
+            continue
         if scope is not None:
             rel = _substitute_scope(rel, scope)
         elif SCOPE_MARKER in rel.parts:
@@ -114,7 +122,7 @@ def discover_modules() -> list[ModuleInfo]:
     out: list[ModuleInfo] = []
     for d in sorted(p for p in root.iterdir() if p.is_dir()):
         meta: dict[str, Any] = {}
-        meta_path = d / "_module.toml"
+        meta_path = d / MODULE_MANIFEST
         if meta_path.is_file():
             with meta_path.open("rb") as f:
                 meta = tomllib.load(f)
