@@ -172,8 +172,15 @@ def sync_pdfs_command(
         report = pdfs.sync_pdfs(path.resolve())
         console.success(
             f"{report['created']} novos, {report['updated']} atualizados, "
-            f"{report['ok']} já ok, {len(report['missing'])} sem PDF no Zotero."
+            f"{report['ok']} já ok, {len(report['no_attachment'])} sem anexo PDF no Zotero, "
+            f"{len(report['not_downloaded'])} com PDF não baixado."
         )
+        if report["not_downloaded"]:
+            console.info(
+                "PDF não baixado = o anexo existe no Zotero, mas o arquivo não está nesta "
+                "máquina. Abra o anexo no Zotero para baixar, ou ligue Settings → Sync → "
+                "'Download files: at sync time', e rode `prumo paper sync-pdfs` de novo."
+            )
         console.emit(report)
 
 

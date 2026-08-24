@@ -7,6 +7,39 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Corrigido
+
+- **`prumo paper sync-pdfs` perdia PDFs por dois defeitos no parser do campo `file`.**
+  O Better BibTeX escapa três caracteres (`\\`, `\;`, `\:`) e o parser desfazia só o
+  último: um anexo cujo nome de arquivo contém `;` — comum em export automático, do tipo
+  `Smith; Jones - 2024.pdf` — tinha o caminho partido ao meio e caía em "sem PDF". E
+  caminho relativo (pref "export file paths: relative" do BBT) nunca resolvia, zerando
+  **todos** os PDFs de quem usa essa configuração; agora é resolvido contra o data dir
+  do Zotero (`~/Zotero`, override por `PRUMO_ZOTERO_DATA_DIR`). Separação e
+  desescape passam a ser a mesma passada, que é o que impede um `\:` do nome do arquivo
+  de virar separador.
+- **`prumo doctor` afirmava "API local respondendo" com a API local desligada.** A sonda
+  era um TCP connect na 23119 (e, no seam usado pelos domínios, `GET /connector/ping`) —
+  ambos sobem junto com o app, independentemente da preferência. Como a API local é
+  opt-in, o `doctor` aprovava e os comandos de anotação tomavam HTTP 403 em série. A
+  sonda passa a ser `GET /api/`, único endpoint que reprova nesse caso (`403 Local API
+  is not enabled`), e o `doctor` ganha um terceiro estado com o remédio embutido
+  (Settings → Advanced → "Allow other applications…").
+
+### Adicionado
+
+- `prumo paper sync-pdfs` distingue **"sem anexo PDF no Zotero"** de **"PDF não
+  baixado"** (biblioteca em nuvem): campos `no_attachment` e `not_downloaded` no
+  `--json`, contagens separadas na saída humana, e instrução de correção quando há
+  arquivo não baixado. `missing` é preservado como a união dos dois, para não quebrar
+  consumidores do `--json` ([ADR-0011](docs/adr/adr-0011-semver-por-visibilidade.md)).
+- `tests/unit/paper/test_pdfs.py`: o módulo estava em 17% de cobertura, sem nenhuma
+  asserção comportamental — o menos testado do domínio `paper` e o único cuja lógica é
+  heurística. Agora em 100%, com caracterização do comportamento preservado
+  (idempotência, auto-reparo de symlink desatualizado, recusa de sobrescrever arquivo
+  real) e regressão dos dois defeitos acima. Achados e decisões em
+  [`docs/superpowers/specs/2026-08-23-ponte-zotero-auditoria-design.md`](docs/superpowers/specs/2026-08-23-ponte-zotero-auditoria-design.md).
+
 ## [0.65.2] - 2026-08-23
 
 ### Corrigido
