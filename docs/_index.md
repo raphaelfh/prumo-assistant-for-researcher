@@ -55,6 +55,7 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-07-26-domain-errors-prumoerror-design]] · draft
 - [[superpowers/specs/2026-07-26-prosa-idioma-citacao-design]] · approved
 - [[superpowers/specs/2026-08-08-layout-por-escopo-design]] · approved
+- [[superpowers/specs/2026-08-23-ponte-zotero-auditoria-design]] · approved
 
 **Plans ativos:**
 
