@@ -384,3 +384,24 @@ def test_paper_connect_error_contract(
     assert result.exit_code == expected_exit, result.output
     assert expected_substring in result.output
     assert "Traceback" not in result.output
+
+
+def test_paper_sync_pdfs_distinguishes_not_downloaded_from_no_attachment(
+    tmp_path: Path,
+) -> None:
+    """A linha humana separa os dois motivos e ensina o remédio do segundo."""
+    ausente = tmp_path / "storage" / "BBB" / "nao-baixado.pdf"
+    pj = _bootstrap_project(
+        tmp_path,
+        "@article{semanexo,\n  title = {x}\n}\n"
+        "@article{naobaixado,\n  title = {y},\n  file = {" + str(ausente) + "}\n}\n",
+    )
+
+    result = runner.invoke(app, ["paper", "sync-pdfs", str(pj)])
+
+    assert result.exit_code == 0, result.output
+    # o Console quebra linha na largura do terminal — normaliza antes de casar
+    rendered = " ".join(result.output.split())
+    assert "1 sem anexo PDF no Zotero" in rendered
+    assert "1 com PDF não baixado" in rendered
+    assert "Download files" in rendered
