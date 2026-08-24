@@ -52,7 +52,9 @@ mostre a saída; siga só se funcionou:
 5. **Projeto**: `prumo init pj_<nome>` na pasta que a pessoa designar.
 6. **Conectar a biblioteca**: com o Zotero aberto, `prumo paper connect "<coleção>"`
    liga o `.bib` do projeto à coleção do Zotero (substitui a configuração manual
-   de "Keep updated"). Não é bloqueante — pode ser feito depois.
+   de "Keep updated"). Não é bloqueante — pode ser feito depois. Se a coleção ainda
+   não existir, `--create` cria e liga num passo — mas só quando a pessoa pedir a
+   criação: nunca acrescente a flag por conta própria (ADR-0028).
 7. **Primeiro output em minutos**: peça um trecho de draft e rode
    `/prumo-assist:peer-review` — funciona sem NADA do stack (julgamento puro).
 

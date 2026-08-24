@@ -226,7 +226,13 @@ Passos:
    ```bash
    prumo paper connect "X" --library "<nome da biblioteca>"
    ```
-4. Em caso de sucesso, sugerir o próximo passo ao usuário:
+4. Se o CLI responder que a coleção **não existe**, NÃO improvise: mostre as sugestões parecidas que o próprio comando devolveu e pergunte ao usuário se ele quis dizer uma delas **ou** se quer criar a coleção. Só com a resposta dele em mãos vá para o passo 5.
+5. **Somente se o usuário pedir a criação em palavras dele** ("cria essa coleção", "ela ainda não existe, pode criar"), rode com `--create`:
+   ```bash
+   prumo paper connect "X" --create
+   ```
+   O comando imprime o caminho completo que vai materializar, segmento por segmento, e pede confirmação. Repasse esse eco ao usuário como veio — é a última barreira antes de a coleção nascer de verdade no acervo dele.
+6. Em caso de sucesso, sugerir o próximo passo ao usuário:
    ```bash
    prumo paper sync
    ```
@@ -234,7 +240,8 @@ Passos:
 Regras duras:
 
 - **NUNCA** criar ou editar `_references.bib` à mão para "ajudar" — o autoexport é responsabilidade exclusiva do Better BibTeX; a skill não simula esse trabalho.
-- Typo no nome da coleção **nunca** cria nada no Zotero: o comando valida a existência da coleção antes de qualquer chamada que altere o Zotero, e falha citando sugestões parecidas em vez de criar uma coleção fantasma.
+- **NUNCA acrescente `--create` por iniciativa própria**, e **nunca acrescente `--yes`** — em nenhuma circunstância, nem para "resolver" um typo, nem para desatolar um comando que falhou, nem quando a criação parecer obviamente o que o usuário queria. `--create` cria coleção no acervo real do pesquisador e **não tem desfazer pelo CLI** (o Better BibTeX não expõe remoção; limpar é manual na UI do Zotero). A decisão de criar é do humano, com o caminho na frente dos olhos — ver [ADR-0028](../../docs/adr/adr-0028-criacao-de-colecao-opt-in.md), que pelo mesmo motivo mantém a tool MCP `paper_connect` sem esse parâmetro.
+- Sem `--create`, typo no nome da coleção **nunca** cria nada no Zotero: o comando valida a existência da coleção antes de qualquer chamada que altere o Zotero, e falha citando sugestões parecidas em vez de criar uma coleção fantasma. Com `--create`, essa rede de proteção passa a ser o eco + a confirmação — mais um motivo para a flag só entrar quando o usuário pediu.
 - Se o `_references.bib` do projeto já tiver entradas reais, o comando recusa reconectar (evita duplicar o autoexport já configurado) — oriente o usuário a conferir Preferences → Better BibTeX → Automatic export no Zotero.
 
 ## Erros comuns

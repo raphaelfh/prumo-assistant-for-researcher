@@ -405,3 +405,100 @@ def test_paper_sync_pdfs_distinguishes_not_downloaded_from_no_attachment(
     assert "1 sem anexo PDF no Zotero" in rendered
     assert "1 com PDF não baixado" in rendered
     assert "Download files" in rendered
+
+
+# --- `prumo paper connect --create` (ADR-0028) -----------------------------
+
+
+def _capture_connect(monkeypatch: pytest.MonkeyPatch, *, created: bool) -> dict[str, Any]:
+    """Substitui o motor por um espião e devolve o dict de kwargs capturados."""
+    from prumo_assist.domains.paper.connect import CollectionRef, ConnectResult
+
+    seen: dict[str, Any] = {}
+
+    def fake(pj_path: Any, name: str, **kwargs: Any) -> ConnectResult:
+        seen["name"] = name
+        seen.update(kwargs)
+        confirm = kwargs.get("confirm")
+        if confirm is not None:
+            from prumo_assist.domains.paper.connect import ConnectPlan, SegmentPlan
+
+            plan = ConnectPlan(
+                collection=CollectionRef(
+                    library="My Library",
+                    path="Nova",
+                    bbt_path="/My Library/Nova",
+                    segments=("My Library", "Nova"),
+                ),
+                segments=(SegmentPlan("My Library", True), SegmentPlan("Nova", False)),
+                will_create=True,
+            )
+            seen["confirm_result"] = confirm(plan)
+            if not seen["confirm_result"]:
+                # Espelha o contrato do motor: confirm negado NÃO muta e levanta.
+                from prumo_assist.domains.paper.connect import CreationDeclinedError
+
+                raise CreationDeclinedError("criação cancelada — NADA foi criado.")
+        return ConnectResult(
+            collection=CollectionRef(
+                library="My Library",
+                path="Nova",
+                bbt_path="/My Library/Nova",
+                segments=("My Library", "Nova"),
+            ),
+            bib_path=Path("/tmp/_references.bib"),
+            exported=True,
+            created=created,
+        )
+
+    monkeypatch.setattr("prumo_assist.domains.paper.connect.connect_collection", fake)
+    return seen
+
+
+def test_paper_connect_sem_create_nao_pede_criacao(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = _capture_connect(monkeypatch, created=False)
+    result = runner.invoke(app, ["paper", "connect", "Nova", "--path", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert seen["create"] is False
+    assert seen["confirm"] is None
+
+
+def test_paper_connect_create_com_yes_segue_direto(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = _capture_connect(monkeypatch, created=True)
+    result = runner.invoke(
+        app, ["paper", "connect", "Nova", "--create", "--yes", "--path", str(tmp_path)]
+    )
+    assert result.exit_code == 0, result.output
+    assert seen["create"] is True
+    assert seen["confirm_result"] is True
+    # Eco do caminho a materializar, com os segmentos marcados.
+    assert "/My Library/Nova" in result.output
+    assert "SERÁ CRIADA" in result.output
+    # Requisito: a ausência de undo tem de aparecer no sucesso.
+    assert "Zotero" in result.output and "desfaz" in result.output.lower()
+
+
+def test_paper_connect_create_sem_yes_nao_interativo_recusa(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CliRunner não é TTY: sem --yes o comando recusa em vez de travar ou criar."""
+    _capture_connect(monkeypatch, created=True)
+    result = runner.invoke(app, ["paper", "connect", "Nova", "--create", "--path", str(tmp_path)])
+    assert result.exit_code == 130, result.output
+    assert "--yes" in result.output
+
+
+def test_paper_connect_create_json_expoe_created(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _capture_connect(monkeypatch, created=True)
+    result = runner.invoke(
+        app,
+        ["paper", "connect", "Nova", "--create", "--yes", "--path", str(tmp_path), "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    assert _last_json(result.stdout)["created"] is True

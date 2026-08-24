@@ -6,6 +6,8 @@ Lógica fica nos módulos de domínio (``sync``, ``graph``, ``find``, ``lint``,
 
 from __future__ import annotations
 
+import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated
 
@@ -13,6 +15,7 @@ import typer
 
 from prumo_assist.core.cli_io import read_stdin_json
 from prumo_assist.core.cli_op import cli_run
+from prumo_assist.core.output import Console
 from prumo_assist.domains.paper import (
     connect,
     find,
@@ -184,6 +187,46 @@ def sync_pdfs_command(
         console.emit(report)
 
 
+def _make_creation_confirm(
+    console: Console, *, yes: bool, json_mode: bool
+) -> Callable[[connect.ConnectPlan], bool]:
+    """Callback de confirmação do ``--create``: eco do plano + decisão.
+
+    O motor (``connect.connect_collection``) não faz I/O — ele só pergunta.
+    Este callback é o lado CLI do contrato: imprime o ``bbt_path`` inteiro
+    com **cada segmento marcado** (existe / SERÁ CRIADA), porque um typo num
+    pai materializaria a cadeia toda, e o pesquisador precisa ver quantas
+    coleções nascem antes de autorizar.
+
+    Sem TTY e sem ``--yes`` (CI, pipe, ``--json``) a resposta é NÃO: travar
+    num prompt que ninguém vê seria pior, e assumir "sim" contrariaria o
+    opt-in explícito.
+    """
+
+    def confirm(plan: connect.ConnectPlan) -> bool:
+        console.warn(
+            f"--create vai MUTAR seu Zotero. Caminho a materializar: {plan.collection.bbt_path}"
+        )
+        for segment in plan.segments:
+            marca = "já existe" if segment.exists else "SERÁ CRIADA"
+            console.info(f"    • {segment.name} — {marca}")
+        console.info(
+            "  Não há desfazer pelo CLI: remover é manual, na UI do Zotero (a coleção "
+            "e o autoexport em Preferences → Better BibTeX → Automatic export)."
+        )
+        if yes:
+            return True
+        if json_mode or not sys.stdin.isatty():
+            console.error(
+                "sessão não-interativa: --create exige confirmação. Rode de novo com "
+                "--yes se é isso mesmo que você quer."
+            )
+            return False
+        return typer.confirm("Criar a coleção e conectar?", default=False)
+
+    return confirm
+
+
 @paper_app.command("connect")
 def connect_command(
     collection: Annotated[
@@ -194,14 +237,36 @@ def connect_command(
         typer.Option("--library", help="Desambigua quando o nome existe em mais de uma library."),
     ] = None,
     path: Annotated[Path, typer.Option("--path", help="pj_* (default cwd).")] = Path("."),
+    create: Annotated[
+        bool,
+        typer.Option(
+            "--create",
+            help="CRIA a coleção no Zotero se ela não existir (mostra o caminho antes).",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", "-y", help="Não pergunta antes de criar (só com --create).")
+    ] = False,
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Conecta a coleção do Zotero: cria o export automático do BBT → docs/references/_references.bib."""
-    with cli_run(json_mode=json_mode, exit_codes={connect.ZoteroOfflineError: 2}) as console:
-        r = connect.connect_collection(path.resolve(), collection, library=library)
-        console.success(
-            f"coleção '{r.collection.path}' ({r.collection.library}) conectada → {r.bib_path}"
+    with cli_run(
+        json_mode=json_mode,
+        exit_codes={connect.ZoteroOfflineError: 2, connect.CreationDeclinedError: 130},
+    ) as console:
+        confirm = _make_creation_confirm(console, yes=yes, json_mode=json_mode) if create else None
+        r = connect.connect_collection(
+            path.resolve(), collection, library=library, create=create, confirm=confirm
         )
+        console.success(
+            f"coleção '{r.collection.path}' ({r.collection.library}) "
+            f"{'CRIADA e conectada' if r.created else 'conectada'} → {r.bib_path}"
+        )
+        if r.created:
+            console.warn(
+                "para desfazer, apague a coleção na UI do Zotero e o export em "
+                "Preferences → Better BibTeX → Automatic export — não há undo pelo CLI."
+            )
         if not r.exported:
             console.info(
                 "export agendado no BBT — o arquivo aparece em instantes; confira com "
@@ -214,6 +279,7 @@ def connect_command(
                 "bbt_path": r.collection.bbt_path,
                 "bib_path": str(r.bib_path),
                 "exported": r.exported,
+                "created": r.created,
                 "next": "prumo paper sync",
             }
         )

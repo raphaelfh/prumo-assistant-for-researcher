@@ -7,6 +7,59 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.67.1] - 2026-08-24
+
+### Adicionado
+
+- **`prumo paper connect "<coleção>" --create` cria a coleção no Zotero e liga o
+  autoexport num passo só.** Quem ainda não tem a coleção não precisa mais sair do
+  terminal, criá-la na UI do Zotero e voltar — o ida-e-volta que a Fase 4 do
+  zero-friction existia para eliminar. A capacidade não é canal novo: `autoexport.add`
+  do Better BibTeX sempre criou o caminho inexistente, e a
+  [ADR-0020](docs/adr/adr-0020-connect-autoexport-bbt.md) tratou isso como risco a
+  bloquear. A [ADR-0028](docs/adr/adr-0028-criacao-de-colecao-opt-in.md) emenda aquela
+  decisão e promove o efeito colateral a **opt-in explícito**: sem `--create`, nada muda
+  — `CollectionNotFoundError` com sugestões do `difflib` e a garantia "NADA foi criado"
+  (a mensagem agora também aponta o `--create` como saída).
+- **Eco do plano antes de mutar.** `connect.plan_connection` decide o `bbt_path` sem
+  chamar nada mutante e devolve um `ConnectPlan` que marca **cada segmento** do caminho
+  como já existente ou a criar; o CLI imprime isso antes de pedir confirmação. Como o
+  BBT materializa a cadeia de pais inteira, o pesquisador precisa ver quantas coleções
+  nascem antes de autorizar. Em sessão interativa há prompt; `--yes` segue direto; sem
+  TTY e sem `--yes` (CI, pipe, `--json`) o comando **recusa** com exit 130 em vez de
+  travar num prompt invisível ou assumir "sim".
+- `connect.list_libraries()` e `LibraryRef` — biblioteca sem coleção nenhuma não produz
+  `CollectionRef` algum e mesmo assim é alvo válido de criação. Sem `--library`, a
+  criação vai para a biblioteca **pessoal** (`id == 1`), não para a primeira encontrada:
+  criar no acervo próprio é menos invasivo que criar num grupo compartilhado com outras
+  pessoas. `--library` informada precisa existir (`LibraryNotFoundError`).
+
+### Modificado
+
+- Guardas da ADR-0020 preservadas e **reforçadas** no caminho de criação, todas antes de
+  qualquer mutação: `AlreadyConnectedError` continua sendo a primeira e é puramente
+  local; `AmbiguousCollectionError` continua exigindo `--library`, porque `--create` não
+  desempata nada; e `/` no nome com `--create` é recusado **antes de qualquer
+  round-trip** — sem a flag o `/` aliasaria um export errado, com a flag viraria criação
+  real de uma coleção por segmento. `--create` cria sempre **uma** coleção na raiz da
+  biblioteca: `name` nunca é path.
+- A fachada MCP `paper_connect` **não** recebe `create` e mantém `(pj_path, collection,
+  library)`. Ela já está em `MUTATING_TOOLS` e é invocável por agente; uma flag de
+  criação nesse caminho deixaria um agente materializar coleções no acervo real sem
+  humano no meio. Um teste de desenho pina a assinatura
+  ([ADR-0026](docs/adr/adr-0026-mcp-prumo-dominio-paper.md), Princípio II).
+- **A skill `paper-manager` ganha regra dura contra `--create` de iniciativa própria.** Ela
+  roda o CLI por `Bash(prumo paper *)`, então nenhuma assinatura a impede de acrescentar a
+  flag — só a instrução. Diante de coleção inexistente o agente mostra as sugestões do CLI,
+  **pergunta**, e só roda com `--create` quando o pesquisador pediu a criação em palavras
+  dele; `--yes` nunca. A afirmação "typo nunca cria nada no Zotero" foi corrigida na skill e
+  em `docs/onboarding-pesquisador.md` para valer explicitamente ao caminho **sem** `--create`.
+- A mensagem de sucesso do `--create` declara, em uma linha, que **não há desfazer** pelo
+  CLI: remover é manual na UI do Zotero. O regrounding ao vivo de 2026-08-24 mostrou que
+  o BBT não expõe `autoexport.remove` nem `autoexport.list` (`-32601 Method not found`)
+  e que a API local recusa `DELETE` de coleção (`501`) — a ausência é declarada, não
+  contornada com um `--undo` inventado.
+
 ## [0.67.0] - 2026-08-24
 
 ### Adicionado
@@ -1043,7 +1096,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.1...HEAD
+[0.67.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.0...v0.67.1
 [0.67.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.66.0...v0.67.0
 [0.66.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.2...v0.66.0
 [0.65.2]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.1...v0.65.2
