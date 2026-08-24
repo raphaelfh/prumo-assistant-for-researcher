@@ -1,4 +1,4 @@
-"""Servidor MCP `prumo-review` (stdio) — tools do ciclo de revisão.
+"""Servidor MCP `prumo` (stdio) — tools de revisão e do domínio paper.
 
 Task 1 da Fase 3 da ponte
 (`docs/superpowers/plans/2026-07-24-ponte-fase3-mcp-reconciliador.md`):
@@ -25,6 +25,7 @@ transporte MCP/validação de schema, que este módulo não testa em unidade
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -189,14 +190,30 @@ def test_review_status_with_malformed_comments_yaml_raises_corrupt_sidecar_error
 # --- 5. server registra exatamente as tools read-only + a de proposta ------
 
 
-def test_server_registers_exactly_the_read_only_and_proposal_tools() -> None:
+def test_server_registers_exactly_the_review_and_paper_tools() -> None:
     tools = asyncio.run(mcp_server.server.list_tools())
     assert {tool.name for tool in tools} == {
         "review_status",
         "review_events",
         "review_worklist",
         "propose_prose_edit",
+        "paper_sync",
+        "paper_find",
+        "paper_lint",
+        "paper_graph",
+        "paper_verify_refs",
+        "paper_sync_all",
+        "paper_connect",
     }
+
+
+def test_paper_connect_is_the_only_mutating_paper_tool() -> None:
+    """`connect` chama `autoexport.add` no Zotero do usuário (ADR-0020).
+
+    Guarda de desenho: qualquer tool `paper_*` nova que mute estado externo
+    tem de ser adicionada aqui conscientemente, não por descuido.
+    """
+    assert {"propose_prose_edit", "paper_connect"} == mcp_server.MUTATING_TOOLS
 
 
 # --- 6. CLI `prumo mcp serve` chama run_stdio (fachada) ---------------------
@@ -375,3 +392,48 @@ def test_review_events_returns_the_versioned_envelope(
 
     assert result["schema_version"] == "ReviewEventsFile/v1"
     assert [event["kind"] for event in result["events"]] == ["citation-drop"]
+
+
+# --- Domínio paper exposto como tools (ADR emendando a 0017) ---------------
+
+
+def _bootstrap_pj(tmp_path: Path, bib_text: str) -> Path:
+    pj = tmp_path / "pj_demo"
+    refs = pj / "docs" / "references"
+    refs.mkdir(parents=True)
+    (refs / "_references.bib").write_text(bib_text, encoding="utf-8")
+    return pj
+
+
+def test_paper_sync_creates_meta_and_returns_report(tmp_path: Path) -> None:
+    pj = _bootstrap_pj(tmp_path, "@article{smith2024,\n  title = {Fusion},\n  year = 2024\n}\n")
+
+    report = mcp_server.paper_sync(str(pj))
+
+    assert report["created"] == 1
+    assert (pj / "docs" / "references" / "papers" / "smith2024" / "_meta.md").is_file()
+
+
+def test_paper_find_returns_the_same_shape_as_the_cli(tmp_path: Path) -> None:
+    pj = _bootstrap_pj(tmp_path, "@article{smith2024,\n  title = {Combinado Fusion}\n}\n")
+
+    result = mcp_server.paper_find(str(pj), "combinado")
+
+    assert result["query"] == "combinado"
+    assert [r["citekey"] for r in result["results"]] == ["smith2024"]
+
+
+def test_paper_tool_translates_domain_error_to_value_error(tmp_path: Path) -> None:
+    """Mesmo contrato de erro das tools de review: pt-BR acionável, nunca traceback."""
+    vazio = tmp_path / "sem_bib"
+    vazio.mkdir()
+
+    with pytest.raises(ValueError, match=r"_references\.bib"):
+        mcp_server.paper_sync(str(vazio))
+
+
+def test_server_is_named_prumo_not_prumo_review() -> None:
+    """O servidor deixou de ser só do ciclo de revisão quando ganhou o
+    domínio `paper` — o nome tem de acompanhar, e ele é o prefixo das tools
+    no agent-host (`mcp__prumo__paper_find`)."""
+    assert mcp_server.server.name == "prumo"

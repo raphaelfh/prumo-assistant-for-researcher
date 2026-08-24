@@ -1,4 +1,4 @@
-"""Servidor MCP local (stdio) do prumo — `prumo-review`.
+"""Servidor MCP local (stdio) do prumo — `prumo`.
 
 Task 1 da Fase 3 da ponte docx↔CriticMarkup
 (`docs/superpowers/plans/2026-07-24-ponte-fase3-mcp-reconciliador.md`):
@@ -27,6 +27,11 @@ pt-BR do domínio (sidecar ausente ou raiz de projeto não localizada) como
 `ValueError`, unificando o contrato de erro das tools; `ValueError` de
 sidecar corrompido já sai pronto do domínio.
 
+Desde 2026-08-23 o servidor cobre também o domínio `paper` (7 tools, uma
+delas mutante — ver `MUTATING_TOOLS`), e por isso deixou de se chamar
+`prumo-review`: o nome é o prefixo das tools no agent-host
+(`mcp__prumo__paper_find`). ADR emendando a 0017.
+
 Task 1 entrega as 3 tools READ-ONLY (`review_status`, `review_events`,
 `review_worklist`) + `run_stdio()` (chamado por `prumo mcp serve`,
 `cli.py`). Task 2 acrescenta a única tool de ESCRITA (`propose_prose_edit`)
@@ -45,10 +50,12 @@ from typing import Any, Literal, TypeVar
 
 from mcp.server.fastmcp import FastMCP
 
+from prumo_assist import PrumoError
 from prumo_assist._version import __version__
+from prumo_assist.domains.paper import api as paper_api
 from prumo_assist.domains.write import review
 
-server = FastMCP("prumo-review")
+server = FastMCP("prumo")
 
 # `serverInfo.version` do handshake identifica o PRUMO, não o SDK.
 # O FastMCP não aceita versão no construtor — a ADR-0017 registrou isso como
@@ -145,8 +152,114 @@ def propose_prose_edit(
     return {"review_md": str(result.review_md), "inserted_mark_index": result.inserted_mark_index}
 
 
+# ---------------------------------------------------------------------------
+# Domínio `paper` — mesmas fachadas finas, mesmo contrato de erro
+# ---------------------------------------------------------------------------
+
+#: Tools que mudam estado FORA do processo. `paper_connect` chama
+#: `autoexport.add` no Zotero do usuário (ADR-0020: "a primeira e única
+#: chamada MUTANTE"); `propose_prose_edit` grava marca pendente no worklist.
+#: Guarda de desenho coberta por teste — tool nova que mute algo tem de
+#: entrar aqui conscientemente.
+MUTATING_TOOLS = {"propose_prose_edit", "paper_connect"}
+
+
+def _paper_call(op: Callable[..., _ReadT], *args: Any, **kwargs: Any) -> _ReadT:
+    """Chama uma operação de ``domains.paper`` unificando o contrato de erro.
+
+    Mesma disciplina de :func:`_domain_read`: o agente só recebe
+    ``ValueError`` com a mensagem pt-BR do domínio (que já embute o comando
+    de correção), nunca traceback. ``PaperError`` e demais ``PrumoError`` já
+    saem prontos do domínio; ``FileNotFoundError`` (bib ou pj ausente) também.
+    """
+    try:
+        return op(*args, **kwargs)
+    except (FileNotFoundError, PrumoError) as exc:
+        raise ValueError(str(exc)) from exc
+
+
+@server.tool()
+def paper_sync(pj_path: str) -> dict[str, Any]:
+    """``.bib`` → ``docs/references/papers/<citekey>/_meta.md`` (layout α).
+
+    Fachada fina sobre ``domains.paper.sync``. Idempotente: relê o ``.bib``
+    exportado pelo Better BibTeX e reconcilia as notas."""
+    return _paper_call(paper_api.sync, Path(pj_path).resolve())
+
+
+@server.tool()
+def paper_find(pj_path: str, query: str, top_k: int = 5) -> dict[str, Any]:
+    """Busca fuzzy sobre ``.bib`` + notas (autor, título, ano, tldr).
+
+    Mesmo shape do ``--json`` do CLI (``query`` + ``results``)."""
+    results = _paper_call(paper_api.find, Path(pj_path).resolve(), query, top_k=top_k)
+    return {"query": query, "results": results}
+
+
+@server.tool()
+def paper_lint(pj_path: str) -> dict[str, Any]:
+    """Auditoria do acervo: bib↔notas↔pdfs, citekeys quebradas, symlink de PDF
+    pendurado, mais de um ``role: primary``."""
+    return _paper_call(paper_api.lint, Path(pj_path).resolve())
+
+
+@server.tool()
+def paper_graph(pj_path: str) -> dict[str, Any]:
+    """Grafo passivo de citação: lê ``[@key]``/``@key`` no corpo das notas e
+    popula ``cites:`` no YAML."""
+    return _paper_call(paper_api.update_graph, Path(pj_path).resolve())
+
+
+@server.tool()
+def paper_verify_refs(pj_path: str, page: str | None = None) -> dict[str, Any]:
+    """Verifica as referências do bib: existência (Crossref), retração
+    (Crossref/PubMed) e título.
+
+    ``page`` restringe às citekeys de uma página ``.md`` — recomendado, porque
+    o acervo inteiro é lento. A verificação profunda (``--deep``, que dispara
+    ``uvx``) fica fora desta tool de propósito: subprocess externo não é
+    fachada fina."""
+    return _paper_call(
+        paper_api.verify_refs,
+        Path(pj_path).resolve(),
+        page=Path(page).resolve() if page is not None else None,
+    )
+
+
+@server.tool()
+def paper_sync_all(pj_path: str) -> dict[str, Any]:
+    """``sync`` + ``sync-pdfs`` + ``sync-annotations`` + ``sync-notes`` numa
+    passada. Anotações e notas degradam para warning se o Zotero estiver
+    fechado ou com a API local desligada; o resto segue."""
+    return _paper_call(paper_api.sync_all, Path(pj_path).resolve())
+
+
+@server.tool()
+def paper_connect(pj_path: str, collection: str, library: str | None = None) -> dict[str, Any]:
+    """Liga ``docs/references/_references.bib`` a uma coleção do Zotero via
+    ``autoexport.add`` do Better BibTeX.
+
+    MUTA O ZOTERO DO USUÁRIO — ver :data:`MUTATING_TOOLS`. A guarda contra
+    coleção-fantasma mora no domínio (ADR-0020): ``autoexport.add`` CRIA a
+    coleção se o caminho não existir, então ``find_collection`` confirma a
+    existência antes, e a mensagem de erro afirma "NADA foi criado". Nome
+    ambíguo entre bibliotecas exige ``library``."""
+    result = _paper_call(
+        paper_api.connect_collection,
+        Path(pj_path).resolve(),
+        collection,
+        library=library,
+    )
+    return {
+        "collection": result.collection.path,
+        "library": result.collection.library,
+        "bib_path": str(result.bib_path),
+        "exported": result.exported,
+    }
+
+
 def run_stdio() -> None:
-    """Inicia o transporte stdio do servidor MCP `prumo-review` — bloqueia
+    """Inicia o transporte stdio do servidor MCP `prumo` — bloqueia
     até o cliente encerrar a conexão. Chamado por `prumo mcp serve`
     (`cli.py`, fachada fina)."""
     server.run()

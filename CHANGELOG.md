@@ -7,6 +7,46 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **O servidor MCP cobre o domínio `paper`:** sete tools novas (`paper_sync`, `paper_find`,
+  `paper_lint`, `paper_graph`, `paper_verify_refs`, `paper_sync_all`, `paper_connect`),
+  fachadas finas sobre `domains/paper/api.py` sem lógica nova (Princípio I), com o mesmo
+  contrato de erro das tools de revisão — `ValueError` carregando a mensagem pt-BR do
+  domínio, nunca traceback. O ganho que justifica: **tool MCP é descobrível sem carregar
+  skill**, enquanto comando Bash só existe para o agente se a prosa de alguma skill o
+  mencionar — e 14 das 16 skills declaram `Bash(prumo …)`.
+  [ADR-0026](docs/adr/adr-0026-mcp-prumo-dominio-paper.md) registra também por que o
+  argumento "funciona onde não há Bash" **não** sustenta esta decisão: o Cowork executa
+  comandos, e a única superfície sem execução também não sobe o servidor.
+  `paper_connect` é a segunda tool mutante e a primeira que muta estado fora do repo; as
+  guardas anti-coleção-fantasma seguem no domínio
+  ([ADR-0020](docs/adr/adr-0020-connect-autoexport-bbt.md)).
+- `prumo paper sync-pdfs` distingue **"sem anexo PDF no Zotero"** de **"PDF não
+  baixado"** (biblioteca em nuvem): campos `no_attachment` e `not_downloaded` no
+  `--json`, contagens separadas na saída humana, e instrução de correção quando há
+  arquivo não baixado. `missing` é preservado como a união dos dois, para não quebrar
+  consumidores do `--json` ([ADR-0011](docs/adr/adr-0011-semver-por-visibilidade.md)).
+- `tests/unit/paper/test_pdfs.py`: o módulo estava em 17% de cobertura, sem nenhuma
+  asserção comportamental — o menos testado do domínio `paper` e o único cuja lógica é
+  heurística. Agora em 100%, com caracterização do comportamento preservado
+  (idempotência, auto-reparo de symlink desatualizado, recusa de sobrescrever arquivo
+  real) e regressão dos dois defeitos abaixo. Achados e decisões em
+  [`docs/superpowers/specs/2026-08-23-ponte-zotero-auditoria-design.md`](docs/superpowers/specs/2026-08-23-ponte-zotero-auditoria-design.md).
+
+### Alterado
+
+- **⚠ Breaking — o servidor MCP passa de `prumo-review` a `prumo`.** O nome é o prefixo
+  das tools no agent-host (`mcp__prumo__paper_find`), e um servidor que cobre revisão e
+  bibliografia sob um nome de revisão mente sobre o próprio escopo. Quem tiver
+  `mcp__prumo-review__*` em configuração própria precisa trocar o prefixo; o `.mcp.json`
+  distribuído e o `allowed-tools` de `review-reconcile` já vêm ajustados. Feito agora
+  porque o custo de um breaking cresce com a adoção
+  ([ADR-0011](docs/adr/adr-0011-semver-por-visibilidade.md)).
+- **⚠ Breaking — `review_events` devolve o envelope `ReviewEventsFile/v1`**
+  (`schema_version`, `page`, `events`) em vez da lista nua de eventos, alinhando a tool ao
+  que o `--json` do CLI já emitia.
+
 ### Corrigido
 
 - **`prumo paper sync-pdfs` perdia PDFs por dois defeitos no parser do campo `file`.**
@@ -25,20 +65,12 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   sonda passa a ser `GET /api/`, único endpoint que reprova nesse caso (`403 Local API
   is not enabled`), e o `doctor` ganha um terceiro estado com o remédio embutido
   (Settings → Advanced → "Allow other applications…").
-
-### Adicionado
-
-- `prumo paper sync-pdfs` distingue **"sem anexo PDF no Zotero"** de **"PDF não
-  baixado"** (biblioteca em nuvem): campos `no_attachment` e `not_downloaded` no
-  `--json`, contagens separadas na saída humana, e instrução de correção quando há
-  arquivo não baixado. `missing` é preservado como a união dos dois, para não quebrar
-  consumidores do `--json` ([ADR-0011](docs/adr/adr-0011-semver-por-visibilidade.md)).
-- `tests/unit/paper/test_pdfs.py`: o módulo estava em 17% de cobertura, sem nenhuma
-  asserção comportamental — o menos testado do domínio `paper` e o único cuja lógica é
-  heurística. Agora em 100%, com caracterização do comportamento preservado
-  (idempotência, auto-reparo de symlink desatualizado, recusa de sobrescrever arquivo
-  real) e regressão dos dois defeitos acima. Achados e decisões em
-  [`docs/superpowers/specs/2026-08-23-ponte-zotero-auditoria-design.md`](docs/superpowers/specs/2026-08-23-ponte-zotero-auditoria-design.md).
+- **Dívida de versionamento da [ADR-0017](docs/adr/adr-0017-prumo-mcp-reconciliador.md),
+  declarada e adiada para a "Fase 4", quitada.** `serverInfo.version` reportava a versão do
+  SDK — a ADR atribuía isso a uma limitação do FastMCP, o que vale para o construtor, mas o
+  `Server` de baixo nível guarda `version` como atributo público e é justamente ele que o
+  handshake lê; agora reporta a versão do prumo. `review_status` ganha o schema
+  `ReviewStatus/v1`, definido no domínio e não na fachada.
 
 ## [0.65.2] - 2026-08-23
 
