@@ -106,6 +106,21 @@ de erro com sugestões parecidas — nada é criado no Zotero por engano. Se o
 mesmo nome existir em mais de uma biblioteca, o agente vai pedir para você
 escolher com `--library`.
 
+Se a coleção **ainda não existe** — o caso de quem está começando um projeto
+do zero — você não precisa sair para o Zotero, criá-la na mão e voltar. Peça:
+
+```
+essa coleção ainda não existe, pode criar
+```
+
+Isso roda `prumo paper connect "<nome>" --create`, que cria a coleção e liga o
+export no mesmo passo. Antes de criar qualquer coisa, o comando imprime o
+caminho completo que vai materializar e pede confirmação — leia esse eco, é a
+sua chance de pegar um typo antes que ele vire uma coleção de verdade. **Não
+há desfazer pelo CLI**: se criar a errada, apague na interface do Zotero (a
+coleção e a entrada em Preferences → Better BibTeX → Automatic export). O
+agente nunca acrescenta `--create` sozinho; a criação é sempre decisão sua.
+
 Depois de conectar, o próximo passo sugerido é sincronizar:
 
 ```

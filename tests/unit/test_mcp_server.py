@@ -216,6 +216,21 @@ def test_paper_connect_is_the_only_mutating_paper_tool() -> None:
     assert {"propose_prose_edit", "paper_connect"} == mcp_server.MUTATING_TOOLS
 
 
+def test_paper_connect_mcp_nao_expoe_create() -> None:
+    """ADR-0028: a criação de coleção é opt-in de HUMANO no CLI, nunca de agente.
+
+    `paper_connect` já muta o Zotero real do pesquisador; um parâmetro
+    `create` neste caminho deixaria um agente materializar coleções no
+    acervo sem ninguém no meio. A fachada MCP fica com a assinatura de
+    leitura-resolvida: `pj_path`, `collection`, `library`.
+    """
+    import inspect
+
+    params = set(inspect.signature(mcp_server.paper_connect).parameters)
+    assert params == {"pj_path", "collection", "library"}
+    assert "create" not in params
+
+
 # --- 6. CLI `prumo mcp serve` chama run_stdio (fachada) ---------------------
 
 

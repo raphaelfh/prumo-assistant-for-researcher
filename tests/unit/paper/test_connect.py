@@ -275,3 +275,248 @@ class TestPollZero:
         monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
         result = connect.connect_collection(pj, "Pesquisa", library="Lab Group", poll_timeout=0)
         assert result.exported is True
+
+
+# ---------------------------------------------------------------------------
+# `--create` (ADR-0028): criação opt-in da coleção via efeito colateral de
+# `autoexport.add`. Seam segue 100% mockado — nenhum teste toca o Zotero real.
+# ---------------------------------------------------------------------------
+
+
+def _groups_rpc(groups: Any) -> tuple[Callable[..., object], list[dict[str, Any]]]:
+    """Seam que responde `user.groups` e aceita `autoexport.add` sem efeito."""
+    calls: list[dict[str, Any]] = []
+
+    def fake(url: str, payload: dict[str, Any], timeout: float = 10.0) -> object:
+        calls.append(payload)
+        if payload["method"] == "user.groups":
+            return {"jsonrpc": "2.0", "result": groups}
+        return {"jsonrpc": "2.0", "result": {"status": "ok"}}
+
+    return fake, calls
+
+
+def _mutating(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Só as chamadas que MUTAM o Zotero (tudo que não é leitura)."""
+    return [c for c in calls if c["method"] != "user.groups"]
+
+
+class TestPlanConnection:
+    def test_existente_nao_marca_criacao(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake, _ = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        plan = connect.plan_connection("Colecao do estudo piloto1", create=True)
+        assert plan.will_create is False
+        assert plan.collection.bbt_path == "/My Library/Pesquisa/Colecao do estudo piloto1"
+        assert [(s.name, s.exists) for s in plan.segments] == [
+            ("My Library", True),
+            ("Pesquisa", True),
+            ("Colecao do estudo piloto1", True),
+        ]
+
+    def test_inexistente_com_create_marca_segmento_novo(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        plan = connect.plan_connection("Nova Coleção", create=True)
+        assert plan.will_create is True
+        assert plan.collection.bbt_path == "/My Library/Nova Coleção"
+        assert [(s.name, s.exists) for s in plan.segments] == [
+            ("My Library", True),
+            ("Nova Coleção", False),
+        ]
+        assert _mutating(calls) == []  # planejar NUNCA muta
+
+    def test_inexistente_sem_create_continua_erro(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.CollectionNotFoundError, match="NADA foi criado"):
+            connect.plan_connection("Nova Coleção", create=False)
+        assert _mutating(calls) == []
+
+    def test_library_explicita_direciona_criacao(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake, _ = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        plan = connect.plan_connection("Nova", library="Lab Group", create=True)
+        assert plan.collection.bbt_path == "/Lab Group/Nova"
+
+    def test_library_inexistente_recusa(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.LibraryNotFoundError, match="Lab Group"):
+            connect.plan_connection("Nova", library="Labb Group", create=True)
+        assert _mutating(calls) == []
+
+    def test_biblioteca_sem_colecoes_ainda_e_alvo_valido(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Library vazia não gera CollectionRef, mas continua criável (bug de fetch)."""
+        groups = [
+            {"id": 1, "name": "My Library", "collections": []},
+            {"id": 9, "name": "Vazia", "collections": []},
+        ]
+        fake, _ = _groups_rpc(groups)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        plan = connect.plan_connection("Nova", library="Vazia", create=True)
+        assert plan.collection.bbt_path == "/Vazia/Nova"
+
+
+class TestCreateGuards:
+    def test_barra_no_nome_com_create_recusa_antes_de_mutar(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.UnsupportedCollectionNameError, match="NADA foi criado"):
+            connect.plan_connection("Pesquisa/Nova", create=True)
+        assert _mutating(calls) == []
+
+    def test_nome_vazio_com_create_recusa(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.UnsupportedCollectionNameError):
+            connect.plan_connection("   ", create=True)
+        assert _mutating(calls) == []
+
+    def test_ambigua_com_create_sem_library_recusa_antes_de_mutar(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.AmbiguousCollectionError, match="--library"):
+            connect.plan_connection("Pesquisa", create=True)
+        assert _mutating(calls) == []
+
+    def test_library_com_barra_recusa_criacao(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake, calls = _groups_rpc(_GROUPS_SLASH)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.UnsupportedCollectionNameError, match="My/Library"):
+            connect.plan_connection("Nova", library="My/Library", create=True)
+        assert _mutating(calls) == []
+
+
+class TestConnectCollectionCreate:
+    def test_sem_create_inexistente_zero_autoexport_add(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.CollectionNotFoundError, match="NADA foi criado"):
+            connect.connect_collection(pj, "Nova Coleção")
+        assert _mutating(calls) == []
+
+    def test_create_inexistente_chama_add_uma_vez_com_path_novo(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
+        bib = pj / "docs" / "references" / "_references.bib"
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._sleep", lambda _s: None)
+        result = connect.connect_collection(pj, "Nova Coleção", create=True, poll_timeout=0)
+        adds = _mutating(calls)
+        assert len(adds) == 1
+        assert adds[0]["method"] == "autoexport.add"
+        assert adds[0]["params"] == [
+            "/My Library/Nova Coleção",
+            connect.BETTER_BIBLATEX_GUID,
+            str(bib.resolve()),
+        ]
+        assert result.created is True
+
+    def test_create_com_colecao_existente_usa_path_de_hoje(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._sleep", lambda _s: None)
+        result = connect.connect_collection(
+            pj, "Colecao do estudo piloto1", create=True, poll_timeout=0
+        )
+        adds = _mutating(calls)
+        assert len(adds) == 1
+        assert adds[0]["params"][0] == "/My Library/Pesquisa/Colecao do estudo piloto1"
+        assert result.created is False  # nada foi criado: já existia
+
+    def test_barra_no_nome_com_create_recusa_sem_mutar(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.UnsupportedCollectionNameError):
+            connect.connect_collection(pj, "Pesquisa/Nova", create=True)
+        assert _mutating(calls) == []
+
+    def test_ambigua_com_create_recusa_sem_mutar(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.AmbiguousCollectionError, match="--library"):
+            connect.connect_collection(pj, "Pesquisa", create=True)
+        assert _mutating(calls) == []
+
+    def test_bib_povoado_recusa_antes_de_planejar(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Guarda 1 continua primeira: nem `user.groups` é chamado."""
+        pj = _pj(tmp_path, bib_text="@article{x2020,\n  title = {T},\n}\n")
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.AlreadyConnectedError):
+            connect.connect_collection(pj, "Nova", create=True)
+        assert calls == []
+
+
+class TestCreationConfirm:
+    def test_confirm_recusado_nao_muta(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        seen: list[connect.ConnectPlan] = []
+
+        def deny(plan: connect.ConnectPlan) -> bool:
+            seen.append(plan)
+            return False
+
+        with pytest.raises(connect.CreationDeclinedError, match="NADA foi criado"):
+            connect.connect_collection(pj, "Nova", create=True, confirm=deny)
+        assert _mutating(calls) == []
+        assert seen[0].collection.bbt_path == "/My Library/Nova"
+
+    def test_confirm_nao_e_consultado_quando_colecao_ja_existe(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._sleep", lambda _s: None)
+        seen: list[connect.ConnectPlan] = []
+
+        def deny(plan: connect.ConnectPlan) -> bool:
+            seen.append(plan)
+            return False
+
+        connect.connect_collection(
+            pj, "Colecao do estudo piloto1", create=True, confirm=deny, poll_timeout=0
+        )
+        assert seen == []  # nada a confirmar: não há criação
+        assert len(_mutating(calls)) == 1
+
+    def test_confirm_aceito_muta(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
+        fake, calls = _groups_rpc(_GROUPS)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._http_post_json", fake)
+        monkeypatch.setattr("prumo_assist.domains.paper.connect._sleep", lambda _s: None)
+        result = connect.connect_collection(
+            pj, "Nova", create=True, confirm=lambda _p: True, poll_timeout=0
+        )
+        assert result.created is True
+        assert len(_mutating(calls)) == 1
