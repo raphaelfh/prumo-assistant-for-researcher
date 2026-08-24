@@ -75,6 +75,7 @@ from prumo_assist.domains.write.schemas.v1 import (
     ReviewCommentsFile,
     ReviewEvent,
     ReviewEventsFile,
+    ReviewStatus,
     SpanMapFile,
 )
 
@@ -2683,13 +2684,13 @@ def status(page: Path, project_root: Path | None = None) -> dict[str, Any]:
     events_file = read_events_file(page, project_root)
     comments_file = read_comments_file(page, project_root)
 
-    return {
-        "page": events_file.page,
-        "pending_marks": len(criticmarkup.parse(review_md_text)),
-        "events_by_kind": dict(Counter(event.kind for event in events_file.events)),
-        "comments": len(comments_file.comments),
-        "pending_drops": count_pending_drops(events_file.events),
-    }
+    return ReviewStatus(
+        page=events_file.page,
+        pending_marks=len(criticmarkup.parse(review_md_text)),
+        events_by_kind=dict(Counter(event.kind for event in events_file.events)),
+        comments=len(comments_file.comments),
+        pending_drops=count_pending_drops(events_file.events),
+    ).model_dump(mode="json")
 
 
 def _read_review_md_and_events(review_dir: Path) -> tuple[str, str, ReviewEventsFile]:

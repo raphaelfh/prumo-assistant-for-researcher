@@ -45,9 +45,19 @@ from typing import Any, Literal, TypeVar
 
 from mcp.server.fastmcp import FastMCP
 
+from prumo_assist._version import __version__
 from prumo_assist.domains.write import review
 
 server = FastMCP("prumo-review")
+
+# `serverInfo.version` do handshake identifica o PRUMO, não o SDK.
+# O FastMCP não aceita versão no construtor — a ADR-0017 registrou isso como
+# dívida — mas o `Server` de baixo nível lê `self.version` em
+# `create_initialization_options()` (`server_version=self.version if
+# self.version else pkg_version("mcp")`), e `version` é atributo público dele.
+# O acoplamento restante é ao NOME `_mcp_server`; se o SDK mudar,
+# `test_server_reports_the_prumo_version_not_the_sdk_version` falha alto.
+server._mcp_server.version = __version__
 
 _ReadT = TypeVar("_ReadT")
 
@@ -74,11 +84,13 @@ def review_status(page: str) -> dict[str, Any]:
 
 
 @server.tool()
-def review_events(page: str) -> list[dict[str, Any]]:
-    """`events.yaml` completo de `page` — cada evento serializado via
-    `model_dump(mode="json")`, na mesma ordem em que `ingest()` os gravou."""
+def review_events(page: str) -> dict[str, Any]:
+    """`events.yaml` completo de `page`, no envelope versionado
+    `ReviewEventsFile/v1` (`schema_version`, `page`, `events`) — o MESMO que o
+    `--json` do CLI emite. Os eventos vêm na ordem em que `ingest()` os
+    gravou."""
     events_file = _domain_read(review.read_events_file, page)
-    return [event.model_dump(mode="json") for event in events_file.events]
+    return events_file.model_dump(mode="json")
 
 
 @server.tool()
