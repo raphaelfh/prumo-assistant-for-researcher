@@ -24,6 +24,9 @@ Thumbs.db
 # Ruff
 .ruff_cache/
 
+# marimo — cache de sessão e exports do notebook (o `.py` do notebook, sim, versiona)
+__marimo__/
+
 # Checkpoints e artefatos de treino
 checkpoints/
 logs/

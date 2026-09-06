@@ -27,6 +27,7 @@ pj_<nome>/
 ```bash
 prumo add            # lista e ativa módulos (clinical, ml, ...)
 prumo add clinical   # protocolo, CEP, plano estatístico
+prumo add notebooks  # notebooks/<escopo>/ — marimo (.py) ou Jupyter (.ipynb)
 prumo add ml         # stack de ML/dados + notebook
 ```
 

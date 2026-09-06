@@ -21,7 +21,7 @@ liberar import depois de código. Se um import não resolve, o conserto é
 | Usado por mais de um estudo ou notebook | `src/__pkg__/<modulo>.py` |
 | Usado por um estudo só | `src/__pkg__/<estudo>/<modulo>.py` |
 | Teste | `tests/` espelhando `src/__pkg__/` |
-| Notebook | `notebooks/<estudo>/` |
+| Notebook | `notebooks/<estudo>/` (marimo `.py` ou Jupyter `.ipynb`) |
 | Prosa, draft, ADR | `docs/studies/<slug>/` |
 
 A raiz do pacote é o compartilhado, de propósito: o caminho curto pertence ao

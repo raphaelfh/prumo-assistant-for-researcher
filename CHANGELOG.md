@@ -7,6 +7,33 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **O módulo `notebooks` aceita marimo (`.py`) além de Jupyter (`.ipynb`), e marimo
+  passa a ser o formato padrão.** O notebook marimo é um `.py` comum: o diff é legível,
+  o arquivo não carrega saída embutida e o grafo de dependência entre células elimina o
+  estado oculto — o oposto do `.ipynb`, cujo JSON com outputs polui o histórico. O
+  `.ipynb` continua aceito e nada precisa ser convertido (`marimo convert` está ali para
+  quando valer a pena). `prumo add notebooks` agora entrega, além de
+  `notebooks/<escopo>/`, um stub `00_exploracao.py`, a rule `.claude/rules/notebooks.md`
+  e os alvos `nb-edit`/`nb-run`/`nb-convert` em `.claude/make/notebooks.mk`. O stub
+  importa código próprio pelo nome do pacote, sem `sys.path` ([ADR-0027](docs/adr/adr-0027-pj-instalavel.md)).
+- **Instruções do [marimo pair](https://marimo.io/blog/marimo-pair) na rule do módulo.**
+  A agent skill coloca o agente dentro da sessão em execução do notebook — lê o valor das
+  variáveis em memória e executa código num scratchpad com esse mesmo estado, em vez de
+  pedir que o pesquisador descreva o schema do `DataFrame` na conversa. A rule traz a
+  instalação (`npx skills add marimo-team/marimo-pair`, ou o marketplace de plugin do
+  Claude Code), os requisitos (`bash`, `curl`, `jq`; `--no-token` para descoberta
+  automática; `MARIMO_TOKEN` em servidor com auth) e a invocação
+  (`/marimo-pair pair with me on <notebook>`).
+
+### Modificado
+
+- `marimo>=0.24` entra no grupo `dev` do `pyproject.toml` do módulo `code` (ao lado de
+  `nbformat`, que segue servindo os `.ipynb` herdados), e `__marimo__/` entra no
+  `.gitignore` do `pj_base` — cache e export de sessão são reconstruíveis, o `.py` do
+  notebook é que se versiona.
+
 ## [0.67.1] - 2026-08-24
 
 ### Adicionado

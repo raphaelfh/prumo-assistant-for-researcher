@@ -92,8 +92,8 @@ Cada módulo é independente. Ative quando o trigger acontecer; não ative antes
 |---|---|---|
 | `code` | **pacote instalável** em `src/<pkg>/` + `tests/` espelhado + `pyproject.toml` com `[build-system]` — ative com `prumo add code` | O projeto vai ter script ou pacote Python próprio |
 | `data` | `content/01_raw/` (somente leitura) + `content/02_processed/` — ative com `prumo add data` | Entra o primeiro dataset no projeto |
-| `notebooks` | `notebooks/<escopo>/` (fora da raiz de leitura `docs/`) — ative com `prumo add notebooks` (`--scope <slug>` se houver mais de um escopo) | Primeira análise exploratória em notebook |
-| `ml` | `.claude/rules/ml_stack.md` (stack, governança de código) + notebook de EDA — ative com `prumo add ml` | Vai treinar modelos ou fazer análise tabular/de imagem |
+| `notebooks` | `notebooks/<escopo>/` (fora da raiz de leitura `docs/`) — ative com `prumo add notebooks` (`--scope <slug>` se houver mais de um escopo); aceita **marimo** (`.py`, padrão) e Jupyter (`.ipynb`), com rule `.claude/rules/notebooks.md` e alvos `nb-edit`/`nb-run`/`nb-convert` | Primeira análise exploratória em notebook |
+| `ml` | `.claude/rules/ml_stack.md` (stack, governança de código) + notebook de EDA (`.ipynb`) — ative com `prumo add ml` | Vai treinar modelos ou fazer análise tabular/de imagem |
 | `clinical` | `docs/studies/<slug>/writing/protocol.md` + `docs/templates/` (projeto CEP, plano estatístico/SAP, dicionário de dados) — ative com `prumo add clinical` (`--scope <slug>` se houver mais de um escopo) | Estudo clínico/empírico com coorte e submissão a CEP |
 
 ### Onde o código mora (módulo `code`)
@@ -116,7 +116,7 @@ pj_piloto_genetica/
 |---|---|
 | Código usado por ≥2 estudos ou notebooks | `src/<pkg>/<modulo>.py` |
 | Código de um estudo só | `src/<pkg>/<estudo>/<modulo>.py` |
-| Notebook | `notebooks/<estudo>/` |
+| Notebook | `notebooks/<estudo>/` (marimo `.py` ou Jupyter `.ipynb`) |
 | Prosa, draft, ADR | `docs/studies/<slug>/` |
 
 A raiz do pacote é o compartilhado de propósito: o caminho curto pertence ao código

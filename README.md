@@ -113,7 +113,7 @@ pj_<nome>/
     └── studies/<slug>/      O ESCOPO — notes/, writing/, decisions/
 ```
 
-Camadas opcionais com gatilho (`prumo add <módulo>`): `code`, `data`, `notebooks`, `ml`, `clinical`. Detalhes em [`docs/Research Project Structure.md`](docs/Research%20Project%20Structure.md).
+Camadas opcionais com gatilho (`prumo add <módulo>`): `code`, `data`, `notebooks` (marimo `.py` ou Jupyter `.ipynb`), `ml`, `clinical`. Detalhes em [`docs/Research Project Structure.md`](docs/Research%20Project%20Structure.md).
 
 ## Stack implícita
 
