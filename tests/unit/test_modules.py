@@ -202,3 +202,38 @@ def test_add_nao_deixa_manifesto_do_modulo_no_projeto(tmp_path: Path) -> None:
     assert (root / "content" / "01_raw").is_dir()
     assert (root / "src" / "x").is_dir()
     assert (root / "notebooks" / "principal").is_dir()
+
+
+def test_add_notebooks_entrega_stub_marimo(tmp_path: Path) -> None:
+    """O módulo aceita os dois formatos e nasce com um notebook marimo (`.py`),
+    que é texto puro — diff legível, sem saída embutida e sem estado oculto."""
+    root = _project(tmp_path)
+    _scope(root, "01_estudo")
+    assert runner.invoke(app, ["add", "notebooks", "--target", str(root)]).exit_code == 0
+
+    stub = root / "notebooks" / "01_estudo" / "00_exploracao.py"
+    assert stub.is_file()
+    texto = stub.read_text(encoding="utf-8")
+    assert "import marimo" in texto
+    assert "app = marimo.App(" in texto
+    assert "sys.path" not in texto, "notebook não conserta import com sys.path (ADR-0027)"
+
+
+def test_add_notebooks_documenta_os_dois_formatos_e_o_marimo_pair(tmp_path: Path) -> None:
+    """A rule é onde o agente descobre que `.py` (marimo) e `.ipynb` valem, e
+    como instalar o `marimo pair` — sem ela o stub `.py` parece script solto."""
+    root = _project(tmp_path)
+    _scope(root, "principal")
+    assert runner.invoke(app, ["add", "notebooks", "--target", str(root)]).exit_code == 0
+
+    rule = root / ".claude" / "rules" / "notebooks.md"
+    assert rule.is_file()
+    conteudo = rule.read_text(encoding="utf-8")
+    assert ".ipynb" in conteudo
+    assert "npx skills add marimo-team/marimo-pair" in conteudo
+    assert "/marimo-pair" in conteudo
+    assert "marimo convert" in conteudo
+
+    mk = root / ".claude" / "make" / "notebooks.mk"
+    assert mk.is_file()
+    assert "nb-edit" in mk.read_text(encoding="utf-8")

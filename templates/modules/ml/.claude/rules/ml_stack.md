@@ -13,4 +13,5 @@ Prioridades: rigor clínico, reprodutibilidade, governança de dados.
 - **Tabular:** Polars/pandas, Pandera, scikit-learn `Pipeline`; opcional XGBoost/LightGBM.
 - **Deep learning:** PyTorch Lightning + timm + TorchMetrics + albumentations.
 - **Visualização:** seaborn + matplotlib (`sns.set_theme(style="whitegrid", context="paper")`); Plotly só em dashboards.
+- **Notebook:** marimo (`.py`, reativo e versionável) como padrão; `.ipynb` segue aceito. Ative com `prumo add notebooks`.
 - **Dependências:** grupos opcionais no `pyproject.toml` — ative com `uv sync --group tabular --group viz` (+ `imaging`/`deep-learning` conforme o estudo).

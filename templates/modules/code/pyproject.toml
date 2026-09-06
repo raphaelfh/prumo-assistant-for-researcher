@@ -68,6 +68,9 @@ data-quality = [
     "great-expectations>=0.18",
 ]
 dev = [
+    # `marimo` é o formato padrão de notebook (`notebooks/<escopo>/*.py`);
+    # `nbformat` fica para os `.ipynb` herdados, que seguem aceitos.
+    "marimo>=0.24",
     "nbformat>=5.10.4",
     "ruff>=0.8",
 ]

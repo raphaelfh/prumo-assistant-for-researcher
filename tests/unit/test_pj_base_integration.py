@@ -33,6 +33,7 @@ def test_gitignore_do_pj_base_protege_o_essencial() -> None:
     texto = (base / ".gitignore").read_text(encoding="utf-8")
     assert ".prumo/" in texto
     assert "~$*" in texto
+    assert "__marimo__/" in texto  # cache/export de notebook marimo
     assert "uv.lock" not in texto  # lockfile passa a ser versionado
 
 
