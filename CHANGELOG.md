@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.67.2] - 2026-09-06
+
 ### Adicionado
 
 - **O módulo `notebooks` aceita marimo (`.py`) além de Jupyter (`.ipynb`), e marimo
@@ -1123,7 +1125,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.1...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.2...HEAD
+[0.67.2]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.1...v0.67.2
 [0.67.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.0...v0.67.1
 [0.67.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.66.0...v0.67.0
 [0.66.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.2...v0.66.0
