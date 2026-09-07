@@ -1,5 +1,7 @@
 # Regras de código
 
+Invariantes — valem em toda edição de código deste repo, sem exceção.
+
 - Layering: `core/` NUNCA importa de `domains/`; `domains/` importam `core/`; domínios são mutuamente independentes (única exceção justificada: `write` → `protocol`, guardada por ImportError em `compose.py`).
 - Fachadas finas: `cli.py` raiz e `domains/<X>/cli.py` fazem só parsing + chamada do domínio + saída. Todo subcomando Typer envolto em `core/cli_op.cli_run(...)`. Nada de `print()` direto — sempre `core/output.Console`.
 - `domains/<X>/api.py` é re-export puro (wrapper passthrough é defeito).
