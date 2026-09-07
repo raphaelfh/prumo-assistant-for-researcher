@@ -178,14 +178,28 @@ def test_doctor_acusa_rule_vendorizada_desatualizada(tmp_path: Path) -> None:
     assert any("prumo update" in i for i in payload["issues"])
 
 
-def test_doctor_avisa_project_context_em_branco_sem_falhar(tmp_path: Path) -> None:
-    """Warning, não issue: o template nasce em branco e falhar no minuto zero
-    treinaria o pesquisador a ignorar o doctor."""
+def test_doctor_cala_sobre_project_context_intocado(tmp_path: Path) -> None:
+    """Projeto recém-criado tem o template todo em branco, e o `prumo init` JÁ
+    mandou editá-lo nos próximos passos. Avisar aqui seria um comando cobrando
+    o que o outro acabou de pedir (Princípio VIII)."""
     pj = _project(tmp_path)
     result = runner.invoke(app, ["doctor", str(pj), "--json"])
     payload = json.loads(result.stdout)
     assert payload["issues"] == []
+    assert not any("project_context.md" in w for w in payload["warnings"])
+
+
+def test_doctor_avisa_project_context_pela_metade_sem_falhar(tmp_path: Path) -> None:
+    """Preenchimento parcial é esquecimento real: alguém mexeu e deixou buraco.
+    Warning e não issue — o arquivo nunca é obrigatório."""
+    pj = _project(tmp_path)
+    ctx = pj / ".claude" / "rules" / "project_context.md"
+    ctx.write_text("- **Objetivo principal:** prever o desfecho\n- **Hipótese:**\n", encoding="utf-8")
+    result = runner.invoke(app, ["doctor", str(pj), "--json"])
+    payload = json.loads(result.stdout)
+    assert payload["issues"] == []
     assert any("project_context.md" in w for w in payload["warnings"])
+    assert result.exit_code == 0
 
 
 def test_doctor_acusa_references_ressuscitado_pelo_zotero(tmp_path: Path) -> None:

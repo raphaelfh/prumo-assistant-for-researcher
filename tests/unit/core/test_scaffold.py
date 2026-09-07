@@ -345,6 +345,61 @@ def test_standard_issues_silencioso_em_projeto_no_padrao(tmp_path: Path) -> None
     assert scaffold.standard_issues(pj, base) == []
 
 
+def _context(pj: Path, corpo: str) -> Path:
+    (pj / ".claude" / "rules").mkdir(parents=True, exist_ok=True)
+    alvo = pj / ".claude" / "rules" / "project_context.md"
+    alvo.write_text(corpo, encoding="utf-8")
+    return alvo
+
+
+def test_empty_context_fields_reconhece_as_duas_formas_do_template(tmp_path: Path) -> None:
+    """O template usa DUAS formas de campo, e a v0.68.0 só via a primeira.
+
+    `- **Rótulo:**` põe os dois-pontos DENTRO do negrito; `- **Rótulo** (dica):`
+    põe fora, depois de um parêntese. O `doctor` acusava 2 campos vazios num
+    `pj_*` recém-criado que tem 5 — sub-reportando em silêncio justamente o
+    arquivo cujo esquecimento ele existe para pegar.
+    """
+    pj = tmp_path / "pj_x"
+    _context(
+        pj,
+        "- **Objetivo principal:**\n"
+        "- **Hipótese:** reduzir mortalidade\n"
+        "- **Entidades principais** (datasets, ferramentas):\n"
+        "- **Conceitos centrais** (métodos): curvas ROC\n"
+        "- **Decisões já tomadas** (viram ADR):   \n",
+    )
+    assert scaffold.empty_context_fields(pj) == [
+        "Decisões já tomadas",
+        "Entidades principais",
+        "Objetivo principal",
+    ]
+
+
+def test_context_untouched_quando_nenhum_campo_foi_preenchido(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_x"
+    _context(pj, "- **Objetivo principal:**\n- **Entidades principais** (dica):\n")
+    assert scaffold.context_is_untouched(pj) is True
+
+
+def test_context_untouched_falso_no_preenchimento_parcial(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_x"
+    _context(pj, "- **Objetivo principal:** prever o desfecho\n- **Hipótese:**\n")
+    assert scaffold.context_is_untouched(pj) is False
+
+
+def test_context_untouched_falso_quando_tudo_preenchido(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_x"
+    _context(pj, "- **Objetivo principal:** prever o desfecho\n")
+    assert scaffold.context_is_untouched(pj) is False
+
+
+def test_context_untouched_em_arquivo_ausente(tmp_path: Path) -> None:
+    # Ausência tem dono próprio (`[fora_do_padrao]`); aqui não há campo
+    # preenchido nenhum, então "intocado" é a resposta honesta.
+    assert scaffold.context_is_untouched(tmp_path) is True
+
+
 def test_empty_context_fields_lista_campos_em_branco(tmp_path: Path) -> None:
     pj = tmp_path / "pj_x"
     (pj / ".claude" / "rules").mkdir(parents=True)
@@ -369,3 +424,31 @@ def test_empty_context_fields_vazio_quando_tudo_preenchido(tmp_path: Path) -> No
         "- **Objetivo principal:** prever o desfecho\n", encoding="utf-8"
     )
     assert scaffold.empty_context_fields(pj) == []
+
+
+def test_template_drift_nao_trata_project_context_preenchido_como_drift(
+    tmp_path: Path,
+) -> None:
+    """Bug do v0.68.0: `project_context.md` mora em `.claude/rules/`, que é
+    comparado por CONTEÚDO — então PREENCHER o arquivo, que é exatamente o que
+    o `init` manda fazer, acusava "rule desatualizada" e marcava o projeto como
+    fora do padrão. Pior: `prumo update --yes` o listava como divergente e
+    sobrescrevia o contexto do pesquisador com o template em branco.
+
+    Ele é FORMULÁRIO, não regra: divergir do template é o estado correto.
+    """
+    base = _fake_base(tmp_path)
+    (base / scaffold.CONTEXT_RELPATH).parent.mkdir(parents=True, exist_ok=True)
+    (base / scaffold.CONTEXT_RELPATH).write_text("- **Objetivo principal:**\n", encoding="utf-8")
+
+    pj = tmp_path / "pj_x"
+    (pj / ".claude" / "rules").mkdir(parents=True)
+    (pj / ".claude" / "rules" / "documentation.md").write_text("REGRA v2", encoding="utf-8")
+    (pj / "docs").mkdir(parents=True)
+    (pj / "docs" / "project_guide.md").write_text("GUIA", encoding="utf-8")
+    _context(pj, "- **Objetivo principal:** prever o desfecho\n")
+
+    drift = scaffold.template_drift(pj, base)
+
+    assert drift.diverged == ()
+    assert scaffold.standard_issues(pj, base) == []

@@ -47,6 +47,7 @@ from prumo_assist.core.scaffold import (
     apply_pkg_name,
     apply_project_name,
     apply_template_update,
+    context_is_untouched,
     discover_modules,
     empty_context_fields,
     get_module,
@@ -652,7 +653,10 @@ def doctor_command(
     # Warnings fecham ANTES do payload — nada de popular a lista por
     # aliasing depois que o dict já foi montado.
     warnings: list[str] = []
-    vazios = empty_context_fields(target)
+    # Template intocado não vira aviso: o `init` já mandou editar este arquivo
+    # nos próximos passos, e repetir aqui seria um comando cobrando o que o
+    # outro acabou de pedir. Preenchimento PARCIAL é que é esquecimento real.
+    vazios = [] if context_is_untouched(target) else empty_context_fields(target)
     if vazios:
         warnings.append(
             f"{len(vazios)} campo(s) de `.claude/rules/project_context.md` sem preenchimento "
