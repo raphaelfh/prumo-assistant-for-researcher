@@ -7,6 +7,71 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.68.0] - 2026-09-07
+
+### Adicionado
+
+- **`prumo update` traz o `pj_base` de volta a um projeto que ficou para trás.** O `init`
+  era overlay de uma vez só: o template nunca refluía para um `pj_*` vivo, e uma rule
+  vendorizada podia ensinar layout obsoleto ao agente por meses sem que nada reclamasse —
+  foi o que aconteceu com um `.claude/rules/documentation.md` preso no layout pré-[ADR-0008](docs/adr/adr-0008-layout-alfa-de-notas.md).
+  Arquivo ausente é restaurado direto; arquivo que existe e difere só é tocado com
+  confirmação, e sem TTY a resposta é não, para que um `update` em CI nunca apague
+  customização. `--dry-run` mostra o plano sem escrever. A comparação é feita ao vivo
+  contra o template instalado: nada de hash gravado no `pj_config.toml`, que seria uma
+  terceira fonte de verdade livre para dessincronizar ([ADR-0029](docs/adr/adr-0029-update-reflui-o-template.md), Princípio VIII).
+- **`prumo doctor` ganha a camada de prosa, com o check `[fora_do_padrao]`.** O `doctor`
+  tinha quatro perguntas sobre empacotamento ([ADR-0027](docs/adr/adr-0027-pj-instalavel.md))
+  e uma sobre prosa, que só olhava `references/` na raiz. Um projeto com `studies/` na raiz,
+  sem `docs/project_guide.md` e com rule desatualizada passava limpo. Agora os três sintomas
+  entram numa **mensagem só**, porque têm um remédio só (Princípio VIII): a detecção usa
+  lista fechada de diretórios que um ADR aposentou — nunca "markdown fora de
+  `docs/studies/`", que marcaria o `README.md` de todo projeto.
+- **Aviso de `project_context.md` em branco.** É o arquivo que o agente lê a cada sessão, e
+  falhar em silêncio custa a sessão inteira. Entra como *warning* e não como erro: projeto
+  recém-criado tem o template legitimamente vazio, e falhar no minuto zero treinaria o
+  pesquisador a ignorar o `doctor`.
+- **`experiments/<run_id>/` como casa canônica das rodadas persistidas do módulo `ml`.** Na
+  raiz, ao lado de `build/` e `reviews/`, fora de `docs/` — que é a raiz única de leitura
+  indexada pelo `qmd`, onde bundle `.joblib` polui toda consulta ao wiki sem nunca ser
+  conteúdo de leitura. `README.md` da rodada, métricas e figuras versionados; o bundle não
+  ([ADR-0031](docs/adr/adr-0031-casa-das-rodadas-de-ml.md)). Chega por `prumo add ml`.
+- **`decision` é o quinto tipo de página do wiki** ([ADR-0030](docs/adr/adr-0030-tipo-decision.md)).
+  `decisions/` é um dos três `SCOPE_DIRS` e o lint cobra frontmatter nele, mas o
+  [ADR-0025](docs/adr/adr-0025-tipo-de-pagina-no-frontmatter.md) só nomeava quatro tipos.
+
+### Corrigido
+
+- **Citação dentro de crase deixa de virar `broken_citekey` falso.** `scan_marked_citekeys`
+  pulava bloco cercado, mas não código inline: qualquer nota que **documentasse** o formato
+  de citação, escrevendo `` `[@chave]` `` como exemplo, gerava citekey quebrada — e o autor
+  era empurrado a adaptar o texto à limitação do parser. A máscara mora só no scan: a Guarda
+  I1 (`_citation_atom_spans`) continua rodando sobre o corpo cru, tratando `@key` em código
+  como átomo protegido, com teste de regressão que cai se alguém "unificar" os dois caminhos.
+- **A saída dos comandos deixa de dizer a mesma coisa duas vezes.** `prumo add study`
+  imprimia o caminho absoluto duas vezes — `success` e depois `emit` renderizando o dict
+  linha a linha —, e o segundo quebrava no wrap do Rich, com cara de erro num comando que
+  funcionou. O padrão estava em outros seis subcomandos. Novo `Console.result(message,
+  payload)`: frase em modo texto, payload em modo JSON, sem duplicar código (Princípio VIII).
+
+### Modificado
+
+- ⚠ **Breaking — o issue code `[legacy_layout]` do `prumo doctor` foi absorvido por
+  `[fora_do_padrao]`.** Quem casava a string `legacy_layout` na saída `--json` precisa
+  passar a casar `fora_do_padrao`. `[references_ressuscitado]` permanece separado, porque o
+  remédio dele é outro (corrigir o autoexport na UI do Zotero, não adequar o repo).
+- **Constitution 1.2.0 — Princípio VIII, "Simplicidade é o default".** O Princípio VI recusa
+  código especulativo, mas mede custo em linhas escritas; nada media o que o **pesquisador**
+  precisa aprender. O plano original desta auditoria somava quatro issue codes, um módulo
+  simétrico e um campo de estado no `pj_config.toml` — cada peça passando no VI
+  isoladamente. O VIII mede custo em conceitos: remédio igual gera mensagem única, saída diz
+  cada coisa uma vez, menos estado persistido vence, e simetria de layout não justifica
+  arquivo novo. Emenda MINOR; nenhum princípio existente alterado.
+- A isenção de `orphan_page` para `README.md`, `protocol.md` e stems iniciados por `_` passa
+  a estar **documentada** na skill `wiki-lint`. Ela existia no código desde sempre e não
+  aparecia em prosa nenhuma: é a saída recomendada para o ruído de órfã em tabelas, figuras
+  e drafts, que nunca terão link de entrada de outra nota.
+
 ## [0.67.2] - 2026-09-06
 
 ### Adicionado
@@ -1126,6 +1191,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
 [Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.2...HEAD
+[0.68.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.2...v0.68.0
 [0.67.2]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.1...v0.67.2
 [0.67.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.0...v0.67.1
 [0.67.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.66.0...v0.67.0
