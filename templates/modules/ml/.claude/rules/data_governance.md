@@ -2,7 +2,7 @@
 paths:
   - "**/content/**"
   - "**/*.ipynb"
-  - "**/pj_*/**/*.py"
+  - "**/*.py"
 ---
 
 <!-- Esta rule é cópia inicial do template global em .claude/rules/data_governance.md.

@@ -345,110 +345,72 @@ def test_standard_issues_silencioso_em_projeto_no_padrao(tmp_path: Path) -> None
     assert scaffold.standard_issues(pj, base) == []
 
 
-def _context(pj: Path, corpo: str) -> Path:
-    (pj / ".claude" / "rules").mkdir(parents=True, exist_ok=True)
-    alvo = pj / ".claude" / "rules" / "project_context.md"
+# ---------------------------------------------------------------------------
+# migração do formulário morto (v0.69.0)
+# ---------------------------------------------------------------------------
+
+
+def _legado(pj: Path, corpo: str) -> Path:
+    alvo = pj / scaffold.LEGACY_CONTEXT_RELPATH
+    alvo.parent.mkdir(parents=True, exist_ok=True)
     alvo.write_text(corpo, encoding="utf-8")
     return alvo
 
 
-def test_empty_context_fields_reconhece_as_duas_formas_do_template(tmp_path: Path) -> None:
-    """O template usa DUAS formas de campo, e a v0.68.0 só via a primeira.
-
-    `- **Rótulo:**` põe os dois-pontos DENTRO do negrito; `- **Rótulo** (dica):`
-    põe fora, depois de um parêntese. O `doctor` acusava 2 campos vazios num
-    `pj_*` recém-criado que tem 5 — sub-reportando em silêncio justamente o
-    arquivo cujo esquecimento ele existe para pegar.
-    """
+def _pj_com_guia(tmp_path: Path, guia: str = "# pj_x\n") -> Path:
     pj = tmp_path / "pj_x"
-    _context(
-        pj,
-        "- **Objetivo principal:**\n"
-        "- **Hipótese:** reduzir mortalidade\n"
-        "- **Entidades principais** (datasets, ferramentas):\n"
-        "- **Conceitos centrais** (métodos): curvas ROC\n"
-        "- **Decisões já tomadas** (viram ADR):   \n",
-    )
-    assert scaffold.empty_context_fields(pj) == [
-        "Decisões já tomadas",
-        "Entidades principais",
-        "Objetivo principal",
-    ]
-
-
-def test_context_untouched_quando_nenhum_campo_foi_preenchido(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_x"
-    _context(pj, "- **Objetivo principal:**\n- **Entidades principais** (dica):\n")
-    assert scaffold.context_is_untouched(pj) is True
-
-
-def test_context_untouched_falso_no_preenchimento_parcial(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_x"
-    _context(pj, "- **Objetivo principal:** prever o desfecho\n- **Hipótese:**\n")
-    assert scaffold.context_is_untouched(pj) is False
-
-
-def test_context_untouched_falso_quando_tudo_preenchido(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_x"
-    _context(pj, "- **Objetivo principal:** prever o desfecho\n")
-    assert scaffold.context_is_untouched(pj) is False
-
-
-def test_context_untouched_em_arquivo_ausente(tmp_path: Path) -> None:
-    # Ausência tem dono próprio (`[fora_do_padrao]`); aqui não há campo
-    # preenchido nenhum, então "intocado" é a resposta honesta.
-    assert scaffold.context_is_untouched(tmp_path) is True
-
-
-def test_empty_context_fields_lista_campos_em_branco(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_x"
-    (pj / ".claude" / "rules").mkdir(parents=True)
-    (pj / ".claude" / "rules" / "project_context.md").write_text(
-        "## Estudo\n"
-        "- **Objetivo principal:**\n"
-        "- **Hipótese:** reduzir mortalidade\n"
-        "- **Coorte:**   \n",
-        encoding="utf-8",
-    )
-    assert scaffold.empty_context_fields(pj) == ["Coorte", "Objetivo principal"]
-
-
-def test_empty_context_fields_vazio_quando_arquivo_ausente(tmp_path: Path) -> None:
-    assert scaffold.empty_context_fields(tmp_path) == []
-
-
-def test_empty_context_fields_vazio_quando_tudo_preenchido(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_x"
-    (pj / ".claude" / "rules").mkdir(parents=True)
-    (pj / ".claude" / "rules" / "project_context.md").write_text(
-        "- **Objetivo principal:** prever o desfecho\n", encoding="utf-8"
-    )
-    assert scaffold.empty_context_fields(pj) == []
-
-
-def test_template_drift_nao_trata_project_context_preenchido_como_drift(
-    tmp_path: Path,
-) -> None:
-    """Bug do v0.68.0: `project_context.md` mora em `.claude/rules/`, que é
-    comparado por CONTEÚDO — então PREENCHER o arquivo, que é exatamente o que
-    o `init` manda fazer, acusava "rule desatualizada" e marcava o projeto como
-    fora do padrão. Pior: `prumo update --yes` o listava como divergente e
-    sobrescrevia o contexto do pesquisador com o template em branco.
-
-    Ele é FORMULÁRIO, não regra: divergir do template é o estado correto.
-    """
-    base = _fake_base(tmp_path)
-    (base / scaffold.CONTEXT_RELPATH).parent.mkdir(parents=True, exist_ok=True)
-    (base / scaffold.CONTEXT_RELPATH).write_text("- **Objetivo principal:**\n", encoding="utf-8")
-
-    pj = tmp_path / "pj_x"
-    (pj / ".claude" / "rules").mkdir(parents=True)
-    (pj / ".claude" / "rules" / "documentation.md").write_text("REGRA v2", encoding="utf-8")
     (pj / "docs").mkdir(parents=True)
-    (pj / "docs" / "project_guide.md").write_text("GUIA", encoding="utf-8")
-    _context(pj, "- **Objetivo principal:** prever o desfecho\n")
+    (pj / "docs" / "project_guide.md").write_text(guia, encoding="utf-8")
+    return pj
 
-    drift = scaffold.template_drift(pj, base)
 
-    assert drift.diverged == ()
-    assert scaffold.standard_issues(pj, base) == []
+def test_migracao_leva_campo_preenchido_para_o_project_guide(tmp_path: Path) -> None:
+    """O pesquisador preencheu para ninguém — o glob nunca casou. O texto dele
+    não pode sumir junto com o arquivo."""
+    pj = _pj_com_guia(tmp_path)
+    legado = _legado(pj, "- **Objetivo principal:** prever o desfecho\n- **Hipótese:**\n")
+
+    assert scaffold.migrate_project_context(pj) == scaffold.LEGACY_CONTEXT_RELPATH
+
+    guia = (pj / "docs" / "project_guide.md").read_text(encoding="utf-8")
+    assert "prever o desfecho" in guia
+    assert "Hipótese" not in guia  # campo vazio não vira ruído no guia
+    assert not legado.exists()
+
+
+def test_migracao_reconhece_a_forma_com_dica_entre_parenteses(tmp_path: Path) -> None:
+    """`- **Rótulo** (dica):` põe os dois-pontos FORA do negrito."""
+    pj = _pj_com_guia(tmp_path)
+    _legado(pj, "- **Entidades principais** (datasets, ferramentas): MIMIC-IV\n")
+
+    scaffold.migrate_project_context(pj)
+
+    guia = (pj / "docs" / "project_guide.md").read_text(encoding="utf-8")
+    assert "**Entidades principais:** MIMIC-IV" in guia
+
+
+def test_migracao_apaga_formulario_em_branco_sem_sujar_o_guia(tmp_path: Path) -> None:
+    pj = _pj_com_guia(tmp_path)
+    _legado(pj, "- **Objetivo principal:**\n- **Hipótese:**\n")
+
+    assert scaffold.migrate_project_context(pj) == scaffold.LEGACY_CONTEXT_RELPATH
+
+    assert (pj / "docs" / "project_guide.md").read_text(encoding="utf-8") == "# pj_x\n"
+    assert not (pj / scaffold.LEGACY_CONTEXT_RELPATH).exists()
+
+
+def test_migracao_e_idempotente(tmp_path: Path) -> None:
+    """Rodar `prumo update` duas vezes não duplica bloco nem explode."""
+    pj = _pj_com_guia(tmp_path)
+    _legado(pj, "- **Objetivo principal:** prever o desfecho\n")
+
+    scaffold.migrate_project_context(pj)
+    guia_1 = (pj / "docs" / "project_guide.md").read_text(encoding="utf-8")
+
+    assert scaffold.migrate_project_context(pj) is None
+    assert (pj / "docs" / "project_guide.md").read_text(encoding="utf-8") == guia_1
+
+
+def test_migracao_no_projeto_que_nunca_teve_o_formulario(tmp_path: Path) -> None:
+    pj = _pj_com_guia(tmp_path)
+    assert scaffold.migrate_project_context(pj) is None

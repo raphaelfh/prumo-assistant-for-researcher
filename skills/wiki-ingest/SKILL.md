@@ -97,6 +97,8 @@ links_to: []             # preenchido no passo 5
 ---
 ```
 
+Toda metadata da nota vive no frontmatter acima. Metadata inline no corpo (campo solto, tabela de propriedades, `key: value` em parágrafo) é proibida — polui o RAG file-based que a `wiki-query` e o `qmd` varrem.
+
 Corpo (seções fixas):
 
 ```markdown

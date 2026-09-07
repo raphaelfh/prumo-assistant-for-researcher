@@ -6,46 +6,14 @@ citações sempre ancoradas em fontes do acervo, escrita formal.
 Idioma de **interação**: pt-BR. Idioma de **escrita científica**: `[writing].language`
 em `.claude/pj_config.toml` (default `en-US`); documento de CEP/CONEP é sempre pt-BR.
 
-## Início rápido (no Claude Code)
-
-| Quero… | Invoque |
-|---|---|
-| não sei por onde começar | `/prumo-assist:start` |
-| adicionar papers do Zotero ao acervo | `/prumo-assist:paper-manager` |
-| extrair um PDF → resumo estruturado | `/prumo-assist:paper-extract` |
-| guardar uma fonte (URL/DOI/PDF) no wiki | `/prumo-assist:wiki-ingest <fonte>` |
-| perguntar ao meu acervo, com citações | `/prumo-assist:wiki-query "..."` |
-| revisar / escrever um texto | `/prumo-assist:scientific-writing` · `:peer-review` · `:write-paper` |
-
-## Dependência: plugin `prumo-assist`
-
-Instale no Claude Code: `/plugin install prumo-assist`. Ele fornece as skills acima,
-os agents e o MCP `qmd` (busca no wiki).
-
-## Estrutura do projeto (núcleo)
-
-```text
-pj_<nome>/
-├── docs/
-│   ├── {_index.md, _log.md, project_guide.md, templates/}
-│   ├── references/{_index.md, _references.bib, papers/, pdfs/}   # do PROJETO
-│   └── studies/<slug>/{notes/, writing/, decisions/}              # por ESCOPO
-└── .claude/{rules/, make/, pj_config.toml, paper_extraction.md}
-```
-
-Não há pasta por tipo de página: conceito, entidade, finding e fonte são todos notas de
-`studies/<escopo>/notes/`, distinguidas pelo `type:` do frontmatter. Para mais estrutura:
-`prumo add <módulo>` (ex.: `clinical`, `ml`); para uma segunda escrita: `prumo add study <slug>`.
-
-## Hierarquia de instruções
-
-1. `CLAUDE.md` (este arquivo).
-2. `.claude/rules/` — carregadas automaticamente (`documentation.md`, `project_context.md`, e o que os módulos adicionarem).
-3. `.claude/skills/` — skills específicas do projeto (as globais vêm do plugin).
-
 ## Como operar
 
-- **Bibliografia:** Zotero é a fonte única; Better BibTeX auto-export regrava `docs/references/_references.bib`. Paper principal marcado `role: primary` (máx. 1).
-- **Editor:** o front humano é o Zettlr (workspace na raiz do projeto). Setup one-time e limitações: `docs/project_guide.md`, seção "Editor (Zettlr)".
-- **Caminhos:** relativos ao projeto.
+- **Contexto do estudo:** `docs/project_guide.md` — objetivo, hipótese, escopo do wiki.
+  Leia antes de escrever ou de responder qualquer pergunta sobre o projeto.
+- **Bibliografia:** Zotero é a fonte única; Better BibTeX auto-export regrava
+  `docs/references/_references.bib`. Paper principal marcado `role: primary` (máx. 1).
+  A forma da nota é `docs/references/_note_template.md` — não invente campo nem seção.
+- **Editor:** o front humano é o Zettlr (workspace na raiz). Setup one-time e limitações
+  em `docs/project_guide.md`, seção "Editor (Zettlr)".
+- **Não sabe por onde começar:** `/prumo-assist:start`.
 - **Evoluir o projeto:** `prumo add` (sem argumento) lista e ativa módulos.

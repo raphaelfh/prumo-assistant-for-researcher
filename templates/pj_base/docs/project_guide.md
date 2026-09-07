@@ -10,6 +10,11 @@ _(a tese central do estudo)_
 - RQ1:
 - RQ2:
 
+## Escopo do wiki
+- **Entidades principais** (datasets, ferramentas, instituições):
+- **Conceitos centrais** (métodos, abordagens):
+- **Decisões já tomadas** (viram ADR em `docs/studies/<slug>/decisions/`):
+
 ## Editor (Zettlr) — setup one-time
 
 O front humano deste projeto é o [Zettlr](https://www.zettlr.com) (≥ 3.0 — o Pandoc embutido precisa ser 3.x). Uma vez só:

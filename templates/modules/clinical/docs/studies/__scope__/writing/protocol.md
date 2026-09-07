@@ -50,6 +50,7 @@ _(especificar sensibilidade/especificidade mínimas, AUROC alvo, thresholds, cal
 - **CEP / IRB:**
 - **Anonimização:**
 - **Compartilhamento:**
+- **Contato / responsável:**
 
 ## Histórico de mudanças
 

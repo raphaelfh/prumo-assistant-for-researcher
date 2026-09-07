@@ -9,10 +9,10 @@ Plugin Claude Code + CLI Python (`prumo`) de pesquisa clínica: bibliografia (Zo
 
 ## Fontes de verdade
 
-- Princípios de design: `docs/constitution.md` — autoridade máxima. NÃO editar sem emenda formal (PR + Sync impact report).
-- Decisões registradas: `docs/adr/` — consulte antes de propor mudança estrutural; decisão estrutural nova = ADR novo (MADR minimal, imutável após aceito).
-- Mapa do código: `ARCHITECTURE.md` (what/where). Status e fases: `ROADMAP.md`.
-- Workflow de feature: brainstorm → spec (`docs/superpowers/specs/`) → plan (`docs/superpowers/plans/`) → TDD. Plano implementado recebe frontmatter `status: implemented` + `verified` + `release` e move para `docs/superpowers/plans/archive/`.
+- `docs/constitution.md` — autoridade máxima. NÃO editar sem emenda formal (PR + Sync impact report).
+- `docs/adr/` — consulte antes de propor mudança estrutural; decisão estrutural nova = ADR novo (MADR minimal, imutável após aceito).
+- `ARCHITECTURE.md` (mapa do código), `ROADMAP.md` (status e fases), `RELEASING.md` (processo de release).
+- Feature: brainstorm → spec (`docs/superpowers/specs/`) → plan (`docs/superpowers/plans/`) → TDD. Plano implementado move para `plans/archive/` com frontmatter de fechamento — copie o de qualquer plano já arquivado.
 
 ## Armadilhas deste repo
 
@@ -20,7 +20,6 @@ Plugin Claude Code + CLI Python (`prumo`) de pesquisa clínica: bibliografia (Zo
 - `skills/` e `templates/` são force-included no wheel (pyproject) e resolvidos por `src/prumo_assist/core/paths.py` — mover qualquer um exige atualizar os dois lados juntos.
 - Plugin root = raiz do repo (`.claude-plugin/marketplace.json` usa `source: "./"`) — não mover `skills/`, `.mcp.json`, `.claude-plugin/`.
 - `.mcp.json` é, ao mesmo tempo, config MCP deste projeto E config MCP distribuída aos consumidores do plugin.
-- Reorganização de docs/.github NÃO bumpa versão (RELEASING.md, "Quando NÃO bumpar").
 - Índices têm blocos gerados (README, `skills/start/SKILL.md`, `docs/_index.md`, `docs/adr/_index.md`): edite a fonte e rode o gerador — nunca o bloco à mão.
 
 ## Comandos
@@ -32,10 +31,5 @@ Plugin Claude Code + CLI Python (`prumo`) de pesquisa clínica: bibliografia (Zo
 
 ## graphify
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
-
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+Grafo local opcional, gitignored — ausente em worktree recém-criado. Quando `graphify-out/graph.json` existir:
+`graphify query "<pergunta>"` antes de grep (`path "A" "B"` para relações, `explain "X"` para um conceito) e `graphify update .` depois de mudar código.

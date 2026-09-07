@@ -7,6 +7,52 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.69.0] - 2026-09-07
+
+### Corrigido
+
+- **⚠ Breaking — as rules do `pj_base` nunca carregaram, e por isso saem do template.**
+  `documentation.md` e `project_context.md` escopavam-se com `paths: ["**/pj_*/docs/**"]`
+  e `["**/pj_*/**"]`. O Claude Code casa `paths:` contra o caminho **relativo à raiz da
+  sessão**, e a raiz é o próprio `pj_*` — o segmento não existe no caminho, então o glob
+  nunca casou e o agente jamais leu nenhuma das duas. Verificado empiricamente no Claude
+  Code 2.1.263 com token sentinela e controle sem `paths:`: `docs/**` e `**/*.md` carregam,
+  `**/pj_*/**` não, nem com a sessão aberta no diretório-pai. Mesmo defeito em
+  `modules/clinical/clinical_context.md` e no arm `**/pj_*/**/*.py` de
+  `modules/ml/data_governance.md`. Novo teste de regressão (`test_rules_scoping.py`)
+  reprova qualquer glob distribuído que dependa do segmento `pj_*`.
+
+### Removido
+
+- **⚠ Breaking — `.claude/rules/documentation.md` sai do `pj_base`.** Era 4.9 KB de
+  duplicação: a tabela de campos YAML e as seções canônicas da nota já vivem em
+  `docs/references/_note_template.md`, que ship no projeto; o formato de citekey, a árvore
+  de `references/` e a tabela de busca no acervo já vivem na `paper-manager`. O único
+  conteúdo exclusivo — *YAML é a única fonte de verdade, proibido metadata inline* — foi
+  para a `paper-manager` e a `wiki-ingest`, ao lado de onde a nota é escrita.
+- **⚠ Breaking — `.claude/rules/project_context.md` e
+  `modules/clinical/.claude/rules/clinical_context.md` saem dos templates.** Contexto do
+  estudo passa a ter uma casa só, `docs/project_guide.md` (ganhou a seção "Escopo do
+  wiki"); o contexto clínico já estava inteiro no `protocol.md` do próprio módulo, que
+  ganhou o único campo que faltava (`Contato / responsável`). `prumo update` migra o
+  conteúdo preenchido para o `project_guide.md` **antes** de remover o arquivo — nada que
+  o pesquisador digitou se perde por causa de um bug nosso.
+- **O `doctor` para de cobrar campos em branco do `project_context.md`.** O aviso
+  policiava um arquivo que o agente nunca leu. Saem junto `empty_context_fields`,
+  `context_is_untouched`, `COMPARE_EXCLUDE` e o parser de campos — a exceção de
+  comparação da 0.68.1 existia só porque o formulário morava em `.claude/rules/`.
+
+### Modificado
+
+- **`pj_base/CLAUDE.md` cai de 2.4 KB para 1.1 KB.** Saem a tabela "Início rápido"
+  (redundante: as descriptions das 16 skills já carregam e roteiam melhor), a árvore de
+  diretórios (duplicada) e a seção "Hierarquia de instruções" (que ainda por cima afirmava
+  como funcional o carregamento quebrado). A tabela de invocação vai para o `README.md`,
+  que é do humano e não custa contexto do agente. Fica o que o agente age em cima:
+  persona, cascata de idioma, Zotero como fonte única, e o ponteiro para
+  `docs/project_guide.md`, que agora é leitura obrigatória.
+
+
 ## [0.68.1] - 2026-09-07
 
 ### Corrigido
@@ -1218,6 +1264,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
 [Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.2...HEAD
+[0.69.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.68.1...v0.69.0
 [0.68.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.68.0...v0.68.1
 [0.68.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.2...v0.68.0
 [0.67.2]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.1...v0.67.2
