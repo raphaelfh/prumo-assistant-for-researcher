@@ -91,8 +91,7 @@ def study_start_command(
         log_path = study.create_session_log(
             scope=scope, topic=slug, date=date, sources_consulted=sources_list
         )
-        console.success(f"Sessão criada: {log_path}")
-        console.emit({"log_path": str(log_path), "slug": slug})
+        console.result(f"Sessão criada: {log_path}", {"log_path": str(log_path), "slug": slug})
 
 
 @wiki_app.command("study-step")
@@ -109,8 +108,7 @@ def study_step_command(
         payload["step_name"] = step
         step_obj = StepLog(**payload)
         study.append_step(log_path, step_obj)
-        console.success(f"Step '{step}' anexado.")
-        console.emit({"ok": True, "step": step})
+        console.result(f"Step '{step}' anexado.", {"ok": True, "step": step})
 
 
 @wiki_app.command("study-finish")
@@ -136,8 +134,7 @@ def study_finish_command(
             references_missing=missing_list,
             finding_archived=finding_path,
         )
-        console.success("Sessão finalizada.")
-        console.emit({"ok": True, "status": status})
+        console.result(f"Sessão finalizada ({status}).", {"ok": True, "status": status})
 
 
 @wiki_app.command("finding")
@@ -167,5 +164,4 @@ def finding_command(
             tags=tags_list,
             generator=generator,
         )
-        console.success(f"Finding arquivado: {out}")
-        console.emit({"finding_path": str(out)})
+        console.result(f"Finding arquivado: {out}", {"finding_path": str(out)})

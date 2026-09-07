@@ -90,3 +90,37 @@ def test_add_interactive_picks_by_number(tmp_path: Path, monkeypatch: pytest.Mon
     res = runner.invoke(app, ["add", "--target", str(target)], input="4\n")
     assert res.exit_code == 0, res.output
     assert (target / ".claude" / "rules" / "ml_stack.md").is_file()
+
+
+def test_add_study_says_the_path_once(tmp_path: Path) -> None:
+    # Regressão do Princípio VIII: `success` + `emit` imprimiam o caminho
+    # absoluto duas vezes em modo texto, e o segundo quebrava no wrap do
+    # Rich, dando impressão de erro num comando que funcionou.
+    target = tmp_path / "pj_demo"
+    _init(target)
+    res = runner.invoke(app, ["add", "study", "02_novo", "--target", str(target)])
+    assert res.exit_code == 0, res.output
+    assert res.output.strip() == "✓ Escopo criado em docs/studies/02_novo."
+    assert "scope:" not in res.output
+
+
+def test_add_study_json_keeps_machine_payload(tmp_path: Path) -> None:
+    target = tmp_path / "pj_demo"
+    _init(target)
+    res = runner.invoke(app, ["add", "study", "02_novo", "--target", str(target), "--json"])
+    assert res.exit_code == 0, res.output
+    payload = json.loads(res.output)
+    assert payload["slug"] == "02_novo"
+    assert payload["scope"].endswith("docs/studies/02_novo")
+
+
+def test_add_ml_cria_casa_das_rodadas(tmp_path: Path) -> None:
+    # ADR-0031: saída de máquina fica ao lado de `build/` e `reviews/`, nunca
+    # sob `docs/`, que é a raiz única de leitura indexada pelo qmd.
+    target = tmp_path / "pj_demo"
+    _init(target)
+    res = runner.invoke(app, ["add", "ml", "--target", str(target), "--json"])
+    assert res.exit_code == 0, res.output
+    assert (target / "experiments" / "README.md").is_file()
+    ignore = (target / "experiments" / ".gitignore").read_text(encoding="utf-8")
+    assert "*.joblib" in ignore

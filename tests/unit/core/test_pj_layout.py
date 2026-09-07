@@ -137,3 +137,43 @@ def test_assert_current_layout_convida_a_adequacao(tmp_path: Path) -> None:
     with pytest.raises(L.LegacyLayoutError) as exc:
         L.assert_current_layout(legado)
     assert "adeque este projeto" in str(exc.value)
+
+
+# --- layout legado de PROSA (ADR-0022/0025) --------------------------------
+
+
+def test_legacy_prose_dirs_detects_studies_na_raiz(tmp_path: Path) -> None:
+    (tmp_path / "studies" / "01_x").mkdir(parents=True)
+    assert L.legacy_prose_dirs(tmp_path) == ["studies/"]
+
+
+def test_legacy_prose_dirs_detects_diretorios_de_tipo(tmp_path: Path) -> None:
+    for name in ("findings", "concepts", "entities", "sources"):
+        (tmp_path / "docs" / name).mkdir(parents=True)
+    assert L.legacy_prose_dirs(tmp_path) == [
+        "docs/concepts/",
+        "docs/entities/",
+        "docs/findings/",
+        "docs/sources/",
+    ]
+
+
+def test_legacy_prose_dirs_inclui_references_na_raiz_sem_docs_references(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "references").mkdir()
+    assert L.legacy_prose_dirs(tmp_path) == ["references/"]
+
+
+def test_legacy_prose_dirs_nao_reclama_de_references_ressuscitado(tmp_path: Path) -> None:
+    # Os dois existindo é assinatura de autoexport do BBT apontando pro
+    # caminho antigo: remédio DIFERENTE, issue própria. Não entra aqui.
+    (tmp_path / "references").mkdir()
+    (tmp_path / "docs" / "references").mkdir(parents=True)
+    assert L.legacy_prose_dirs(tmp_path) == []
+
+
+def test_legacy_prose_dirs_vazio_em_projeto_no_padrao(tmp_path: Path) -> None:
+    (tmp_path / "docs" / "studies" / "principal" / "notes").mkdir(parents=True)
+    (tmp_path / "docs" / "references").mkdir(parents=True)
+    assert L.legacy_prose_dirs(tmp_path) == []

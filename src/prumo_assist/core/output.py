@@ -67,6 +67,25 @@ class Console:
             return
         self._rich.print(f"✗ {message}", style="red", markup=False)
 
+    def result(self, message: str, payload: Any) -> None:
+        """Desfecho do comando: frase em modo texto, payload em modo JSON.
+
+        Existe porque ``success(...)`` seguido de ``emit(...)`` — o padrão
+        que estava espalhado por dez subcomandos — imprime a MESMA informação
+        duas vezes em modo texto: a frase, e depois o dict linha a linha via
+        :meth:`_render_dict`. Em ``prumo add study`` isso saía como o caminho
+        absoluto repetido, o segundo quebrado no wrap do Rich, com cara de
+        erro num comando que funcionou.
+
+        As duas audiências continuam servidas sem duplicar código (Princípio
+        I): humano lê a frase, script lê o payload. Princípio VIII — toda
+        saída diz cada coisa uma vez.
+        """
+        if self._json:
+            self.emit(payload)
+            return
+        self.success(message)
+
     def emit(self, payload: Any) -> None:
         """Emite o payload primário do comando.
 

@@ -415,5 +415,4 @@ def extract_command(
             model=model,
             date=date,
         )
-        console.success("MUDOU" if changed else "IDÊNTICO")
-        console.emit({"changed": changed})
+        console.result("MUDOU" if changed else "IDÊNTICO", {"changed": changed})

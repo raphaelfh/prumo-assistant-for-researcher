@@ -84,4 +84,5 @@
 - **Sem multi-host.** Um adapter (`claude_code`) prova a interface; expandir é trivial depois (não é refactor, é adição).
 - **Sem packs externos.** Único pack hoje é o implícito da raiz (`skills/` na raiz). Estrutura `packs/<name>/` está prevista mas vazia.
 - **Sem MkDocs publicado.** Documentação vive no repo em Markdown. Site só quando `prumo --version` justificar (volume de usuários externos).
+- **Sem `unknown_type` no wiki-lint.** O lint cobra a presença do frontmatter, não o valor de `type:` — um typo (`type: decisions`) passa em silêncio. Os cinco tipos válidos estão nomeados ([ADR-0025](docs/adr/adr-0025-tipo-de-pagina-no-frontmatter.md), [ADR-0030](docs/adr/adr-0030-tipo-decision.md)). Trigger: um typo que cause dano observável — página que some de um relatório ou de um índice por causa do valor errado.
 - **Produto continua gerando `decisions/`** (agora `docs/studies/<slug>/decisions/`, por escopo — [ADR-0022](docs/adr/adr-0022-layout-por-escopo.md)) nos `pj_*` enquanto o repo usa `docs/adr/` — divergência de nome mantida deliberadamente ([ADR-0001](docs/adr/adr-0001-adr-log-em-docs-adr.md)).

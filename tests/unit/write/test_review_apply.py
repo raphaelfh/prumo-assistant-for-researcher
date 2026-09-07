@@ -950,6 +950,39 @@ def test_propose_prose_edit_rejects_pandoc_composition_that_fabricates_citation(
     assert (review_dir / "review.md").read_text() == page_body
 
 
+# --- 24b. crase NÃO desprotege citação: a máscara é só do scan -------------
+
+
+def test_propose_prose_edit_still_protects_citation_inside_inline_code(
+    init_project: InitProject, write_review_artifacts: WriteReviewArtifacts
+) -> None:
+    """Regressão do raio de alcance da máscara de crase (v0.68.0).
+
+    ``scan_marked_citekeys`` passou a mascarar código inline para não gerar
+    ``broken_citekey`` falso em nota que documenta o formato de citação.
+    ``_citation_atom_spans`` NÃO mascara nada, de propósito: roda sobre o
+    corpo cru e trata ``@key`` dentro de crase como átomo protegido também
+    (super-proteção fail-toward-human da Guarda I1). Se alguém "unificar" os
+    dois caminhos por simetria, este teste cai — que é o ponto.
+    """
+    page_body = "Exemplo `[@dentro2020]` no meio da prosa."
+    project_root, page = init_project(body=page_body)
+    review_dir = write_review_artifacts(project_root, page, review_md=page_body)
+
+    with pytest.raises(ValueError) as exc:
+        propose_prose_edit(
+            page=page,
+            anchor_excerpt="Exemplo `",
+            position="after",
+            kind="ins",
+            b="MUITO ",
+            project_root=project_root,
+        )
+
+    assert "I1" in str(exc.value)
+    assert (review_dir / "review.md").read_text() == page_body
+
+
 # --- 25. colchete legítimo longe de citação NÃO é "citação fabricada" ------
 
 

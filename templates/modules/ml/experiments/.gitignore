@@ -1,0 +1,8 @@
+# Bundle de rodada é regenerável — fica fora do git.
+*.joblib
+*.pkl
+*.pt
+*.onnx
+
+# O que descreve a rodada é versionado: README.md, tabelas CSV, figuras.
+!README.md

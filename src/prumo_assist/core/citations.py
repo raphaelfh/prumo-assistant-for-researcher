@@ -53,6 +53,22 @@ CITEKEY_RE = re.compile(r"(?<!@)(?<![^\W_])@(" + CITEKEY_BODY + r")")
 # ``[@a; @b, p. 3]`` e também o miolo de ``[[@key]]`` (o span interno).
 _BRACKET_SPAN_RE = re.compile(r"\[[^\[\]]*\]")
 
+# Código inline Markdown: uma ou mais crases, fechadas pela MESMA quantidade.
+# ``(?!\1)`` impede que a corrida pare numa crase de comprimento diferente,
+# então ```` ``[@k]`` ```` fecha só no par final.
+_INLINE_CODE_RE = re.compile(r"(`+)(?:(?!\1)[\s\S])*?\1")
+
+
+def _mask_inline_code(line: str) -> str:
+    """Substitui spans de crase por ``x``, PRESERVANDO o comprimento.
+
+    Comprimento preservado porque o chamador fatia a linha pelos offsets de
+    :func:`iter_marked_citation_spans`: mascarar encurtando desalinharia o
+    span do texto. ``x`` é seguro como preenchimento — não é ``@`` nem
+    colchete, então o trecho mascarado não pode formar citação nova.
+    """
+    return _INLINE_CODE_RE.sub(lambda m: "x" * len(m.group(0)), line)
+
 
 def body_lines(markdown_text: str) -> Iterator[str]:
     """Linhas fora de fenced code blocks."""
@@ -154,9 +170,21 @@ def scan_marked_citekeys(markdown_text: str) -> list[str]:
 
     Narrativa solta (``@key`` fora de colchete) fica de fora de
     propósito — ver docstring do módulo.
+
+    Código INLINE (entre crases) é mascarado antes da varredura, além do
+    bloco cercado que ``body_lines`` já remove. Sem isso, toda nota que
+    DOCUMENTA o formato de citação — escrevendo ``[@chave]`` como exemplo
+    literal — gerava ``broken_citekey`` falso no lint, e o autor era
+    empurrado a adaptar o texto à limitação do parser. Mesma família do
+    ``mailto:`` em :func:`~prumo_assist.domains.wiki.lint._is_external_link`.
+
+    A máscara mora AQUI e não em ``body_lines``: a captura ampla
+    (``iter_citekeys``) declara falso positivo barato e usa as mesmas
+    linhas — mascarar lá mudaria contrato alheio sem pedido.
     """
     keys: set[str] = set()
-    for line in body_lines(markdown_text):
+    for raw in body_lines(markdown_text):
+        line = _mask_inline_code(raw)
         for start, end in iter_marked_citation_spans(line):
             for match in CITEKEY_RE.finditer(line[start:end]):
                 keys.add(match.group(1))

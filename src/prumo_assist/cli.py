@@ -43,14 +43,19 @@ from prumo_assist.core.packaging import packaging_issues
 from prumo_assist.core.paths import find_resource, resolve_resource
 from prumo_assist.core.scaffold import (
     ModuleInfo,
+    TemplateDrift,
     apply_pkg_name,
     apply_project_name,
+    apply_template_update,
     discover_modules,
+    empty_context_fields,
     get_module,
     is_applied,
     module_requires_pkg,
     module_requires_scope,
     pkg_name,
+    standard_issues,
+    template_drift,
 )
 from prumo_assist.core.scaffold import overlay as _overlay
 from prumo_assist.core.skills import load_skill_registry
@@ -609,12 +614,12 @@ def doctor_command(
         if not (target / name).is_dir():
             issues.append(f"Diretório esperado ausente: {name}/")
 
-    if pj_layout.is_legacy_layout(target):
-        issues.append(
-            "[legacy_layout] `references/` na raiz. A bibliografia agora vive em "
-            "`docs/references/`. Peça ao agente: `adeque este projeto ao layout novo`."
-        )
-    elif (target / "references").is_dir():
+    # Prosa: layout legado + drift do template, numa issue só. Os três
+    # sintomas (ADR-0022/0025, núcleo ausente, rule vendorizada velha) têm o
+    # MESMO remédio, e remédio igual é mensagem única (Princípio VIII).
+    issues.extend(standard_issues(target, _resolve_template_dir()))
+
+    if (target / "references").is_dir() and not pj_layout.is_legacy_layout(target):
         issues.append(
             "[references_ressuscitado] `docs/references/` existe E `references/` reapareceu "
             "na raiz — assinatura do autoexport do Better BibTeX apontando para o caminho "
@@ -647,6 +652,14 @@ def doctor_command(
     # Warnings fecham ANTES do payload — nada de popular a lista por
     # aliasing depois que o dict já foi montado.
     warnings: list[str] = []
+    vazios = empty_context_fields(target)
+    if vazios:
+        warnings.append(
+            f"{len(vazios)} campo(s) de `.claude/rules/project_context.md` sem preenchimento "
+            f"({', '.join(vazios[:3])}{'…' if len(vazios) > 3 else ''}) — o agente lê esse "
+            "arquivo a cada sessão e trabalha com contexto vazio em silêncio. Warning e não "
+            "erro de propósito: projeto recém-criado tem o template legitimamente em branco."
+        )
     if not issues and bib_is_placeholder(target):
         warnings.append(
             "docs/references/_references.bib ainda é o placeholder do scaffold — "
@@ -667,8 +680,8 @@ def doctor_command(
             console.info(f"  • {i}")
     else:
         console.success("Estrutura do projeto OK.")
-        for bib_warning in warnings:
-            console.warn(bib_warning)
+    for aviso in warnings:
+        console.warn(aviso)
 
     console.info("")
     console.info("Dependências externas:")
@@ -681,6 +694,109 @@ def doctor_command(
     console.emit(payload)
     if issues:
         raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# prumo update (o pj_base reflui pra um projeto vivo)
+# ---------------------------------------------------------------------------
+
+
+@app.command("update")
+def update_command(
+    path: Annotated[
+        Path,
+        typer.Argument(help="Diretório do pj_* a atualizar (default: cwd)."),
+    ] = Path("."),
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Só mostra o que mudaria; não escreve nada.")
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Aceita sobrescrever os arquivos divergentes sem perguntar.",
+        ),
+    ] = False,
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Traz o ``pj_base`` de volta a um projeto que ficou para trás.
+
+    O ``init`` é overlay de uma vez só: sem este comando, o template nunca
+    voltava a fluir para um projeto vivo, e uma rule vendorizada podia
+    ensinar layout obsoleto ao agente por meses sem que nada reclamasse.
+
+    Arquivo AUSENTE é adição pura e entra direto. Arquivo que existe e DIFERE
+    do template só é tocado com confirmação — o pesquisador pode ter
+    customizado a rule, e sobrescrever em silêncio seria pior que o drift.
+
+    A comparação é feita ao vivo contra o template instalado; nada de hash
+    gravado no ``pj_config.toml``, que seria uma terceira fonte de verdade
+    livre para dessincronizar (Princípio VIII).
+    """
+    with cli_run(json_mode=json_mode) as console:
+        pj_root = pj_layout.find_pj_root(path.resolve())
+        template = _resolve_template_dir()
+        drift = template_drift(pj_root, template)
+
+        copied: list[str] = []
+        updated: list[str] = []
+        if not dry_run:
+            copied = apply_template_update(pj_root, template, drift.missing)
+            confirmados = _confirm_diverged(console, drift.diverged, yes=yes)
+            updated = apply_template_update(pj_root, template, confirmados)
+
+        console.result(
+            _update_summary(drift, copied=copied, updated=updated, dry_run=dry_run),
+            {
+                "project": str(pj_root),
+                "dry_run": dry_run,
+                "missing": list(drift.missing),
+                "diverged": list(drift.diverged),
+                "copied": copied,
+                "updated": updated,
+            },
+        )
+
+
+def _confirm_diverged(console: Console, diverged: tuple[str, ...], *, yes: bool) -> list[str]:
+    """Quais divergentes sobrescrever. Sem TTY e sem ``--yes``, nenhum.
+
+    O default é preservar o arquivo do pesquisador: um ``update`` rodado em
+    CI ou por agente não pode apagar customização por falta de alguém para
+    responder.
+    """
+    if not diverged:
+        return []
+    if yes:
+        return list(diverged)
+    if console.json_mode:
+        return []  # o payload já carrega `diverged`; repetir seria dizer duas vezes
+    if not _stdin_isatty():
+        for rel in diverged:
+            console.warn(f"{rel} difere do template e foi PRESERVADO (rode com --yes).")
+        return []
+    aceitos: list[str] = []
+    for rel in diverged:
+        console.info(f"\n{rel} difere do template:")
+        if typer.confirm(f"  sobrescrever {rel} com a versão do pj_base?", default=False):
+            aceitos.append(rel)
+    return aceitos
+
+
+def _update_summary(
+    drift: TemplateDrift, *, copied: list[str], updated: list[str], dry_run: bool
+) -> str:
+    if dry_run:
+        if drift.clean:
+            return "Projeto já está no padrão; nada a atualizar."
+        return (
+            f"{len(drift.missing)} arquivo(s) a copiar e {len(drift.diverged)} divergente(s). "
+            "Rode sem --dry-run para aplicar."
+        )
+    if not copied and not updated:
+        return "Projeto já está no padrão; nada a atualizar."
+    return f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
 
 
 # ---------------------------------------------------------------------------
@@ -864,8 +980,10 @@ def _add_study(console: Console, *, target: Path, slug: str | None) -> None:
     except PrumoError as e:
         console.error(str(e))
         raise typer.Exit(code=1) from e
-    console.success(f"Escopo '{slug}' criado em {scope}.")
-    console.emit({"scope": str(scope), "slug": slug})
+    console.result(
+        f"Escopo criado em {scope.relative_to(pj_root).as_posix()}.",
+        {"scope": str(scope), "slug": slug},
+    )
 
 
 def _emit_module_list(console: Console, modules: list[ModuleInfo], target: Path) -> None:

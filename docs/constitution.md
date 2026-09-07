@@ -1,15 +1,25 @@
 <!--
 Sync impact report:
-  Version: 1.1.2 (2026-08-09) — emenda PATCH: caminho do Princípio IV atualizado
+  Version: 1.2.0 (2026-09-06) — emenda MINOR: adicionado o Princípio VIII
+    (Simplicidade é o default). Trigger concreto: auditoria de organização do
+    `pj_piloto_genetica` (2026-09-06), cujo plano de correção adicionava
+    três issue codes, um módulo e um comando para problemas com um remédio só —
+    todos defensáveis sob o VI e ainda assim mais superfície para o pesquisador
+    aprender. O VI governa código escrito; o VIII governa o que o pesquisador
+    precisa saber. Nenhum princípio existente foi alterado.
+  Anterior: 1.1.2 (2026-08-09) — emenda PATCH: caminho do Princípio IV atualizado
     ("references/notes/" → "docs/references/papers/") para o layout por escopo
     (ADR-0022, ADR-0023). Nenhuma norma alterada — outputs antigos continuam
     DEVENDO permanecer legíveis indefinidamente, só o caminho de exemplo mudou.
-  Anterior: 1.1.1 (2026-07-14) — emenda PATCH: correção textual do Princípio VI
+  1.1.1 (2026-07-14) — emenda PATCH: correção textual do Princípio VI
     ("a burra de prova" → "o ônus da prova"). Nenhuma norma alterada.
   1.1.0 (2026-06-11) — emenda via PR chore/repo-organization-redesign
   1.0.0 (2026-05-03)
 
-  Added principles:
+  Added principles (1.2.0):
+    - VIII. Simplicidade é o default
+
+  Added principles (1.1.0):
     - VII. Artefatos derivados são gerados
 
   Changed:
@@ -18,7 +28,13 @@ Sync impact report:
     - Governança: registrado o ADR log do repo (docs/adr/, MADR minimal) como
       registro de decisões pontuais; princípios continuam morando aqui.
 
-  Templates ou docs a alinhar:
+  Templates ou docs a alinhar (1.2.0):
+    - ROADMAP.md        ⏳ registrar em "Decisões deliberadas postergadas" os
+                           triggers de `unknown_type` no wiki-lint e do padrão
+                           de `experiments/` (módulo ml)
+    - CLAUDE.md (raiz)  ✅ já aponta a constitution como autoridade máxima
+
+  Templates ou docs a alinhar (1.1.0):
     - ARCHITECTURE.md   ✅ deixou de duplicar princípios; aponta pra cá (2026-06-11)
     - ROADMAP.md        ✅ deferrals espelhados em [[adr/adr-0011-semver-por-visibilidade]]
     - RELEASING.md      ✅ alinhado; fluxo PR-based registrado
@@ -96,6 +112,17 @@ Todo artefato que deriva de uma fonte única DEVE ser produzido por script, nunc
 - O CI DEVE falhar quando um derivado está dessincronizado da fonte (`--check`).
 - Metadata de skill segue o princípio III (frontmatter único); este princípio cobre o restante da cadeia derivada.
 
+### VIII · Simplicidade é o default
+
+O custo de uma adição se mede em **conceitos que o pesquisador precisa aprender**, não em linhas de código. O princípio VI recusa código especulativo; este recusa superfície desnecessária no que já foi decidido construir.
+
+- Dois problemas com o MESMO remédio DEVEM produzir **uma** mensagem, não duas. Issue code novo só quando a ação de correção difere de todas as existentes.
+- Comando novo só quando nenhum existente absorve a tarefa; flag nova só quando o default não serve à maioria dos casos.
+- Toda saída DEVE dizer cada coisa uma vez. Informação repetida em modo texto é defeito, não cosmética.
+- O caminho feliz NÃO DEVE exigir configuração: default útil primeiro, opção depois.
+- Entre duas implementações que resolvem o mesmo problema, vence a que exige **menos estado persistido**. Estado gravado pode dessincronizar; leitura ao vivo, não.
+- Reusar um seam existente é preferível a criar um módulo simétrico. Simetria de layout NÃO justifica arquivo novo.
+
 ## Restrições de Tecnologia
 
 - **Linguagem**: Python ≥ 3.11. Tipagem estrita (`mypy --strict`); `from __future__ import annotations` em todos os módulos.
@@ -122,6 +149,6 @@ Esta constitution é o documento de mais alta autoridade para decisões de desig
 - Emendas DEVEM passar por PR explícito que atualiza este arquivo + a tabela "Sync impact report" no topo.
 - Bump de versão da constitution segue [SemVer](https://semver.org/lang/pt-BR/) aplicado a *princípios*: `MAJOR` quando um princípio é removido ou redefinido, `MINOR` quando um princípio é adicionado, `PATCH` para clarificação textual.
 - Decisões estruturais pontuais são registradas em `docs/adr/` (MADR minimal, `adr-NNNN-slug.md`, imutáveis após aceitas — revisão = ADR novo). Princípios (normas vivas) moram aqui; o que muda por emenda nunca mora num ADR.
-- Versão atual: **1.1.2** (2026-08-09).
+- Versão atual: **1.2.0** (2026-09-06).
 - Princípios novos DEVEM ter trigger concreto (não "pode ser útil no futuro") — coerência com o princípio VI.
 - O agent-host (Claude Code, Cursor, Codex, Gemini) NÃO pode reescrever esta constitution sem revisão humana.

@@ -111,3 +111,21 @@ def test_citekey_re_alargado_e_superset_do_anterior() -> None:
     ]
     for texto, esperado in amostras:
         assert CITEKEY_RE.findall(texto) == esperado, texto
+
+
+def test_marked_skips_inline_code() -> None:
+    # Regressão: nota que DOCUMENTA o formato de citação gerava
+    # `broken_citekey` falso — o fence era pulado por `body_lines`, mas
+    # crase inline não era mascarada antes do span de citação.
+    text = "Formato: `[@placeholder_inline]`.\n\n```bash\n# [@placeholder_fence]\n```\n"
+    assert scan_marked_citekeys(text) == []
+
+
+def test_marked_keeps_citation_outside_inline_code_on_same_line() -> None:
+    text = "Use `[@chave]` assim: [@real2024]."
+    assert scan_marked_citekeys(text) == ["real2024"]
+
+
+def test_marked_masks_multi_backtick_span() -> None:
+    text = "Literal ``[@dentro]`` e válida [@fora2020]."
+    assert scan_marked_citekeys(text) == ["fora2020"]

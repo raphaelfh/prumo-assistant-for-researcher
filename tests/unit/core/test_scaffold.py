@@ -253,3 +253,119 @@ def _module_info(path: Path) -> scaffold.ModuleInfo:
     return scaffold.ModuleInfo(
         name=path.name, description="", when_to_use="", anchor=None, path=path
     )
+
+
+# --- drift do template vs projeto vivo (Princípio VIII) ---------------------
+
+
+def _fake_base(root: Path) -> Path:
+    """Mini `pj_base`: um core doc, uma rule, e a árvore de escopo."""
+    base = root / "pj_base"
+    (base / ".claude" / "rules").mkdir(parents=True)
+    (base / ".claude" / "rules" / "documentation.md").write_text("REGRA v2", encoding="utf-8")
+    (base / "docs").mkdir(parents=True)
+    (base / "docs" / "project_guide.md").write_text("GUIA", encoding="utf-8")
+    (base / "docs" / "studies" / "principal" / "notes").mkdir(parents=True)
+    (base / "docs" / "studies" / "principal" / "notes" / ".gitkeep").write_text("")
+    return base
+
+
+def test_template_drift_reporta_arquivo_do_nucleo_ausente(tmp_path: Path) -> None:
+    base = _fake_base(tmp_path)
+    pj = tmp_path / "pj_x"
+    (pj / ".claude" / "rules").mkdir(parents=True)
+    (pj / ".claude" / "rules" / "documentation.md").write_text("REGRA v2", encoding="utf-8")
+    (pj / "docs").mkdir(parents=True)
+
+    drift = scaffold.template_drift(pj, base)
+
+    assert drift.missing == ("docs/project_guide.md",)
+    assert drift.diverged == ()
+
+
+def test_template_drift_ignora_a_arvore_de_escopo(tmp_path: Path) -> None:
+    # O slug é escolha do pesquisador: recopiar o `principal` do template
+    # injetaria um escopo órfão e faria `find_scope_root` exigir --scope.
+    base = _fake_base(tmp_path)
+    pj = tmp_path / "pj_x"
+    (pj / ".claude" / "rules").mkdir(parents=True)
+    (pj / ".claude" / "rules" / "documentation.md").write_text("REGRA v2", encoding="utf-8")
+    (pj / "docs" / "studies" / "01_outro").mkdir(parents=True)
+    (pj / "docs" / "project_guide.md").write_text("GUIA", encoding="utf-8")
+
+    drift = scaffold.template_drift(pj, base)
+
+    assert drift.missing == ()
+    assert "docs/studies/principal/notes/.gitkeep" not in drift.missing
+
+
+def test_template_drift_compara_conteudo_so_das_rules(tmp_path: Path) -> None:
+    base = _fake_base(tmp_path)
+    pj = tmp_path / "pj_x"
+    (pj / ".claude" / "rules").mkdir(parents=True)
+    (pj / ".claude" / "rules" / "documentation.md").write_text("REGRA v1", encoding="utf-8")
+    (pj / "docs").mkdir(parents=True)
+    # project_guide.md diverge por CONSTRUÇÃO (placeholder de nome trocado
+    # no init); comparar conteúdo dele reportaria drift em todo projeto.
+    (pj / "docs" / "project_guide.md").write_text("GUIA do pj_real", encoding="utf-8")
+
+    drift = scaffold.template_drift(pj, base)
+
+    assert drift.diverged == (".claude/rules/documentation.md",)
+    assert drift.missing == ()
+
+
+def test_standard_issues_junta_tudo_numa_mensagem_so(tmp_path: Path) -> None:
+    base = _fake_base(tmp_path)
+    pj = tmp_path / "pj_x"
+    (pj / "docs").mkdir(parents=True)
+    (pj / "studies").mkdir()  # layout legado de prosa
+    (pj / ".claude" / "rules").mkdir(parents=True)
+    (pj / ".claude" / "rules" / "documentation.md").write_text("REGRA v1", encoding="utf-8")
+
+    issues = scaffold.standard_issues(pj, base)
+
+    assert len(issues) == 1
+    (msg,) = issues
+    assert msg.startswith("[fora_do_padrao]")
+    assert "studies/" in msg
+    assert "docs/project_guide.md" in msg
+    assert ".claude/rules/documentation.md" in msg
+    assert "prumo update" in msg
+
+
+def test_standard_issues_silencioso_em_projeto_no_padrao(tmp_path: Path) -> None:
+    base = _fake_base(tmp_path)
+    pj = tmp_path / "pj_x"
+    (pj / ".claude" / "rules").mkdir(parents=True)
+    (pj / ".claude" / "rules" / "documentation.md").write_text("REGRA v2", encoding="utf-8")
+    (pj / "docs" / "studies" / "principal" / "notes").mkdir(parents=True)
+    (pj / "docs" / "project_guide.md").write_text("GUIA", encoding="utf-8")
+
+    assert scaffold.standard_issues(pj, base) == []
+
+
+def test_empty_context_fields_lista_campos_em_branco(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_x"
+    (pj / ".claude" / "rules").mkdir(parents=True)
+    (pj / ".claude" / "rules" / "project_context.md").write_text(
+        "## Estudo\n"
+        "- **Objetivo principal:**\n"
+        "- **Hipótese:** reduzir mortalidade\n"
+        "- **Coorte:**   \n",
+        encoding="utf-8",
+    )
+    assert scaffold.empty_context_fields(pj) == ["Coorte", "Objetivo principal"]
+
+
+def test_empty_context_fields_vazio_quando_arquivo_ausente(tmp_path: Path) -> None:
+    assert scaffold.empty_context_fields(tmp_path) == []
+
+
+def test_empty_context_fields_vazio_quando_tudo_preenchido(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_x"
+    (pj / ".claude" / "rules").mkdir(parents=True)
+    (pj / ".claude" / "rules" / "project_context.md").write_text(
+        "- **Objetivo principal:** prever o desfecho\n", encoding="utf-8"
+    )
+    assert scaffold.empty_context_fields(pj) == []

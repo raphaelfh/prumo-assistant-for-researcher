@@ -36,4 +36,7 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0026-mcp-prumo-dominio-paper]] — Servidor MCP cobre o domínio `paper` e passa a se chamar `prumo` · aceito
 - [[adr/adr-0027-pj-instalavel]] — O `pj_*` é pacote instalável; código compartilhado tem nome · aceito
 - [[adr/adr-0028-criacao-de-colecao-opt-in]] — Criação de coleção do Zotero como opt-in explícito de `prumo paper connect --create` · aceito
+- [[adr/adr-0029-update-reflui-o-template]] — `prumo update` reflui o `pj_base` num projeto vivo, comparando ao vivo · aceito
+- [[adr/adr-0030-tipo-decision]] — `decision` é o quinto tipo de página do wiki · aceito
+- [[adr/adr-0031-casa-das-rodadas-de-ml]] — Rodadas persistidas de ML vivem em `experiments/<run_id>/` na raiz · aceito
 <!-- prumo:adr-index:end -->
