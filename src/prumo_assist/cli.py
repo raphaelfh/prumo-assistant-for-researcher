@@ -47,11 +47,10 @@ from prumo_assist.core.scaffold import (
     apply_pkg_name,
     apply_project_name,
     apply_template_update,
-    context_is_untouched,
     discover_modules,
-    empty_context_fields,
     get_module,
     is_applied,
+    migrate_project_context,
     module_requires_pkg,
     module_requires_scope,
     pkg_name,
@@ -205,7 +204,7 @@ def _render_next_steps(console: Console, target: Path, mode: str) -> None:
     console._rich.print(f"  [cyan]cd {rel}[/cyan]")
     if mode == MODE_NEW:
         console._rich.print(
-            "  Edite [cyan]docs/project_guide.md[/cyan] e [cyan].claude/rules/project_context.md[/cyan]"
+            "  Edite [cyan]docs/project_guide.md[/cyan] — objetivo, hipótese, escopo do wiki"
         )
         console._rich.print("  Ative módulos opcionais (clínico, ML): [cyan]prumo add[/cyan]")
         console._rich.print("  No Claude Code, comece por: [cyan]/prumo-assist:start[/cyan]")
@@ -653,17 +652,6 @@ def doctor_command(
     # Warnings fecham ANTES do payload — nada de popular a lista por
     # aliasing depois que o dict já foi montado.
     warnings: list[str] = []
-    # Template intocado não vira aviso: o `init` já mandou editar este arquivo
-    # nos próximos passos, e repetir aqui seria um comando cobrando o que o
-    # outro acabou de pedir. Preenchimento PARCIAL é que é esquecimento real.
-    vazios = [] if context_is_untouched(target) else empty_context_fields(target)
-    if vazios:
-        warnings.append(
-            f"{len(vazios)} campo(s) de `.claude/rules/project_context.md` sem preenchimento "
-            f"({', '.join(vazios[:3])}{'…' if len(vazios) > 3 else ''}) — o agente lê esse "
-            "arquivo a cada sessão e trabalha com contexto vazio em silêncio. Warning e não "
-            "erro de propósito: projeto recém-criado tem o template legitimamente em branco."
-        )
     if not issues and bib_is_placeholder(target):
         warnings.append(
             "docs/references/_references.bib ainda é o placeholder do scaffold — "
@@ -745,13 +733,17 @@ def update_command(
 
         copied: list[str] = []
         updated: list[str] = []
+        migrated: str | None = None
         if not dry_run:
+            migrated = migrate_project_context(pj_root)
             copied = apply_template_update(pj_root, template, drift.missing)
             confirmados = _confirm_diverged(console, drift.diverged, yes=yes)
             updated = apply_template_update(pj_root, template, confirmados)
 
         console.result(
-            _update_summary(drift, copied=copied, updated=updated, dry_run=dry_run),
+            _update_summary(
+                drift, copied=copied, updated=updated, dry_run=dry_run, migrated=migrated
+            ),
             {
                 "project": str(pj_root),
                 "dry_run": dry_run,
@@ -759,6 +751,7 @@ def update_command(
                 "diverged": list(drift.diverged),
                 "copied": copied,
                 "updated": updated,
+                "migrated": migrated,
             },
         )
 
@@ -789,7 +782,12 @@ def _confirm_diverged(console: Console, diverged: tuple[str, ...], *, yes: bool)
 
 
 def _update_summary(
-    drift: TemplateDrift, *, copied: list[str], updated: list[str], dry_run: bool
+    drift: TemplateDrift,
+    *,
+    copied: list[str],
+    updated: list[str],
+    dry_run: bool,
+    migrated: str | None = None,
 ) -> str:
     if dry_run:
         if drift.clean:
@@ -798,9 +796,14 @@ def _update_summary(
             f"{len(drift.missing)} arquivo(s) a copiar e {len(drift.diverged)} divergente(s). "
             "Rode sem --dry-run para aplicar."
         )
+    aviso = (
+        f"{migrated} saiu do projeto — o conteúdo preenchido foi para docs/project_guide.md. "
+        if migrated
+        else ""
+    )
     if not copied and not updated:
-        return "Projeto já está no padrão; nada a atualizar."
-    return f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
+        return aviso + "Projeto já está no padrão; nada a atualizar."
+    return aviso + f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
 
 
 # ---------------------------------------------------------------------------

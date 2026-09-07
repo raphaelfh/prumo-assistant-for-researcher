@@ -81,8 +81,6 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
         "Makefile",
         "docs/project_guide.md",
         "docs/templates/reference.docx",
-        ".claude/rules/documentation.md",
-        ".claude/rules/project_context.md",
         ".claude/make",
         "docs/references/_references.bib",
         "docs/studies/principal/writing",
@@ -113,9 +111,12 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
     # Núcleo: perfil de export do Zettlr é gerado por init, não por módulo.
     assert (target / "docs" / "templates" / "prumo-docx.yaml").is_file()
 
-    # CLAUDE.md genérico (sem ML), com Início rápido
+    # CLAUDE.md genérico (sem ML). A tabela de invocação mora no README, que é
+    # do humano: no CLAUDE.md ela só gastaria contexto do agente, que já roteia
+    # pelas descriptions das skills.
     claude = (target / "CLAUDE.md").read_text()
-    assert "Início rápido" in claude
+    assert "Início rápido" not in claude
+    assert "/prumo-assist:paper-manager" in (target / "README.md").read_text()
     assert "PyTorch" not in claude and "timm" not in claude
 
     # add reconstrói

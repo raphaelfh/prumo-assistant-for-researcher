@@ -59,34 +59,6 @@ def test_update_dry_run_nao_escreve(tmp_path: Path) -> None:
     assert "docs/project_guide.md" in payload["missing"]
 
 
-def test_update_nao_sobrescreve_rule_divergente_sem_confirmacao(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    _init(pj)
-    rule = pj / ".claude" / "rules" / "documentation.md"
-    rule.write_text("REGRA CUSTOMIZADA PELO PESQUISADOR\n", encoding="utf-8")
-
-    res = runner.invoke(app, ["update", str(pj), "--json"])
-
-    assert res.exit_code == 0, res.output
-    assert rule.read_text(encoding="utf-8") == "REGRA CUSTOMIZADA PELO PESQUISADOR\n"
-    payload = json.loads(res.output)
-    assert ".claude/rules/documentation.md" in payload["diverged"]
-
-
-def test_update_sobrescreve_divergente_com_yes(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    _init(pj)
-    rule = pj / ".claude" / "rules" / "documentation.md"
-    rule.write_text("REGRA VELHA\n", encoding="utf-8")
-
-    res = runner.invoke(app, ["update", str(pj), "--yes", "--json"])
-
-    assert res.exit_code == 0, res.output
-    assert "REGRA VELHA" not in rule.read_text(encoding="utf-8")
-    payload = json.loads(res.output)
-    assert ".claude/rules/documentation.md" in payload["updated"]
-
-
 def test_update_em_projeto_no_padrao_nao_faz_nada(tmp_path: Path) -> None:
     pj = tmp_path / "pj_demo"
     _init(pj)

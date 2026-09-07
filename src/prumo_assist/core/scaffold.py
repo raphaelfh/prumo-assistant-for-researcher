@@ -56,35 +56,28 @@ _NUMERIC_PREFIX_RE = re.compile(r"^\d+[_-]")
 UPDATE_SKIP: tuple[str, ...] = ("docs/studies",)
 
 #: Onde o ``update`` compara CONTEÚDO, além de presença. Restrito a
-#: ``.claude/rules/`` por duas razões. É a subárvore que o agente lê a cada
-#: sessão, então drift ali ensina layout errado por meses em silêncio — foi
+#: ``.claude/rules/`` por duas razões. É a subárvore que o agente carrega
+#: sozinho, então drift ali ensina layout errado por meses em silêncio — foi
 #: exatamente o gatilho. E é a única sem substituição de placeholder: os
 #: arquivos que passam por :func:`apply_project_name` divergem do template
 #: POR CONSTRUÇÃO, e compará-los reportaria drift em todo projeto existente.
+#: O ``pj_base`` não ship rule nenhuma desde a v0.69.0, então HOJE nada
+#: cai sob este prefixo e ``diverged`` sai sempre vazio. A comparação
+#: fica de pé para o dia em que uma rule voltar ao núcleo — a lógica
+#: segue coberta por :func:`_fake_base` nos testes de unidade.
 COMPARE_PREFIX = ".claude/rules"
 
-#: Caminho do arquivo de contexto que o agente lê a cada sessão. Mora sob
-#: :data:`COMPARE_PREFIX`, mas é FORMULÁRIO e não regra.
-CONTEXT_RELPATH = ".claude/rules/project_context.md"
-
-#: Exceção dentro do :data:`COMPARE_PREFIX`. ``project_context.md`` nasce em
-#: branco para o pesquisador preencher — o próprio ``prumo init`` manda editá-lo
-#: nos próximos passos —, então divergir do template é o estado CORRETO, não
-#: drift. Sem esta exceção, preencher o arquivo marcava o projeto como fora do
-#: padrão e o ``update --yes`` o sobrescrevia com o template vazio.
-COMPARE_EXCLUDE: tuple[str, ...] = (CONTEXT_RELPATH,)
+#: Formulário de contexto morto desde a v0.69.0 — ver
+#: :func:`migrate_project_context`. Mantido só para a migração achá-lo.
+LEGACY_CONTEXT_RELPATH = ".claude/rules/project_context.md"
 
 #: Núcleo mínimo que o ``doctor`` cobra. Lista FECHADA, e menor que o
 #: ``pj_base``: o ``update`` restaura tudo que veio do template, mas o
 #: ``doctor`` só falha pelo que quebra alguma coisa em silêncio se faltar.
-#: ``project_guide.md`` é entrada de contexto de toda a família ``write-*``
-#: (``compose.read_inputs`` é graceful e compõe em cima de string vazia sem
-#: avisar); as duas rules são lidas pelo agente a cada sessão.
-REQUIRED_BASE_FILES: tuple[str, ...] = (
-    "docs/project_guide.md",
-    ".claude/rules/project_context.md",
-    ".claude/rules/documentation.md",
-)
+#: ``project_guide.md`` é a casa única do contexto do estudo e entrada de
+#: toda a família ``write-*`` (``compose.read_inputs`` é graceful e compõe em
+#: cima de string vazia sem avisar).
+REQUIRED_BASE_FILES: tuple[str, ...] = ("docs/project_guide.md",)
 
 
 @dataclass(frozen=True)
@@ -103,60 +96,59 @@ class TemplateDrift:
         return not self.missing and not self.diverged
 
 
-#: Campo do ``project_context.md``. O template usa DUAS formas, e reconhecer
-#: só a primeira fazia o check sub-reportar em silêncio (v0.68.0 acusava 2
-#: campos vazios num projeto novo que tem 5):
-#:
-#: - ``- **Rótulo:**`` — dois-pontos DENTRO do negrito;
-#: - ``- **Rótulo** (dica):`` — dica entre parênteses e dois-pontos fora.
-#:
-#: O rótulo sai do negrito; o resto da linha vira valor depois de descartar a
-#: dica e o separador.
+#: Campo do formulário legado ``project_context.md``. Duas formas conviviam
+#: (``- **Rótulo:**`` e ``- **Rótulo** (dica):``), e a migração precisa
+#: reconhecer as duas para não descartar texto do pesquisador.
 _CONTEXT_FIELD_RE = re.compile(r"^\s*-\s+\*\*(?P<label>[^*]+?)\*\*(?P<rest>.*)$")
 _CONTEXT_SEPARATOR_RE = re.compile(r"^\s*(?:\([^)]*\))?\s*:?")
 
+#: Cabeçalho sob o qual o conteúdo migrado aterrissa no ``project_guide.md``.
+_MIGRATED_HEADING = "## Contexto do estudo (migrado de project_context.md)"
 
-def _context_fields(pj_root: Path) -> list[tuple[str, str]]:
-    """``(rótulo, valor)`` de cada campo do ``project_context.md``."""
+
+def migrate_project_context(pj_root: Path) -> str | None:
+    """Move o ``project_context.md`` preenchido para o ``project_guide.md``.
+
+    O formulário morava em ``.claude/rules/``, e o glob que o escopava
+    (``**/pj_*/**``) nunca casava: a sessão abre DENTRO do ``pj_*``, então o
+    segmento não existe no caminho relativo. O agente jamais leu o arquivo —
+    o pesquisador preenchia para ninguém. A v0.69.0 consolida o contexto do
+    estudo em ``docs/project_guide.md``, que é lido de propósito.
+
+    Preenchido, o conteúdo é anexado ao guia antes de o arquivo sumir: nada
+    que alguém digitou se perde por causa de um bug nosso. Em branco, some
+    calado. Devolve o caminho relativo migrado, ou ``None`` se não havia o
+    que fazer.
+    """
+    legado = pj_root / LEGACY_CONTEXT_RELPATH
     try:
-        texto = (pj_root / CONTEXT_RELPATH).read_text(encoding="utf-8")
+        texto = legado.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
-        return []
-    campos: list[tuple[str, str]] = []
+        return None
+
+    preenchidos: list[str] = []
     for line in texto.splitlines():
         m = _CONTEXT_FIELD_RE.match(line)
         if not m:
             continue
-        rotulo = m.group("label").rstrip(": ").strip()
         valor = _CONTEXT_SEPARATOR_RE.sub("", m.group("rest")).strip()
-        campos.append((rotulo, valor))
-    return campos
+        if valor:
+            preenchidos.append(f"- **{m.group('label').rstrip(': ').strip()}:** {valor}")
 
+    if preenchidos:
+        guia = pj_root / "docs" / "project_guide.md"
+        guia.parent.mkdir(parents=True, exist_ok=True)
+        anterior = guia.read_text(encoding="utf-8") if guia.exists() else ""
+        sep = (
+            ""
+            if not anterior or anterior.endswith("\n\n")
+            else ("\n" if anterior.endswith("\n") else "\n\n")
+        )
+        bloco = "\n".join([_MIGRATED_HEADING, "", *preenchidos, ""])
+        guia.write_text(anterior + sep + bloco, encoding="utf-8")
 
-def empty_context_fields(pj_root: Path) -> list[str]:
-    """Rótulos sem preenchimento em ``project_context.md``, ordenados.
-
-    Heurística barata e deliberadamente burra (Princípio II): não julga se o
-    conteúdo é BOM, só se existe. Arquivo ausente devolve lista vazia — quem
-    reclama de ausência é :func:`standard_issues`, e dizer a mesma coisa duas
-    vezes é o que o Princípio VIII proíbe.
-    """
-    return sorted(rotulo for rotulo, valor in _context_fields(pj_root) if not valor)
-
-
-def context_is_untouched(pj_root: Path) -> bool:
-    """Nenhum campo do ``project_context.md`` foi preenchido ainda.
-
-    Separa "não comecei" de "esqueci", que é a diferença que decide quem
-    fala. Template intocado é o estado normal de um ``pj_*`` recém-criado, e
-    o ``prumo init`` JÁ manda editar este arquivo nos próximos passos —
-    repetir isso no ``doctor`` seria dizer a mesma coisa duas vezes, com um
-    comando cobrando o que o outro acabou de pedir (Princípio VIII).
-
-    Preenchimento PARCIAL é outra história: alguém mexeu no arquivo e deixou
-    buraco, e aí o lembrete é sobre esquecimento real.
-    """
-    return not any(valor for _, valor in _context_fields(pj_root))
+    legado.unlink()
+    return LEGACY_CONTEXT_RELPATH
 
 
 def _iter_base_payload(template: Path) -> Iterator[tuple[Path, str]]:
@@ -185,7 +177,7 @@ def template_drift(pj_root: Path, template: Path) -> TemplateDrift:
         if not dst.is_file():
             missing.append(rel)
             continue
-        if not rel.startswith(f"{COMPARE_PREFIX}/") or rel in COMPARE_EXCLUDE:
+        if not rel.startswith(f"{COMPARE_PREFIX}/"):
             continue
         try:
             if dst.read_bytes() != src.read_bytes():

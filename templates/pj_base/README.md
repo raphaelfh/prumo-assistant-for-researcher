@@ -33,7 +33,14 @@ prumo add ml         # stack de ML/dados + notebook
 
 ## Workflow (no Claude Code)
 
-Veja a tabela "Início rápido" em [`CLAUDE.md`](CLAUDE.md) — ou rode `/prumo-assist:start`.
+| Quero… | Invoque |
+|---|---|
+| não sei por onde começar | `/prumo-assist:start` |
+| adicionar papers do Zotero ao acervo | `/prumo-assist:paper-manager` |
+| extrair um PDF → resumo estruturado | `/prumo-assist:paper-extract` |
+| guardar uma fonte (URL/DOI/PDF) no wiki | `/prumo-assist:wiki-ingest <fonte>` |
+| perguntar ao meu acervo, com citações | `/prumo-assist:wiki-query "..."` |
+| revisar / escrever um texto | `/prumo-assist:scientific-writing` · `:peer-review` · `:write-paper` |
 
 ## Objetivo
 _(preencher em `docs/project_guide.md`)_

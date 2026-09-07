@@ -68,6 +68,15 @@ pj_*/docs/references/
 > [!info]
 > Layout legado (`notes/<key>.md` plano, na raiz de `references/`) ainda é lido por compatibilidade durante transição. Para migrar: `prumo paper migrate-layout`.
 
+## YAML é a única fonte de verdade
+
+Toda metadata vive no **frontmatter** da nota. Metadata inline no corpo (campo solto,
+tabela de propriedades, `key: value` em parágrafo) é proibida em nota versionada — polui
+o RAG file-based que a `wiki-query` e o `qmd` varrem.
+
+A forma canônica da nota de paper é `docs/references/_note_template.md`, no próprio
+projeto: campos, valores permitidos e seções fixas saem de lá, não da sua memória.
+
 ## Citation key — Better BibTeX
 
 Formato: `<sobrenomeMinúsculo><ano><primeiraPalavraTítuloMinúscula>` em ASCII puro (sem acentos, sem espaços, sem hífen). Desempate com sufixo `a/b/c` se colidir com nota existente.
