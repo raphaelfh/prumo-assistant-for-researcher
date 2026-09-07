@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import shutil
 import tomllib
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -47,6 +47,165 @@ _PJ_PREFIX = "pj_"
 #: Prefixo numérico de slug de escopo (`01_estudo`, `02-triage`). Ordena
 #: a leitura em `docs/studies/` e não pode abrir um identificador Python.
 _NUMERIC_PREFIX_RE = re.compile(r"^\d+[_-]")
+
+#: Subárvore do ``pj_base`` que o ``update`` NÃO reflui. ``docs/studies/<slug>/``
+#: é do PROJETO — o slug é escolha do pesquisador —, e recopiar o ``principal``
+#: do template injetaria um escopo órfão: um projeto que tinha um escopo só
+#: passaria a ter dois, e todo comando por-escopo começaria a exigir
+#: ``--scope`` sem que nada tivesse sido criado de propósito.
+UPDATE_SKIP: tuple[str, ...] = ("docs/studies",)
+
+#: Onde o ``update`` compara CONTEÚDO, além de presença. Restrito a
+#: ``.claude/rules/`` por duas razões. É a subárvore que o agente lê a cada
+#: sessão, então drift ali ensina layout errado por meses em silêncio — foi
+#: exatamente o gatilho. E é a única sem substituição de placeholder: os
+#: arquivos que passam por :func:`apply_project_name` divergem do template
+#: POR CONSTRUÇÃO, e compará-los reportaria drift em todo projeto existente.
+COMPARE_PREFIX = ".claude/rules"
+
+#: Núcleo mínimo que o ``doctor`` cobra. Lista FECHADA, e menor que o
+#: ``pj_base``: o ``update`` restaura tudo que veio do template, mas o
+#: ``doctor`` só falha pelo que quebra alguma coisa em silêncio se faltar.
+#: ``project_guide.md`` é entrada de contexto de toda a família ``write-*``
+#: (``compose.read_inputs`` é graceful e compõe em cima de string vazia sem
+#: avisar); as duas rules são lidas pelo agente a cada sessão.
+REQUIRED_BASE_FILES: tuple[str, ...] = (
+    "docs/project_guide.md",
+    ".claude/rules/project_context.md",
+    ".claude/rules/documentation.md",
+)
+
+
+@dataclass(frozen=True)
+class TemplateDrift:
+    """O que separa um ``pj_*`` vivo do ``pj_base`` atual.
+
+    ``missing`` é presença; ``diverged`` é conteúdo, e só sob
+    :data:`COMPARE_PREFIX`. Caminhos POSIX relativos à raiz do projeto.
+    """
+
+    missing: tuple[str, ...] = ()
+    diverged: tuple[str, ...] = ()
+
+    @property
+    def clean(self) -> bool:
+        return not self.missing and not self.diverged
+
+
+#: Caminho do arquivo de contexto que o agente lê a cada sessão.
+CONTEXT_RELPATH = ".claude/rules/project_context.md"
+
+#: Campo do ``project_context.md``: ``- **Rótulo:**`` seguido do valor. O
+#: template nasce com todos vazios, e é assim que ficam quando ninguém
+#: preenche — o arquivo mais lido pelo agente e o mais fácil de esquecer.
+_CONTEXT_FIELD_RE = re.compile(r"^\s*-\s+\*\*(?P<label>[^*]+?):\*\*(?P<value>.*)$")
+
+
+def empty_context_fields(pj_root: Path) -> list[str]:
+    """Rótulos sem preenchimento em ``project_context.md``, ordenados.
+
+    Heurística barata e deliberadamente burra (Princípio II): não julga se o
+    conteúdo é BOM, só se existe. Arquivo ausente devolve lista vazia — quem
+    reclama de ausência é :func:`standard_issues`, e dizer a mesma coisa duas
+    vezes é o que o Princípio VIII proíbe.
+    """
+    path = pj_root / CONTEXT_RELPATH
+    try:
+        texto = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    vazios = [
+        m.group("label").strip()
+        for line in texto.splitlines()
+        if (m := _CONTEXT_FIELD_RE.match(line)) and not m.group("value").strip()
+    ]
+    return sorted(vazios)
+
+
+def _iter_base_payload(template: Path) -> Iterator[tuple[Path, str]]:
+    """``(src, rel)`` de cada arquivo do template que o ``update`` considera."""
+    for src in sorted(template.rglob("*")):
+        if not src.is_file():
+            continue
+        rel = src.relative_to(template).as_posix()
+        if any(rel == skip or rel.startswith(f"{skip}/") for skip in UPDATE_SKIP):
+            continue
+        yield src, rel
+
+
+def template_drift(pj_root: Path, template: Path) -> TemplateDrift:
+    """Compara ``pj_root`` com ``template``, sem escrever nada.
+
+    Substitui o desenho que eu ia construir com hash de origem gravado no
+    ``pj_config.toml``: estado gravado dessincroniza e vira uma terceira
+    fonte de verdade, enquanto a comparação ao vivo não pode mentir
+    (Princípio VIII).
+    """
+    missing: list[str] = []
+    diverged: list[str] = []
+    for src, rel in _iter_base_payload(template):
+        dst = pj_root / rel
+        if not dst.is_file():
+            missing.append(rel)
+            continue
+        if not rel.startswith(f"{COMPARE_PREFIX}/"):
+            continue
+        try:
+            if dst.read_bytes() != src.read_bytes():
+                diverged.append(rel)
+        except OSError:
+            continue
+    return TemplateDrift(missing=tuple(missing), diverged=tuple(diverged))
+
+
+def apply_template_update(pj_root: Path, template: Path, rels: Iterable[str]) -> list[str]:
+    """Copia ``rels`` do ``template`` para ``pj_root``, SOBRESCREVENDO.
+
+    Contraparte deliberada de :func:`overlay`, que nunca sobrescreve: aqui o
+    chamador já decidiu (arquivo ausente, ou divergente com confirmação
+    humana). Devolve os caminhos efetivamente escritos.
+    """
+    escritos: list[str] = []
+    for rel in rels:
+        src = template / rel
+        if not src.is_file():
+            continue
+        dst = pj_root / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        escritos.append(rel)
+    return escritos
+
+
+def standard_issues(pj_root: Path, template: Path) -> list[str]:
+    """Issue ÚNICA de "este projeto ficou para trás do padrão" (ou lista vazia).
+
+    Layout legado de prosa, arquivo do núcleo ausente e rule vendorizada em
+    drift são três sintomas com UM remédio — trazer o projeto de volta ao
+    padrão. Três issue codes obrigariam o pesquisador a aprender três nomes
+    para uma ação só, que é o que o Princípio VIII proíbe.
+    """
+    legado = pj_layout.legacy_prose_dirs(pj_root)
+    drift = template_drift(pj_root, template)
+    faltando = [rel for rel in drift.missing if rel in REQUIRED_BASE_FILES]
+    if not legado and not faltando and not drift.diverged:
+        return []
+
+    partes: list[str] = []
+    if legado:
+        partes.append(f"layout legado de prosa ({', '.join(legado)})")
+    if faltando:
+        partes.append(f"arquivo do núcleo ausente ({', '.join(faltando)})")
+    if drift.diverged:
+        partes.append(f"rule desatualizada ({', '.join(drift.diverged)})")
+    return [
+        "[fora_do_padrao] este projeto ficou para trás do `pj_base`: "
+        + "; ".join(partes)
+        + ". Rode `prumo update` para trazer de volta o que é do template — "
+        "ele copia o que falta e mostra o diff do que difere antes de escrever. "
+        "Diretório legado precisa de adequação: peça ao agente `adeque este "
+        "projeto ao layout por escopo` (ADR-0022, ADR-0025)."
+    ]
 
 
 def _substitute_scope(rel: Path, scope: str) -> Path:

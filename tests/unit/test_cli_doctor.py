@@ -8,19 +8,31 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from prumo_assist.cli import app
+from prumo_assist.cli import _resolve_template_dir, app
+from prumo_assist.core import scaffold
 from prumo_assist.core.deps import DepStatus
 
 runner = CliRunner()
 
 
 def _project(tmp_path: Path) -> Path:
-    """Projeto no layout ATUAL: `.claude/pj_config.toml` + `docs/references/`."""
+    """Projeto no padrão ATUAL: layout por escopo + núcleo mínimo presente.
+
+    O núcleo (`scaffold.REQUIRED_BASE_FILES`) entra copiado do `pj_base` real,
+    não escrito à mão: as rules são comparadas por CONTEÚDO pelo
+    `[fora_do_padrao]`, então um corpo inventado aqui reportaria drift em
+    todo teste e esconderia o que o check deveria pegar.
+    """
     pj = tmp_path / "pj_x"
-    (pj / ".claude").mkdir(parents=True)
+    (pj / ".claude" / "rules").mkdir(parents=True)
     (pj / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
     (pj / ".claude" / "skills").mkdir()
     (pj / "docs" / "references").mkdir(parents=True)
+    base = _resolve_template_dir()
+    for rel in scaffold.REQUIRED_BASE_FILES:
+        dst = pj / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes((base / rel).read_bytes())
     return pj
 
 
@@ -120,16 +132,60 @@ def test_doctor_sem_aviso_com_bib_real(tmp_path: Path) -> None:
         result = runner.invoke(app, ["doctor", str(pj), "--json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert payload["warnings"] == []
+    # Só o aviso de bib importa aqui; o `project_context.md` do template
+    # nasce em branco e tem aviso próprio, coberto em teste separado.
+    assert not any("_references.bib" in w for w in payload["warnings"])
 
 
 def test_doctor_acusa_layout_legado(tmp_path: Path) -> None:
-    (tmp_path / ".claude").mkdir()
-    (tmp_path / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
-    (tmp_path / "references").mkdir()
-    (tmp_path / "docs").mkdir()
-    result = runner.invoke(app, ["doctor", str(tmp_path), "--json"])
-    assert "legacy_layout" in result.stdout
+    """`references/` na raiz agora entra no `[fora_do_padrao]`: mesmo remédio
+    dos outros sintomas de projeto atrasado, então mensagem única (VIII)."""
+    pj = _project(tmp_path)
+    (pj / "docs" / "references").rmdir()
+    (pj / "references").mkdir()
+    result = runner.invoke(app, ["doctor", str(pj), "--json"])
+    assert "fora_do_padrao" in result.stdout
+    assert "references/" in result.stdout
+
+
+def test_doctor_acusa_studies_na_raiz(tmp_path: Path) -> None:
+    """O caso que passou meses sem aviso: prosa em `studies/` na raiz."""
+    pj = _project(tmp_path)
+    (pj / "studies" / "01_estudo").mkdir(parents=True)
+    result = runner.invoke(app, ["doctor", str(pj), "--json"])
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert any("fora_do_padrao" in i and "studies/" in i for i in payload["issues"])
+
+
+def test_doctor_acusa_project_guide_ausente(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    (pj / "docs" / "project_guide.md").unlink()
+    result = runner.invoke(app, ["doctor", str(pj), "--json"])
+    payload = json.loads(result.stdout)
+    assert any("docs/project_guide.md" in i for i in payload["issues"])
+
+
+def test_doctor_acusa_rule_vendorizada_desatualizada(tmp_path: Path) -> None:
+    """O drift que ensinou layout pré-ADR-0008 ao agente por meses."""
+    pj = _project(tmp_path)
+    (pj / ".claude" / "rules" / "documentation.md").write_text(
+        "# Regra velha\n\nreferences/notes/<citekey>.md\n", encoding="utf-8"
+    )
+    result = runner.invoke(app, ["doctor", str(pj), "--json"])
+    payload = json.loads(result.stdout)
+    assert any(".claude/rules/documentation.md" in i for i in payload["issues"])
+    assert any("prumo update" in i for i in payload["issues"])
+
+
+def test_doctor_avisa_project_context_em_branco_sem_falhar(tmp_path: Path) -> None:
+    """Warning, não issue: o template nasce em branco e falhar no minuto zero
+    treinaria o pesquisador a ignorar o doctor."""
+    pj = _project(tmp_path)
+    result = runner.invoke(app, ["doctor", str(pj), "--json"])
+    payload = json.loads(result.stdout)
+    assert payload["issues"] == []
+    assert any("project_context.md" in w for w in payload["warnings"])
 
 
 def test_doctor_acusa_references_ressuscitado_pelo_zotero(tmp_path: Path) -> None:

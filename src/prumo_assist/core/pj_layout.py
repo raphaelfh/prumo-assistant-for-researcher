@@ -24,6 +24,22 @@ STUDIES_RELPATH = Path("docs") / "studies"
 
 SCOPE_DIRS = ("notes", "writing", "decisions")
 
+#: Assinaturas de layout LEGADO de prosa, relativas à raiz do ``pj_*``.
+#: Lista FECHADA de propósito: a alternativa — "markdown de prosa fora de
+#: `docs/studies/`" — marcaria o `README.md`, o `CLAUDE.md` e o `ROADMAP.md`
+#: que todo projeto tem legitimamente na raiz. Cada entrada aqui é um
+#: diretório que um ADR aposentou, então a presença dele é prova, não
+#: heurística: ``studies/`` na raiz é o pré-ADR-0022, e
+#: ``docs/{findings,concepts,entities,sources}/`` são os tipos que o ADR-0023
+#: e o ADR-0025 moveram para o campo ``type:`` do frontmatter.
+LEGACY_PROSE_DIRS: tuple[str, ...] = (
+    "studies",
+    "docs/findings",
+    "docs/concepts",
+    "docs/entities",
+    "docs/sources",
+)
+
 
 class PjRootNotFoundError(PrumoError):
     """Nem o projeto nem o escopo foram localizados a partir do caminho dado."""
@@ -142,6 +158,23 @@ def decisions_dir(scope: Path) -> Path:
 def is_legacy_layout(pj_root: Path) -> bool:
     """True quando ``references/`` está na raiz e ``docs/references/`` não existe."""
     return (pj_root / "references").is_dir() and not references_dir(pj_root).is_dir()
+
+
+def legacy_prose_dirs(pj_root: Path) -> list[str]:
+    """Diretórios de layout legado presentes em ``pj_root``, ordenados.
+
+    Junta :data:`LEGACY_PROSE_DIRS` com o caso da bibliografia
+    (:func:`is_legacy_layout`), porque os dois têm o MESMO remédio — pedir a
+    adequação ao agente — e o Princípio VIII manda um remédio, uma mensagem.
+
+    ``references/`` coexistindo com ``docs/references/`` NÃO entra: aquilo é
+    autoexport do Better BibTeX apontando pro caminho antigo, cujo conserto é
+    no Zotero e não no repo. Remédio diferente, issue própria.
+    """
+    achados = [f"{rel}/" for rel in LEGACY_PROSE_DIRS if (pj_root / rel).is_dir()]
+    if is_legacy_layout(pj_root):
+        achados.append("references/")
+    return sorted(achados)
 
 
 def assert_current_layout(pj_root: Path) -> None:
