@@ -176,8 +176,7 @@ def extract_comments_command(
     """Extrai comentários + track changes do ``.docx`` em checklist Markdown."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         out = comments.extract_to_file(docx.resolve(), out_dir.resolve())
-        console.success(f"checklist: {out}")
-        console.emit({"docx": str(docx.resolve()), "output": str(out)})
+        console.result(f"checklist: {out}", {"docx": str(docx.resolve()), "output": str(out)})
 
 
 @write_app.command("disclosure")
