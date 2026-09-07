@@ -63,6 +63,17 @@ UPDATE_SKIP: tuple[str, ...] = ("docs/studies",)
 #: POR CONSTRUÇÃO, e compará-los reportaria drift em todo projeto existente.
 COMPARE_PREFIX = ".claude/rules"
 
+#: Caminho do arquivo de contexto que o agente lê a cada sessão. Mora sob
+#: :data:`COMPARE_PREFIX`, mas é FORMULÁRIO e não regra.
+CONTEXT_RELPATH = ".claude/rules/project_context.md"
+
+#: Exceção dentro do :data:`COMPARE_PREFIX`. ``project_context.md`` nasce em
+#: branco para o pesquisador preencher — o próprio ``prumo init`` manda editá-lo
+#: nos próximos passos —, então divergir do template é o estado CORRETO, não
+#: drift. Sem esta exceção, preencher o arquivo marcava o projeto como fora do
+#: padrão e o ``update --yes`` o sobrescrevia com o template vazio.
+COMPARE_EXCLUDE: tuple[str, ...] = (CONTEXT_RELPATH,)
+
 #: Núcleo mínimo que o ``doctor`` cobra. Lista FECHADA, e menor que o
 #: ``pj_base``: o ``update`` restaura tudo que veio do template, mas o
 #: ``doctor`` só falha pelo que quebra alguma coisa em silêncio se faltar.
@@ -92,13 +103,34 @@ class TemplateDrift:
         return not self.missing and not self.diverged
 
 
-#: Caminho do arquivo de contexto que o agente lê a cada sessão.
-CONTEXT_RELPATH = ".claude/rules/project_context.md"
+#: Campo do ``project_context.md``. O template usa DUAS formas, e reconhecer
+#: só a primeira fazia o check sub-reportar em silêncio (v0.68.0 acusava 2
+#: campos vazios num projeto novo que tem 5):
+#:
+#: - ``- **Rótulo:**`` — dois-pontos DENTRO do negrito;
+#: - ``- **Rótulo** (dica):`` — dica entre parênteses e dois-pontos fora.
+#:
+#: O rótulo sai do negrito; o resto da linha vira valor depois de descartar a
+#: dica e o separador.
+_CONTEXT_FIELD_RE = re.compile(r"^\s*-\s+\*\*(?P<label>[^*]+?)\*\*(?P<rest>.*)$")
+_CONTEXT_SEPARATOR_RE = re.compile(r"^\s*(?:\([^)]*\))?\s*:?")
 
-#: Campo do ``project_context.md``: ``- **Rótulo:**`` seguido do valor. O
-#: template nasce com todos vazios, e é assim que ficam quando ninguém
-#: preenche — o arquivo mais lido pelo agente e o mais fácil de esquecer.
-_CONTEXT_FIELD_RE = re.compile(r"^\s*-\s+\*\*(?P<label>[^*]+?):\*\*(?P<value>.*)$")
+
+def _context_fields(pj_root: Path) -> list[tuple[str, str]]:
+    """``(rótulo, valor)`` de cada campo do ``project_context.md``."""
+    try:
+        texto = (pj_root / CONTEXT_RELPATH).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    campos: list[tuple[str, str]] = []
+    for line in texto.splitlines():
+        m = _CONTEXT_FIELD_RE.match(line)
+        if not m:
+            continue
+        rotulo = m.group("label").rstrip(": ").strip()
+        valor = _CONTEXT_SEPARATOR_RE.sub("", m.group("rest")).strip()
+        campos.append((rotulo, valor))
+    return campos
 
 
 def empty_context_fields(pj_root: Path) -> list[str]:
@@ -109,17 +141,22 @@ def empty_context_fields(pj_root: Path) -> list[str]:
     reclama de ausência é :func:`standard_issues`, e dizer a mesma coisa duas
     vezes é o que o Princípio VIII proíbe.
     """
-    path = pj_root / CONTEXT_RELPATH
-    try:
-        texto = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return []
-    vazios = [
-        m.group("label").strip()
-        for line in texto.splitlines()
-        if (m := _CONTEXT_FIELD_RE.match(line)) and not m.group("value").strip()
-    ]
-    return sorted(vazios)
+    return sorted(rotulo for rotulo, valor in _context_fields(pj_root) if not valor)
+
+
+def context_is_untouched(pj_root: Path) -> bool:
+    """Nenhum campo do ``project_context.md`` foi preenchido ainda.
+
+    Separa "não comecei" de "esqueci", que é a diferença que decide quem
+    fala. Template intocado é o estado normal de um ``pj_*`` recém-criado, e
+    o ``prumo init`` JÁ manda editar este arquivo nos próximos passos —
+    repetir isso no ``doctor`` seria dizer a mesma coisa duas vezes, com um
+    comando cobrando o que o outro acabou de pedir (Princípio VIII).
+
+    Preenchimento PARCIAL é outra história: alguém mexeu no arquivo e deixou
+    buraco, e aí o lembrete é sobre esquecimento real.
+    """
+    return not any(valor for _, valor in _context_fields(pj_root))
 
 
 def _iter_base_payload(template: Path) -> Iterator[tuple[Path, str]]:
@@ -148,7 +185,7 @@ def template_drift(pj_root: Path, template: Path) -> TemplateDrift:
         if not dst.is_file():
             missing.append(rel)
             continue
-        if not rel.startswith(f"{COMPARE_PREFIX}/"):
+        if not rel.startswith(f"{COMPARE_PREFIX}/") or rel in COMPARE_EXCLUDE:
             continue
         try:
             if dst.read_bytes() != src.read_bytes():

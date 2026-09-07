@@ -7,6 +7,33 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.68.1] - 2026-09-07
+
+### Corrigido
+
+- **`project_context.md` preenchido deixa de ser tratado como rule desatualizada.** O
+  arquivo mora em `.claude/rules/`, que o `[fora_do_padrao]` compara por conteúdo — então
+  preenchê-lo, que é exatamente o que o `prumo init` manda fazer nos próximos passos,
+  marcava o projeto como fora do padrão e fazia o `doctor` sair com código 1. Pior:
+  `prumo update --yes` o listava como divergente e **sobrescrevia o contexto do
+  pesquisador** com o template em branco. Ele é formulário, não regra: divergir do template
+  é o estado correto, e agora é exceção explícita (`scaffold.COMPARE_EXCLUDE`).
+- **O aviso de campos em branco via só duas das cinco entradas do template.** O
+  `project_context.md` usa duas formas de campo — `- **Rótulo:**`, com os dois-pontos
+  dentro do negrito, e `- **Rótulo** (dica):`, com eles fora depois de um parêntese — e o
+  regex só reconhecia a primeira. O `doctor` acusava 2 campos vazios num `pj_*` novo que
+  tem 5, sub-reportando em silêncio justamente o arquivo cujo esquecimento ele existe para
+  pegar.
+
+### Modificado
+
+- **O `doctor` cala sobre `project_context.md` intocado, e avisa no preenchimento
+  parcial.** Template todo em branco é o estado normal de um projeto recém-criado, e o
+  `prumo init` já manda editá-lo — avisar de novo seria um comando cobrando o que o outro
+  acabou de pedir. Preenchimento parcial é outra coisa: alguém mexeu no arquivo e deixou
+  buraco, e aí o lembrete é sobre esquecimento real. Princípio VIII, toda saída diz cada
+  coisa uma vez, aplicado entre comandos e não só dentro de um.
+
 ## [0.68.0] - 2026-09-07
 
 ### Adicionado
@@ -1191,6 +1218,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
 [Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.2...HEAD
+[0.68.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.68.0...v0.68.1
 [0.68.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.2...v0.68.0
 [0.67.2]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.1...v0.67.2
 [0.67.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.0...v0.67.1
