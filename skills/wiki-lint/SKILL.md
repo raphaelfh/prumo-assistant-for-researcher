@@ -64,6 +64,8 @@ não corrige automaticamente.
 
 Uma página é órfã se está sob um escopo (`docs/studies/<escopo>/`) mas **não** é linkada de nenhum lugar.
 
+**Isentos de `orphan_page`**: `README.md`, `protocol.md` e qualquer stem começando com `_`. A isenção é intencional e útil — um `README.md` por escopo funciona como MOC (*map of content*) e sai do relatório. É a saída recomendada para o ruído de órfã em tabelas, figuras e drafts, que nunca terão link de entrada vindo de outra nota: crie `docs/studies/<escopo>/README.md` apontando para elas.
+
 ```bash
 # Universo: todos os arquivos markdown do wiki (exceto _index, _log, README, protocol).
 # Conjunto "linkado": união de
