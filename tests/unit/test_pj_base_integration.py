@@ -78,10 +78,8 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
     for rel in [
         "CLAUDE.md",
         "README.md",
-        "Makefile",
         "docs/project_guide.md",
         "docs/templates/reference.docx",
-        ".claude/make",
         "docs/references/_references.bib",
         "docs/studies/principal/writing",
         "docs/studies/principal/notes",
@@ -105,6 +103,8 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
         "tests",
         "notebooks",
         "content",
+        "Makefile",
+        ".claude/make",
     ]:
         assert not (target / rel).exists(), f"núcleo não deveria ter: {rel}"
 
@@ -124,4 +124,3 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
     assert runner.invoke(app, ["add", "ml", "-t", str(target)]).exit_code == 0
     assert (target / "docs" / "studies" / "principal" / "writing" / "protocol.md").is_file()
     assert (target / ".claude" / "rules" / "ml_stack.md").is_file()
-    assert (target / ".claude" / "make" / "ml.mk").is_file()

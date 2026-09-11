@@ -100,7 +100,7 @@ Passos:
 
 ### 2. `/prumo-assist:paper-extract-all [--limit N] [--stale-only]` — batch
 
-Non-interactive em modo headless (via `make extract-paper-all`) ou interactive.
+Non-interactive em modo headless (via `claude -p`) ou interactive.
 
 Passos:
 

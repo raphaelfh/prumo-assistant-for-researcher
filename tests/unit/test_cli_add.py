@@ -40,7 +40,6 @@ def test_add_ml_restores_stack(tmp_path: Path) -> None:
     res = runner.invoke(app, ["add", "ml", "--target", str(target), "--json"])
     assert res.exit_code == 0, res.output
     assert (target / ".claude" / "rules" / "ml_stack.md").is_file()
-    assert (target / ".claude" / "make" / "ml.mk").is_file()
 
 
 def test_add_unknown_module_errors(tmp_path: Path) -> None:
