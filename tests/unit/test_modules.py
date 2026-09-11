@@ -233,7 +233,4 @@ def test_add_notebooks_documenta_os_dois_formatos_e_o_marimo_pair(tmp_path: Path
     assert "npx skills add marimo-team/marimo-pair" in conteudo
     assert "/marimo-pair" in conteudo
     assert "marimo convert" in conteudo
-
-    mk = root / ".claude" / "make" / "notebooks.mk"
-    assert mk.is_file()
-    assert "nb-edit" in mk.read_text(encoding="utf-8")
+    assert "make " not in conteudo

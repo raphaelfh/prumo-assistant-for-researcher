@@ -12,7 +12,7 @@ language = "pt-BR"
 template = ".claude/paper_extraction.md"
 
 [paper_extract.batch]
-# Default do flag --limit de /prumo-assist:paper-extract-all e make extract-paper-all.
+# Default do flag --limit de /prumo-assist:paper-extract-all.
 # Acima deste valor, passe --limit N explicitamente.
 default_limit = 20
 

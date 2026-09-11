@@ -31,12 +31,11 @@ uv run marimo convert notebooks/<escopo>/velho.ipynb -o notebooks/<escopo>/velho
 ## Rodar
 
 ```bash
-make nb-edit NB=notebooks/<escopo>/00_exploracao.py   # editor interativo
-make nb-run  NB=notebooks/<escopo>/00_exploracao.py   # como app somente-leitura
+uv run marimo edit --no-token notebooks/<escopo>/00_exploracao.py   # editor interativo
+uv run marimo run notebooks/<escopo>/00_exploracao.py               # como app somente-leitura
 ```
 
-Sem `make`: `uv run marimo edit notebooks/<escopo>/00_exploracao.py`. O marimo
-vem no grupo `dev` do `pyproject.toml` (módulo `code`); num projeto sem esse
+O marimo vem no grupo `dev` do `pyproject.toml` (módulo `code`); num projeto sem esse
 módulo, `uv add --dev marimo` ou `uvx marimo edit <arquivo>`.
 
 ## Import de código próprio
@@ -69,8 +68,8 @@ No Claude Code também dá como plugin, com auto-update:
 /plugin install marimo-pair@marimo-pair
 ```
 
-Usar: deixe o notebook rodando (`make nb-edit NB=...` já sobe com `--no-token`,
-que é o que permite a descoberta automática do servidor) e chame
+Usar: deixe o notebook rodando com `uv run marimo edit --no-token <arquivo>` (o
+`--no-token` é o que permite a descoberta automática do servidor) e chame
 
 ```
 /marimo-pair pair with me on notebooks/<escopo>/00_exploracao.py

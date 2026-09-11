@@ -19,7 +19,7 @@ pj_<nome>/
 │   ├── ...            Wiki + project_guide.md + templates/
 │   ├── references/     Acervo bibliográfico do projeto (notas, .bib, pdfs) — Zotero
 │   └── studies/<slug>/ Escopo de escrita: notes/, writing/, decisions/
-└── .claude/      Rules, config, make/
+└── .claude/      Rules, config
 ```
 
 ## Evoluir o projeto
