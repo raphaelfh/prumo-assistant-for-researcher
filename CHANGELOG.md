@@ -7,6 +7,16 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.69.1] - 2026-09-11
+
+### Removido
+
+- **`Makefile` sai do scaffold.** O `pj_base` deixa de criar `Makefile` e `.claude/make/`, e
+  os módulos `ml` e `notebooks` deixam de depositar `ml.mk`/`notebooks.mk`. Todo alvo era
+  atalho de um comando `prumo`, `qmd`, `uv run ruff` ou `uv run marimo` que continua
+  existindo; skills e a rule de notebooks passam a citar o comando direto. Projetos
+  existentes mantêm o `Makefile` que já têm — nada é apagado.
+
 ## [0.69.0] - 2026-09-07
 
 ### Corrigido
@@ -1263,7 +1273,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.2...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.69.1...HEAD
+[0.69.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.69.0...v0.69.1
 [0.69.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.68.1...v0.69.0
 [0.68.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.68.0...v0.68.1
 [0.68.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.2...v0.68.0
