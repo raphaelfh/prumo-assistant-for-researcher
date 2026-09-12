@@ -18,6 +18,7 @@ O prumo-assist é um plugin Claude Code com um CLI Python (`prumo`) que dá ao p
 | Mandar a bibliografia inteira a serviço externo | Na checagem padrão, só DOI e PMID saem da máquina. O `--deep` envia só as entradas citadas na página ([ADR-0018](adr/adr-0018-verificacao-referencias-apis-publicas.md)). |
 | Simular decisão de CEP ou parecer ético | O modo `protocol cep` redige a submissão. Decidir sobre ela é do comitê, e simular o parecer seria superfície sem gatilho real ([[constitution#VI · YAGNI militante]]). |
 | Memória oculta entre projetos | Trace e proveniência são locais e por projeto ([[constitution#V · Provenance em todo output]]). Cada `pj_*` carrega o próprio estado ([ADR-0022](adr/adr-0022-layout-por-escopo.md)). |
+| Lint heurístico de afirmação sem citação | Testado em 2026-09-12 sobre os 11 drafts de `writing/` dos `pj_*`: 139 alertas, quase todos falsos (itens numerados, placeholders de template, frases com citação DOI/PMID em linha, reafirmação dos próprios resultados). As afirmações sem suporte que importaram no A/B não têm número nem quantificador e escapam da regra. Ruído ensina a ignorar o lint ([[constitution#VI · YAGNI militante]], [[constitution#VIII · Simplicidade é o default]]). |
 | Painel de revisores multi-persona | No A/B de 2026-09-12, o painel do ARS e o `review critique` deram o mesmo veredito. O painel custou 12 chamadas e ~28,5 mil palavras, contra 1 chamada e ~2,9 mil. Ele achou lacunas reais (proveniência do instrumento, contexto regulatório), que viram checagens candidatas, não painel. Todo agent novo precisa de critério próprio ([ADR-0033](adr/adr-0033-subagents-nomeados.md)) e custa conceitos ao pesquisador ([[constitution#VIII · Simplicidade é o default]]). |
 
 ## Capacidades e claim máximo
@@ -37,7 +38,7 @@ Nível = `prumo.determinism` no frontmatter do modo. Evidência = o que existe h
 | Modo | Nível | Evidência | Claim máximo |
 |---|---|---|---|
 | `ingest` | agentic | ADR-0022, ADR-0025 | Cria a nota da fonte e registra no índice e no log. O resumo é do LLM. |
-| `lint` | hybrid | `tests/unit/wiki/test_lint.py` | Órfãs, citekeys quebradas e links mortos são detectados por código. Contradição e claim desatualizado são sugestões do LLM. |
+| `lint` | hybrid | `tests/unit/wiki/test_lint.py`, `test_stats_check.py` | Órfãs, citekeys quebradas e links mortos são detectados por código, e porcentagens, IC de Wilson e valores q relatados são recalculados (`stat_mismatch`). Contradição e claim desatualizado são sugestões do LLM. |
 | `query` | agentic | sem avaliação automatizada | Responde citando páginas e citekeys do wiki. A cobertura depende do índice qmd. Não é revisão sistemática. |
 | `study` | agentic | `tests/unit/wiki/test_study.py` (só o log) | Sessão guiada ancorada nas fontes, com log. Efeito de aprendizagem não medido. |
 
@@ -45,7 +46,7 @@ Nível = `prumo.determinism` no frontmatter do modo. Evidência = o que existe h
 
 | Modo | Nível | Evidência | Claim máximo |
 |---|---|---|---|
-| `picot` | hybrid | `tests/unit/protocol/test_picot_io.py`, `test_diff.py`, `test_adr.py` | Versiona e propaga a PICOT com diff e ADR. A pergunta é do pesquisador. |
+| `picot` | hybrid | `tests/unit/protocol/test_picot_io.py`, `test_diff.py`, `test_adr.py`, `test_drift.py` | Versiona e propaga a PICOT com diff e ADR, e o `diff` aponta drift do manuscrito contra protocolo e PICOT (janela, `n`, testes, pré-especificação). A pergunta é do pesquisador. |
 | `sap` | agentic | `tests/unit/test_guidelines_present.py` (só nomeia guidelines) | Rascunho do plano de análise que referencia TRIPOD+AI, TRIPOD-LLM e CONSORT 2025. Conformidade e tamanho amostral exigem estatístico. |
 | `cep` | agentic | `tests/unit/write/test_compose_refs.py` | Rascunho da submissão à Plataforma Brasil. Não prevê nem substitui o parecer do CEP. |
 
@@ -61,5 +62,5 @@ Nível = `prumo.determinism` no frontmatter do modo. Evidência = o que existe h
 
 | Modo | Nível | Evidência | Claim máximo |
 |---|---|---|---|
-| `critique` | agentic | `tests/unit/test_contracts.py` (`PeerReviewReport/v1`); A/B de 2026-09-12 | Segunda leitura num contexto que não viu a redação. Não substitui peer review. |
+| `critique` | agentic | `tests/unit/test_contracts.py` (`PeerReviewReport/v1`, `quote` conferido); A/B de 2026-09-12 | Segunda leitura num contexto que não viu a redação, com trecho literal conferido e fontes lidas; passe adversarial só a pedido. Não substitui peer review. |
 | `reconcile` | hybrid | `tests/unit/test_mcp_server.py`, `tests/unit/write/test_review_apply.py`; ADR-0016, ADR-0017 | Propõe marcas pendentes. As guardas recusam tocar citação, e a decisão é humana. |
