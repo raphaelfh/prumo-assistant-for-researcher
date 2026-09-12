@@ -133,20 +133,24 @@ def replace_frontmatter_key(text: str, key: str, rendered: str, *, where: str) -
     return "---\n" + "\n".join(lines) + "\n---" + text[match.end() :]
 
 
+def _h1_index(lines: list[str]) -> int | None:
+    """Índice da primeira linha ``# `` (H1) em ``lines``, ou ``None``."""
+    return next((i for i, ln in enumerate(lines) if ln.startswith("# ")), None)
+
+
+def _h1(text: str) -> str | None:
+    """Texto do primeiro H1 de ``text``, ou ``None`` se não houver."""
+    lines = text.splitlines()
+    i = _h1_index(lines)
+    return None if i is None else lines[i][2:].strip()
+
+
 def _guide_title(path: Path) -> str:
     """Título do guia: ``title`` do frontmatter; sem ele, o primeiro H1 da página."""
     title = _front_field(path, "title")
     if title != "—":
         return title
-    h1 = next(
-        (
-            ln[2:].strip()
-            for ln in path.read_text(encoding="utf-8").splitlines()
-            if ln.startswith("# ")
-        ),
-        None,
-    )
-    return h1 or "—"
+    return _h1(path.read_text(encoding="utf-8")) or "—"
 
 
 def render_kb_index() -> str:
@@ -174,10 +178,9 @@ def render_adr_index() -> str:
     lines = []
     for p in sorted((REPO / "docs" / "adr").glob("adr-*.md")):
         text = p.read_text(encoding="utf-8")
-        h1 = next(
-            (ln.removeprefix("# ").strip() for ln in text.splitlines() if ln.startswith("# ")),
-            p.stem,
-        )
+        h1 = _h1(text)
+        if h1 is None:
+            h1 = p.stem
         status_m = re.search(r"^- Status:\s*(.+)$", text, re.MULTILINE)
         status = status_m.group(1).strip() if status_m else "—"
         title = h1.split("—", 1)[1].strip() if "—" in h1 else h1
@@ -344,9 +347,9 @@ def stamp_block(text: str, tag: str, body: str, *, where: str, after: str = "") 
             cut = idx + len(after)
             return text[:cut] + block + text[cut:]
     lines = text.splitlines(keepends=True)
-    for i, ln in enumerate(lines):
-        if ln.startswith("# "):
-            return "".join(lines[: i + 1]) + block + "".join(lines[i + 1 :])
+    i = _h1_index(lines)
+    if i is not None:
+        return "".join(lines[: i + 1]) + block + "".join(lines[i + 1 :])
     raise SystemExit(f"gen_indexes: {where} sem âncora — não sei onde inserir o bloco '{tag}'")
 
 

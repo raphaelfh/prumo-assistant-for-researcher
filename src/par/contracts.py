@@ -21,9 +21,9 @@ from par import PrumoError
 from par.domains.paper.schemas.v1 import PaperCallout, SupportReport
 from par.domains.write.schemas.v1 import PeerReviewReport
 
-__all__ = ["CONTRACTS", "QUOTE_MAX_WORDS", "validate_contract"]
+__all__ = ["CONTRACTS", "validate_contract"]
 
-QUOTE_MAX_WORDS = 25
+_QUOTE_MAX_WORDS = 25
 
 CONTRACTS: dict[str, type[BaseModel]] = {
     "PaperCallout/v1": PaperCallout,
@@ -67,7 +67,7 @@ def _normalize(text: str) -> str:
 def _check_quotes(report: PeerReviewReport) -> None:
     """Confere cada ``quote`` contra o texto de ``draft_path`` (Princípio II).
 
-    Regras: no máximo ``QUOTE_MAX_WORDS`` palavras e substring literal do draft,
+    Regras: no máximo ``_QUOTE_MAX_WORDS`` palavras e substring literal do draft,
     com espaços normalizados. Sem nenhum ``quote``, o draft nem é lido.
     """
     items: list[tuple[str, str, str]] = [
@@ -90,8 +90,8 @@ def _check_quotes(report: PeerReviewReport) -> None:
     erros: list[str] = []
     for loc, section, quote in items:
         norm = _normalize(quote)
-        if len(norm.split()) > QUOTE_MAX_WORDS:
-            erros.append(f"{loc} (seção '{section}'): quote passa de {QUOTE_MAX_WORDS} palavras")
+        if len(norm.split()) > _QUOTE_MAX_WORDS:
+            erros.append(f"{loc} (seção '{section}'): quote passa de {_QUOTE_MAX_WORDS} palavras")
         elif norm not in draft:
             erros.append(f"{loc} (seção '{section}'): quote não é literal do draft: \"{quote}\"")
     if erros:

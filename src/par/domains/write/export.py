@@ -124,6 +124,11 @@ class OutputExistsError(WriteError):
     """
 
 
+def _project_language(project_root: Path) -> str:
+    """Idioma de escrita do projeto (``writing.language`` do ``prumo.toml``)."""
+    return str(load_project_config(project_root)["writing"]["language"])
+
+
 def _check_pandoc() -> str:
     pandoc = shutil.which("pandoc")
     if not pandoc:
@@ -910,7 +915,7 @@ def export(
             to_format=to,
             zotero_lookup_file=zotero_lookup_file,
             resource_path=page.parent,
-            lang=str(load_project_config(project_root)["writing"]["language"]),
+            lang=_project_language(project_root),
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
         if to == "docx":
@@ -1040,7 +1045,7 @@ def compose(
             to_format=to,
             zotero_lookup_file=zotero_lookup_file,
             resource_path=":".join(str(d) for d in resource_dirs),
-            lang=str(load_project_config(project_root)["writing"]["language"]),
+            lang=_project_language(project_root),
         )
         if meta.get("toc"):
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]
