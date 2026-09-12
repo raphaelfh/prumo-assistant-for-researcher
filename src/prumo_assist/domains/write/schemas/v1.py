@@ -180,3 +180,73 @@ class ReviewStatus(BaseModel):
     events_by_kind: dict[str, int] = {}
     comments: int
     pending_drops: int
+
+
+# ---------------------------------------------------------------------------
+# PeerReviewReport/v1 — contrato do modo `review critique` (spec 2026-09-12, D3)
+# ---------------------------------------------------------------------------
+
+DraftGenre = Literal[
+    "prediction-model-paper",
+    "imaging-ai",
+    "rct",
+    "systematic-review",
+    "observational",
+    "thesis-chapter",
+    "grant",
+    "other",
+]
+MentalModel = Literal[
+    "TRIPOD+AI",
+    "TRIPOD-LLM",
+    "DECIDE-AI",
+    "CLAIM",
+    "CONSORT 2025",
+    "CONSORT-AI",
+    "PRISMA",
+    "STROBE",
+    "thesis-defense",
+    "grant-impact",
+    "none",
+]
+
+
+class ReviewStrength(BaseModel):
+    section: str = Field(..., min_length=1)
+    point: str = Field(..., min_length=1)
+
+
+class ReviewWeakness(BaseModel):
+    """Fraqueza com correção concreta — crítica sem ``fix`` não é acionável."""
+
+    section: str = Field(..., min_length=1)
+    point: str = Field(..., min_length=1)
+    fix: str = Field(..., min_length=1)
+
+
+class UnsupportedClaim(BaseModel):
+    section: str = Field(..., min_length=1)
+    claim: str = Field(..., min_length=1)
+    where_to_find_evidence_or_remove: str = Field(..., min_length=1)
+
+
+class SectionSuggestion(BaseModel):
+    section: str = Field(..., min_length=1)
+    suggestion: str = Field(..., min_length=1)
+
+
+class PeerReviewReport(BaseModel):
+    """Relatório estruturado do ``reviewer`` (antes só descrito em prosa na skill)."""
+
+    schema_version: Literal["PeerReviewReport/v1"] = "PeerReviewReport/v1"
+    draft_path: str = Field(..., min_length=1)
+    draft_genre: DraftGenre
+    thesis_in_one_sentence: str = Field(..., min_length=1)
+    recommendation: Literal["accept", "minor", "major", "reject"]
+    executive_summary: str = Field(..., min_length=1)
+    strengths: list[ReviewStrength] = Field(default_factory=list)
+    critical_weaknesses: list[ReviewWeakness] = Field(default_factory=list)
+    minor_weaknesses: list[ReviewWeakness] = Field(default_factory=list)
+    claims_without_evidence: list[UnsupportedClaim] = Field(default_factory=list)
+    suggestions_by_section: list[SectionSuggestion] = Field(default_factory=list)
+    mental_model_applied: MentalModel
