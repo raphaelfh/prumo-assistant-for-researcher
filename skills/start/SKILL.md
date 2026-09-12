@@ -32,7 +32,10 @@ Você é a porta de entrada E o instalador guiado. Primeiro descubra o estado:
      ela quer fazer e roteie para a skill e o modo (bibliografia → `paper`; wiki
      e estudo → `wiki`; PICOT, plano estatístico e CEP → `protocol`; escrita →
      `write`; revisão → `review`). Use o catálogo abaixo para achar o modo pela
-     frase. Não execute a tarefa você mesmo.
+     frase. Não execute a tarefa você mesmo. Se `status` não existir
+     (`No such command 'status'`, exit 2 — CLI instalado mais antigo que o
+     plugin), siga como sem `next` e ofereça UMA vez
+     `uv tool upgrade prumo-assist` (rode SÓ com consentimento).
    - **`prumo` NÃO existe** → ofereça a instalação guiada abaixo.
    - **Superfície sem execução de comandos** (chat puro) → aponte a trilha do
      pesquisador: `docs/onboarding-pesquisador.md` no repositório do plugin.

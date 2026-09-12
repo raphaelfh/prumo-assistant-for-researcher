@@ -67,6 +67,14 @@ caminho é humano (ou o fluxo `review reconcile` → `prumo write review apply`)
    `cat <<'JSON' | prumo validate SupportReport/v1 --json` com o JSON devolvido.
    Inválido → devolva a mensagem ao verifier UMA vez; na segunda falha, mostre o
    erro ao pesquisador sem completar vereditos por conta própria.
+   Subcomando ausente (`No such command 'validate'`, exit 2 — o CLI instalado é
+   mais antigo que o plugin, mesmo com `prumo --version` e `verify-refs`
+   respondendo) → confira à mão: `schema_version` = `SupportReport/v1`; `page`
+   não vazio; em cada item de `verdicts`, `sentence`, `citekey` e `justification`
+   não vazios, `verdict` ∈ `fully|partially|unsubstantiated|no-source`, `quote`
+   presente quando `fully`/`partially` e `page` ≥ 1 quando houver. Falhou → mesma
+   regra acima. Diga ao pesquisador UMA vez que `uv tool upgrade prumo-assist`
+   traz a validação e rode SÓ com consentimento.
 6. **Relatório final** (tabela): frase (recorte) | citekey | veredito | página |
    trecho | justificativa. Feche com a lista de ações sugeridas AO HUMANO
    (ex.: "reescrever a frase X", "trocar a citação Y", "rodar
