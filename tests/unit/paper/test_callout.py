@@ -4,15 +4,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from prumo_assist.core.note_paths import extract_path, meta_path
 from prumo_assist.domains.paper.callout import (
     EXTRACT_BEGIN,
     EXTRACT_END,
     ExtractionSection,
     apply_extraction,
+    parse_extract_payload,
     parse_extraction_template,
     render_callout,
 )
+from prumo_assist.domains.paper.errors import PaperError
+from prumo_assist.domains.paper.sync import read_nota_yaml
 
 
 def test_parse_template_extracts_section_names_and_instructions() -> None:
@@ -113,3 +118,91 @@ def test_apply_extraction_idempotent_when_content_unchanged(tmp_path: Path) -> N
         date="2026-05-04",  # data muda mas conteúdo não
     )
     assert changed is False
+
+
+# ---------------------------------------------------------------------------
+# F2 da superfície de skills: validação, locators e proveniência
+# ---------------------------------------------------------------------------
+
+
+def test_apply_extraction_recusa_secao_fora_do_template(tmp_path: Path) -> None:
+    _, template = _bootstrap(tmp_path, "smith2024")
+    with pytest.raises(PaperError, match="TL;DR"):
+        apply_extraction(
+            pj_path=tmp_path,
+            citekey="smith2024",
+            template_path=template,
+            content={"TLDR": "resumo"},
+            model="m",
+            date="2026-09-12",
+        )
+    assert not extract_path(tmp_path, "smith2024").exists()
+
+
+def test_apply_extraction_recusa_valor_que_nao_eh_texto(tmp_path: Path) -> None:
+    _, template = _bootstrap(tmp_path, "smith2024")
+    with pytest.raises(PaperError):
+        apply_extraction(
+            pj_path=tmp_path,
+            citekey="smith2024",
+            template_path=template,
+            content={"TL;DR": ["lista"]},
+            model="m",
+            date="2026-09-12",
+        )
+    assert not extract_path(tmp_path, "smith2024").exists()
+
+
+def test_apply_extraction_renderiza_locators(tmp_path: Path) -> None:
+    _, template = _bootstrap(tmp_path, "smith2024")
+    apply_extraction(
+        pj_path=tmp_path,
+        citekey="smith2024",
+        template_path=template,
+        content={"TL;DR": "resumo"},
+        locators={"TL;DR": [{"page": 3, "quote": "trecho do PDF"}]},
+        model="m",
+        date="2026-09-12",
+    )
+    text = extract_path(tmp_path, "smith2024").read_text(encoding="utf-8")
+    assert 'p. 3 — "trecho do PDF"' in text
+
+
+def test_extract_sem_locators_nao_muda_o_render(tmp_path: Path) -> None:
+    _, template = _bootstrap(tmp_path, "smith2024")
+    apply_extraction(
+        pj_path=tmp_path,
+        citekey="smith2024",
+        template_path=template,
+        content={"TL;DR": "resumo"},
+        model="m",
+        date="2026-09-12",
+    )
+    assert "**Onde:**" not in extract_path(tmp_path, "smith2024").read_text(encoding="utf-8")
+
+
+def test_apply_extraction_carimba_meta_de_proveniencia(tmp_path: Path) -> None:
+    meta, template = _bootstrap(tmp_path, "smith2024")
+    apply_extraction(
+        pj_path=tmp_path,
+        citekey="smith2024",
+        template_path=template,
+        content={"TL;DR": "resumo"},
+        model="claude-test",
+        date="2026-09-12",
+    )
+    stamped = read_nota_yaml(meta)["_meta"]
+    assert stamped["skill"] == "paper/extract"
+    assert stamped["schema"] == "PaperCallout/v1"
+    assert stamped["model"] == "claude-test"
+    assert stamped["input_hash"]
+    assert "human_reviewed" not in stamped
+
+
+def test_parse_extract_payload_aceita_plano_e_estruturado() -> None:
+    assert parse_extract_payload({"TL;DR": "a"}) == ({"TL;DR": "a"}, {})
+    sections, locators = parse_extract_payload(
+        {"sections": {"TL;DR": "a"}, "locators": {"TL;DR": [{"page": 1, "quote": "q"}]}}
+    )
+    assert sections == {"TL;DR": "a"}
+    assert locators == {"TL;DR": [{"page": 1, "quote": "q"}]}

@@ -10,7 +10,7 @@ sem boilerplate de wrappers passthrough::
 
 from __future__ import annotations
 
-from prumo_assist.domains.paper.callout import apply_extraction
+from prumo_assist.domains.paper.callout import apply_extraction, parse_extract_payload
 from prumo_assist.domains.paper.connect import connect_collection
 from prumo_assist.domains.paper.errors import PaperError
 from prumo_assist.domains.paper.find import fuzzy_search as find
@@ -33,6 +33,7 @@ __all__ = [
     "find",
     "lint",
     "migrate_layout",
+    "parse_extract_payload",
     "set_primary",
     "sync",
     "sync_all",

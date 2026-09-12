@@ -187,3 +187,22 @@ def test_skill_desconhecida_mantem_o_valor(tmp_path: Path) -> None:
     disc = generate_disclosure(root=tmp_path)
     assert disc.tools[0].tool == "prumo-assist:minha-skill"
     assert disc.tools[0].task == "assistive text generation"
+
+
+def test_meta_carimbado_pelo_extract_vira_paper_extract_sem_sombrear_revisao(
+    tmp_path: Path,
+) -> None:
+    from prumo_assist.domains.write.disclosure import generate_disclosure
+
+    meta = tmp_path / "docs" / "references" / "papers" / "a" / "_meta.md"
+    meta.parent.mkdir(parents=True)
+    meta.write_text(
+        "---\nextracted_model: m\nextracted_at: 2026-09-12\nhuman_reviewed: true\n"
+        "_meta:\n  skill: paper/extract\n  model: m\n  schema: PaperCallout/v1\n"
+        "  timestamp_utc: '2026-09-12T10:00:00Z'\n---\n",
+        encoding="utf-8",
+    )
+    disc = generate_disclosure(root=tmp_path)
+    assert len(disc.tools) == 1
+    assert disc.tools[0].tool == "prumo-assist:paper extract"
+    assert disc.tools[0].human_reviewed is True

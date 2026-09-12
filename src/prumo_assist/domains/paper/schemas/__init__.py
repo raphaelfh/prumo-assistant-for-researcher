@@ -5,6 +5,11 @@ Forward-only: ``v2`` adiciona campos; existentes não mudam de semântica.
 
 from __future__ import annotations
 
-from prumo_assist.domains.paper.schemas.v1 import PaperCallout
+from prumo_assist.domains.paper.schemas.v1 import (
+    Locator,
+    PaperCallout,
+    SupportReport,
+    SupportVerdict,
+)
 
-__all__ = ["PaperCallout"]
+__all__ = ["Locator", "PaperCallout", "SupportReport", "SupportVerdict"]

@@ -502,3 +502,36 @@ def test_paper_connect_create_json_expoe_created(
     )
     assert result.exit_code == 0, result.output
     assert _last_json(result.stdout)["created"] is True
+
+
+def test_paper_extract_aceita_payload_estruturado_com_locators(tmp_path: Path) -> None:
+    from tests.unit.paper.test_prep import _bootstrap
+
+    pj = _bootstrap(tmp_path)
+    (pj / ".claude" / "paper_extraction.md").write_text(
+        "### Resumo\n<!-- instrução -->\n", encoding="utf-8"
+    )
+    body = json.dumps(
+        {
+            "sections": {"Resumo": "Coorte retrospectiva."},
+            "locators": {"Resumo": [{"page": 2, "quote": "retrospective cohort"}]},
+        }
+    )
+    args = ["paper", "extract", "smith2020", "--model", "m", "--date", "2026-09-12", str(pj)]
+    result = runner.invoke(app, [*args, "--json"], input=body)
+    assert result.exit_code == 0, result.output
+    extract_md = pj / "docs" / "references" / "papers" / "smith2020" / "_extract.md"
+    assert 'p. 2 — "retrospective cohort"' in extract_md.read_text(encoding="utf-8")
+
+
+def test_paper_extract_secao_errada_falha_com_instrucao(tmp_path: Path) -> None:
+    from tests.unit.paper.test_prep import _bootstrap
+
+    pj = _bootstrap(tmp_path)
+    (pj / ".claude" / "paper_extraction.md").write_text(
+        "### Resumo\n<!-- instrução -->\n", encoding="utf-8"
+    )
+    args = ["paper", "extract", "smith2020", "--model", "m", "--date", "2026-09-12", str(pj)]
+    result = runner.invoke(app, args, input=json.dumps({"Sumario": "x"}))
+    assert result.exit_code == 1
+    assert "Resumo" in result.output
