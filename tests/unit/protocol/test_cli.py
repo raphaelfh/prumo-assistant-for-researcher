@@ -72,6 +72,24 @@ def test_protocol_diff_no_baseline(tmp_path: Path) -> None:
     payload = _last_json(result.stdout)
     assert payload["changes"] == []
     assert payload["has_structural"] is False
+    assert payload["drift"] == []
+
+
+def test_protocol_diff_reports_manuscript_drift_for_explicit_draft(tmp_path: Path) -> None:
+    _pj, scope = _mk_project(tmp_path)
+    writing = scope / "writing"
+    (writing / "protocol.md").write_text("Coleta entre março e agosto de 2023.\n")
+    (writing / "paper.md").write_text("Between March and July 2023.\n")
+    (writing / "other.md").write_text("Between May and June 2023.\n")
+    result = runner.invoke(app, ["protocol", "diff", str(writing / "paper.md"), "--json"])
+    assert result.exit_code == 0, result.output
+    payload = _last_json(result.stdout)
+    assert payload["missing"] is True
+    drift = payload["drift"]
+    assert isinstance(drift, list)
+    assert [(d["kind"], d["draft_locs"]) for d in drift] == [
+        ("window", ["docs/studies/principal/writing/paper.md:1"])
+    ]
 
 
 def test_protocol_propagate_from_pj_root_uses_the_single_scope(tmp_path: Path) -> None:

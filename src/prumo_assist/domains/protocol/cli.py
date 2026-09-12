@@ -48,13 +48,22 @@ def diff_command(
     path: Annotated[Path, typer.Argument(help=_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Compara ``picot.toml`` atual contra snapshot do último ADR ``picot-v<N>``."""
+    """Compara ``picot.toml`` atual contra snapshot do último ADR ``picot-v<N>`` e
+    reporta drift dos drafts de ``writing/`` contra protocolo/PICOT (um ``.md`` em
+    ``path`` restringe a esse draft)."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         scope = pj_layout.find_scope_root(path.resolve())
+        draft = path.resolve() if path.suffix == ".md" and path.is_file() else None
+        drift = [asdict(d) for d in ops.manuscript_drift(scope, draft=draft)]
+        for d in drift:
+            console.warn(
+                f"drift {d['kind']}: protocolo {d['protocol_value']} ({d['protocol_loc']}) "
+                f"≠ draft {d['draft_value']} ({', '.join(d['draft_locs'])}). {d['hint']}"
+            )
         diff = ops.diff_against_last_adr(scope)
         if diff is None:
             console.warn("`.claude/picot.toml` não encontrado.")
-            console.emit({"changes": [], "has_structural": False, "missing": True})
+            console.emit({"changes": [], "has_structural": False, "missing": True, "drift": drift})
             return
         if not diff.changes:
             console.success("Sem mudanças desde o último ADR (ou sem baseline).")
@@ -71,6 +80,7 @@ def diff_command(
             {
                 "changes": [_change_to_dict(c) for c in diff.changes],
                 "has_structural": diff.has_structural,
+                "drift": drift,
             }
         )
 
