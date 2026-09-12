@@ -4,12 +4,12 @@ description: "Simula revisão crítica de draft acadêmico (paper, capítulo, gr
 argument-hint: "<draft-path> [--critical-only] [--section NAME] [--venue NEJM|Lancet|JAMA|Nature-Medicine|Radiology|MICCAI|NeurIPS]"
 allowed-tools: Read Glob Grep Bash(prumo validate *) Agent
 prumo:
-  version: 1.3.0
+  version: 1.4.0
   guidelines_reviewed: "2026-05-30"
   schema: PeerReviewReport/v1
   determinism: agentic
   agent_compat: [claude-code]
-  cost_estimate: ~5-15k tokens (depende do tamanho do draft)
+  cost_estimate: ~10-25k tokens (dois passes do reviewer; depende do tamanho do draft)
   inputs:
     draft_path: required
     critical_only: optional
@@ -89,9 +89,17 @@ Preencha só: `draft_path` (absoluto), `guidelines_path` (absoluto de
 [`../references/reporting-guidelines.md`](../references/reporting-guidelines.md)),
 `draft_genre` (passo 1) e, se pedidos, `section`, `venue`, `critical_only`.
 
+Na mesma mensagem, despache em paralelo um segundo `reviewer` com os mesmos
+caminhos e `pass: adversarial` (advogado do diabo: ataca só o argumento
+central). Pule esse passe com `--section`, que não expõe o argumento inteiro.
+Ao voltar, junte os achados dele no relatório principal: acrescente a
+`critical_weaknesses` e `claims_without_evidence` só o que não repete achado
+existente (mesma seção e mesma ideia); se ele mostrar que a conclusão não se
+sustenta, reavalie `recommendation`. Valide o relatório já juntado.
+
 ### 3. Validar o contrato
 
-Com o CLI disponível (`prumo --version`), valide o JSON devolvido:
+Com o CLI disponível (`prumo --version`), valide o JSON juntado:
 `cat <<'JSON' | prumo validate PeerReviewReport/v1 --json`. Inválido → devolva
 a mensagem ao reviewer UMA vez; na segunda falha, mostre o erro ao pesquisador
 sem completar o relatório por conta própria.
