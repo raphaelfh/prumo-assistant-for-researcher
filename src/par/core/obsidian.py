@@ -84,6 +84,39 @@ def split_frontmatter_raw(text: str) -> tuple[str, str]:
     return match.group(0), text[match.end() :]
 
 
+def set_frontmatter_key(text: str, key: str, value: Any) -> str:
+    """Grava ou substitui UMA chave de topo no frontmatter, sem re-dump do bloco.
+
+    Só as linhas da chave ``key`` (e suas continuações indentadas ou de lista)
+    são reescritas, com o valor renderizado por ``yaml.safe_dump``; toda outra
+    linha — comentários e ordem de chaves inclusos — fica byte a byte igual
+    (ADR-0009). Chave ausente vai ao fim do bloco; sem frontmatter, o bloco é
+    criado no topo do texto.
+    """
+    rendered = yaml.safe_dump({key: value}, sort_keys=False, allow_unicode=True).rstrip("\n")
+    match = _FRONTMATTER_RE.match(text)
+    if not match:
+        return f"---\n{rendered}\n---\n\n{text}"
+    inner = match.group(1)
+    lines = inner.split("\n") if inner.strip() else []
+    start = next((i for i, ln in enumerate(lines) if ln.startswith(f"{key}:")), None)
+    if start is None:
+        lines.append(rendered)
+    else:
+        end = start + 1
+        last = end
+        while end < len(lines):
+            ln = lines[end]
+            if ln.startswith((" ", "\t", "-")):
+                last = end = end + 1
+            elif not ln.strip():
+                end += 1  # linha vazia só conta se uma continuação vier depois
+            else:
+                break
+        lines[start:last] = [rendered]
+    return text[: match.start(1)] + "\n".join(lines) + text[match.end(1) :]
+
+
 @dataclass(frozen=True)
 class SpanFragment:
     """Fragmento do mapa norm↔source (offsets absolutos, fim exclusivo).

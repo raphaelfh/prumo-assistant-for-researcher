@@ -51,10 +51,14 @@ def test_build_meta_carries_extra() -> None:
     assert m.to_dict()["extra"] == {"venue": "Nature Medicine"}
 
 
-def test_build_meta_human_reviewed_default_false() -> None:
+def test_build_meta_human_reviewed_unset_is_omitted() -> None:
     m = build_meta(schema="X/v1")
-    assert m.human_reviewed is False
-    assert m.to_dict()["human_reviewed"] is False
+    assert m.human_reviewed is None
+    assert "human_reviewed" not in m.to_dict()
+
+
+def test_build_meta_keeps_explicit_human_reviewed_false() -> None:
+    assert build_meta(schema="X/v1", human_reviewed=False).to_dict()["human_reviewed"] is False
 
 
 def test_build_meta_records_human_reviewed() -> None:

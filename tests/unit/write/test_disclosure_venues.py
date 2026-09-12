@@ -28,34 +28,63 @@ def test_perfis_empacotados_tem_fonte_e_data() -> None:
         assert prof.accessed == "2026-09-12"
 
 
-def test_icmje(tmp_path: Path) -> None:
-    disc = generate_disclosure(root=_project(tmp_path), venue="ICMJE")
-    assert disc.venue is not None and disc.venue.key == "icmje"
+@pytest.mark.parametrize(
+    ("venue", "key", "present", "absent", "placement"),
+    [
+        (
+            "ICMJE",
+            "icmje",
+            [
+                "claude-opus-4",
+                "responsibility",
+                "Complete before submitting: prompts used, where applicable.",
+            ],
+            ["between"],
+            "Placement (ICMJE Recommendations): cover letter / Acknowledgments / Methods.",
+        ),
+        (
+            "jama",
+            "jama",
+            ["between 2026-05-01 and 2026-06-15.", "tool manufacturer"],
+            [],
+            "Placement (JAMA): Methods / Acknowledgments.",
+        ),
+        (
+            "bmj",
+            "bmj",
+            ["why the tool was used"],
+            ["between"],
+            "Placement (BMJ): contributorship statement / Methods.",
+        ),
+    ],
+)
+def test_perfil_de_periodico(
+    tmp_path: Path,
+    venue: str,
+    key: str,
+    present: list[str],
+    absent: list[str],
+    placement: str,
+) -> None:
+    disc = generate_disclosure(root=_project(tmp_path), venue=venue)
+    assert disc.venue is not None and disc.venue.key == key
     en = disc.statement_en
-    assert "claude-opus-4" in en and "responsibility" in en
-    assert "Complete before submitting: prompts used, where applicable." in en
-    assert en.endswith(
-        "Placement (ICMJE Recommendations): cover letter / Acknowledgments / Methods."
-    )
+    for text in present:
+        assert text in en
+    for text in absent:
+        assert text not in en
+    assert en.endswith(placement)
     assert en.count("Placement") == 1
 
 
-def test_jama(tmp_path: Path) -> None:
-    disc = generate_disclosure(root=_project(tmp_path), venue="jama")
-    en = disc.statement_en
-    assert "between 2026-05-01 and 2026-06-15." in en
-    assert "tool manufacturer" in en
-    assert en.endswith("Placement (JAMA): Methods / Acknowledgments.")
-    assert "Local (JAMA): Métodos / Agradecimentos." in disc.statement_pt
-    assert "entre 2026-05-01 e 2026-06-15." in disc.statement_pt
+def test_jama_em_portugues(tmp_path: Path) -> None:
+    pt = generate_disclosure(root=_project(tmp_path), venue="jama").statement_pt
+    assert "Local (JAMA): Métodos / Agradecimentos." in pt
+    assert "entre 2026-05-01 e 2026-06-15." in pt
 
 
-def test_bmj(tmp_path: Path) -> None:
+def test_bmj_exige_autoria_humana(tmp_path: Path) -> None:
     disc = generate_disclosure(root=_project(tmp_path), venue="bmj")
-    en = disc.statement_en
-    assert "between" not in en
-    assert "why the tool was used" in en
-    assert en.endswith("Placement (BMJ): contributorship statement / Methods.")
     assert disc.venue is not None and "author" in disc.venue.authorship
 
 
@@ -76,29 +105,38 @@ def test_sem_venue_saida_identica_a_de_hoje(tmp_path: Path) -> None:
     assert "\n" not in disc.statement_en
 
 
+_VALID_PROFILE = {
+    "name": '"X"',
+    "source_url": '"https://x.org"',
+    "accessed": '"2026-09-12"',
+    "required": '["tool"]',
+    "placement": '["methods"]',
+    "authorship": '"no"',
+}
+
+
+def _profile_toml(**overrides: str | None) -> str:
+    fields = {**_VALID_PROFILE, **overrides}
+    body = "\n".join(f"{k} = {v}" for k, v in fields.items() if v is not None)
+    return f"[venues.x]\n{body}\n"
+
+
+def test_perfil_valido_carrega() -> None:
+    assert set(load_venue_profiles(_profile_toml())) == {"x"}
+
+
 @pytest.mark.parametrize("missing", ["source_url", "accessed"])
 def test_perfil_sem_fonte_ou_data_falha(missing: str) -> None:
-    lines = {
-        "name": 'name = "X"',
-        "source_url": 'source_url = "https://x.org"',
-        "accessed": 'accessed = "2026-09-12"',
-        "required": 'required = ["tool"]',
-        "placement": 'placement = ["methods"]',
-        "authorship": 'authorship = "no"',
-    }
-    del lines[missing]
-    body = "\n".join(lines.values())
     with pytest.raises(PrumoError, match="source_url e accessed"):
-        load_venue_profiles(f"[venues.x]\n{body}\n")
+        load_venue_profiles(_profile_toml(**{missing: None}))
 
 
-def test_elemento_desconhecido_falha() -> None:
-    text = (
-        '[venues.x]\nname = "X"\nsource_url = "https://x.org"\naccessed = "2026-09-12"\n'
-        'required = ["horoscope"]\nplacement = ["methods"]\nauthorship = "no"\n'
-    )
+@pytest.mark.parametrize(
+    ("field", "value"), [("required", '["horoscope"]'), ("placement", '["horoscope"]')]
+)
+def test_chave_desconhecida_falha(field: str, value: str) -> None:
     with pytest.raises(PrumoError, match="horoscope"):
-        load_venue_profiles(text)
+        load_venue_profiles(_profile_toml(**{field: value}))
 
 
 def test_cli_venue(tmp_path: Path) -> None:

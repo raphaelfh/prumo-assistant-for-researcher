@@ -53,7 +53,8 @@ class Meta:
     model: str | None = None
     input_hash: str | None = None
     cost_usd: float | None = None
-    human_reviewed: bool = False
+    # ``None`` = não declarado: omitido do ``_meta`` para não sombrear a flag humana.
+    human_reviewed: bool | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -71,7 +72,7 @@ def build_meta(
     input_hash: str | None = None,
     cost_usd: float | None = None,
     run_id: str | None = None,
-    human_reviewed: bool = False,
+    human_reviewed: bool | None = None,
     extra: dict[str, Any] | None = None,
 ) -> Meta:
     """Helper para construir ``Meta`` com defaults sensatos."""

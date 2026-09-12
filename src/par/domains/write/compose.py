@@ -26,7 +26,7 @@ from par.core import pj_layout
 from par.core.bib import extract_field, extract_year, parse_bib
 from par.core.citations import scan_citekeys
 from par.core.note_paths import extract_path
-from par.core.obsidian import split_frontmatter
+from par.core.obsidian import set_frontmatter_key
 from par.core.paths import find_resource
 from par.core.provenance import build_meta
 from par.core.skills import SkillManifest, load_skill_registry
@@ -355,14 +355,13 @@ def write_output(
 
 
 def _stamp_meta(text: str, skill: str) -> str:
-    """Grava ``_meta`` (Princípio V) no frontmatter; demais chaves e corpo preservados.
+    """Grava ``_meta`` (Princípio V) no frontmatter; demais linhas e corpo preservados.
 
-    A chave ``_meta`` é machine-owned; o corpo humano fica intacto (ADR-0009).
+    A chave ``_meta`` é machine-owned; comentários, ordem de chaves e corpo
+    humanos ficam byte a byte intactos (ADR-0009).
     """
-    fm, body = split_frontmatter(text)
-    fm["_meta"] = build_meta(schema="WriteOutput/v1", skill=skill).to_dict()
-    head = yaml.safe_dump(fm, sort_keys=False, allow_unicode=True).strip()
-    return f"---\n{head}\n---\n\n{body}"
+    meta = build_meta(schema="WriteOutput/v1", skill=skill).to_dict()
+    return set_frontmatter_key(text, "_meta", meta)
 
 
 def extract_missing_refs(text: str) -> list[str]:
