@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from prumo_assist.domains.protocol.drift import Drift
 from prumo_assist.domains.protocol.ops import (
     AdrResult,
     InitResult,
@@ -10,6 +11,7 @@ from prumo_assist.domains.protocol.ops import (
     detect_mode,
     diff_against_last_adr,
     init_picot_spec,
+    manuscript_drift,
     propagate,
 )
 from prumo_assist.domains.protocol.picot_io import (
@@ -22,6 +24,7 @@ from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 __all__ = [
     "AdrResult",
+    "Drift",
     "Hypothesis",
     "InitResult",
     "PicotSpec",
@@ -30,6 +33,7 @@ __all__ = [
     "detect_mode",
     "diff_against_last_adr",
     "init_picot_spec",
+    "manuscript_drift",
     "picot_hash",
     "picot_path",
     "propagate",

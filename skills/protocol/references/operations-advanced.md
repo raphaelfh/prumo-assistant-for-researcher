@@ -34,6 +34,11 @@ Captura o JSON da última linha. Campos relevantes:
 
 - ``changes`` (lista) — pode estar vazia.
 - ``has_structural`` (bool) — distingue mudança estrutural de cosmética.
+- ``drift`` (lista) — fatos do draft em ``writing/`` que contradizem
+  ``protocol.md``/PICOT (janela de coleta, ``n``, testes nomeados,
+  pré-especificação de subgrupos), com ``protocol_loc``, ``draft_loc`` e ``hint``.
+  Passe o caminho de um ``.md`` para checar só esse draft. Mostre cada item ao
+  usuário; nunca edite o manuscrito por conta própria.
 
 ### Passo 2. Decidir caminho
 
