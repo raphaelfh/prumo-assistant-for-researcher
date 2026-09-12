@@ -24,7 +24,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from par import PrumoError
-from par.core.obsidian import split_frontmatter
+from par.core.markdown import split_frontmatter
 from par.core.paths import find_resource
 from par.core.provenance import now_utc
 from par.core.skills import SkillRegistry, load_skill_registry

@@ -229,10 +229,9 @@ def test_init_generates_zettlr_profile(tmp_path: Path) -> None:
 
 
 def test_init_scaffold_is_pandoc_pure(tmp_path: Path) -> None:
-    """pj_base v2: sem vault Obsidian e sem sintaxe Obsidian nos .md."""
+    """pj_base v2: scaffold Pandoc puro, sem sintaxe de wiki legada nos .md."""
     target = tmp_path / "pj_demo"
     assert runner.invoke(app, ["init", str(target), "--json"]).exit_code == 0
-    assert not (target / ".obsidian").exists()
     assert not (target / "docs" / "references" / "views").exists()
     assert not (target / "docs" / "canvas").exists()
     offenders: list[str] = []

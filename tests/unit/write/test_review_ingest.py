@@ -31,7 +31,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from par.core.obsidian import normalize_markdown_with_map
+from par.core.markdown import normalize_markdown_with_map
 from par.domains.write import review
 from par.domains.write.export import slugify
 from par.domains.write.review import (
@@ -251,7 +251,7 @@ def test_ingest_happy_path_preserves_frontmatter_in_review_md(
 ) -> None:
     """Frontmatter da página sobrevive em `review.md` BYTE A BYTE (Fix
     pós-review, achado Crítico 1 — `_compose_page` nunca faz
-    `yaml.safe_dump`; write-back usa `core.obsidian.split_frontmatter_raw`),
+    `yaml.safe_dump`; write-back usa `core.markdown.split_frontmatter_raw`),
     inclusive comentário YAML e espaçamento incomum que um reserialize
     destruiria."""
     prefix = "Frase inicial da pagina de teste completo"

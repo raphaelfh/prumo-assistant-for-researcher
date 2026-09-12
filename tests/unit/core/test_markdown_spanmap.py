@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from itertools import pairwise
 
-from par.core.obsidian import SpanFragment, normalize_markdown, normalize_markdown_with_map
+from par.core.markdown import SpanFragment, normalize_markdown, normalize_markdown_with_map
 
 
 def _check_invariants(source: str, norm: str, frags: list[SpanFragment]) -> None:

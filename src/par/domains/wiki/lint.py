@@ -42,7 +42,7 @@ import yaml
 from par.core import pj_layout
 from par.core.bib import parse_bib
 from par.core.citations import body_lines, scan_marked_citekeys
-from par.core.obsidian import split_frontmatter
+from par.core.markdown import split_frontmatter
 from par.domains.wiki.stats_check import stat_mismatches
 
 # Subdiretórios do ESCOPO onde frontmatter é esperado — não é mais taxonomia

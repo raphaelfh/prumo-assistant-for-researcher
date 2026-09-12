@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 import par.domains.write.export as export_mod
-from par.core.obsidian import SpanFragment, normalize_markdown_with_map, split_frontmatter
+from par.core.markdown import SpanFragment, normalize_markdown_with_map, split_frontmatter
 from par.core.pj_layout import PjRootNotFoundError
 from par.domains.write.errors import WriteError
 from par.domains.write.export import (
