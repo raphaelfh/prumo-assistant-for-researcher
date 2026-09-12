@@ -140,7 +140,11 @@ def _guide_title(path: Path) -> str:
     if title != "—":
         return title
     h1 = next(
-        (ln[2:].strip() for ln in path.read_text(encoding="utf-8").splitlines() if ln.startswith("# ")),
+        (
+            ln[2:].strip()
+            for ln in path.read_text(encoding="utf-8").splitlines()
+            if ln.startswith("# ")
+        ),
         None,
     )
     return h1 or "—"
