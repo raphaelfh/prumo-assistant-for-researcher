@@ -427,3 +427,38 @@ def test_stale_guideline_warnings_olha_os_modos(tmp_path: Path) -> None:
     reg, _ = load_skill_registry(tmp_path)
     out = stale_guideline_warnings(reg, today=date(2026, 9, 12))
     assert len(out) == 1 and "review critique" in out[0]
+
+
+# ---------------------------------------------------------------------------
+# Subcomando ausente = sem CLI (CLI global mais antigo que o plugin, 2026-09-12)
+# ---------------------------------------------------------------------------
+
+_REPO_SKILLS = Path(__file__).resolve().parents[3] / "skills"
+
+
+def _bodies_calling(subcommand: str) -> dict[str, str]:
+    """Corpo (sem frontmatter) de cada skill/modo real que manda rodar ``subcommand``."""
+    reg, _ = load_skill_registry(_REPO_SKILLS, strict=True)
+    bodies = {name: reg.get(name).body for name in reg.names()}
+    bodies |= {ref.slug: mode.body for ref, mode in reg.iter_modes()}
+    return {slug: body for slug, body in bodies.items() if subcommand in body}
+
+
+@pytest.mark.parametrize(
+    ("subcommand", "expected"),
+    [
+        ("prumo validate", {"paper/support", "review/critique"}),
+        ("prumo status", {"start"}),
+    ],
+)
+def test_subcomando_recente_tem_fallback_de_subcomando_ausente(
+    subcommand: str, expected: set[str]
+) -> None:
+    """`prumo --version` passar não garante o subcomando: CLI 0.67.2 não tem `validate`."""
+    callers = _bodies_calling(subcommand)
+    assert set(callers) == expected
+    missing = subcommand.split()[1]
+    for slug, body in callers.items():
+        assert f"No such command '{missing}'" in body, slug
+        assert "uv tool upgrade prumo-assist" in body, slug
+        assert "consentimento" in body, slug

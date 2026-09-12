@@ -65,6 +65,12 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Corrigido
 
+- **Subcomando ausente conta como "sem CLI"** em `review critique`, `paper support` e `start`.
+  Com o CLI global antigo (0.67.2), `prumo --version` respondia e `prumo validate` falhava
+  com `No such command`, e os modos não diziam o que fazer. Agora eles checam os campos e
+  enumerações do contrato à mão (critique e support) ou seguem sem `next` (start), e
+  oferecem uma vez `uv tool upgrade prumo-assist`, com consentimento. O preflight gerado
+  da ADR-0019 não muda.
 - **Installer copiava só o `SKILL.md`.** `references/` e `examples/` do `peer-review` nunca
   chegavam ao `.claude/skills/` do projeto; agora a árvore da skill vai inteira.
 - **Toda entrada de finding no `_log.md` caía em `broken_log_prefix`.** `archive_as_finding`
