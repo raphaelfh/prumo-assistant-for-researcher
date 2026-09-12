@@ -12,6 +12,7 @@ schemas de mais de um domínio.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -20,7 +21,9 @@ from prumo_assist import PrumoError
 from prumo_assist.domains.paper.schemas.v1 import PaperCallout, SupportReport
 from prumo_assist.domains.write.schemas.v1 import PeerReviewReport
 
-__all__ = ["CONTRACTS", "validate_contract"]
+__all__ = ["CONTRACTS", "QUOTE_MAX_WORDS", "validate_contract"]
+
+QUOTE_MAX_WORDS = 25
 
 CONTRACTS: dict[str, type[BaseModel]] = {
     "PaperCallout/v1": PaperCallout,
@@ -42,7 +45,7 @@ def validate_contract(name: str, payload: dict[str, Any]) -> dict[str, Any]:
             f"contrato '{name}' desconhecido. Conhecidos: {', '.join(sorted(CONTRACTS))}."
         )
     try:
-        return model.model_validate(payload).model_dump(mode="json")
+        obj = model.model_validate(payload)
     except ValidationError as exc:
         erros = "; ".join(
             f"{'.'.join(str(p) for p in err['loc']) or '(raiz)'}: {err['msg'].rstrip('.')}"
@@ -52,3 +55,44 @@ def validate_contract(name: str, payload: dict[str, Any]) -> dict[str, Any]:
             f"JSON não valida contra {name}: {erros}. Corrija esses campos e valide de novo "
             f"com `prumo validate {name}`."
         ) from exc
+    if isinstance(obj, PeerReviewReport):
+        _check_quotes(obj)
+    return obj.model_dump(mode="json")
+
+
+def _normalize(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _check_quotes(report: PeerReviewReport) -> None:
+    """Confere cada ``quote`` contra o texto de ``draft_path`` (Princípio II).
+
+    Regras: no máximo ``QUOTE_MAX_WORDS`` palavras e substring literal do draft,
+    com espaços normalizados. Sem nenhum ``quote``, o draft nem é lido.
+    """
+    items: list[tuple[str, str, str]] = [
+        (f"{field}.{i}", item.section, item.quote)
+        for field in ("critical_weaknesses", "minor_weaknesses", "claims_without_evidence")
+        for i, item in enumerate(getattr(report, field))
+        if item.quote is not None
+    ]
+    if not items:
+        return
+    fix = "Corrija e valide de novo com `prumo validate PeerReviewReport/v1`."
+    path = Path(report.draft_path).expanduser()
+    try:
+        draft = _normalize(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError) as exc:
+        raise PrumoError(
+            f"não consegui ler draft_path '{report.draft_path}' para conferir os quotes "
+            f"({exc.__class__.__name__}). Passe o caminho absoluto do draft. {fix}"
+        ) from exc
+    erros: list[str] = []
+    for loc, section, quote in items:
+        norm = _normalize(quote)
+        if len(norm.split()) > QUOTE_MAX_WORDS:
+            erros.append(f"{loc} (seção '{section}'): quote passa de {QUOTE_MAX_WORDS} palavras")
+        elif norm not in draft:
+            erros.append(f"{loc} (seção '{section}'): quote não é literal do draft: \"{quote}\"")
+    if erros:
+        raise PrumoError(f"quotes inválidos em PeerReviewReport/v1: {'; '.join(erros)}. {fix}")
