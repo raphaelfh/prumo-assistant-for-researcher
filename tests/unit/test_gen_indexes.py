@@ -274,3 +274,10 @@ def test_julgamento_puro_mantem_a_cascata_em_prosa(gen: ModuleType, registry: An
     body = gen.render_prose(manifest)
     assert "Resolva nesta ordem" in body
     assert "prumo write prep" not in body
+
+
+def test_kb_index_lista_os_guias_de_docs(gen: ModuleType) -> None:
+    """Página nova em docs/ entra no catálogo gerado, sem edição à mão."""
+    body = gen.render_kb_index()
+    assert "- [[positioning]] · Posicionamento e claims do prumo-assist" in body
+    assert "[[_index]]" not in body
