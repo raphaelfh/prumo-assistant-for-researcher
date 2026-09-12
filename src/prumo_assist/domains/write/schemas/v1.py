@@ -222,12 +222,18 @@ class ReviewWeakness(BaseModel):
     section: str = Field(..., min_length=1)
     point: str = Field(..., min_length=1)
     fix: str = Field(..., min_length=1)
+    quote: str | None = Field(
+        default=None, description="Trecho literal do draft (≤25 palavras); conferido no validate."
+    )
 
 
 class UnsupportedClaim(BaseModel):
     section: str = Field(..., min_length=1)
     claim: str = Field(..., min_length=1)
     where_to_find_evidence_or_remove: str = Field(..., min_length=1)
+    quote: str | None = Field(
+        default=None, description="Trecho literal do draft (≤25 palavras); conferido no validate."
+    )
 
 
 class SectionSuggestion(BaseModel):
@@ -250,3 +256,6 @@ class PeerReviewReport(BaseModel):
     claims_without_evidence: list[UnsupportedClaim] = Field(default_factory=list)
     suggestions_by_section: list[SectionSuggestion] = Field(default_factory=list)
     mental_model_applied: MentalModel
+    sources_read: list[str] = Field(
+        default_factory=list, description="Arquivos lidos além do draft e do guideline."
+    )

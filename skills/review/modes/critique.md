@@ -102,7 +102,8 @@ instalado é mais antigo que o plugin) — confira à mão (este modo roda sem o
 `schema_version` = `PeerReviewReport/v1`; `draft_path`, `thesis_in_one_sentence`
 e `executive_summary` não vazios; `recommendation` ∈ `accept|minor|major|reject`;
 `draft_genre` e `mental_model_applied` nos valores de `agents/reviewer.md`; toda
-fraqueza com `section`, `point` e `fix`. Falhou → mesma regra de uma devolução ao
+fraqueza com `section`, `point` e `fix`; todo `quote` com até 25 palavras e achado
+literalmente no draft (Grep). Falhou → mesma regra de uma devolução ao
 reviewer. Se foi subcomando ausente, diga ao pesquisador UMA vez que
 `uv tool upgrade prumo-assist` traz a validação e rode SÓ com consentimento; a
 revisão não espera por isso.
@@ -117,11 +118,13 @@ Imprima uma versão markdown legível do JSON validado, nesta ordem:
 1. **Resumo executivo** (3-5 linhas): tese identificada, recomendação geral
    (`accept | minor | major | reject`), top-3 issues a endereçar antes de submeter.
 2. **Forças** (3-5 bullets concretos).
-3. **Fraquezas críticas** (issues que impedem aceitação), cada uma com o fix.
-4. **Fraquezas menores**, cada uma com o fix.
-5. **Claims sem evidência** (lista citando seção/parágrafo).
+3. **Fraquezas críticas** (issues que impedem aceitação), cada uma com o `quote`
+   (quando houver) e o fix.
+4. **Fraquezas menores**, idem.
+5. **Claims sem evidência** (seção e `quote`).
 6. **Sugestões por seção**.
 7. **Mental model aplicado**.
+8. **Fontes lidas pelo reviewer** (`sources_read`), uma vez, se não vazio.
 
 ## O que NÃO fazer
 
