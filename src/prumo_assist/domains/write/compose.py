@@ -27,6 +27,7 @@ from prumo_assist.core.bib import extract_field, extract_year, parse_bib
 from prumo_assist.core.citations import scan_citekeys
 from prumo_assist.core.note_paths import extract_path
 from prumo_assist.core.paths import find_resource
+from prumo_assist.core.skills import SkillManifest, load_skill_registry
 from prumo_assist.domains.write.errors import WriteError
 from prumo_assist.domains.write.schemas.v1 import (
     ComposeInputs,
@@ -65,24 +66,26 @@ class WritePrep:
     language_source: str
 
 
-def locale_lock(kind: WriteKind) -> str | None:
-    """Trava de idioma declarada por ``skills/write-<kind>/SKILL.md``, se houver.
+def _mode_for_kind(kind: WriteKind) -> SkillManifest | None:
+    """Modo que declara ``prumo.write_kind == kind``, lido do bundle de skills.
 
-    Fonte única é o manifesto — o mesmo diretório de onde sai o template. Um mapa
-    ``kind -> locale`` aqui seria a segunda fonte, que é exatamente como o
-    ponteiro de template divergiu antes (ver ``template_candidates``).
-    ``None`` quando o bundle de skills não está resolvível (é opcional) ou quando
-    a skill não declara trava.
+    Fonte única é o frontmatter do modo (``skills/<skill>/modes/<modo>.md``) — o
+    mesmo lugar de onde saem o template e a trava de idioma. Um mapa
+    ``kind -> skill`` aqui seria a segunda fonte, que é exatamente como o ponteiro
+    de template divergiu antes. ``None`` quando o bundle não está resolvível (é
+    opcional) ou quando nenhum modo declara o ``kind``.
     """
-    from prumo_assist.core.skills import parse_skill_file
-
     skills_root = find_resource("skills")
     if skills_root is None:
         return None
-    manifest_path = skills_root / f"write-{kind}" / "SKILL.md"
-    if not manifest_path.is_file():
-        return None
-    return parse_skill_file(manifest_path).locale_lock
+    registry, _ = load_skill_registry(skills_root, strict=False)
+    return next((m for _, m in registry.iter_modes() if m.write_kind == kind), None)
+
+
+def locale_lock(kind: WriteKind) -> str | None:
+    """Trava de idioma declarada pelo modo de escrita de ``kind``, se houver."""
+    mode = _mode_for_kind(kind)
+    return mode.locale_lock if mode else None
 
 
 def resolve_language(pj_path: Path, *, kind: WriteKind, lang: str | None = None) -> tuple[str, str]:
@@ -231,14 +234,14 @@ def template_candidates(*, pj_path: Path, kind: WriteKind) -> dict[str, Path | N
     """Candidatos a template de ``kind``, na ordem da chain (override > plugin).
 
     Fonte única dos caminhos: ``resolve_template`` escolhe o primeiro que existe e
-    ``write list-templates`` reporta os dois. Sem isto, o relatório do CLI diverge
-    da resolução real — foi o que aconteceu quando os templates migraram para
-    ``skills/write-<kind>/template.md``.
+    ``write list-templates`` reporta os dois. O default do plugin mora ao lado do
+    modo que declara o ``kind``: ``skills/<skill>/templates/<modo>.md``.
     """
-    skills_root = find_resource("skills")
+    mode = _mode_for_kind(kind)
+    plugin_default = mode.path.parent.parent / "templates" / f"{mode.name}.md" if mode else None
     return {
         "project_override": pj_path / ".claude" / "writing_templates" / f"{kind}.md",
-        "plugin_default": (skills_root / f"write-{kind}" / "template.md" if skills_root else None),
+        "plugin_default": plugin_default,
     }
 
 

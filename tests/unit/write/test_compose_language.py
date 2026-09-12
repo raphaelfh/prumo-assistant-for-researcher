@@ -70,4 +70,11 @@ def test_prep_carrega_idioma_junto_do_template(tmp_path: Path) -> None:
     result = prep(tmp_path, kind="paper")
     assert result.language == "pt-BR"
     assert result.language_source == "pj_config"
-    assert result.template_path.name == "template.md"
+    assert result.template_path.name == "manuscript.md"
+
+
+def test_locale_lock_vem_do_modo() -> None:
+    from prumo_assist.domains.write.compose import locale_lock
+
+    assert locale_lock("projeto-cep") == "pt-BR"
+    assert locale_lock("paper") is None
