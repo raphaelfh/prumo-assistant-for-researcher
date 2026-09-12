@@ -15,6 +15,9 @@ Como a fonte canônica já está nesse formato, "instalar" é essencialmente:
 A árvore vai inteira: ``modes/``, ``references/``, ``examples/`` e ``templates/``
 são lidos pelo agente a partir do ``SKILL.md`` (spec de superfície por domínio).
 
+Os subagents do plugin (``agents/*.md``) vão para ``pj_x/.claude/agents/``, onde o
+Claude Code os registra como subagents do projeto (ADR-0033).
+
 Esse adapter é deliberadamente fino. Quando Cursor/Codex/Gemini entrarem,
 eles transformam o ``SKILL.md`` no formato deles (TOML, custom rules, ...);
 Claude Code é cópia direta porque nascemos no formato dele.
@@ -26,6 +29,7 @@ import shutil
 from pathlib import Path
 
 from prumo_assist import IntegrationError
+from prumo_assist.core.paths import find_resource
 from prumo_assist.core.skills import SkillRegistry
 from prumo_assist.integrations.base import BaseIntegration, InstallReport
 
@@ -50,6 +54,16 @@ class ClaudeCodeIntegration(BaseIntegration):
                 installed.append(name)
             except OSError as e:
                 skipped.append((name, f"erro de escrita: {e}"))
+
+        agents_src = find_resource("agents")
+        if agents_src is not None:
+            agents_root = target_dir / ".claude" / "agents"
+            try:
+                agents_root.mkdir(parents=True, exist_ok=True)
+                for agent in sorted(agents_src.glob("*.md")):
+                    shutil.copy2(agent, agents_root / agent.name)
+            except OSError as e:
+                skipped.append(("agents", f"erro de escrita: {e}"))
 
         return InstallReport(
             integration=self.name,

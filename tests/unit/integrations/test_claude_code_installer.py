@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from prumo_assist.core.skills import load_skill_registry
 from prumo_assist.integrations.claude_code.installer import ClaudeCodeIntegration
 
@@ -43,3 +45,24 @@ def test_reinstalar_sobrescreve_sem_erro(tmp_path: Path) -> None:
     assert report.installed == ["start"]
     installed = tmp_path / "pj" / ".claude" / "skills" / "start" / "SKILL.md"
     assert installed.read_text(encoding="utf-8").endswith("v2\n")
+
+
+def test_install_copia_agents_para_claude_agents(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "reader.md").write_text("---\nname: reader\n---\ncorpo\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "prumo_assist.integrations.claude_code.installer.find_resource",
+        lambda name: agents if name == "agents" else None,
+    )
+    registry, _ = load_skill_registry(tmp_path / "sem-skills")
+
+    ClaudeCodeIntegration().install(tmp_path / "pj", registry)
+
+    assert (
+        (tmp_path / "pj" / ".claude" / "agents" / "reader.md")
+        .read_text(encoding="utf-8")
+        .endswith("corpo\n")
+    )
