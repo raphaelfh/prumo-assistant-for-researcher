@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 _MONTHS: dict[str, str] = {
     "janeiro": "01", "january": "01",
@@ -69,14 +69,30 @@ class SourceText:
 
 @dataclass(frozen=True)
 class Drift:
-    """Um fato que diverge entre o lado protocolo e o draft, reportado uma vez."""
+    """Um fato que o draft afirma contra o protocolo; reportado uma vez, com todas as
+    localizações nos drafts."""
 
     kind: str
     protocol_value: str
     draft_value: str
     protocol_loc: str
-    draft_loc: str
+    draft_locs: tuple[str, ...]
     hint: str
+
+
+def merge_drift(drifts: Iterable[Drift]) -> list[Drift]:
+    """Funde drifts iguais em ``(kind, protocol_value, draft_value)``, somando as
+    localizações dos drafts na ordem de aparição."""
+    merged: dict[tuple[str, str, str], Drift] = {}
+    for d in drifts:
+        key = (d.kind, d.protocol_value, d.draft_value)
+        prev = merged.get(key)
+        if prev is None:
+            merged[key] = d
+        else:
+            locs = prev.draft_locs + tuple(x for x in d.draft_locs if x not in prev.draft_locs)
+            merged[key] = replace(prev, draft_locs=locs)
+    return list(merged.values())
 
 
 def windows(line: str) -> list[Window]:
@@ -111,14 +127,12 @@ def _scan(sources: Iterable[SourceText]) -> Iterator[tuple[str, str]]:
 
 def _collect(
     sources: Iterable[SourceText],
-) -> tuple[dict[Window, str], dict[str, str], dict[str, str], dict[bool, str], str]:
+) -> tuple[dict[Window, str], dict[str, str], dict[str, str], dict[bool, str]]:
     wins: dict[Window, str] = {}
     ns: dict[str, str] = {}
     tests: dict[str, str] = {}
     prespec: dict[bool, str] = {}
-    text_parts: list[str] = []
     for loc, line in _scan(sources):
-        text_parts.append(line)
         for w in windows(line):
             wins.setdefault(w, loc)
         for m in _N_RE.finditer(line):
@@ -128,15 +142,18 @@ def _collect(
         polarity = prespec_polarity(line)
         if polarity is not None:
             prespec.setdefault(polarity, loc)
-    return wins, ns, tests, prespec, "\n".join(text_parts)
+    return wins, ns, tests, prespec
 
 
 def find_drift(protocol_sources: list[SourceText], draft: SourceText) -> list[Drift]:
-    """Compara os fatos do lado protocolo (``protocol.md`` antes de ``picot.toml``) com o draft."""
-    p_wins, p_ns, p_tests, p_pre, _ = _collect(protocol_sources)
-    d_wins, _, d_tests, d_pre, d_text = _collect([draft])
+    """Compara os fatos do lado protocolo (``protocol.md`` antes de ``picot.toml``) com o draft.
+
+    Ausência não é drift: só o que o draft afirma (janela, ``n=``, testes nomeados,
+    pré-especificação) é comparado.
+    """
+    p_wins, p_ns, p_tests, p_pre = _collect(protocol_sources)
+    d_wins, d_ns, d_tests, d_pre = _collect([draft])
     out: list[Drift] = []
-    draft_file = draft.label
 
     if p_wins:
         p_first = next(iter(p_wins))
@@ -144,18 +161,23 @@ def find_drift(protocol_sources: list[SourceText], draft: SourceText) -> list[Dr
         for w, loc in d_wins.items():
             if w not in p_wins:
                 out.append(Drift(
-                    "window", allowed, _fmt_window(w), p_wins[p_first], loc,
+                    "window", allowed, _fmt_window(w), p_wins[p_first], (loc,),
                     "Janela de coleta diverge do protocolo: corrija o draft ou, se o "
                     "protocolo mudou, atualize a PICOT e rode `prumo protocol propagate`.",
                 ))  # fmt: skip
 
-    for n, loc in p_ns.items():
-        if not re.search(rf"(?<![\d.,]){n}(?![\d]|[.,]\d)", d_text):
-            out.append(Drift(
-                "sample_size", f"n={n}", "(ausente)", loc, draft_file,
-                f"O protocolo declara n={n} e o draft não cita esse número: confira "
-                "o fluxo de participantes nos Métodos/Resultados.",
-            ))  # fmt: skip
+    if p_ns:
+        p_first_n = next(iter(p_ns.values()))
+        allowed_n = " ou ".join(f"n={n}" for n in p_ns)
+        max_n = max(int(n) for n in p_ns)
+        for n, loc in d_ns.items():
+            # n menor é subgrupo/denominador de item; só total acima do protocolo contradiz.
+            if int(n) > max_n:
+                out.append(Drift(
+                    "sample_size", allowed_n, f"n={n}", p_first_n, (loc,),
+                    f"O draft declara n={n}, fora dos tamanhos do protocolo: confira o "
+                    "fluxo de participantes ou atualize a PICOT (`prumo protocol propagate`).",
+                ))  # fmt: skip
 
     if p_tests and d_tests:
         d_any = next(iter(d_tests.values()))
@@ -163,14 +185,14 @@ def find_drift(protocol_sources: list[SourceText], draft: SourceText) -> list[Dr
         for t, loc in p_tests.items():
             if t not in d_tests:
                 out.append(Drift(
-                    "test", t, "(ausente)", loc, d_any,
+                    "test", t, "(ausente)", loc, (d_any,),
                     f"Teste {t} previsto no protocolo não aparece no draft: descreva-o "
                     "nos Métodos ou justifique o desvio do plano de análise.",
                 ))  # fmt: skip
         for t, loc in d_tests.items():
             if t not in p_tests:
                 out.append(Drift(
-                    "test", "(ausente)", t, p_any, loc,
+                    "test", "(ausente)", t, p_any, (loc,),
                     f"Teste {t} usado no draft não está no protocolo: declare o desvio "
                     "do plano de análise ou atualize o SAP.",
                 ))  # fmt: skip
@@ -181,7 +203,7 @@ def find_drift(protocol_sources: list[SourceText], draft: SourceText) -> list[Dr
                 "prespecification",
                 "pré-especificado" if p_pol else "não pré-especificado",
                 "pré-especificado" if d_pol else "não pré-especificado",
-                p_pre[p_pol], d_pre[d_pol],
+                p_pre[p_pol], (d_pre[d_pol],),
                 "Draft e protocolo divergem sobre a pré-especificação dos subgrupos: "
                 "alinhe o texto ao protocolo (ou registre o desvio).",
             ))  # fmt: skip

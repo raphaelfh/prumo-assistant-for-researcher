@@ -26,7 +26,7 @@ from prumo_assist.domains.protocol.adr import (
     next_number,
 )
 from prumo_assist.domains.protocol.diff import PicotDiff, diff_picot
-from prumo_assist.domains.protocol.drift import Drift, SourceText, find_drift
+from prumo_assist.domains.protocol.drift import Drift, SourceText, find_drift, merge_drift
 from prumo_assist.domains.protocol.picot_io import (
     picot_hash,
     picot_path,
@@ -221,7 +221,9 @@ def manuscript_drift(scope: Path, draft: Path | None = None) -> list[Drift]:
         drafts = sorted(
             p for p in pj_layout.writing_dir(scope).glob("*.md") if p.name != "protocol.md"
         )
-    return [d for path in drafts for d in find_drift(protocol_side, _source(path, pj_root))]
+    return merge_drift(
+        d for path in drafts for d in find_drift(protocol_side, _source(path, pj_root))
+    )
 
 
 def _source(path: Path, pj_root: Path) -> SourceText:

@@ -48,13 +48,13 @@ def test_fixture_detects_three_contradictions() -> None:
     assert kinds == ["prespecification", "test", "test", "window"]
     window = next(d for d in drifts if d.kind == "window")
     assert window.protocol_loc == "protocol.md:3"
-    assert window.draft_loc == "draft.md:3"
+    assert window.draft_locs == ("draft.md:3",)
     assert "03–08/2023" in window.protocol_value and "03–07/2023" in window.draft_value
     missing = {d.protocol_value for d in drifts if d.kind == "test"}
     assert missing == {"chi-square", "cochran-armitage"}
     prespec = next(d for d in drifts if d.kind == "prespecification")
     assert prespec.protocol_loc == "protocol.md:16"
-    assert prespec.draft_loc == "draft.md:5"
+    assert prespec.draft_locs == ("draft.md:5",)
     assert all(d.hint for d in drifts)
 
 
@@ -74,13 +74,40 @@ def test_agreeing_texts_report_no_drift() -> None:
     assert find_drift([protocol], draft) == []
 
 
-def test_sample_size_absent_in_draft() -> None:
+def test_absence_is_not_drift() -> None:
+    protocol = _src(
+        "protocol.md",
+        "Coleta entre março e agosto de 2023, n=48.\n"
+        "Qui-quadrado.\nEstratificações exploratórias pré-declaradas.\n",
+    )
+    draft = _src("draft.md", "We describe perceptions of 51 records.\n")
+    assert find_drift([protocol], draft) == []
+
+
+def test_sample_size_stated_differently() -> None:
     protocol = _src("protocol.md", "n=48 no módulo sociodemográfico\n")
-    draft = _src("draft.md", "Of 51 records, 0.53 were complete.\n")
+    draft = _src("draft.md", "Subgroup (n=21).\nSociodemographic module (n = 54).\n")
     drifts = find_drift([protocol], draft)
-    assert [(d.kind, d.protocol_value, d.protocol_loc) for d in drifts] == [
-        ("sample_size", "n=48", "protocol.md:1")
-    ]
+    assert [
+        (d.kind, d.protocol_value, d.draft_value, d.protocol_loc, d.draft_locs) for d in drifts
+    ] == [("sample_size", "n=48", "n=54", "protocol.md:1", ("draft.md:2",))]
+
+
+def test_same_drift_in_several_drafts_is_reported_once(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    (pj / ".claude").mkdir(parents=True)
+    (pj / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    writing = pj / "docs" / "studies" / "principal" / "writing"
+    writing.mkdir(parents=True)
+    (writing / "protocol.md").write_text("Coleta entre março e agosto de 2023.\n")
+    (writing / "a.md").write_text("Between March and July 2023.\n")
+    (writing / "b.md").write_text("Intro.\nBetween March and July 2023.\n")
+    drifts = manuscript_drift(writing.parent)
+    assert len(drifts) == 1
+    assert drifts[0].draft_locs == (
+        "docs/studies/principal/writing/a.md:1",
+        "docs/studies/principal/writing/b.md:2",
+    )
 
 
 def test_manuscript_drift_scans_writing_drafts(tmp_path: Path) -> None:
@@ -96,5 +123,5 @@ def test_manuscript_drift_scans_writing_drafts(tmp_path: Path) -> None:
 
     drifts = manuscript_drift(scope)
     assert len(drifts) == 4
-    assert drifts[0].draft_loc.startswith("docs/studies/principal/writing/paper.md:")
+    assert drifts[0].draft_locs[0].startswith("docs/studies/principal/writing/paper.md:")
     assert manuscript_drift(scope, draft=writing / "protocol.md") == []

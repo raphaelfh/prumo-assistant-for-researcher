@@ -17,10 +17,11 @@ extraíveis sem LLM (Princípio II).
   subgrupo/estratificação (polaridade sim/não).
 - Lado protocolo = `.claude/picot.toml` (texto bruto, via `picot_path`) + `protocol.md`
   do escopo; a localização preferida é `protocol.md`.
-- Comparação, cada drift reportado uma vez com `arquivo:linha` dos dois lados e dica
-  pt-BR: janela do draft fora das janelas do protocolo; `n` do protocolo cujo número
-  não aparece no draft; teste só de um lado (só se ambos nomeiam algum teste);
-  polaridade de pré-especificação oposta.
+- Ausência não é drift: só o que o draft afirma é comparado — janela do draft fora das
+  janelas do protocolo; `n=` do draft acima do maior `n` do protocolo (menores são subgrupos); conjunto de testes
+  divergente (só se o draft nomeia algum teste); polaridade de pré-especificação oposta.
+- Cada `(fato, valor protocolo, valor draft)` sai uma vez, com `protocol_loc`, todas as
+  `draft_locs` (vários drafts fundidos) e dica pt-BR.
 - Superfície: **`prumo protocol diff`** ganha a chave `drift` no JSON e linhas no
   relatório humano. Sem flag nova: o argumento `path` já existente, quando aponta
   para um `.md`, restringe a esse draft; senão, todos os `writing/*.md` exceto

@@ -58,7 +58,7 @@ def diff_command(
         for d in drift:
             console.warn(
                 f"drift {d['kind']}: protocolo {d['protocol_value']} ({d['protocol_loc']}) "
-                f"≠ draft {d['draft_value']} ({d['draft_loc']}). {d['hint']}"
+                f"≠ draft {d['draft_value']} ({', '.join(d['draft_locs'])}). {d['hint']}"
             )
         diff = ops.diff_against_last_adr(scope)
         if diff is None:

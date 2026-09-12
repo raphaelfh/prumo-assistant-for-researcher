@@ -87,8 +87,8 @@ def test_protocol_diff_reports_manuscript_drift_for_explicit_draft(tmp_path: Pat
     assert payload["missing"] is True
     drift = payload["drift"]
     assert isinstance(drift, list)
-    assert [(d["kind"], d["draft_loc"]) for d in drift] == [
-        ("window", "docs/studies/principal/writing/paper.md:1")
+    assert [(d["kind"], d["draft_locs"]) for d in drift] == [
+        ("window", ["docs/studies/principal/writing/paper.md:1"])
     ]
 
 
