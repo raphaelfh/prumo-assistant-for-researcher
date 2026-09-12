@@ -6,7 +6,45 @@ from pathlib import Path
 
 import pytest
 
+from prumo_assist.core.obsidian import split_frontmatter
 from prumo_assist.domains.write.compose import write_output
+
+
+def test_write_output_drafts_stamps_meta_preserving_frontmatter(tmp_path: Path) -> None:
+    out = write_output(
+        content="---\ntitle: T\n---\n\n# Draft\n\nbody\n",
+        scope=tmp_path / "pj",
+        kind="paper",
+        mode="drafts",
+        date="2026-09-12",
+        slug="x",
+    )
+    fm, body = split_frontmatter(out.output_path.read_text(encoding="utf-8"))
+    assert fm["title"] == "T"
+    assert fm["_meta"]["skill"] == "write/manuscript"
+    assert fm["_meta"]["schema"] == "WriteOutput/v1"
+    assert body == "# Draft\n\nbody\n"
+    assert out.words_generated == 7
+
+
+def test_write_output_into_stamps_meta_and_keeps_human_text(tmp_path: Path) -> None:
+    target = tmp_path / "paper.md"
+    target.write_text("---\nauthor: R\n---\n\n# Paper\n\nTexto humano.\n", encoding="utf-8")
+    write_output(
+        content="gerado",
+        scope=tmp_path,
+        kind="paper",
+        mode="into",
+        section="intro",
+        date="2026-09-12",
+        slug="x",
+        into=target,
+    )
+    fm, body = split_frontmatter(target.read_text(encoding="utf-8"))
+    assert fm["author"] == "R"
+    assert fm["_meta"]["skill"] == "write/section"
+    assert "Texto humano." in body
+    assert "<!-- write:begin kind=paper section=intro -->\ngerado\n<!-- write:end -->" in body
 
 
 def test_write_output_drafts_creates_file(tmp_path: Path) -> None:
@@ -118,4 +156,4 @@ def test_write_output_out_force_overwrites(tmp_path: Path) -> None:
         out=target,
         force=True,
     )
-    assert target.read_text() == "new"
+    assert split_frontmatter(target.read_text())[1] == "new"

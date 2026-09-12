@@ -6,7 +6,7 @@ Versionamento forward-only (vN+1 lê vN; nunca remove campo).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -101,6 +101,9 @@ class CiteMapFile(BaseModel):
     bib_sha256: str
     docx_sha256: str
     occurrences: list[CiteOccurrence]
+    # Proveniência (Princípio V); gravado como ``_meta`` no JSON. Opcional: citemap
+    # antigo sem o bloco continua válido.
+    meta: dict[str, Any] | None = Field(default=None, alias="_meta")
 
 
 class AIToolUse(BaseModel):

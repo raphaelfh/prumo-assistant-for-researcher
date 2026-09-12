@@ -1,16 +1,15 @@
 """Gera declaração de uso de IA a partir da proveniência dos artefatos.
 
-Determinístico. Hoje a proveniência é heterogênea (o módulo
-``core.provenance`` existe mas ainda não está ligado em todos os produtores):
-extrações de paper gravam ``extracted_model``/``extracted_at`` em
-``references/notes/<key>/_meta.md``; findings gravam ``generator`` no
-frontmatter. Esta op colhe esses sinais (e qualquer bloco ``_meta:`` canônico
-futuro), agrega por (skill, modelo) e renderiza o parágrafo de disclosure
-exigido por periódicos e pelo EU AI Act.
+Determinístico. Lê o bloco ``_meta`` canônico (``core.provenance.build_meta``)
+que extract, findings, study e ``write draft`` gravam no frontmatter. Único
+fallback legado: ``extracted_model``/``extracted_at`` de ``_meta.md`` extraídos
+antes do carimbo (126 arquivos nos pj_* em 2026-09-12). Agrega por (skill,
+modelo) e renderiza o parágrafo de disclosure exigido por periódicos e pelo
+EU AI Act.
 
 O nome de skill gravado é canonizado pelo registry de skills antes de agregar:
-``generator: wiki-query`` (legado) e ``generator: wiki/query`` (novo) viram a
-mesma ferramenta ``prumo-assist:wiki query``, e a tarefa descrita vem do
+``wiki-query`` (legado) e ``wiki/query`` (novo) viram a mesma ferramenta
+``prumo-assist:wiki query``, e a tarefa descrita vem do
 ``prumo.disclosure_task`` do modo (Princípios I e IV).
 """
 
@@ -50,26 +49,20 @@ def _read_frontmatter(md: Path) -> dict[str, Any] | None:
 def _record_from_fm(fm: dict[str, Any]) -> ProvRecord | None:
     _raw_meta = fm.get("_meta")
     meta: dict[str, Any] = _raw_meta if isinstance(_raw_meta, dict) else {}
-    reviewed = bool(meta.get("human_reviewed", fm.get("human_reviewed", False)))
-    if meta.get("skill") or meta.get("model"):  # future canonical block
+    # A flag humana mora no frontmatter; o ``_meta`` carimbado nunca a sombreia.
+    reviewed = bool(fm.get("human_reviewed") or meta.get("human_reviewed"))
+    if meta.get("skill") or meta.get("model"):  # bloco canônico
         return ProvRecord(
             skill=str(meta.get("skill") or "prumo-assist"),
             model=str(meta["model"]) if meta.get("model") else None,
             date=str(meta["timestamp_utc"]) if meta.get("timestamp_utc") else None,
             human_reviewed=reviewed,
         )
-    if fm.get("extracted_model"):  # paper-extract note metadata
+    if fm.get("extracted_model"):  # legado: extract anterior ao carimbo
         return ProvRecord(
             skill="paper-extract",
             model=str(fm["extracted_model"]),
             date=str(fm["extracted_at"]) if fm.get("extracted_at") else None,
-            human_reviewed=reviewed,
-        )
-    if fm.get("generator"):  # finding frontmatter
-        return ProvRecord(
-            skill=str(fm["generator"]),
-            model=str(fm["model"]) if fm.get("model") else None,
-            date=str(fm["added"]) if fm.get("added") else None,
             human_reviewed=reviewed,
         )
     return None

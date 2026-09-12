@@ -26,7 +26,9 @@ from prumo_assist.core import pj_layout
 from prumo_assist.core.bib import extract_field, extract_year, parse_bib
 from prumo_assist.core.citations import scan_citekeys
 from prumo_assist.core.note_paths import extract_path
+from prumo_assist.core.obsidian import split_frontmatter
 from prumo_assist.core.paths import find_resource
+from prumo_assist.core.provenance import build_meta
 from prumo_assist.core.skills import SkillManifest, load_skill_registry
 from prumo_assist.domains.write.errors import WriteError
 from prumo_assist.domains.write.schemas.v1 import (
@@ -333,15 +335,12 @@ def write_output(
             updated = block_specific_re.sub(new_block, existing, count=1)
         else:
             updated = existing.rstrip() + "\n\n" + new_block + "\n"
-        target.write_text(updated, encoding="utf-8")
-    elif mode == "out":
-        if target.exists() and not force:
+        target.write_text(_stamp_meta(updated, "write/section"), encoding="utf-8")
+    else:  # drafts | out
+        if mode == "out" and target.exists() and not force:
             raise FileExistsError(f"{target} já existe. Use force=True pra sobrescrever.")
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-    else:  # drafts
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        target.write_text(_stamp_meta(content, "write/manuscript"), encoding="utf-8")
 
     return WriteOutput(
         output_path=target,
@@ -353,6 +352,17 @@ def write_output(
         references_missing=extract_missing_refs(content),
         words_generated=len(content.split()),
     )
+
+
+def _stamp_meta(text: str, skill: str) -> str:
+    """Grava ``_meta`` (Princípio V) no frontmatter; demais chaves e corpo preservados.
+
+    A chave ``_meta`` é machine-owned; o corpo humano fica intacto (ADR-0009).
+    """
+    fm, body = split_frontmatter(text)
+    fm["_meta"] = build_meta(schema="WriteOutput/v1", skill=skill).to_dict()
+    head = yaml.safe_dump(fm, sort_keys=False, allow_unicode=True).strip()
+    return f"---\n{head}\n---\n\n{body}"
 
 
 def extract_missing_refs(text: str) -> list[str]:

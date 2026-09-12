@@ -48,6 +48,7 @@ from prumo_assist.core.obsidian import (
     normalize_markdown_with_map,
     split_frontmatter,
 )
+from prumo_assist.core.provenance import build_meta, hash_input
 from prumo_assist.domains.write.errors import WriteError
 from prumo_assist.domains.write.schemas.v1 import (
     CiteMapFile,
@@ -690,6 +691,9 @@ def _emit_review_sidecars(
         docx_sha256=hashlib.sha256(docx_path.read_bytes()).hexdigest(),
         occurrences=occurrences,
     )
+    citemap.meta = build_meta(
+        schema="CiteMapFile/v1", skill="write/export", input_hash=hash_input(norm_text)
+    ).to_dict()
     span_map = SpanMapFile(
         page=str(rel_page),
         source_sha256=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
@@ -707,7 +711,7 @@ def _emit_review_sidecars(
 
     out_dir = project_root / "reviews" / slugify(page, project_root)
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "citemap.json").write_text(citemap.model_dump_json(indent=2))
+    (out_dir / "citemap.json").write_text(citemap.model_dump_json(indent=2, by_alias=True))
     (out_dir / "span-map.json").write_text(span_map.model_dump_json(indent=2))
     return out_dir
 
