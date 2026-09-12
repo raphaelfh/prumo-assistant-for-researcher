@@ -74,7 +74,7 @@ def test_generate_disclosure_names_tool_and_model(tmp_path: Path) -> None:
     disc = generate_disclosure(root=tmp_path)
     assert len(disc.tools) == 1
     assert disc.tools[0].count == 2
-    assert disc.tools[0].tool == "prumo-assist:paper-extract"
+    assert disc.tools[0].tool == "prumo-assist:paper extract"
     assert "claude-opus-4" in disc.statement_en
     assert "responsibility" in disc.statement_en
     assert "responsabilidade" in disc.statement_pt
@@ -158,3 +158,32 @@ def test_aggregate_human_reviewed_is_and_across_group(tmp_path: Path) -> None:
     assert len(disc.tools) == 1
     assert disc.tools[0].count == 2
     assert disc.tools[0].human_reviewed is False
+
+
+def test_legado_e_novo_agregam_numa_linha(tmp_path: Path) -> None:
+    from prumo_assist.domains.write.disclosure import generate_disclosure
+
+    notes = tmp_path / "docs" / "studies" / "principal" / "notes"
+    notes.mkdir(parents=True)
+    (notes / "a.md").write_text(
+        "---\ntype: finding\ngenerator: wiki-query\nadded: '2026-05-01'\n---\n", encoding="utf-8"
+    )
+    (notes / "b.md").write_text(
+        "---\ntype: finding\ngenerator: wiki/query\nadded: '2026-05-02'\n---\n", encoding="utf-8"
+    )
+
+    disc = generate_disclosure(root=tmp_path)
+
+    assert len(disc.tools) == 1
+    assert disc.tools[0].tool == "prumo-assist:wiki query"
+    assert disc.tools[0].count == 2
+    assert disc.tools[0].task == "synthesis of answers grounded in the project knowledge base"
+
+
+def test_skill_desconhecida_mantem_o_valor(tmp_path: Path) -> None:
+    from prumo_assist.domains.write.disclosure import generate_disclosure
+
+    (tmp_path / "x.md").write_text("---\ngenerator: minha-skill\n---\n", encoding="utf-8")
+    disc = generate_disclosure(root=tmp_path)
+    assert disc.tools[0].tool == "prumo-assist:minha-skill"
+    assert disc.tools[0].task == "assistive text generation"

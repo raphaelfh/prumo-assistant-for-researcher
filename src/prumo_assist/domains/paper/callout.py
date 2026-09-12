@@ -1,4 +1,4 @@
-"""Render do callout estruturado escrito pela skill ``paper-extract``.
+"""Render do callout estruturado escrito pelo modo ``paper extract``.
 
 Migrado de ``paper_extract.py``. **Importante:** este módulo NÃO chama LLM.
 Ele só:

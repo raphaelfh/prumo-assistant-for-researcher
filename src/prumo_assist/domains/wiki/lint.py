@@ -26,7 +26,7 @@ declara ter um paper principal, então não é chamado por ``lint()`` — rode
 explicitamente quando aplicável.
 
 Contradições e stale claims permanecem semânticas — trabalho da skill
-``wiki-lint`` (modo agêntico via host), não deste módulo determinístico.
+``wiki lint`` (modo agêntico via host), não deste módulo determinístico.
 """
 
 from __future__ import annotations
@@ -361,7 +361,7 @@ def _check_concept_candidates(
                 WikiIssue(
                     "info",
                     "concept_candidate",
-                    f"'{name}' citado {count}× sem página (candidato a /wiki-ingest)",
+                    f"'{name}' citado {count}× sem página (candidato a /prumo-assist:wiki ingest)",
                     scope=scope,
                 )
             )

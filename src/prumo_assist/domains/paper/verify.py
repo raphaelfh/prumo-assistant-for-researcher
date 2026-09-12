@@ -5,7 +5,7 @@ Crossref, retração via Crossref ``filter=updates:`` e PubMed ``pubtype``,
 identidade de título. É o único gate (achado ``error`` → exit 1 no CLI).
 Camada PROFUNDA opcional (Task 3): ``uvx academic-refchecker==3.0.151`` —
 achados viram ``warning`` (enriquecimento, nunca gate). Classificação
-citação-suporte é da skill ``citation-support`` (LLM sinaliza, nunca bloqueia).
+citação-suporte é do modo ``paper support`` (LLM sinaliza, nunca bloqueia).
 
 Privacidade (ADR-0018): só DOIs/PMIDs saem da máquina na camada nativa; o
 ``--deep`` envia o subconjunto do bib em escopo, nunca o bib inteiro.
@@ -584,7 +584,7 @@ def verify_refs(
                 kind="empty-bib",
                 message=(
                     "acervo vazio — adicione referências no Zotero (coleção do projeto) "
-                    "e rode `prumo paper sync` (ou /prumo-assist:paper-manager sync) "
+                    "e rode `prumo paper sync` (ou /prumo-assist:paper library sync) "
                     "para popular o bib antes de verificar."
                 ),
                 source="local",

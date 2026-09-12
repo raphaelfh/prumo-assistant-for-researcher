@@ -1,4 +1,4 @@
-"""Helpers para session log de ``active-learning``.
+"""Helpers para session log do modo ``wiki study``.
 
 Mantém o log em Markdown com YAML frontmatter (``SessionLog/v1``). Cada
 step vira seção ``## N. <Step Name>`` com pergunta/resposta/feedback/citations.

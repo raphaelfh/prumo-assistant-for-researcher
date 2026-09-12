@@ -1,4 +1,4 @@
-"""``SessionLog/v1`` — schema do log de sessão de active-learning."""
+"""``SessionLog/v1`` — schema do log de sessão do modo wiki study."""
 
 from __future__ import annotations
 

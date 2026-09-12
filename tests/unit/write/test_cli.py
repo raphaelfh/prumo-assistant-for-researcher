@@ -729,7 +729,7 @@ def test_write_review_events_checklist(tmp_path: Path, monkeypatch: pytest.Monke
     assert "1. citation-drop: citação (occ occ1" in result.output
     assert "AÇÃO: confirme com --confirm-citation-drops occ1" in result.output
     assert "unanchored-mark" in result.output
-    assert "edite review.md" in result.output or "review-reconcile" in result.output
+    assert "edite review.md" in result.output or "review reconcile" in result.output
     assert "ambiguous-anchor" in result.output
     assert "non-identity-span" in result.output
     assert "citation-touched-prose" in result.output

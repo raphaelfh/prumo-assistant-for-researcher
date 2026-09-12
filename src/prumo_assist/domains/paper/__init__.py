@@ -8,11 +8,11 @@ Cobre o pilar de **bibliografia**:
 - ``lint``         — auditoria de consistência (citekey ↔ nota ↔ pdf)
 - ``pdfs``         — symlinks ``references/pdfs/<key>.pdf`` → Zotero
 - ``annotations``  — annotations + child notes do Zotero (API local)
-- ``callout``      — render do callout estruturado de paper-extract
+- ``callout``      — render do callout estruturado de ``paper extract``
 - ``schemas``      — saídas Pydantic versionadas (``PaperCallout/v1``)
 
 Tudo aqui é determinístico. A parte agêntica (extrair PDF → JSON estruturado)
-fica na skill ``paper-extract``, executada pelo agent-host do usuário.
+fica no modo ``paper extract``, executado pelo agent-host do usuário.
 """
 
 from __future__ import annotations

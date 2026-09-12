@@ -7,6 +7,11 @@ extrações de paper gravam ``extracted_model``/``extracted_at`` em
 frontmatter. Esta op colhe esses sinais (e qualquer bloco ``_meta:`` canônico
 futuro), agrega por (skill, modelo) e renderiza o parágrafo de disclosure
 exigido por periódicos e pelo EU AI Act.
+
+O nome de skill gravado é canonizado pelo registry de skills antes de agregar:
+``generator: wiki-query`` (legado) e ``generator: wiki/query`` (novo) viram a
+mesma ferramenta ``prumo-assist:wiki query``, e a tarefa descrita vem do
+``prumo.disclosure_task`` do modo (Princípios I e IV).
 """
 
 from __future__ import annotations
@@ -17,23 +22,15 @@ from typing import Any
 
 from prumo_assist import PrumoError
 from prumo_assist.core.obsidian import split_frontmatter
+from prumo_assist.core.paths import find_resource
 from prumo_assist.core.provenance import now_utc
+from prumo_assist.core.skills import SkillRegistry, load_skill_registry
 from prumo_assist.domains.write.schemas.v1 import AIDisclosure, AIToolUse
 
 __all__ = ["collect_records", "generate_disclosure"]
 
 _SKIP_PARTS = {".prumo", ".git", "build", "node_modules", ".venv"}
 
-_TASK_BY_SKILL = {
-    "paper-extract": "structured extraction of key information from source documents",
-    "wiki-query": "synthesis of answers grounded in the project knowledge base",
-    "active-learning": "synthesis of study-session findings",
-    "peer-review": "critical review of draft sections",
-    "write-paper": "drafting of manuscript sections",
-    "write-scientific": "drafting of prose sections",
-    "write-statistics": "drafting of the statistical analysis plan",
-    "write-projeto-cep": "drafting of the research ethics submission",
-}
 _DEFAULT_TASK = "assistive text generation"
 
 
@@ -98,25 +95,47 @@ class _Group:
     all_reviewed: bool = True
 
 
-def _aggregate(records: list[ProvRecord]) -> list[AIToolUse]:
-    grouped: dict[tuple[str, str], _Group] = {}
+def _load_registry() -> SkillRegistry | None:
+    """Registry do bundle de skills; ``None`` quando o bundle não está resolvível."""
+    root = find_resource("skills")
+    if root is None:
+        return None
+    registry, _ = load_skill_registry(root, strict=False)
+    return registry
+
+
+def _canonical(skill: str, registry: SkillRegistry | None) -> tuple[str, str]:
+    """(rótulo da ferramenta, tarefa) de um valor de proveniência, legado ou novo.
+
+    Valor que não resolve para um modo existente mantém o comportamento antigo:
+    rótulo com prefixo ``prumo-assist:`` e tarefa genérica.
+    """
+    ref = registry.resolve(skill) if registry else None
+    if registry is None or ref is None:
+        tool = skill if skill.startswith("prumo-assist") else f"prumo-assist:{skill}"
+        return tool, _DEFAULT_TASK
+    mode = registry.find_mode(ref)
+    task = mode.disclosure_task if mode and mode.disclosure_task else _DEFAULT_TASK
+    return ref.invocation, task
+
+
+def _aggregate(records: list[ProvRecord], registry: SkillRegistry | None) -> list[AIToolUse]:
+    grouped: dict[tuple[str, str, str], _Group] = {}
     for r in records:
-        slot = grouped.setdefault((r.skill, r.model or ""), _Group())
+        tool, task = _canonical(r.skill, registry)
+        slot = grouped.setdefault((tool, r.model or "", task), _Group())
         slot.count += 1
         slot.all_reviewed = slot.all_reviewed and r.human_reviewed
-    uses: list[AIToolUse] = []
-    for (skill, model), slot in sorted(grouped.items()):
-        tool = skill if skill.startswith("prumo-assist") else f"prumo-assist:{skill}"
-        uses.append(
-            AIToolUse(
-                tool=tool,
-                model=model or None,
-                task=_TASK_BY_SKILL.get(skill, _DEFAULT_TASK),
-                count=slot.count,
-                human_reviewed=slot.all_reviewed,
-            )
+    return [
+        AIToolUse(
+            tool=tool,
+            model=model or None,
+            task=task,
+            count=slot.count,
+            human_reviewed=slot.all_reviewed,
         )
-    return uses
+        for (tool, model, task), slot in sorted(grouped.items())
+    ]
 
 
 def _phrase(use: AIToolUse) -> str:
@@ -150,7 +169,7 @@ def generate_disclosure(*, root: Path | None = None) -> AIDisclosure:
     if not root.exists():
         raise PrumoError(f"diretório não encontrado: {root}")
     records = collect_records(root)
-    uses = _aggregate(records)
+    uses = _aggregate(records, _load_registry())
     dates = sorted(r.date for r in records if r.date)
     return AIDisclosure(
         generated_at=now_utc(),

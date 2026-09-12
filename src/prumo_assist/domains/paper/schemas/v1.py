@@ -1,4 +1,4 @@
-"""``PaperCallout/v1`` — schema do output da skill ``paper-extract``.
+"""``PaperCallout/v1`` — schema do output do modo ``paper extract``.
 
 A skill produz um JSON estruturado conforme este schema. O Python valida com
 Pydantic e renderiza o callout via ``domains.paper.callout.render_callout``.
@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 
 class PaperCallout(BaseModel):
-    """Output estruturado do ``paper-extract``.
+    """Output estruturado do ``paper extract``.
 
     ``sections`` mapeia nome de seção → texto Markdown. As seções são definidas
     no template ``.claude/paper_extraction.md`` do projeto (TL;DR, PICOT, Método,

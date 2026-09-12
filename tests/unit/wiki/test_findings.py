@@ -160,3 +160,23 @@ def test_archive_stamps_generator_in_frontmatter(tmp_path: Path) -> None:
     text = out.read_text(encoding="utf-8")
     fm = yaml.safe_load(text.split("---", 2)[1])
     assert fm["generator"] == "wiki-query"
+
+
+def test_default_generator_e_log_passam_no_wiki_lint(tmp_path: Path) -> None:
+    import yaml
+
+    from prumo_assist.domains.wiki.lint import LOG_PREFIX_RE
+
+    root = _project(tmp_path)
+    scope = _scope(root, "a")
+    out = archive_as_finding(
+        scope=scope, slug="d1", title="D1", body="b", sources=[], date="2026-09-12"
+    )
+    fm = yaml.safe_load(out.read_text(encoding="utf-8").split("---", 2)[1])
+    assert fm["generator"] == "wiki/query"
+    entradas = [
+        ln
+        for ln in (root / "docs" / "_log.md").read_text(encoding="utf-8").splitlines()
+        if ln.startswith("## ")
+    ]
+    assert entradas and all(LOG_PREFIX_RE.match(ln) for ln in entradas), entradas
