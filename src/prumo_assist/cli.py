@@ -11,6 +11,7 @@ Comandos disponíveis no PR0 (fundação):
   (wizard interativo se ``project`` for omitido)
 - ``prumo doctor [path]`` — health-check do projeto e das skills instaladas
 - ``prumo status [path]`` — onde o estudo está e a próxima frase (só lê o disco)
+- ``prumo validate <schema>`` — valida o JSON de um subagent contra o contrato
 
 Subcomandos por domínio (``prumo paper ...``, ``prumo wiki ...``, ...) entram
 nos PR1-2. O ``cli.py`` apenas registra esses sub-apps quando os domínios
@@ -36,7 +37,9 @@ from prumo_assist import (
     PrumoError,
     __version__,
 )
+from prumo_assist.contracts import validate_contract
 from prumo_assist.core import pj_layout
+from prumo_assist.core.cli_io import read_stdin_json
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.core.deps import check_external_deps
 from prumo_assist.core.output import Console
@@ -886,6 +889,25 @@ def status_command(
     with cli_run(json_mode=json_mode) as console:
         result = project_status(path.resolve(), scope=scope, registry=_skill_registry())
         console.result(render_status(result), status_to_dict(result))
+
+
+# ---------------------------------------------------------------------------
+# prumo validate (contratos devolvidos por subagents)
+# ---------------------------------------------------------------------------
+
+
+@app.command("validate")
+def validate_command(
+    schema: Annotated[str, typer.Argument(help="Contrato, ex.: SupportReport/v1.")],
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Valida o JSON do stdin contra um contrato versionado (saída de subagent)."""
+    with cli_run(json_mode=json_mode) as console:
+        normalized = validate_contract(schema, read_stdin_json())
+        console.result(
+            f"JSON válido contra {schema}.",
+            {"valid": True, "schema": schema, "payload": normalized},
+        )
 
 
 # ---------------------------------------------------------------------------
