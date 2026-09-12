@@ -26,11 +26,13 @@ prumo:
 Você é a porta de entrada E o instalador guiado. Primeiro descubra o estado:
 
 1. Rode `prumo doctor --json` (se `prumo` existir). Três cenários:
-   - **Tudo OK** → pergunte em 1 linha o que a pessoa quer fazer e roteie
-     para a skill e o modo (bibliografia → `paper`; wiki e estudo → `wiki`;
-     PICOT, plano estatístico e CEP → `protocol`; escrita → `write`; revisão →
-     `review`). Use o catálogo abaixo para achar o modo pela frase. Não execute
-     a tarefa você mesmo.
+   - **Tudo OK** → rode `prumo status --json`. Com `next` preenchido, ofereça
+     em 1 linha a frase `next.say` (invocação `next.invocation`) e o motivo
+     `next.why`. Sem `next`, ou se a pessoa quiser outra coisa, pergunte o que
+     ela quer fazer e roteie para a skill e o modo (bibliografia → `paper`; wiki
+     e estudo → `wiki`; PICOT, plano estatístico e CEP → `protocol`; escrita →
+     `write`; revisão → `review`). Use o catálogo abaixo para achar o modo pela
+     frase. Não execute a tarefa você mesmo.
    - **`prumo` NÃO existe** → ofereça a instalação guiada abaixo.
    - **Superfície sem execução de comandos** (chat puro) → aponte a trilha do
      pesquisador: `docs/onboarding-pesquisador.md` no repositório do plugin.

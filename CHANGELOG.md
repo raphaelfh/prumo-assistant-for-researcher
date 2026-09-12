@@ -35,6 +35,11 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Adicionado
 
+- **`prumo status`** diz, só lendo o disco, em que ponto o estudo está e qual a próxima frase
+  dizer ao agente: bibliografia vazia → papers com PDF sem extract → PICOT não fechada →
+  escopo sem draft → eventos ambíguos de revisão. `--json` sai versionado
+  (`ProjectStatus/v1`) e o `start` usa esse payload para sugerir o próximo passo. Não grava
+  estado novo (mesma lógica da ADR-0029) e não consulta o Zotero, que é assunto do `doctor`.
 - **`prumo update` reescreve invocações antigas** (`prumo-assist:<antigo>` → `prumo-assist:<skill>
   <modo>`) em `.md` e `.toml` do projeto, com `--dry-run` listando cada arquivo. O acervo
   gerado em `docs/references/papers/` fica de fora.

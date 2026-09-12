@@ -39,7 +39,7 @@
 
 ## Em curso
 
-- **Superfície de skills** ([spec 2026-09-12](docs/superpowers/specs/2026-09-12-superficie-de-skills-design.md), [ADR-0032](docs/adr/adr-0032-superficie-por-dominio-e-modos.md)): F1 implementada — 16 skills viram `start` + `paper`/`wiki`/`protocol`/`write`/`review` com modos. Aguarda release MINOR `⚠ Breaking` e a medição manual da lista-ouro (≥ 27/30 no Desktop). F0 (spike de subagents no Desktop/Cowork), F2 (subagents) e F3 (`prumo status`) na sequência.
+- **Superfície de skills** ([spec 2026-09-12](docs/superpowers/specs/2026-09-12-superficie-de-skills-design.md), [ADR-0032](docs/adr/adr-0032-superficie-por-dominio-e-modos.md)): F1 implementada — 16 skills viram `start` + `paper`/`wiki`/`protocol`/`write`/`review` com modos. Aguarda release MINOR `⚠ Breaking` e a medição manual da lista-ouro (≥ 27/30 no Desktop). F3 (`prumo status`, que o `start` usa para sugerir o próximo passo) implementada. F0 (spike de subagents no Desktop/Cowork) e F2 (subagents) na sequência.
 - `prumo-code-assist` ainda **não existe**. As skills `tabular-eda`, `data-cleaning`, `clinical-metrics` (removidas na v0.3.0) seguem acessíveis via histórico git. Mover quando o repo for criado.
 - Agents `ml-theory-expert` e `stack-docs-researcher`: decisão tomada em [ADR-0012](docs/adr/adr-0012-remocao-agents-ml.md) — remoção no v0.62.0.
 - Zettlr como front humano (spec 2026-07-22): implementado na v0.62.1. `prumo write preview` fica **superado pelo Zettlr** para projetos novos — não construir sem novo trigger.

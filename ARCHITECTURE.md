@@ -36,7 +36,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
        └────────────────┴───────────────┼────────────────┴────────────────┘
                                  ┌──────▼──────┐
                                  │   prumo     │  ← CLI (Typer); raiz: init ·
-                                 │             │     doctor · skills · add · mcp (+ capture)
+                                 │             │     doctor · update · status · skills · add · mcp (+ capture)
                                  └──────┬──────┘
                                  ┌──────▼──────────────────────┐
                                  │ core/ (transversal)         │
@@ -75,10 +75,12 @@ prumo-assist/
 │   ├── __init__.py            ← hierarquia de exceções (PrumoError + cross-cutting;
 │                                 bases por domínio em domains/<X>/errors.py)
 │   ├── api.py                 ← Python API pública (SemVer)
-│   ├── cli.py                 ← Typer root: init · doctor · skills · add · mcp (+ capture)
+│   ├── cli.py                 ← Typer root: init · doctor · update · status · skills · add · mcp (+ capture)
 │   ├── mcp_server.py          ← servidor MCP local (stdio) `prumo`; vive no TOPO
 │                                 do pacote por design (nunca em domains/) — importa
 │                                 domains/ livremente (ADR-0017)
+│   ├── status.py              ← `prumo status`: compõe leituras de domínios e só lê o
+│                                 disco; mesmo precedente do mcp_server (ADR-0017)
 │   ├── _filters/              ← filtros Lua vendorados do Pandoc (zotero_live_docx.lua)
 │   ├── core/                  ← transversal; NUNCA importa domains/ (ADR-0005)
 │   ├── domains/               ← paper · wiki · capture · protocol · write
