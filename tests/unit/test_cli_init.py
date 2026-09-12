@@ -280,3 +280,14 @@ def test_templates_nao_usam_ancora_bibliografica_sem_arroba() -> None:
             if "citekey" in alvo.lower():
                 ofensores.append(f"{path}: [[{alvo}]]")
     assert not ofensores, "âncora bibliográfica sem `@`: " + "; ".join(ofensores)
+
+
+def test_init_cria_rule_safe_outputs(tmp_path: Path) -> None:
+    """Fronteira de confidencialidade vem no núcleo, sempre-on (sem `paths:`)."""
+    target = tmp_path / "pj_seguro"
+    result = runner.invoke(app, ["init", str(target), "--json"])
+    assert result.exit_code == 0, result.output
+    rule = target / ".claude" / "rules" / "safe_outputs.md"
+    texto = rule.read_text(encoding="utf-8")
+    assert not texto.startswith("---")
+    assert "5" in texto and ".prumo/" in texto

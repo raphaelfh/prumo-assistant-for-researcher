@@ -231,3 +231,15 @@ def test_doctor_sem_sobras_nao_emite_skill_obsoleta(tmp_path: Path) -> None:
         res = runner.invoke(app, ["doctor", str(pj), "--json"])
 
     assert not [i for i in json.loads(res.stdout)["issues"] if "[skill_obsoleta]" in i]
+
+
+def test_doctor_reprova_dado_versionavel(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    issue = "[dado_versionavel] fake"
+    with (
+        patch("prumo_assist.cli.check_external_deps", return_value=[]),
+        patch("prumo_assist.cli.safe_outputs_issues", return_value=[issue]),
+    ):
+        result = runner.invoke(app, ["doctor", str(pj), "--json"])
+    assert result.exit_code == 1, result.output
+    assert issue in json.loads(result.stdout)["issues"]
