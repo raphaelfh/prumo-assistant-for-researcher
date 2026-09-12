@@ -2,7 +2,7 @@
 name: critique
 description: "Simula revisão crítica de draft acadêmico (paper, capítulo, grant, proposta) produzindo feedback estruturado por seção com forças, fraquezas, claims sem evidência e sugestões acionáveis. Aplica mental model adequado (TRIPOD+AI / TRIPOD-LLM / DECIDE-AI / CLAIM / CONSORT 2025 / PRISMA / STROBE)."
 argument-hint: "<draft-path> [--critical-only] [--section NAME] [--venue NEJM|Lancet|JAMA|Nature-Medicine|Radiology|MICCAI|NeurIPS]"
-allowed-tools: Read Glob Grep
+allowed-tools: Read Glob Grep Bash(prumo validate *) Agent
 prumo:
   version: 1.3.0
   guidelines_reviewed: "2026-05-30"
@@ -78,54 +78,40 @@ Identifique o gênero antes de revisar:
 Não cite a checklist explicitamente no review final (a menos que faça sentido);
 use como _mental model_ pra identificar lacunas.
 
-### 2. Leitura full-pass
+### 2. Despachar o subagent `reviewer`
 
-Leia o draft inteiro 1× antes de comentar nada. Anote internamente:
+A revisão roda num contexto que não viu a conversa de redação — é isso que a
+torna independente. Não resuma o draft para ele nem explique o que o autor quis
+dizer; não leia o draft inteiro no thread principal antes de despachar.
 
-- Tese/claim central da peça em 1 frase.
-- Estrutura: a sequência de seções faz sentido pra essa tese?
-- Evidência: cada claim importante está suportada (citação, dado, figura)?
-- Gaps óbvios: alguma seção esperada está ausente ou rasa?
+Despache o `reviewer` (tool `Agent`, `subagent_type: "reviewer"`; se o plugin registrar com prefixo, `prumo-assist:reviewer`). Se nenhum dos dois tipos existir nesta sessão, leia o prompt canônico `agents/reviewer.md` (em `$CLAUDE_PLUGIN_ROOT/agents/` ou `.claude/agents/`) e despache `subagent_type: "general-purpose"` com o corpo do arquivo como prompt.
+Preencha só: `draft_path` (absoluto), `guidelines_path` (absoluto de
+[`../references/reporting-guidelines.md`](../references/reporting-guidelines.md)),
+`draft_genre` (passo 1) e, se pedidos, `section`, `venue`, `critical_only`.
 
-### 3. Produzir relatório estruturado
+### 3. Validar o contrato
 
-Emita um JSON conforme `PeerReviewReport/v1` (ver schema abaixo). Em modo
-interativo no CC, **também** imprima uma versão markdown legível com a mesma
-informação, organizada nesta ordem:
+Com o CLI disponível (`prumo --version`), valide o JSON devolvido:
+`cat <<'JSON' | prumo validate PeerReviewReport/v1 --json`. Inválido → devolva
+a mensagem ao reviewer UMA vez; na segunda falha, mostre o erro ao pesquisador
+sem completar o relatório por conta própria. Sem CLI, confira à mão os campos
+obrigatórios e as enumerações do contrato (este modo roda sem o stack).
+
+O contrato completo é `PeerReviewReport/v1`; exemplo preenchido em
+[`../examples/sample_report.json`](../examples/sample_report.json).
+
+### 4. Mostrar ao pesquisador
+
+Imprima uma versão markdown legível do JSON validado, nesta ordem:
 
 1. **Resumo executivo** (3-5 linhas): tese identificada, recomendação geral
-   (`accept | minor revisions | major revisions | reject`), top-3 issues a
-   endereçar antes de submeter.
+   (`accept | minor | major | reject`), top-3 issues a endereçar antes de submeter.
 2. **Forças** (3-5 bullets concretos).
-3. **Fraquezas críticas** (issues que impedem aceitação).
-4. **Fraquezas menores** (issues que melhorariam mas não bloqueiam).
+3. **Fraquezas críticas** (issues que impedem aceitação), cada uma com o fix.
+4. **Fraquezas menores**, cada uma com o fix.
 5. **Claims sem evidência** (lista citando seção/parágrafo).
-6. **Sugestões por seção** (concretas: "na seção X, considere Y").
-7. **Mental model aplicado** (qual checklist clínico-acadêmico foi usado).
-
-### 4. Gravar trace + JSON estruturado
-
-O JSON segue este shape (`PeerReviewReport/v1`):
-
-```json
-{
-  "schema_version": "PeerReviewReport/v1",
-  "draft_path": "path/to/draft.md",
-  "draft_genre": "prediction-model-paper | imaging-ai | rct | systematic-review | observational | thesis-chapter | grant | other",
-  "thesis_in_one_sentence": "...",
-  "recommendation": "accept | minor | major | reject",
-  "executive_summary": "3-5 sentences",
-  "strengths": [{"section": "Methods", "point": "...explicação..."}],
-  "critical_weaknesses": [{"section": "...", "point": "...", "fix": "..."}],
-  "minor_weaknesses": [{"section": "...", "point": "...", "fix": "..."}],
-  "claims_without_evidence": [{"section": "...", "claim": "...", "where_to_find_evidence_or_remove": "..."}],
-  "suggestions_by_section": [{"section": "...", "suggestion": "..."}],
-  "mental_model_applied": "TRIPOD+AI | TRIPOD-LLM | DECIDE-AI | CLAIM | CONSORT 2025 | CONSORT-AI | PRISMA | STROBE | thesis-defense | grant-impact | none"
-}
-```
-
-Relatório completo preenchido, com os campos em contexto:
-[`../examples/sample_report.json`](../examples/sample_report.json).
+6. **Sugestões por seção**.
+7. **Mental model aplicado**.
 
 ## O que NÃO fazer
 

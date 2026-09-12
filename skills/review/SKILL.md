@@ -6,7 +6,7 @@ when_to_use: |
   - critique: "revisa este draft"; "me dá um peer review"; "quais buracos no meu argumento"
   - reconcile: "reconcilia os eventos ambíguos da revisão"; "resolve as marcas sem âncora do docx"
 argument-hint: "[critique|reconcile] [argumentos do modo]"
-allowed-tools: Read Glob Grep Bash(prumo write review events *) Bash(prumo doctor *) mcp__prumo__review_status mcp__prumo__review_events mcp__prumo__review_worklist mcp__prumo__propose_prose_edit
+allowed-tools: Read Glob Grep Bash(prumo validate *) Agent Bash(prumo write review events *) Bash(prumo doctor *) mcp__prumo__review_status mcp__prumo__review_events mcp__prumo__review_worklist mcp__prumo__propose_prose_edit
 prumo:
   version: 2.0.0
   agent_compat: [claude-code]

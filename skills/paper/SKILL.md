@@ -7,7 +7,7 @@ when_to_use: |
   - library: "sincroniza minha bibliografia"; "importa minhas anotações do Zotero"; "encontra paper sobre Y"; "quem cita Z"; "marca o paper principal"; "liga o projeto à coleção do Zotero"
   - support: "as referências batem com o que eu afirmo?"; "checa se as citações sustentam as frases"
 argument-hint: "[extract|library|support] [argumentos do modo]"
-allowed-tools: Read Write Edit Glob Grep Bash(prumo paper *) Bash(cat *) Agent Bash(rg *) Bash(prumo paper verify-refs *)
+allowed-tools: Read Write Edit Glob Grep Bash(prumo paper *) Bash(cat *) Agent Bash(rg *) Bash(prumo paper verify-refs *) Bash(prumo validate *)
 prumo:
   version: 2.0.0
   agent_compat: [claude-code]

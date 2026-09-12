@@ -68,37 +68,18 @@ Passos:
    ```
    Capture `language`, `template_path`, `pdf_path` e `meta_path` do JSON. Se falhar (exit ≠ 0), aborte mostrando a mensagem (ela já traz o comando de correção).
 
-2. **Despachar 1 subagent** via tool `Agent` com `subagent_type="general-purpose"`:
-   - Prompt:
-     ```
-     Leia o PDF em <absolute_path_to_pdf> com a tool Read (lê PDF nativamente;
-     leia em blocos de páginas se o PDF tiver >10 páginas).
-     Para cada seção do template em <absolute_path_to_paper_extraction.md>,
-     preencha APENAS com conteúdo do PDF. Grounding rigoroso: sem opinião,
-     sem inferência fora do texto. Cite página quando souber: (p.5).
+2. **Despachar o subagent `reader`** (tool `Agent`, `subagent_type: "reader"`; se o plugin registrar com prefixo, `prumo-assist:reader`). Se nenhum dos dois tipos existir nesta sessão, leia o prompt canônico `agents/reader.md` (em `$CLAUDE_PLUGIN_ROOT/agents/` ou `.claude/agents/`) e despache `subagent_type: "general-purpose"` com o corpo do arquivo como prompt.
+   Preencha: `citekey`, `pdf_path`, `template_path` e `language` (do passo 1), `pj_path` (absoluto),
+   `model` (o modelo desta sessão) e `date` (hoje, YYYY-MM-DD).
 
-     Idioma do output: <language da config>.
-     Citações literais (quotes) preservar no idioma original do PDF.
+3. **Receber o status** do reader: `{"citekey", "status", "error"?}`. O reader grava sozinho via
+   `prumo paper extract`, com locators por seção; o comando valida o JSON por `PaperCallout/v1` e
+   carimba a proveniência no `_meta.md`. Se `status` for `error`, aborte mostrando o motivo.
 
-     Se >50% de alguma página parece OCR corrompido (texto ilegível),
-     abortar retornando {"error": "OCR ruim", "citekey": "<citekey>"}.
+4. **Não grave o extract pelo thread principal.** O PDF e o JSON ficam no contexto do reader; aqui
+   só chega o status.
 
-     Retornar EXATAMENTE JSON puro, sem markdown cercado:
-     {"TL;DR": "...", "Problema": "...", "Método": "...",
-      "Resultados": "...", "Limitações": "..."}
-     ```
-
-3. **Receber JSON** do subagent. Se `error`, abortar mostrando motivo.
-
-4. **Aplicar extração** via `Bash` (escreve o callout em `docs/references/papers/<citekey>/_extract.md` e atualiza `_meta.md`):
-   ```bash
-   cat <<'JSON' | prumo paper extract <citekey> --model "<modelo_atual>" --date "<hoje>" --json
-   { "TL;DR": "<conteúdo extraído>", "Problema": "...", "Método": "...", "Resultados": "...", "Limitações": "..." }
-   JSON
-   ```
-   Emite `{"changed": true}` (MUDOU) ou `{"changed": false}` (IDÊNTICO).
-
-5. **Mostrar diff** do callout ao usuário e perguntar: "Arquivar TL;DR como finding (`type: finding`) em `docs/studies/<slug>/notes/`?". Se sim, delegar a `/prumo-assist:wiki query` ou criar finding direto.
+5. **Mostrar o callout** gravado ao usuário e perguntar: "Arquivar TL;DR como finding (`type: finding`) em `docs/studies/<slug>/notes/`?". Se sim, delegar a `/prumo-assist:wiki query` ou criar finding direto.
 
 ### 2. `/prumo-assist:paper extract [--limit N] [--stale-only]` — batch
 
@@ -115,8 +96,9 @@ Passos:
    - Aplicar `--limit` (default: `config.paper_extract.batch.default_limit`).
 
 3. **Despachar em ondas de `subagents_per_wave` (default 8)**:
-   - Cada onda = 1 message com N tool calls em paralelo para `Agent(subagent_type="general-purpose", ...)`.
-   - Cada subagent recebe prompt idêntico ao single, escreve DIRETO no disco (chama `prumo paper extract` via `Bash`, dict via stdin, idêntico ao single), retorna apenas `{citekey, status, error?}`.
+   - Cada onda = 1 message com N chamadas `Agent` em paralelo, uma por paper, despachando o `reader`
+     exatamente como no single (mesmo fallback para `general-purpose` com `agents/reader.md`).
+   - Cada reader grava direto via `prumo paper extract` e devolve só `{citekey, status, error?}`.
 
 4. **Coletar** status de todas as ondas em uma lista.
 
@@ -141,5 +123,5 @@ Passos:
 
 - `paper_extraction.md` ausente → "Restaure rodando `prumo init . --merge` no diretório do projeto (recoloca arquivos ausentes do template sem sobrescrever os existentes)."
 - `pj_config.toml` ausente → usa DEFAULTS (não é erro fatal).
-- Subagent retorna JSON malformado → retry 1x com prompt "corrija o JSON anterior"; depois skip com erro "JSON malformado após 2 tentativas".
+- `prumo paper extract` recusa o JSON do reader (seção fora do template, tipo errado) → o reader corrige 1 vez pela mensagem; na segunda recusa devolve `error` e o batch segue.
 - Callout com delimitadores corrompidos (usuário mexeu dentro) → abortar com "Restaure ou delete as linhas entre `<!-- paper-extract:begin -->` e `<!-- paper-extract:end -->` em docs/references/papers/<citekey>/_extract.md."

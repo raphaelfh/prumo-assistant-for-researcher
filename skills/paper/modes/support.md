@@ -1,8 +1,8 @@
 ---
 name: support
-description: "Classifica se cada citação de uma página sustenta a frase que a cita (Fully/Partially/Unsubstantiated) usando os extracts do acervo — SINALIZA apenas, nunca edita nem bloqueia. Roda `prumo paper verify-refs` antes (base determinística: existência/retração/título)."
+description: "Classifica se cada citação de uma página sustenta a frase que a cita (Fully/Partially/Unsubstantiated/No-source) com o subagent verifier lendo o PDF — SINALIZA apenas, nunca edita nem bloqueia. Roda `prumo paper verify-refs` antes (base determinística: existência/retração/título)."
 argument-hint: "--page <page.md>"
-allowed-tools: Read Glob Grep Bash(prumo paper verify-refs *)
+allowed-tools: Read Glob Grep Bash(prumo paper verify-refs *) Bash(prumo validate *) Agent
 prumo:
   version: 1.0.0
   determinism: hybrid
@@ -51,32 +51,33 @@ caminho é humano (ou o fluxo `review reconcile` → `prumo write review apply`)
 
 1. **Base determinística primeiro**: rode
    `prumo paper verify-refs <pj> --page <page.md> --json`.
-   - `retracted`/`doi-not-found` (errors): reporte no topo — classificação
-     semântica de citação retratada/inexistente é irrelevante até o humano
-     resolver o erro.
+   - `retracted`/`doi-not-found` (errors): reporte no topo. Citekey retratada
+     segue para o verifier marcada `retracted: true`.
 2. **Inventário**: extraia da página cada par (frase → citekeys marcadas
    `[@key]`). Frase = sentença completa que contém a(s) marca(s).
-3. **Evidência do acervo**: para cada citekey, leia
-   `docs/references/papers/<citekey>/_extract.md` (e `_meta.md` para
-   título/autores/DOI). Sem extract → classifique como **Sem-extract** (não
-   invente conteúdo do paper; sugira `/prumo-assist:paper extract <citekey>`).
-4. **Classifique cada par** (3 vias do spec):
-   - **Fully supported** — o extract afirma o que a frase atribui.
-   - **Partially supported** — direção certa, mas a frase generaliza/omite
-     condição (população, magnitude, desenho do estudo).
-   - **Unsubstantiated** — o extract não contém (ou contradiz) a afirmação.
-   Cada veredito vem com 1 linha de justificativa + trecho literal do extract
-   (ou "extract silencioso sobre isso").
-5. **Relatório final** (tabela): frase (recorte) | citekey | veredito |
-   justificativa. Feche com a lista de ações sugeridas AO HUMANO
-   (ex.: "reescrever a frase X", "trocar a citação Y", "rodar extract de Z")
-   — sem executar nenhuma.
+3. **Montar os pares**: para cada citekey, `pdf_path` =
+   `docs/references/pdfs/<citekey>.pdf` absoluto (`null` se não existir) e
+   `locators` = os trechos da linha `**Onde:**` da seção pertinente em
+   `docs/references/papers/<citekey>/_extract.md`, quando houver. Extract sem
+   locators não impede nada: o verifier procura no PDF inteiro.
+4. **Despachar o subagent `verifier`** (tool `Agent`, `subagent_type: "verifier"`; se o plugin registrar com prefixo, `prumo-assist:verifier`). Se nenhum dos dois tipos existir nesta sessão, leia o prompt canônico `agents/verifier.md` (em `$CLAUDE_PLUGIN_ROOT/agents/` ou `.claude/agents/`) e despache `subagent_type: "general-purpose"` com o corpo do arquivo como prompt.
+   Envie `page` e `pairs`. Ele lê o PDF e devolve `SupportReport/v1` com quatro
+   vias: `fully`, `partially`, `unsubstantiated`, `no-source`.
+5. **Validar o contrato**:
+   `cat <<'JSON' | prumo validate SupportReport/v1 --json` com o JSON devolvido.
+   Inválido → devolva a mensagem ao verifier UMA vez; na segunda falha, mostre o
+   erro ao pesquisador sem completar vereditos por conta própria.
+6. **Relatório final** (tabela): frase (recorte) | citekey | veredito | página |
+   trecho | justificativa. Feche com a lista de ações sugeridas AO HUMANO
+   (ex.: "reescrever a frase X", "trocar a citação Y", "rodar
+   `/prumo-assist:paper extract Z`") — sem executar nenhuma.
 
 ## Limites duros
 
 - NUNCA edite página, bib, notas ou worklist — nem "só uma vírgula".
-- NUNCA conclua veredito sem extract lido; na dúvida entre Partially e
-  Unsubstantiated, escolha Unsubstantiated e diga por quê (falso-negativo é
-  mais barato que falso-conforto — mesmo racional fail-closed do repo).
+- NUNCA conclua veredito sem o PDF lido pelo verifier. O `_extract.md` é
+  resumo de LLM e só serve para achar a página; na dúvida entre Partially e
+  Unsubstantiated, o verifier escolhe Unsubstantiated (falso-negativo é mais
+  barato que falso-conforto — mesmo racional fail-closed do repo).
 - Citação retratada NUNCA vira "Fully supported" — erro determinístico
   primeiro, sempre.
