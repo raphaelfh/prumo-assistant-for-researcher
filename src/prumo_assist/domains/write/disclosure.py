@@ -15,18 +15,22 @@ O nome de skill gravado é canonizado pelo registry de skills antes de agregar:
 
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass
+from importlib import resources
 from pathlib import Path
 from typing import Any
+
+from pydantic import ValidationError
 
 from prumo_assist import PrumoError
 from prumo_assist.core.obsidian import split_frontmatter
 from prumo_assist.core.paths import find_resource
 from prumo_assist.core.provenance import now_utc
 from prumo_assist.core.skills import SkillRegistry, load_skill_registry
-from prumo_assist.domains.write.schemas.v1 import AIDisclosure, AIToolUse
+from prumo_assist.domains.write.schemas.v1 import AIDisclosure, AIToolUse, VenueProfile
 
-__all__ = ["collect_records", "generate_disclosure"]
+__all__ = ["collect_records", "generate_disclosure", "load_venue_profiles"]
 
 _SKIP_PARTS = {".prumo", ".git", "build", "node_modules", ".venv"}
 
@@ -156,19 +160,128 @@ def _render(uses: list[AIToolUse], lang: str) -> str:
     )
 
 
-def generate_disclosure(*, root: Path | None = None) -> AIDisclosure:
-    """Varre ``root`` (default: cwd) e devolve uma ``AIDisclosure``."""
+_FILLED = {"tool", "model", "task", "dates", "human_review"}
+_MANUAL = {
+    "manufacturer": ("fabricante da ferramenta", "tool manufacturer"),
+    "prompts": ("prompts usados, quando aplicável", "prompts used, where applicable"),
+    "rationale": ("por que a ferramenta foi usada", "why the tool was used"),
+}
+_PLACEMENT = {
+    "methods": ("Métodos", "Methods"),
+    "acknowledgments": ("Agradecimentos", "Acknowledgments"),
+    "cover_letter": ("carta ao editor", "cover letter"),
+    "contributorship": ("declaração de contribuição", "contributorship statement"),
+}
+
+
+def load_venue_profiles(text: str | None = None) -> dict[str, VenueProfile]:
+    """Carrega e valida ``venue_policies.toml`` (ou ``text``, nos testes).
+
+    Perfil sem ``source_url``/``accessed`` ou com elemento/local desconhecido é
+    defeito do pacote: falha alto em vez de emitir política não conferida.
+    """
+    if text is None:
+        pkg = resources.files("prumo_assist.domains.write")
+        text = pkg.joinpath("venue_policies.toml").read_text(encoding="utf-8")
+    data = tomllib.loads(text)
+    profiles: dict[str, VenueProfile] = {}
+    for key, raw in data.get("venues", {}).items():
+        try:
+            prof = VenueProfile(key=key, **raw)
+        except ValidationError as exc:
+            raise PrumoError(
+                f"perfil de periódico '{key}' inválido em venue_policies.toml ({exc.error_count()} "
+                "erro(s)); todo perfil exige source_url e accessed conferidos na página do "
+                "periódico: corrija o arquivo ou remova o perfil."
+            ) from exc
+        unknown = (set(prof.required) - _FILLED - set(_MANUAL)) | (
+            set(prof.placement) - set(_PLACEMENT)
+        )
+        if unknown:
+            raise PrumoError(
+                f"perfil '{key}' usa chave(s) desconhecida(s) {sorted(unknown)} em "
+                "venue_policies.toml: use só as chaves documentadas no cabeçalho do arquivo."
+            )
+        profiles[key] = prof
+    return profiles
+
+
+def _dates_clause(date_from: str | None, date_to: str | None, lang: str) -> str:
+    if not date_from or not date_to:
+        return ""
+    a, b = date_from[:10], date_to[:10]
+    return f" entre {a} e {b}" if lang == "pt" else f" between {a} and {b}"
+
+
+def _render_venue(
+    uses: list[AIToolUse],
+    lang: str,
+    prof: VenueProfile,
+    date_from: str | None,
+    date_to: str | None,
+) -> str:
+    base = _render(uses, lang)
+    if uses and "dates" in prof.required:
+        clause = _dates_clause(date_from, date_to, lang)
+        items = "; ".join(_phrase(u) for u in uses)
+        base = base.replace(f"{items}.", f"{items}{clause}.", 1)
+    idx = 0 if lang == "pt" else 1
+    where = " / ".join(_PLACEMENT[p][idx] for p in prof.placement)
+    manual = [_MANUAL[e][idx] for e in prof.required if e in _MANUAL]
+    lines = [base]
+    if uses and manual:
+        head = "Complete antes de submeter" if lang == "pt" else "Complete before submitting"
+        lines.append(f"{head}: {'; '.join(manual)}.")
+    label = "Local" if lang == "pt" else "Placement"
+    lines.append(f"{label} ({prof.name}): {where}.")
+    return "\n\n".join(lines)
+
+
+def _unknown_venue_line(venue: str, known: list[str], lang: str) -> str:
+    names = ", ".join(known)
+    if lang == "pt":
+        return (
+            f"Sem perfil no prumo para '{venue}' (perfis: {names}); confira a página de "
+            "política de IA do periódico antes de submeter."
+        )
+    return (
+        f"No prumo profile for '{venue}' (profiles: {names}); check the journal's AI "
+        "policy page before submitting."
+    )
+
+
+def generate_disclosure(*, root: Path | None = None, venue: str | None = None) -> AIDisclosure:
+    """Varre ``root`` (default: cwd) e devolve uma ``AIDisclosure``.
+
+    ``venue`` (ex.: ``jama``) aplica o perfil do periódico: preenche os elementos
+    exigidos pela proveniência e diz uma vez onde a declaração vai. Periódico sem
+    perfil mantém o texto genérico com uma linha pedindo conferir a política.
+    """
     root = root or Path.cwd()
     if not root.exists():
         raise PrumoError(f"diretório não encontrado: {root}")
     records = collect_records(root)
     uses = _aggregate(records, _load_registry())
     dates = sorted(r.date for r in records if r.date)
+    date_from = dates[0] if dates else None
+    date_to = dates[-1] if dates else None
+    statements = {lang: _render(uses, lang) for lang in ("pt", "en")}
+    prof: VenueProfile | None = None
+    if venue:
+        profiles = load_venue_profiles()
+        prof = profiles.get(venue.strip().lower())
+        for lang in statements:
+            if prof is None:
+                line = _unknown_venue_line(venue, sorted(profiles), lang)
+                statements[lang] = f"{statements[lang]}\n\n{line}"
+            else:
+                statements[lang] = _render_venue(uses, lang, prof, date_from, date_to)
     return AIDisclosure(
         generated_at=now_utc(),
-        date_from=dates[0] if dates else None,
-        date_to=dates[-1] if dates else None,
+        date_from=date_from,
+        date_to=date_to,
         tools=uses,
-        statement_pt=_render(uses, "pt"),
-        statement_en=_render(uses, "en"),
+        statement_pt=statements["pt"],
+        statement_en=statements["en"],
+        venue=prof,
     )
