@@ -42,7 +42,7 @@ from par.core import pj_layout
 from par.core.citations import iter_marked_citation_spans, scan_citekeys
 from par.core.config import load_project_config
 from par.core.csl import list_zotero_styles, resolve_csl
-from par.core.obsidian import (
+from par.core.markdown import (
     SpanFragment,
     normalize_markdown,
     normalize_markdown_with_map,

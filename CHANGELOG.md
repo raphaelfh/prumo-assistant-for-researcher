@@ -9,6 +9,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Alterado
 
+- **Obsidian sai do produto.** O normalizador `core/obsidian` vira `core/markdown` (mesmo comportamento: wikilink, embed, callout e block ID continuam convertidos para Pandoc); documentação, modo `paper library` e keywords do plugin deixam de citar o Obsidian; a constitution passa a 1.2.2, com o Zettlr como front do wiki na stack do projeto-cliente (Princípio VIII). Pastas `.obsidian/` em projetos existentes não são tocadas.
 - **Proveniência ligada.** Findings, sessão de `wiki study`, `write draft` e o `citemap.json` do export carimbam `_meta` via `build_meta` (Princípio V); `write disclosure` lê o `_meta` canônico, com fallback só para `extracted_model`. `TraceWriter`, sem uso, foi removido (Princípio VI; ADR-0036).
 - Descrições de `protocol sap`, `protocol cep` e `write style` atenuadas para o que o modo de fato garante, alinhadas à nova página [`docs/positioning.md`](docs/positioning.md) (Princípio VIII).
 - `prumo protocol diff` em modo texto não repete mais o payload bruto (Princípio VIII).

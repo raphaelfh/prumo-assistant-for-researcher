@@ -51,7 +51,7 @@ from pydantic import BaseModel, ValidationError
 
 from par.core import criticmarkup
 from par.core.citations import CITEKEY_RE, iter_citation_spans
-from par.core.obsidian import (
+from par.core.markdown import (
     SpanFragment,
     normalize_markdown,
     normalize_markdown_with_map,
@@ -1762,7 +1762,7 @@ def locate_marks_in_norm(
 # callout/embed/block-id/code), vira evento `non-identity-span` (decisão
 # humana; nunca auto-aplica). Offset source = `frag.source_start + (norm_off
 # - frag.norm_start)` — válido porque um fragment `identity` é sempre uma
-# cópia VERBATIM (`core.obsidian.normalize_markdown_with_map`,
+# cópia VERBATIM (`core.markdown.normalize_markdown_with_map`,
 # `emit_verbatim`): mesmo comprimento e mesmo conteúdo nos dois lados, então
 # a mesma fórmula linear resolve tanto o início quanto o fim do intervalo.
 #
@@ -1931,7 +1931,7 @@ def transplant_to_source(
     """Transplanta cada `LocatedMark` (Task 6) para offsets do `source_body`
     (corpo da página SEM frontmatter — o chamador, Task 8, preserva o
     frontmatter na escrita de `review.md`) via o span-map (`span_frags`,
-    saída de `core.obsidian.normalize_markdown_with_map` sobre o mesmo
+    saída de `core.markdown.normalize_markdown_with_map` sobre o mesmo
     `source_body`).
 
     ``author_anchors`` (Task 9, default ``False`` — mantém o comportamento
@@ -2202,7 +2202,7 @@ def _citation_drop_event(citation: DocxCitation) -> ReviewEvent:
 def _compose_page(raw_fm: str, body: str) -> str:
     """Concatenação trivial: `raw_fm` (bloco de frontmatter VERBATIM, com os
     delimitadores `---` inclusos, ou `""` se a página não tinha frontmatter —
-    saída de `core.obsidian.split_frontmatter_raw`) + `body`.
+    saída de `core.markdown.split_frontmatter_raw`) + `body`.
 
     Substitui a antiga `_render_review_md` (Fix pós-review da Fase 2/Task 9,
     achado Crítico 1): a versão anterior fazia `yaml.safe_dump(meta, ...)`
@@ -2406,7 +2406,7 @@ def ingest(
 # divergência (hard-fail).
 #
 # FRONTMATTER BYTE-FIEL (Fix pós-review, achado Crítico 1): `raw_fm` (bloco
-# `---\n...\n---\n` VERBATIM, via `core.obsidian.split_frontmatter_raw`) é
+# `---\n...\n---\n` VERBATIM, via `core.markdown.split_frontmatter_raw`) é
 # extraído de `review.md` — nunca re-parseado/re-serializado via YAML — e é
 # o MESMO `raw_fm` usado tanto para reescrever `review.md` quanto a PÁGINA;
 # ambos ficam em lockstep até o review terminar (última chamada sem marcas

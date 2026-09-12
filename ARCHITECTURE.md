@@ -4,7 +4,7 @@
 
 ## Tagline e escopo
 
-> **PAR (prumo-assistant-for-researcher)** — Knowledge, bibliography & academic writing assistant for scientific research. Lives between Zotero, your wiki (Markdown; Zettlr front — Obsidian legacy), and your agent-host.
+> **PAR (prumo-assistant-for-researcher)** — Knowledge, bibliography & academic writing assistant for scientific research. Lives between Zotero, your wiki (Markdown; Zettlr front), and your agent-host.
 
 **É:** um assistente de pesquisa pra pesquisador. Cobre gerir conhecimento (wiki), gerir bibliografia (Zotero ↔ notas), formalizar (escrever e/ou revisar) protocolos e templates, capturar fontes e escrever documentos (export docx + revisão crítica).
 
@@ -40,7 +40,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
                                  └──────┬──────┘
                                  ┌──────▼──────────────────────┐
                                  │ core/ (transversal)         │
-                                 │ bib · csl · obsidian ·      │
+                                 │ bib · csl · markdown ·      │
                                  │ citations · skills · paths ·│
                                  │ cli_op · output · deps ·    │
                                  │ note_paths · scaffold ·     │
@@ -50,7 +50,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
 
 \* `core/provenance.py` está desenhado mas ainda não ligado em todos os produtores — ver constitution V e ROADMAP.
 
-† front do wiki: Zettlr (novos) / Obsidian (legado) — domínio `wiki` é flavor-agnóstico (lê Markdown puro), ver ROADMAP.
+† front do wiki: Zettlr — domínio `wiki` é flavor-agnóstico (lê Markdown puro), ver ROADMAP.
 
 ## Layout do repositório
 
@@ -133,7 +133,7 @@ _meta.md ganha extracted_* (staleness por hash) e o bloco `_meta` de proveniênc
 - **Skill** — porta de um domínio (`paper`, `wiki`, `protocol`, `write`, `review`) empacotada como `SKILL.md` universal; `start` é o roteador.
 - **Modo** — uma capability dentro da skill (`paper extract`), em `modes/<modo>.md`; é o que o pesquisador invoca.
 - **Integration** — adapter do formato canônico pro layout de um agent-host.
-- **`pj_*`** — projeto de pesquisa do usuário; vault Zettlr (novos) / Obsidian (legado) + `.claude/` scaffoldado por `prumo init`.
+- **`pj_*`** — projeto de pesquisa do usuário; vault Zettlr + `.claude/` scaffoldado por `prumo init`.
 - **Determinismo** — `agentic` | `deterministic` | `hybrid` (frontmatter `prumo.determinism`).
 - **Layout α** — `docs/references/papers/<citekey>/` com `_meta/_extract/_annotations/note__*` (ADR-0008).
 - **Bloco delimitado** — região machine-owned `<!-- x:begin -->…<!-- x:end -->` (ADR-0009).

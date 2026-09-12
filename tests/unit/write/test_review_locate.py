@@ -32,7 +32,7 @@ import pytest
 
 import par.domains.write.review as review_mod
 from par.core import criticmarkup
-from par.core.obsidian import normalize_markdown_with_map
+from par.core.markdown import normalize_markdown_with_map
 from par.domains.write.review import (
     DocxCitation,
     LocatedMark,
@@ -728,7 +728,7 @@ def test_double_space_in_norm_still_locates() -> None:
 
 def test_ins_del_sub_transplant_with_wikilink_and_citation_intact() -> None:
     """Os 3 kinds transplantáveis (ins/del/sub) num único `source_body` com
-    `[@key]` (citação Pandoc, passthrough — não é átomo Obsidian) e
+    `[@key]` (citação Pandoc, passthrough — não é átomo de wiki) e
     `[[Conceito|alias]]` — span_frags REAIS de `normalize_markdown_with_map`
     (não fixture local). Os 3 alvos vivem dentro do MESMO fragment `identity`
     (a prosa entre os dois átomos), sem tocar nenhuma fronteira — isso é
@@ -746,7 +746,7 @@ def test_ins_del_sub_transplant_with_wikilink_and_citation_intact() -> None:
     norm_text, span_frags = normalize_markdown_with_map(source_body)
     # sanity: o wikilink normalizou como o esperado (senão o teste não
     # estaria exercitando o que diz exercitar); a citação Pandoc é
-    # passthrough (obsidian.py não reconhece `[@key]` — só o legado
+    # passthrough (markdown.py não reconhece `[@key]` — só o legado
     # `[[@key]]`, retirado — então nem é fragment próprio, fica dentro do
     # `identity` que a envolve).
     assert "[@smith2020]" in norm_text
@@ -837,7 +837,7 @@ def test_forced_marker_loss_raises_mark_lost_error(monkeypatch: pytest.MonkeyPat
     `len(located)`, e a função aborta com `MarkLostError` ANTES de devolver
     qualquer `source_with_marks` (nunca um resultado parcialmente
     corrompido)."""
-    source_body = "Frase de prosa pura sem nenhum atomo obsidian aqui dentro."
+    source_body = "Frase de prosa pura sem nenhum atomo de wiki aqui dentro."
     norm_text, span_frags = normalize_markdown_with_map(source_body)
     target = "prosa pura"
     start = norm_text.index(target)
@@ -866,7 +866,7 @@ def test_multiple_marks_preserve_offsets_when_applied_back_to_front() -> None:
     round-trip `criticmarkup.reject`."""
     source_body = "Alfa Bravo Charlie Delta Echo"
     norm_text, span_frags = normalize_markdown_with_map(source_body)
-    assert norm_text == source_body  # nenhum átomo Obsidian aqui
+    assert norm_text == source_body  # nenhum átomo de wiki aqui
 
     alfa_start = norm_text.index("Alfa")
     alfa_end = alfa_start + len("Alfa")
@@ -1036,7 +1036,7 @@ def test_two_point_marks_same_offset_preserve_located_order() -> None:
     nem alguma ordem fixa de aplicação."""
     source_body = "Alfa Bravo Charlie"
     norm_text, span_frags = normalize_markdown_with_map(source_body)
-    assert norm_text == source_body  # prosa pura, sem átomo Obsidian
+    assert norm_text == source_body  # prosa pura, sem átomo de wiki
 
     point = norm_text.index("Bravo")
     prefix = source_body[:point]

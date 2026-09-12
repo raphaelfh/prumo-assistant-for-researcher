@@ -203,11 +203,11 @@ Passos:
 3. Reportar:
    - Notas sem entrada BibTeX: A \ B.
    - Entradas BibTeX sem nota: B \ A (paper conhecido mas sem literature note).
-4. Não fazer nada automaticamente — apenas listar. Usuário decide se quer criar a nota manualmente (ou via Zotero Integration no Obsidian) ou remover a entrada do `.bib`.
+4. Não fazer nada automaticamente — apenas listar. Usuário decide se quer criar a nota (`prumo paper sync`) ou remover a entrada do `.bib`.
 
 ### 7. `find <query>`
 
-Fuzzy lookup no acervo por autor + título + ano + tldr. Útil para o usuário obter o citekey rapidamente quando quer citar num notebook/IDE sem abrir o Obsidian.
+Fuzzy lookup no acervo por autor + título + ano + tldr. Útil para o usuário obter o citekey rapidamente quando quer citar num notebook/IDE sem abrir o editor.
 
 Passos:
 
@@ -259,10 +259,10 @@ Regras duras:
 
 - **Citekey colide**: adicionar sufixo `a/b/c` automaticamente (ex.: `smith2024combinado` já existe → `smith2024combinadoa`).
 - **`docs/references/` não existe**: orientar `mkdir` do layout mínimo + copiar template (ou rodar scaffold em novo projeto).
-- **PDF presente mas sem nota**: usar o plugin Zotero Integration no Obsidian para gerar a nota a partir da entrada Zotero correspondente; o campo `pdf:` vai apontar para o arquivo correto.
+- **PDF presente mas sem nota**: rodar `prumo paper sync` para gerar a nota a partir da entrada do `.bib`; o campo `pdf:` vai apontar para o arquivo correto.
 
 ## Boundaries
 
-- Skill **não** edita o `.gitignore`, `.obsidian/`, nem arquivos fora de `docs/references/`.
+- Skill **não** edita o `.gitignore` nem arquivos fora de `docs/references/`.
 - Skill **não** faz commits — deixa isso para o usuário (e para `/project-manager` quando for registrar ref no monorepo).
 - Skill respeita a rule `.claude/rules/documentation.md`: YAML-only, citekey BBT, seções fixas.

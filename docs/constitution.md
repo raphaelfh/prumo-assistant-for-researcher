@@ -1,6 +1,9 @@
 <!--
 Sync impact report:
-  Version: 1.2.1 (2026-09-12) — emenda PATCH: renomeação do projeto para
+  Version: 1.2.2 (2026-09-12) — emenda PATCH: a stack externa do projeto-cliente
+    cita o Zettlr como front do wiki; o Obsidian, legado desde a v0.62.1, sai do
+    texto. Nenhuma norma alterada.
+  Anterior: 1.2.1 (2026-09-12) — emenda PATCH: renomeação do projeto para
     prumo-assistant-for-researcher (PAR), pacote `par` (ADR-0034). Título, caminhos
     `src/par/` e comando de distribuição atualizados. Nenhuma norma alterada.
   Anterior: 1.2.0 (2026-09-06) — emenda MINOR: adicionado o Princípio VIII
@@ -133,7 +136,7 @@ O custo de uma adição se mede em **conceitos que o pesquisador precisa aprende
 - **Qualidade**: `ruff check` e `mypy strict` zerados em `main`. CI roda matrix Python 3.11/3.12.
 - **Build**: hatchling; versão única em `src/par/_version.py`. `_templates/` empacotado via `force-include`.
 - **Distribuição**: `uv tool install prumo-assistant-for-researcher`, `pipx install prumo-assistant-for-researcher`, ou plugin marketplace do Claude Code.
-- **Stack externa do projeto-cliente** (`pj_*`): Zotero + Better BibTeX (bibliografia), Obsidian (vault), Pandoc + Typst + CSL (export), MCP `qmd` (busca BM25 + vector + rerank local).
+- **Stack externa do projeto-cliente** (`pj_*`): Zotero + Better BibTeX (bibliografia), Zettlr (front do wiki Markdown), Pandoc + Typst + CSL (export), MCP `qmd` (busca BM25 + vector + rerank local).
 - **Sem dependência de SaaS para operação core**: tudo que importa para reproduzir uma análise existe localmente no `pj_*`.
 
 ## Fluxo de Desenvolvimento
@@ -152,6 +155,6 @@ Esta constitution é o documento de mais alta autoridade para decisões de desig
 - Emendas DEVEM passar por PR explícito que atualiza este arquivo + a tabela "Sync impact report" no topo.
 - Bump de versão da constitution segue [SemVer](https://semver.org/lang/pt-BR/) aplicado a *princípios*: `MAJOR` quando um princípio é removido ou redefinido, `MINOR` quando um princípio é adicionado, `PATCH` para clarificação textual.
 - Decisões estruturais pontuais são registradas em `docs/adr/` (MADR minimal, `adr-NNNN-slug.md`, imutáveis após aceitas — revisão = ADR novo). Princípios (normas vivas) moram aqui; o que muda por emenda nunca mora num ADR.
-- Versão atual: **1.2.1** (2026-09-12).
+- Versão atual: **1.2.2** (2026-09-12).
 - Princípios novos DEVEM ter trigger concreto (não "pode ser útil no futuro") — coerência com o princípio VI.
 - O agent-host (Claude Code, Cursor, Codex, Gemini) NÃO pode reescrever esta constitution sem revisão humana.

@@ -26,7 +26,7 @@ from par.core import pj_layout
 from par.core.bib import extract_field, extract_year, parse_bib
 from par.core.citations import scan_citekeys
 from par.core.note_paths import extract_path
-from par.core.obsidian import set_frontmatter_key
+from par.core.markdown import set_frontmatter_key
 from par.core.paths import find_resource
 from par.core.provenance import build_meta
 from par.core.skills import SkillManifest, load_skill_registry

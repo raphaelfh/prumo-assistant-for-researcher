@@ -1,10 +1,10 @@
-"""Tests pro normalizador Obsidian → Pandoc."""
+"""Tests pro normalizador do Markdown do wiki → Pandoc."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from par.core.obsidian import (
+from par.core.markdown import (
     normalize_markdown,
     set_frontmatter_key,
     split_frontmatter,

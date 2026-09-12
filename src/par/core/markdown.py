@@ -1,9 +1,8 @@
-"""Normalizador Obsidian Markdown → Pandoc Markdown.
+"""Normalizador do Markdown do wiki (wikilink, embed, callout, block ID) → Pandoc Markdown.
 
-Transformado de ``monorepo-anterior/.claude/scripts/_obsidian_md.py`` sem mudança
-de comportamento. Citação é gramática Pandoc pura (``[@key]``/``@key`` — ver
+Citação é gramática Pandoc pura (``[@key]``/``@key`` — ver
 ``core/citations``); este módulo não tem nenhuma regra de citação, só o
-wikilink de página e os demais átomos Obsidian abaixo (spec 2026-07-22,
+wikilink de página e os demais átomos de wiki abaixo (spec 2026-07-22,
 retirada do legado ``[[@key]]``). Regras (ver spec sec. 4.2 do export
 pipeline):
 
@@ -124,7 +123,7 @@ class SpanFragment:
     ``kind`` é um de ``identity | wikilink | image | callout | block-id |
     code``. Fragmentos são contíguos e cobrem ``[0, len(source))``
     e ``[0, len(norm))`` sem buracos nem sobreposição (ver invariantes em
-    ``tests/unit/core/test_obsidian_spanmap.py``).
+    ``tests/unit/core/test_markdown_spanmap.py``).
     """
 
     source_start: int
@@ -245,7 +244,7 @@ def _dedupe(edits: list[_Edit]) -> list[_Edit]:
 def normalize_markdown_with_map(
     text: str, page_dir: Path | None = None
 ) -> tuple[str, list[SpanFragment]]:
-    """Normaliza Obsidian→Pandoc e emite o mapa lossless norm↔source.
+    """Normaliza Markdown do wiki→Pandoc e emite o mapa lossless norm↔source.
 
     O mapa é a base do transplante da ponte docx↔CriticMarkup: nunca se
     inverte a normalização (many-to-one) — inverte-se o mapa.
@@ -316,10 +315,10 @@ def normalize_markdown_with_map(
 
 
 def normalize_markdown(text: str, page_dir: Path | None = None) -> str:
-    """Aplica todas as regras de normalização Obsidian → Pandoc.
+    """Aplica todas as regras de normalização do Markdown do wiki → Pandoc.
 
     Args:
-        text: markdown Obsidian (sem frontmatter; chame ``split_frontmatter`` antes).
+        text: markdown do wiki (sem frontmatter; chame ``split_frontmatter`` antes).
         page_dir: diretório da página-fonte para resolver embeds de imagem.
     """
     return normalize_markdown_with_map(text, page_dir)[0]

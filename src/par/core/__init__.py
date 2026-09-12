@@ -5,7 +5,7 @@ Cada módulo aqui dentro é importável sem efeito colateral e tem um único pap
 - ``config``     — carrega ``pj_*/.claude/pj_config.toml`` com defaults
 - ``bib``        — parser tolerante de ``_references.bib`` (Better BibTeX)
 - ``csl``        — resolução de estilos CSL a partir de ``~/Zotero/styles/``
-- ``obsidian``   — normalizador Obsidian Markdown → Pandoc Markdown
+- ``markdown``   — normalizador do Markdown do wiki → Pandoc Markdown
 - ``skills``     — parser de ``SKILL.md`` (frontmatter rico) + registry
 - ``provenance`` — bloco ``_meta`` + trace JSONL local-only
 - ``output``     — console Rich + saída ``--json`` TTY-aware

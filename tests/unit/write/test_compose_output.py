@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from par.core.obsidian import split_frontmatter
+from par.core.markdown import split_frontmatter
 from par.domains.write.compose import write_output
 
 
