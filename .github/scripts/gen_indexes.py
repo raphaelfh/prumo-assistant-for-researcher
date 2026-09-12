@@ -134,12 +134,24 @@ def replace_frontmatter_key(text: str, key: str, rendered: str, *, where: str) -
     return "---\n" + "\n".join(lines) + "\n---" + text[match.end() :]
 
 
+def _guide_title(path: Path) -> str:
+    """Título do guia: ``title`` do frontmatter; sem ele, o primeiro H1 da página."""
+    title = _front_field(path, "title")
+    if title != "—":
+        return title
+    h1 = next(
+        (ln[2:].strip() for ln in path.read_text(encoding="utf-8").splitlines() if ln.startswith("# ")),
+        None,
+    )
+    return h1 or "—"
+
+
 def render_kb_index() -> str:
     sp = REPO / "docs" / "superpowers"
     lines = ["**Guias:**", ""]
     for p in sorted((REPO / "docs").glob("*.md")):
         if p.name != "_index.md":
-            lines.append(f"- [[{p.stem}]] · {_front_field(p, 'title')}")
+            lines.append(f"- [[{p.stem}]] · {_guide_title(p)}")
     lines += ["", "**Specs** (não-perecíveis):", ""]
     for p in sorted((sp / "specs").glob("*.md")):
         lines.append(f"- [[superpowers/specs/{p.stem}]] · {_front_field(p, 'status')}")

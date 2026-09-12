@@ -42,7 +42,7 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 
 - [[Research Project Structure]] · Estrutura de Projeto de Pesquisa
 - [[actions-by-context]] · Contextos de necessidade → ações no prumo-assist
-- [[constitution]] · —
+- [[constitution]] · Prumo-assist Constitution
 - [[onboarding-pesquisador]] · Trilha do pesquisador — prumo-assist sem terminal
 - [[positioning]] · Posicionamento e claims do prumo-assist
 
