@@ -65,6 +65,7 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-08-08-layout-por-escopo-design]] · approved
 - [[superpowers/specs/2026-08-23-ponte-zotero-auditoria-design]] · approved
 - [[superpowers/specs/2026-08-24-pj-instalavel-design]] · approved
+- [[superpowers/specs/2026-09-12-critique-devils-advocate-design]] · implemented
 - [[superpowers/specs/2026-09-12-critique-quote-anchors-design]] · implemented
 - [[superpowers/specs/2026-09-12-drift-manuscrito-protocolo-design]] · —
 - [[superpowers/specs/2026-09-12-figuras-e-tabelas-design]] · —
@@ -77,7 +78,7 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 
 - (nenhum)
 
-**Plans arquivados:** 39 em `superpowers/plans/archive/`
+**Plans arquivados:** 40 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->
