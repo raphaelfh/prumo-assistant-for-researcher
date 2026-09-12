@@ -10,7 +10,10 @@ Convenção do Claude Code (espelhada do plugin atual):
 
 Como a fonte canônica já está nesse formato, "instalar" é essencialmente:
 
-    copy skills/<name>/* → pj_x/.claude/skills/<name>/*
+    copy skills/<name>/ → pj_x/.claude/skills/<name>/
+
+A árvore vai inteira: ``modes/``, ``references/``, ``examples/`` e ``templates/``
+são lidos pelo agente a partir do ``SKILL.md`` (spec de superfície por domínio).
 
 Esse adapter é deliberadamente fino. Quando Cursor/Codex/Gemini entrarem,
 eles transformam o ``SKILL.md`` no formato deles (TOML, custom rules, ...);
@@ -19,6 +22,7 @@ Claude Code é cópia direta porque nascemos no formato dele.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from prumo_assist import IntegrationError
@@ -41,11 +45,8 @@ class ClaudeCodeIntegration(BaseIntegration):
 
         for name in registry.names():
             manifest = registry.get(name)
-            dest_dir = skills_root / name
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            dest_file = dest_dir / "SKILL.md"
             try:
-                dest_file.write_text(manifest.path.read_text(encoding="utf-8"), encoding="utf-8")
+                shutil.copytree(manifest.path.parent, skills_root / name, dirs_exist_ok=True)
                 installed.append(name)
             except OSError as e:
                 skipped.append((name, f"erro de escrita: {e}"))
