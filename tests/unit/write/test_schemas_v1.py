@@ -251,3 +251,39 @@ def test_review_events_file_roundtrip() -> None:
         ],
     )
     assert ReviewEventsFile.model_validate_json(f.model_dump_json()) == f
+
+
+# ---------------------------------------------------------------------------
+# PeerReviewReport/v1 — contrato do modo `review critique` (spec D3)
+# ---------------------------------------------------------------------------
+
+
+def test_sample_report_do_plugin_valida_contra_o_contrato() -> None:
+    import json
+
+    from prumo_assist.core.paths import resolve_resource
+    from prumo_assist.domains.write.schemas.v1 import PeerReviewReport
+
+    sample = resolve_resource("skills") / "review" / "examples" / "sample_report.json"
+    report = PeerReviewReport.model_validate(json.loads(sample.read_text(encoding="utf-8")))
+    assert report.schema_version == "PeerReviewReport/v1"
+    assert report.critical_weaknesses and all(w.fix for w in report.critical_weaknesses)
+
+
+def test_peer_review_report_recusa_recomendacao_fora_da_lista() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from prumo_assist.domains.write.schemas.v1 import PeerReviewReport
+
+    with pytest.raises(ValidationError):
+        PeerReviewReport.model_validate(
+            {
+                "draft_path": "d.md",
+                "draft_genre": "other",
+                "thesis_in_one_sentence": "t",
+                "recommendation": "talvez",
+                "executive_summary": "e",
+                "mental_model_applied": "none",
+            }
+        )

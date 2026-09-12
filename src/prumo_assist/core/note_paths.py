@@ -3,7 +3,7 @@
 Layout α: cada paper tem uma pasta `docs/references/papers/<citekey>/` contendo:
 
 - `_meta.md` — gerado por `prumo paper sync` (YAML CSL-JSON + body humano)
-- `_extract.md` — gerado por `/prumo-assist:paper-extract` (callout estruturado)
+- `_extract.md` — gerado por `/prumo-assist:paper extract` (callout estruturado)
 - `_annotations.md` — gerado por `prumo paper sync-annotations` (highlights+notes)
 - `note__<itemKey>__<slug>.md` — gerado por `prumo paper sync-notes` (NOVO em PR-N2)
 

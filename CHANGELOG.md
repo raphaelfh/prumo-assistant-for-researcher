@@ -7,6 +7,69 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Alterado
+
+- **`prumo paper extract` valida o payload por `PaperCallout/v1`** e recusa, sem gravar,
+  seção fora do template ou valor que não é texto; antes a chave errada virava seção
+  "pendente" em silêncio. Aceita a forma plana legada e `{"sections", "locators"}`.
+- **⚠ Breaking — 16 skills viram `start` + cinco skills por domínio com modos**
+  ([ADR-0032](docs/adr/adr-0032-superficie-por-dominio-e-modos.md)). A fricção mais vista era
+  escolher a skill: descrições sobrepostas e 16 nomes no contexto de toda sessão. Agora são
+  `paper`, `wiki`, `protocol`, `write` e `review`, e cada skill antiga virou um modo 1:1 em
+  `skills/<skill>/modes/<modo>.md`:
+
+  | Antes | Agora |
+  |---|---|
+  | `paper-manager` · `paper-extract` · `citation-support` | `paper library` · `paper extract` · `paper support` |
+  | `wiki-ingest` · `wiki-query` · `wiki-lint` · `active-learning` | `wiki ingest` · `wiki query` · `wiki lint` · `wiki study` |
+  | `formulate-picot` · `write-statistics` · `write-projeto-cep` | `protocol picot` · `protocol sap` · `protocol cep` |
+  | `write-paper` · `write-scientific` · `scientific-writing` | `write manuscript` · `write section` · `write style` |
+  | `peer-review` · `review-reconcile` | `review critique` · `review reconcile` |
+
+  O frontmatter do modo é a fonte única de frases de roteamento, nomes antigos, requisitos,
+  `write_kind` e `disclosure_task` (Princípio I). `when_to_use`, `allowed-tools`,
+  `argument-hint`, a tabela frase → modo, a tabela do README e o catálogo do `start` são
+  gerados (Princípio VII). Não há alias: **rode `prumo update`** no projeto.
+- **Templates de escrita** moram em `skills/<skill>/templates/<modo>.md`, e o `compose` acha
+  template e trava de idioma pelo modo que declara `prumo.write_kind`.
+- **Disclosure canoniza a proveniência.** `generator: wiki-query` (legado) e `wiki/query`
+  (novo) agregam na mesma ferramenta `prumo-assist:wiki query`; nada já gravado é reescrito
+  (Princípio IV). Findings novos gravam `generator: wiki/query`.
+
+### Adicionado
+
+- **Três subagents read-only** ([ADR-0033](docs/adr/adr-0033-subagents-nomeados.md)): `reader`
+  extrai o PDF e grava via `prumo paper extract`, com locators por seção; `verifier` julga se
+  a fonte sustenta a frase lendo o PDF, nunca o `_extract.md`; `reviewer` critica o draft sem
+  ter visto a conversa de redação. Prompt canônico em `agents/<nome>.md`, copiado para
+  `.claude/agents/` pelo `prumo init`. Os modos despacham pelo nome e, se o tipo não existir
+  na sessão, `general-purpose` com o mesmo arquivo.
+- **`prumo validate <schema>`** valida o JSON devolvido por um subagent contra
+  `SupportReport/v1` ou `PeerReviewReport/v1` (agora contratos Pydantic) e aponta o campo a
+  corrigir (Princípio II).
+- **Proveniência ligada no extract** (Princípio V): o apply carimba `_meta` (skill, schema,
+  modelo, `input_hash`) no `_meta.md` — primeiro produtor real de `core/provenance.py`.
+- **`prumo status`** diz, só lendo o disco, em que ponto o estudo está e qual a próxima frase
+  dizer ao agente: bibliografia vazia → papers com PDF sem extract → PICOT não fechada →
+  escopo sem draft → eventos ambíguos de revisão. `--json` sai versionado
+  (`ProjectStatus/v1`) e o `start` usa esse payload para sugerir o próximo passo. Não grava
+  estado novo (mesma lógica da ADR-0029) e não consulta o Zotero, que é assunto do `doctor`.
+- **`prumo update` reescreve invocações antigas** (`prumo-assist:<antigo>` → `prumo-assist:<skill>
+  <modo>`) em `.md` e `.toml` do projeto, com `--dry-run` listando cada arquivo. O acervo
+  gerado em `docs/references/papers/` fica de fora.
+- **`doctor` aponta `[skill_obsoleta]`** quando sobra invocação antiga ou
+  `.claude/skills/<antigo>/` de um `init` anterior (não apagado: pode ter customização).
+- **Modo `write disclosure`** expõe `prumo write disclosure` pelo agente.
+- **Lista-ouro de roteamento** (`tests/fixtures/routing_phrases.toml`): 30 frases inéditas
+  cobrindo os 16 modos, para medir no Desktop (critério ≥ 27/30).
+
+### Corrigido
+
+- **Installer copiava só o `SKILL.md`.** `references/` e `examples/` do `peer-review` nunca
+  chegavam ao `.claude/skills/` do projeto; agora a árvore da skill vai inteira.
+- **Toda entrada de finding no `_log.md` caía em `broken_log_prefix`.** `archive_as_finding`
+  gravava o gerador no lugar do verbo; o verbo passa a `note`, com o gerador entre parênteses.
+
 ## [0.69.1] - 2026-09-11
 
 ### Removido

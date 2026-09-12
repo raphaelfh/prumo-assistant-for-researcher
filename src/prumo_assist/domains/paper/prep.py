@@ -1,7 +1,7 @@
 """``extract_prep`` — valida pré-requisitos de extração + lê config, num só passo.
 
 Absorve o snippet inline ``load_project_config`` e os aborts de pré-requisito
-que viviam na prosa de ``paper-extract`` (spec Fase A: comando *prep* compõe
+que viviam na prosa de ``paper extract`` (spec Fase A: comando *prep* compõe
 validação + leitura de contexto). Tudo determinístico (checagem de path + config).
 """
 

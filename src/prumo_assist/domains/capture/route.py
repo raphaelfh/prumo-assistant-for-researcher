@@ -104,11 +104,11 @@ def classify(raw: str) -> CaptureRoute:
             kind="url",
             canonical=s,
             suggestion=(
-                "URL não-acadêmica. Use a skill `wiki-ingest` no seu agent-host "
+                "URL não-acadêmica. Use o modo `wiki ingest` no seu agent-host "
                 "pra adicionar como nota `type: source` no escopo "
                 "(`docs/studies/<escopo>/notes/`)."
             ),
-            next_command="(no agent-host: /prumo-assist:wiki-ingest <url>)",
+            next_command="(no agent-host: /prumo-assist:wiki ingest <url>)",
         )
 
     # Caminho de arquivo que não foi reconhecido acima (PDF inexistente,
@@ -132,7 +132,7 @@ def classify(raw: str) -> CaptureRoute:
             canonical=f"@{s.lstrip('@')}",
             suggestion=(
                 "Parece citekey. Use `prumo paper find` pra buscar ou "
-                "a skill `/prumo-assist:paper-extract <citekey>` pra extrair o PDF."
+                "o modo `/prumo-assist:paper extract <citekey>` pra extrair o PDF."
             ),
             next_command=f"prumo paper find {s.lstrip('@')}",
         )

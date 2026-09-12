@@ -13,7 +13,7 @@ quando a skill declara `prumo.locale_lock` (com `{locale}` interpolado), de
 nas skills de julgamento puro, que não têm CLI para consultar (ADR-0019).
 
 O detalhamento completo das convenções (C1–C8, tabelas por idioma, greps de
-audit, fluxo de aplicação) vive em `skills/scientific-writing/SKILL.md`, que é a
+audit, fluxo de aplicação) vive em `skills/write/modes/style.md`, que é a
 skill que fiscaliza. Este contrato é o resumo que toda skill de prosa carrega.
 
 <!-- prose:lang-free:begin -->

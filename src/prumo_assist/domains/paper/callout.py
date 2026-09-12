@@ -1,4 +1,4 @@
-"""Render do callout estruturado escrito pela skill ``paper-extract``.
+"""Render do callout estruturado escrito pelo modo ``paper extract``.
 
 Migrado de ``paper_extract.py``. **Importante:** este módulo NÃO chama LLM.
 Ele só:
@@ -15,10 +15,18 @@ executada pelo agent-host. Esse módulo é a "metade Python" do contrato.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
+from pydantic import ValidationError
+
+from prumo_assist.core.provenance import build_meta, hash_input
+from prumo_assist.domains.paper.errors import PaperError
+from prumo_assist.domains.paper.schemas.v1 import Locator, PaperCallout
 from prumo_assist.domains.paper.sync import FRONTMATTER_RE, read_nota_yaml, write_nota
 
 EXTRACT_BEGIN = "<!-- paper-extract:begin -->"
@@ -52,13 +60,35 @@ def _extract_instruction(raw: str) -> str:
     return m.group(1).strip() if m else ""
 
 
+def parse_extract_payload(raw: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Separa ``(seções, locators)`` do JSON que o agente manda ao ``prumo paper extract``.
+
+    Aceita as duas formas: a legada, plana (``{"TL;DR": "..."}``), e a estruturada
+    (``{"sections": {...}, "locators": {...}}``). A validação de tipos acontece em
+    :func:`apply_extraction`, por ``PaperCallout``.
+    """
+    if isinstance(raw.get("sections"), dict):
+        locators = raw.get("locators")
+        return dict(raw["sections"]), dict(locators) if isinstance(locators, dict) else {}
+    return dict(raw), {}
+
+
+def _format_locator(loc: Locator) -> str:
+    return f'p. {loc.page} — "{loc.quote}"' if loc.page else f'"{loc.quote}"'
+
+
 def render_callout(
     sections: list[ExtractionSection],
-    content: dict[str, str],
+    content: Mapping[str, str],
     model: str,
     date: str,
+    locators: Mapping[str, Sequence[Locator]] | None = None,
 ) -> str:
-    """Renderiza o callout Markdown com 1 subsection por seção."""
+    """Renderiza o callout Markdown com 1 subsection por seção.
+
+    Locators, quando houver, saem numa linha ``**Onde:**`` ao fim da seção; extract
+    sem locators renderiza igual ao de antes (idempotência preservada).
+    """
     lines = [
         EXTRACT_BEGIN,
         "> [!note]- Auto-extraído do PDF (revisar antes de confiar)",
@@ -70,6 +100,10 @@ def render_callout(
         lines.append(f"> ### {sec.name}")
         for ln in body.splitlines():
             lines.append(f"> {ln}" if ln else ">")
+        locs = (locators or {}).get(sec.name) or []
+        if locs:
+            lines.append(">")
+            lines.append("> **Onde:** " + "; ".join(_format_locator(loc) for loc in locs))
         lines.append(">")
     while lines and lines[-1] == ">":
         lines.pop()
@@ -83,23 +117,101 @@ def hash_template(path: Path) -> str:
     return h[:12]
 
 
+def _validation_summary(exc: ValidationError) -> str:
+    return "; ".join(
+        f"{'.'.join(str(p) for p in err['loc'])}: {err['msg'].rstrip('.')}"
+        for err in exc.errors()[:3]
+    )
+
+
+def _validated_callout(
+    *,
+    citekey: str,
+    sections: list[ExtractionSection],
+    template_path: Path,
+    content: Mapping[str, Any],
+    locators: Mapping[str, Any],
+    model: str,
+    date: str,
+) -> PaperCallout:
+    """Fail-closed: seção fora do template ou tipo errado não chega ao disco."""
+    names = [s.name for s in sections]
+    unknown = sorted({k for k in (*content, *locators) if k not in names})
+    if unknown:
+        raise PaperError(
+            f"seção(ões) fora do template .claude/paper_extraction.md: {', '.join(unknown)}. "
+            f"Seções esperadas: {', '.join(names)}. Corrija as chaves do JSON e rode "
+            "`prumo paper extract` de novo."
+        )
+    try:
+        return PaperCallout(
+            citekey=citekey,
+            sections=dict(content),
+            model=model,
+            extracted_at=date,
+            template_hash=hash_template(template_path),
+            locators=dict(locators),
+        )
+    except ValidationError as exc:
+        raise PaperError(
+            f"extract de {citekey} não valida contra PaperCallout/v1 ({_validation_summary(exc)}). "
+            "Corrija o JSON — seção → texto; locators → lista de {page, quote} — e rode "
+            "`prumo paper extract` de novo."
+        ) from exc
+
+
+def _provenance(callout: PaperCallout) -> dict[str, Any]:
+    """Bloco ``_meta`` do extract (Princípio V), sem ``human_reviewed``.
+
+    A flag de revisão é do humano, no frontmatter do ``_meta.md``; carimbá-la aqui
+    com ``False`` a sombrearia na declaração de uso de IA.
+    """
+    payload = json.dumps(
+        {
+            "sections": callout.sections,
+            "locators": {k: [loc.model_dump() for loc in v] for k, v in callout.locators.items()},
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    meta = build_meta(
+        schema="PaperCallout/v1",
+        skill="paper/extract",
+        model=callout.model,
+        input_hash=hash_input(payload),
+    ).to_dict()
+    meta.pop("human_reviewed", None)
+    return meta
+
+
 def apply_extraction(
     pj_path: Path,
     citekey: str,
     template_path: Path,
-    content: dict[str, str],
+    content: Mapping[str, Any],
     model: str,
     date: str,
+    locators: Mapping[str, Any] | None = None,
 ) -> bool:
     """Aplica extração: renderiza callout em ``_extract.md``, atualiza YAML do ``_meta.md``.
 
+    Valida o conteúdo por ``PaperCallout/v1`` antes de escrever (levanta ``PaperError``).
     Retorna ``True`` se algum dos dois arquivos mudou; ``False`` se conteúdo idêntico.
-    Só atualiza ``extracted_at`` no `_meta.md` quando o callout efetivamente muda.
+    Só atualiza ``extracted_*`` e o ``_meta`` de proveniência quando o callout muda.
     """
     from prumo_assist.core.note_paths import extract_path, meta_path
 
     sections = parse_extraction_template(template_path.read_text())
-    new_callout = render_callout(sections, content, model, date)
+    callout = _validated_callout(
+        citekey=citekey,
+        sections=sections,
+        template_path=template_path,
+        content=content,
+        locators=locators or {},
+        model=model,
+        date=date,
+    )
+    new_callout = render_callout(sections, callout.sections, model, date, callout.locators)
 
     extract_file = extract_path(pj_path, citekey)
     extract_file.parent.mkdir(parents=True, exist_ok=True)
@@ -121,7 +233,8 @@ def apply_extraction(
         body = text[m.end() :] if m else text
         yaml_dict["extracted_at"] = date
         yaml_dict["extracted_model"] = model
-        yaml_dict["extracted_template_hash"] = hash_template(template_path)
+        yaml_dict["extracted_template_hash"] = callout.template_hash
+        yaml_dict["_meta"] = _provenance(callout)
         write_nota(meta_file, yaml_dict, body)
     return True
 

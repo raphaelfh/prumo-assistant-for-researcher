@@ -39,10 +39,10 @@ Cole um trecho de um draft seu (paper, capítulo, projeto de pesquisa) na
 conversa e peça:
 
 ```
-/prumo-assist:peer-review
+/prumo-assist:review critique
 ```
 
-Isso já foi testado na prática: numa sessão real, o `/prumo-assist:peer-review`
+Isso já foi testado na prática: numa sessão real, o `/prumo-assist:review critique`
 rodou o fluxo completo sem precisar de CLI, Zotero ou busca semântica, e pegou
 todos os problemas plantados de propósito num draft de teste (claims sem
 evidência, superlativos, contradição com a própria fonte citada) (no spike da
@@ -136,8 +136,8 @@ se o `.bib` do projeto ainda estiver no placeholder do scaffold.
   Sem ele, a busca continua funcionando por leitura direta dos arquivos, só
   que mais devagar. Pode pular sem culpa.
 - **Zotero** só é necessário para as skills de bibliografia (sincronizar
-  referências, verificar citações). Escrita e revisão crítica (peer-review,
-  scientific-writing) não dependem dele.
+  referências, verificar citações). Escrita e revisão crítica (`review critique`,
+  `write style`) não dependem dele.
 
 ## 6. Busca e conectores
 
@@ -202,7 +202,7 @@ experimentando. Ela documenta o que medir ao rodar o piloto com 1 colega real
 
 - **Cronômetro:** do momento em que você manda o link do marketplace até o
   colega ter um primeiro output real (por exemplo, o resultado de um
-  `/prumo-assist:peer-review`). Meta: **≤15 minutos**.
+  `/prumo-assist:review critique`). Meta: **≤15 minutos**.
 - **Onde travou:** qual passo gerou dúvida, qual mensagem confundiu, o que a
   pessoa tentou clicar e não achou.
 - **Consentimento na UI:** capture prints de como o pedido de permissão

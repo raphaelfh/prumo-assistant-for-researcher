@@ -3,7 +3,7 @@
 Lado determinístico Python das operações: ``detect_mode`` (estado → modo),
 ``init_picot_spec`` (escreve PicotSpec + propaga + ADR-0001), ``create_picot_adr``
 (ADR-N + propaga), ``propagate`` (regenera blocos) e ``diff_against_last_adr``.
-A skill ``formulate-picot`` chama estas funções via CLI (``prumo protocol …``),
+O modo ``protocol picot`` chama estas funções via CLI (``prumo protocol …``),
 não por import.
 
 O julgamento agêntico (diálogo Socrático, ``formalize`` de prosa → PicotSpec)
@@ -105,7 +105,7 @@ def _propagate_one(
 
 
 def detect_mode(scope: Path) -> str:
-    """Detecta o modo da skill ``formulate-picot`` pelo estado do escopo/projeto.
+    """Detecta a operação do modo ``protocol picot`` pelo estado do escopo/projeto.
 
     Retorna ``init`` | ``formalize`` | ``propagate`` | ``diff``.
     """

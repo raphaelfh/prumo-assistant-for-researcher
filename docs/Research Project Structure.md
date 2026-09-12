@@ -36,7 +36,7 @@ pj_<nome>/
     ├── templates/                ← modelos (ex.: `reference.docx` do Pandoc)
     ├── references/                ← DO PROJETO — bibliografia (ADR-0022)
     │   ├── .gitignore
-    │   ├── _index.md             ← MOC do acervo (mantido por paper-manager)
+    │   ├── _index.md             ← MOC do acervo (mantido por `paper library`)
     │   ├── _note_template.md     ← modelo de nota de leitura
     │   ├── _references.bib       ← BBT auto-export
     │   ├── papers/<citekey>/     ← 1 pasta por paper (layout α, ADR-0008/ADR-0023)
@@ -55,11 +55,11 @@ pj_<nome>/
 | `CLAUDE.md` | Persona, stack, dependências, hierarquia de instruções | Pesquisador |
 | `.claude/pj_config.toml` | Sentinela do projeto — é o que `find_pj_root` procura subindo o filesystem | `prumo init` |
 | `project_guide.md` | Guia enxuto do projeto — **Objetivo**, **Hipótese**, **Research Questions**. Orienta o trabalho, não é a entrega final (escrita formal vive nos módulos `peer-review-loop`/`versioned-milestones`). | Pesquisador |
-| `docs/_index.md` | Catálogo do wiki — uma linha por página existente | Skill `wiki-ingest` |
-| `docs/_log.md` | Diário append-only de eventos (ingest, decisão, query) | Skill `wiki-ingest` + manual |
+| `docs/_index.md` | Catálogo do wiki — uma linha por página existente | Modo `wiki ingest` |
+| `docs/_log.md` | Diário append-only de eventos (ingest, decisão, query) | Modo `wiki ingest` + manual |
 | `docs/references/_references.bib` | Acervo bibliográfico — fonte única é o Zotero, BBT auto-export | Zotero + BBT |
-| `docs/references/papers/<key>/` | Pasta por paper, com `_meta.md` (callout estruturado: PICOT, método, …), `_extract.md`, `_annotations.md` | Skills `paper-manager`, `paper-extract` |
-| `docs/studies/<slug>/notes/` | Prosa humana do escopo, inclusive findings (nota com `type: finding` — ADR-0023) | Pesquisador + skills `wiki-query`/`active-learning`/`paper-extract` |
+| `docs/references/papers/<key>/` | Pasta por paper, com `_meta.md` (callout estruturado: PICOT, método, …), `_extract.md`, `_annotations.md` | Modos `paper library`, `paper extract` |
+| `docs/studies/<slug>/notes/` | Prosa humana do escopo, inclusive findings (nota com `type: finding` — ADR-0023) | Pesquisador + modos `wiki query`/`wiki study`/`paper extract` |
 | `docs/studies/<slug>/writing/` | O produto do escopo — drafts (`bibliography:` sempre `../../../references/_references.bib`) | Pesquisador + família `write-*` |
 | `docs/studies/<slug>/decisions/` | ADRs do escopo (`adr-NNNN-*.md`); imutável após aceito | Pesquisador |
 | `build/exports/` | Saída de `prumo write export` (docx/pdf) — gitignorada, regenerável | `prumo write export` |

@@ -144,7 +144,9 @@ def finding_command(
     date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
     tags: Annotated[str, typer.Option("--tags", help="Array JSON de tags.")] = "[]",
     sources: Annotated[str, typer.Option("--sources", help="Array JSON de wikilinks.")] = "[]",
-    generator: Annotated[str, typer.Option("--generator", help="Skill geradora.")] = "wiki-query",
+    generator: Annotated[
+        str, typer.Option("--generator", help="Modo gerador (skill/modo).")
+    ] = "wiki/query",
     path: Annotated[Path, typer.Option("--path", help=_SCOPE_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:

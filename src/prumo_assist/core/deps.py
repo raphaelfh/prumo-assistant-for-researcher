@@ -3,7 +3,7 @@
 prumo orquestra ferramentas que vivem fora do pacote Python:
 
 - **qmd** — servidor MCP de busca (BM25+vector+rerank) que as skills
-  ``wiki-query``, ``wiki-ingest`` e ``active-learning`` consomem. Binário no PATH.
+  os modos ``wiki query``, ``wiki ingest`` e ``wiki study`` consomem. Binário no PATH.
 - **Zotero + Better BibTeX** — fonte de bibliografia/anotações. Expõe API local
   HTTP em ``127.0.0.1:23119`` quando o app está aberto.
 
@@ -129,7 +129,7 @@ def check_external_deps() -> list[DepStatus]:
         DepStatus(
             name="qmd",
             present=qmd_path is not None,
-            required_by=["wiki-query", "wiki-ingest", "active-learning"],
+            required_by=["wiki query", "wiki ingest", "wiki study"],
             detail=f"qmd em {qmd_path}" if qmd_path else "qmd não está no PATH",
             hint=(
                 "Instale o qmd (servidor MCP de busca): `bun install -g @tobilu/qmd` "

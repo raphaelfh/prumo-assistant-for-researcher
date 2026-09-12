@@ -28,7 +28,7 @@ from prumo_assist.domains.paper import (
     zotero,
 )
 from prumo_assist.domains.paper import prep as paper_prep
-from prumo_assist.domains.paper.callout import apply_extraction
+from prumo_assist.domains.paper.callout import apply_extraction, parse_extract_payload
 from prumo_assist.domains.paper.sync_all import sync_all as _sync_all
 
 paper_app = typer.Typer(
@@ -402,16 +402,17 @@ def extract_command(
     path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Aplica a extração (dict via stdin JSON) ao callout do paper; grava _extract.md."""
+    """Aplica a extração (JSON via stdin: plano ou {sections, locators}); grava _extract.md."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
-        content = read_stdin_json()
+        sections, locators = parse_extract_payload(read_stdin_json())
         pj = path.resolve()
         template_path = pj / ".claude" / "paper_extraction.md"
         changed = apply_extraction(
             pj_path=pj,
             citekey=citekey,
             template_path=template_path,
-            content=content,
+            content=sections,
+            locators=locators,
             model=model,
             date=date,
         )

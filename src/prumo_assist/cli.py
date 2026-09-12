@@ -10,6 +10,8 @@ Comandos disponíveis no PR0 (fundação):
 - ``prumo init [project]`` — cria estrutura de ``pj_*`` a partir do template
   (wizard interativo se ``project`` for omitido)
 - ``prumo doctor [path]`` — health-check do projeto e das skills instaladas
+- ``prumo status [path]`` — onde o estudo está e a próxima frase (só lê o disco)
+- ``prumo validate <schema>`` — valida o JSON de um subagent contra o contrato
 
 Subcomandos por domínio (``prumo paper ...``, ``prumo wiki ...``, ...) entram
 nos PR1-2. O ``cli.py`` apenas registra esses sub-apps quando os domínios
@@ -21,7 +23,7 @@ from __future__ import annotations
 import re
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Annotated
 
@@ -35,7 +37,9 @@ from prumo_assist import (
     PrumoError,
     __version__,
 )
+from prumo_assist.contracts import validate_contract
 from prumo_assist.core import pj_layout
+from prumo_assist.core.cli_io import read_stdin_json
 from prumo_assist.core.cli_op import cli_run
 from prumo_assist.core.deps import check_external_deps
 from prumo_assist.core.output import Console
@@ -58,7 +62,12 @@ from prumo_assist.core.scaffold import (
     template_drift,
 )
 from prumo_assist.core.scaffold import overlay as _overlay
-from prumo_assist.core.skills import load_skill_registry
+from prumo_assist.core.skill_refs import (
+    legacy_installed_dirs,
+    migrate_skill_names,
+    scan_skill_refs,
+)
+from prumo_assist.core.skills import SkillRef, SkillRegistry, load_skill_registry
 from prumo_assist.domains.capture.cli import capture_command
 from prumo_assist.domains.paper.cli import paper_app
 from prumo_assist.domains.paper.connect import bib_is_placeholder
@@ -67,6 +76,7 @@ from prumo_assist.domains.wiki.cli import wiki_app
 from prumo_assist.domains.write.cli import write_app
 from prumo_assist.domains.write.zettlr import profile_issues as zettlr_profile_issues
 from prumo_assist.integrations import REGISTRY as INTEGRATIONS
+from prumo_assist.status import project_status, render_status, status_to_dict
 
 app = typer.Typer(
     name="prumo",
@@ -145,6 +155,21 @@ def _resolve_template_dir() -> Path:
 def _resolve_skills_dir() -> Path | None:
     """Localiza ``skills/`` da fonte (raiz do plugin) ou retorna ``None``."""
     return find_resource("skills")
+
+
+def _skill_registry() -> SkillRegistry | None:
+    """Registry do bundle de skills, ou ``None`` quando o bundle não existe."""
+    skills_dir = _resolve_skills_dir()
+    if skills_dir is None:
+        return None
+    registry, _ = load_skill_registry(skills_dir, strict=False)
+    return registry
+
+
+def _legacy_skill_map() -> dict[str, SkillRef]:
+    """Nomes de skill antigos → modo novo, lidos do bundle (vazio sem bundle)."""
+    registry = _skill_registry()
+    return registry.legacy_map() if registry else {}
 
 
 def _validate_project_name(raw: str) -> tuple[Path, str]:
@@ -619,6 +644,27 @@ def doctor_command(
     # MESMO remédio, e remédio igual é mensagem única (Princípio VIII).
     issues.extend(standard_issues(target, _resolve_template_dir()))
 
+    # Superfície por domínio (ADR-0032): invocação antiga no projeto ou skill
+    # antiga instalada. Remédio único → issue única (Princípio VIII).
+    legacy = _legacy_skill_map()
+    antigos = [c.path for c in scan_skill_refs(target, legacy)]
+    instalados = legacy_installed_dirs(target, legacy)
+    if antigos or instalados:
+        partes: list[str] = []
+        if antigos:
+            partes.append(f"invocações antigas em {', '.join(antigos)}")
+        if instalados:
+            partes.append(
+                f"skills antigas instaladas em {', '.join(instalados)} — apague-as depois de "
+                "conferir que não há customização"
+            )
+        issues.append(
+            "[skill_obsoleta] o prumo-assist agora tem 5 skills com modos "
+            "(paper, wiki, protocol, write, review): "
+            + "; ".join(partes)
+            + ". Rode `prumo update` para reescrever as invocações."
+        )
+
     if (target / "references").is_dir() and not pj_layout.is_legacy_layout(target):
         issues.append(
             "[references_ressuscitado] `docs/references/` existe E `references/` reapareceu "
@@ -734,15 +780,24 @@ def update_command(
         copied: list[str] = []
         updated: list[str] = []
         migrated: str | None = None
-        if not dry_run:
+        legacy = _legacy_skill_map()
+        if dry_run:
+            skill_refs = scan_skill_refs(pj_root, legacy)
+        else:
             migrated = migrate_project_context(pj_root)
+            skill_refs = migrate_skill_names(pj_root, legacy)
             copied = apply_template_update(pj_root, template, drift.missing)
             confirmados = _confirm_diverged(console, drift.diverged, yes=yes)
             updated = apply_template_update(pj_root, template, confirmados)
 
         console.result(
             _update_summary(
-                drift, copied=copied, updated=updated, dry_run=dry_run, migrated=migrated
+                drift,
+                copied=copied,
+                updated=updated,
+                dry_run=dry_run,
+                migrated=migrated,
+                skill_refs=len(skill_refs),
             ),
             {
                 "project": str(pj_root),
@@ -752,6 +807,7 @@ def update_command(
                 "copied": copied,
                 "updated": updated,
                 "migrated": migrated,
+                "skill_refs": [asdict(c) for c in skill_refs],
             },
         )
 
@@ -788,22 +844,70 @@ def _update_summary(
     updated: list[str],
     dry_run: bool,
     migrated: str | None = None,
+    skill_refs: int = 0,
 ) -> str:
+    refs = (
+        f"{skill_refs} arquivo(s) com invocação de skill antiga "
+        + ("a reescrever. " if dry_run else "reescrito(s). ")
+        if skill_refs
+        else ""
+    )
     if dry_run:
-        if drift.clean:
+        if drift.clean and not skill_refs:
             return "Projeto já está no padrão; nada a atualizar."
-        return (
-            f"{len(drift.missing)} arquivo(s) a copiar e {len(drift.diverged)} divergente(s). "
-            "Rode sem --dry-run para aplicar."
+        template = (
+            ""
+            if drift.clean
+            else f"{len(drift.missing)} arquivo(s) a copiar e {len(drift.diverged)} divergente(s). "
         )
+        return refs + template + "Rode sem --dry-run para aplicar."
     aviso = (
         f"{migrated} saiu do projeto — o conteúdo preenchido foi para docs/project_guide.md. "
         if migrated
         else ""
     )
-    if not copied and not updated:
+    if not copied and not updated and not skill_refs:
         return aviso + "Projeto já está no padrão; nada a atualizar."
-    return aviso + f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
+    return aviso + refs + f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
+
+
+# ---------------------------------------------------------------------------
+# prumo status (onde o estudo está, só lendo o disco)
+# ---------------------------------------------------------------------------
+
+
+@app.command("status")
+def status_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_* (default: cwd).")] = Path("."),
+    scope: Annotated[
+        str | None,
+        typer.Option("--scope", help="Slug do escopo em docs/studies/ (default: todos)."),
+    ] = None,
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Onde o estudo está e qual a próxima frase dizer ao agente. Só lê o disco."""
+    with cli_run(json_mode=json_mode) as console:
+        result = project_status(path.resolve(), scope=scope, registry=_skill_registry())
+        console.result(render_status(result), status_to_dict(result))
+
+
+# ---------------------------------------------------------------------------
+# prumo validate (contratos devolvidos por subagents)
+# ---------------------------------------------------------------------------
+
+
+@app.command("validate")
+def validate_command(
+    schema: Annotated[str, typer.Argument(help="Contrato, ex.: SupportReport/v1.")],
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Valida o JSON do stdin contra um contrato versionado (saída de subagent)."""
+    with cli_run(json_mode=json_mode) as console:
+        normalized = validate_contract(schema, read_stdin_json())
+        console.result(
+            f"JSON válido contra {schema}.",
+            {"valid": True, "schema": schema, "payload": normalized},
+        )
 
 
 # ---------------------------------------------------------------------------

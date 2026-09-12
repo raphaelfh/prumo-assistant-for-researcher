@@ -75,3 +75,42 @@ def test_update_fora_de_projeto_falha_com_instrucao(tmp_path: Path) -> None:
     res = runner.invoke(app, ["update", str(tmp_path), "--json"])
     assert res.exit_code == 1
     assert "prumo init" in res.output or "pj_config.toml" in res.output
+
+
+def test_update_reescreve_invocacoes_antigas(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    (pj / "README.md").write_text("use /prumo-assist:paper-manager sync\n", encoding="utf-8")
+
+    res = runner.invoke(app, ["update", str(pj), "--json"])
+
+    assert res.exit_code == 0, res.output
+    assert (pj / "README.md").read_text(
+        encoding="utf-8"
+    ) == "use /prumo-assist:paper library sync\n"
+    assert {"path": "README.md", "count": 1} in json.loads(res.output)["skill_refs"]
+
+
+def test_update_dry_run_lista_invocacoes_sem_escrever(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    (pj / "README.md").write_text("/prumo-assist:wiki-query\n", encoding="utf-8")
+
+    res = runner.invoke(app, ["update", str(pj), "--dry-run", "--json"])
+
+    assert res.exit_code == 0, res.output
+    assert (pj / "README.md").read_text(encoding="utf-8") == "/prumo-assist:wiki-query\n"
+    assert {"path": "README.md", "count": 1} in json.loads(res.output)["skill_refs"]
+
+
+def test_update_nao_reescreve_proveniencia(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    nota = pj / "docs" / "studies" / "principal" / "notes" / "f.md"
+    nota.parent.mkdir(parents=True, exist_ok=True)
+    nota.write_text("---\ntype: finding\ngenerator: wiki-query\n---\n", encoding="utf-8")
+
+    res = runner.invoke(app, ["update", str(pj), "--json"])
+
+    assert res.exit_code == 0, res.output
+    assert "generator: wiki-query" in nota.read_text(encoding="utf-8")

@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from prumo_assist import ManifestError
-from prumo_assist.core.skills import load_skill_registry, parse_skill_file
+from prumo_assist.core.skills import (
+    SkillRef,
+    load_modes,
+    load_skill_registry,
+    parse_skill_file,
+    stale_guideline_warnings,
+)
 
 
 def _write(path: Path, content: str) -> Path:
@@ -300,3 +307,123 @@ def test_locale_lock_without_prose_raises(tmp_path: Path) -> None:
     with pytest.raises(ManifestError) as ei:
         parse_skill_file(skill)
     assert "prose: true" in str(ei.value)
+
+
+# ---------------------------------------------------------------------------
+# Modos (spec 2026-09-12 superfície de skills, D1/D2/D7)
+# ---------------------------------------------------------------------------
+
+
+def _skill_with_modes(root: Path) -> Path:
+    _write(root / "paper" / "SKILL.md", "---\nname: paper\ndescription: Acervo.\n---\n\n# paper\n")
+    _write(
+        root / "paper" / "modes" / "extract.md",
+        "---\nname: extract\ndescription: Extrai PDF.\n"
+        "allowed-tools: Read Bash(prumo paper *) Agent\n"
+        'argument-hint: "[citekey]"\n'
+        'prumo:\n  phrases: ["resuma o paper X"]\n'
+        "  legacy: [paper-extract, paper-extract-all]\n"
+        "  disclosure_task: structured extraction\n"
+        "  write_kind: paper\n"
+        "  requires: [cli]\n---\n\n# extract\n",
+    )
+    _write(
+        root / "paper" / "modes" / "library.md",
+        '---\nname: library\ndescription: Sync.\nprumo:\n  phrases: ["sincroniza"]\n'
+        "  legacy: paper-manager\n---\n\n# library\n",
+    )
+    return root
+
+
+def test_allowed_tools_tokeniza_parenteses_com_espaco(tmp_path: Path) -> None:
+    root = _skill_with_modes(tmp_path)
+    m = parse_skill_file(root / "paper" / "modes" / "extract.md")
+    assert m.allowed_tools == ("Read", "Bash(prumo paper *)", "Agent")
+    assert m.argument_hint == "[citekey]"
+    assert m.phrases == ("resuma o paper X",)
+    assert m.legacy == ("paper-extract", "paper-extract-all")
+    assert m.disclosure_task == "structured extraction"
+    assert m.write_kind == "paper"
+    assert "phrases" not in m.extra and "legacy" not in m.extra
+
+
+def test_legacy_string_unica_vira_tupla(tmp_path: Path) -> None:
+    root = _skill_with_modes(tmp_path)
+    assert parse_skill_file(root / "paper" / "modes" / "library.md").legacy == ("paper-manager",)
+
+
+def test_load_modes_ordena_e_valida_nome_igual_ao_arquivo(tmp_path: Path) -> None:
+    root = _skill_with_modes(tmp_path)
+    assert [m.name for m in load_modes(root / "paper")] == ["extract", "library"]
+    _write(
+        root / "paper" / "modes" / "bad.md",
+        "---\nname: other\ndescription: x\nprumo:\n  phrases: [a]\n---\n",
+    )
+    with pytest.raises(ManifestError, match=r"bad\.md"):
+        load_modes(root / "paper")
+
+
+def test_load_modes_sem_diretorio_eh_vazio(tmp_path: Path) -> None:
+    _write(tmp_path / "s" / "SKILL.md", "---\nname: s\ndescription: d\n---\n")
+    assert load_modes(tmp_path / "s") == ()
+
+
+def test_modo_sem_frase_eh_erro(tmp_path: Path) -> None:
+    _write(tmp_path / "s" / "SKILL.md", "---\nname: s\ndescription: d\n---\n")
+    _write(tmp_path / "s" / "modes" / "m.md", "---\nname: m\ndescription: d\n---\n")
+    with pytest.raises(ManifestError, match="phrases"):
+        load_modes(tmp_path / "s")
+
+
+def test_registry_anexa_modos_e_resolve_referencias(tmp_path: Path) -> None:
+    reg, _ = load_skill_registry(_skill_with_modes(tmp_path))
+    assert [m.name for m in reg.get("paper").modes] == ["extract", "library"]
+    ref = SkillRef("paper", "extract")
+    assert ref.slug == "paper/extract"
+    assert ref.invocation == "prumo-assist:paper extract"
+    assert reg.legacy_map()["paper-extract-all"] == ref
+    for value in (
+        "paper/extract",
+        "prumo-assist:paper extract",
+        "/prumo-assist:paper extract",
+        "paper-extract",
+        "prumo-assist:paper-extract",
+    ):
+        assert reg.resolve(value) == ref, value
+    assert reg.resolve("paper") is None
+    assert reg.resolve("nada/aqui") is None
+    assert reg.find_mode(ref) is not None
+    assert reg.find_mode(SkillRef("wiki", "query")) is None
+    assert [r.slug for r, _ in reg.iter_modes()] == ["paper/extract", "paper/library"]
+
+
+def test_legacy_duplicado_entre_modos_eh_erro(tmp_path: Path) -> None:
+    root = _skill_with_modes(tmp_path)
+    _write(root / "wiki" / "SKILL.md", "---\nname: wiki\ndescription: w\n---\n")
+    _write(
+        root / "wiki" / "modes" / "query.md",
+        "---\nname: query\ndescription: q\nprumo:\n  phrases: [q]\n  legacy: paper-manager\n---\n",
+    )
+    with pytest.raises(ManifestError, match="paper-manager"):
+        load_skill_registry(root)
+
+
+def test_registry_tolerante_pula_skill_com_modo_malformado(tmp_path: Path) -> None:
+    root = _skill_with_modes(tmp_path)
+    _write(root / "wiki" / "SKILL.md", "---\nname: wiki\ndescription: w\n---\n")
+    _write(root / "wiki" / "modes" / "query.md", "---\nname: query\ndescription: q\n---\n")
+    reg, warns = load_skill_registry(root, strict=False)
+    assert reg.names() == ["paper"]
+    assert len(warns) == 1 and "phrases" in warns[0]
+
+
+def test_stale_guideline_warnings_olha_os_modos(tmp_path: Path) -> None:
+    _write(tmp_path / "review" / "SKILL.md", "---\nname: review\ndescription: r\n---\n")
+    _write(
+        tmp_path / "review" / "modes" / "critique.md",
+        "---\nname: critique\ndescription: c\nprumo:\n  phrases: [x]\n"
+        '  guidelines_reviewed: "2020-01-01"\n---\n',
+    )
+    reg, _ = load_skill_registry(tmp_path)
+    out = stale_guideline_warnings(reg, today=date(2026, 9, 12))
+    assert len(out) == 1 and "review critique" in out[0]

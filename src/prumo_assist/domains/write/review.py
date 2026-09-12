@@ -2850,7 +2850,7 @@ def apply_review(
             f"Evento(s) pendente(s) em events.yaml além de citation-drop "
             f"(kind(s): {kinds}) impedem o apply (modo degradado do spec). "
             "Resolva cada evento — editando review.md manualmente ou aceitando "
-            "uma proposta da skill /prumo-assist:review-reconcile — e depois "
+            "uma proposta do modo /prumo-assist:review reconcile — e depois "
             "REMOVA a entrada correspondente de events.yaml (o bloco YAML "
             "inteiro do evento, não só um campo): nem a edição manual nem a "
             "proposta da skill removem o evento sozinhas. AVISO: NÃO rode "

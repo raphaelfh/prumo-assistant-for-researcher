@@ -14,11 +14,16 @@ from prumo_assist.domains.write.compose import (
 
 
 def test_resolve_template_default_from_skill_bundle(tmp_path: Path) -> None:
-    """Plugin ships skills/write-<kind>/template.md; deve ser default."""
-    out = resolve_template(pj_path=tmp_path, kind="paper")
-    assert out is not None
-    assert out.name == "template.md"
-    assert "skills/write-paper" in str(out) or "_skills/write-paper" in str(out)
+    """O template do plugin mora em skills/<skill>/templates/<modo>.md."""
+    expected = {
+        "paper": "write/templates/manuscript.md",
+        "scientific": "write/templates/section.md",
+        "statistics": "protocol/templates/sap.md",
+        "projeto-cep": "protocol/templates/cep.md",
+    }
+    for kind, suffix in expected.items():
+        out = resolve_template(pj_path=tmp_path, kind=kind)  # type: ignore[arg-type]
+        assert out.as_posix().endswith(suffix), (kind, out)
 
 
 def test_resolve_template_project_override(tmp_path: Path) -> None:

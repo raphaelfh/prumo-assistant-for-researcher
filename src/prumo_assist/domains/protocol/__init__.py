@@ -10,7 +10,7 @@ Cobre o ciclo de vida da PICOT do projeto:
 - ``ops`` — orquestra ``propagate`` e ``diff_against_last_adr``
 
 A parte agêntica (modos Socrático e Formalize) vive na skill
-``skills/formulate-picot/SKILL.md``; este pacote é puro Python determinístico.
+``skills/protocol/modes/picot.md``; este pacote é puro Python determinístico.
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@ Cobre o pilar de **conhecimento**:
 - ``index``   — wrapper sobre ``qmd`` (BM25 + vector + rerank)
 - ``stats``   — contagem por escopo (notes/writing/decisions) + bibliografia
 
-As skills agênticas (``wiki-ingest``, ``wiki-query``) ficam em ``skills/`` —
+Os modos agênticos (``wiki ingest``, ``wiki query``) ficam em ``skills/wiki/`` —
 chamadas pelo agent-host do usuário, não por este pacote.
 """
 

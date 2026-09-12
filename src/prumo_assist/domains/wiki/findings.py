@@ -1,7 +1,7 @@
 """``archive_as_finding`` — cria ``<escopo>/notes/<slug>.md`` com ``type: finding``.
 
-Extraído da prose inline do ``wiki-query`` SKILL.md pra reuso pela skill
-``active-learning``. Pattern: YAML frontmatter (id, type, title, added,
+Extraído da prose inline do modo ``wiki query`` pra reuso pelo modo
+``wiki study``. Pattern: YAML frontmatter (id, type, title, added,
 status, tags, sources) + body com seções fixas. Atualiza ``_index.md`` e
 ``_log.md`` do PROJETO.
 
@@ -28,14 +28,14 @@ def archive_as_finding(
     sources: list[str],
     date: str,
     tags: list[str] | None = None,
-    generator: str = "wiki-query",
+    generator: str = "wiki/query",
 ) -> Path:
     """Cria/sobrescreve ``<escopo>/notes/<slug>.md``, atualiza ``_index.md`` e ``_log.md``.
 
     ``body`` é texto markdown livre que vai abaixo do frontmatter.
     ``sources`` é lista de âncoras: citação Pandoc (``"[@key]"``) ou alvo de
     página (wikilink ``"[[page]]"`` ou link markdown ``"[texto](page.md)"``).
-    ``generator`` identifica quem chamou (``"wiki-query"`` ou ``"active-learning"``).
+    ``generator`` identifica quem chamou (``"wiki/query"`` ou ``"wiki/study"``).
 
     Raises:
         PjRootNotFoundError: se ``scope`` não estiver dentro de um projeto
@@ -84,11 +84,16 @@ def _append_to_index(pj_root: Path, slug: str, title: str) -> None:
 
 
 def _append_to_log(pj_root: Path, slug: str, generator: str, date: str) -> None:
-    """Anexa entrada ao topo de ``_log.md`` do projeto."""
+    """Anexa entrada a ``_log.md`` do projeto.
+
+    O verbo é ``note`` — um dos aceitos pelo ``wiki lint`` (``LOG_PREFIX_RE``). O
+    ``generator`` vai entre parênteses: gravá-lo no lugar do verbo fazia toda
+    entrada de finding cair em ``broken_log_prefix``.
+    """
     log = pj_root / "docs" / "_log.md"
     if not log.exists():
         log.write_text("# Log\n", encoding="utf-8")
 
     head = log.read_text(encoding="utf-8")
-    entry = f"\n## [{date}] {generator} | finding arquivado\n\n- [[{slug}]]\n"
+    entry = f"\n## [{date}] note | finding arquivado ({generator})\n\n- [[{slug}]]\n"
     log.write_text(head.rstrip() + "\n" + entry, encoding="utf-8")

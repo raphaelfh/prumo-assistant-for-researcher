@@ -39,7 +39,7 @@ def test_classify_pdf_existing(tmp_path: Path) -> None:
 def test_classify_url() -> None:
     out = classify("https://blog.example.com/post")
     assert out.kind == "url"
-    assert "wiki-ingest" in out.suggestion
+    assert "wiki ingest" in out.suggestion
 
 
 def test_classify_citekey() -> None:

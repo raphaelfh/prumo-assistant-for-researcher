@@ -6,7 +6,7 @@ Cobre o pilar de **escrita**:
 - ``compose``  — multi-page (frontmatter ``pages: [...]``)
 - ``comments`` — extrai comentários + revisões de ``.docx`` revisado
 
-A skill agêntica ``peer-review`` é instalada no agent-host pelo ``prumo init``
+O modo agêntico ``review critique`` é instalado no agent-host pelo ``prumo init``
 e executada lá. Aqui no Python ficamos com o que dá pra fazer determinístico.
 """
 

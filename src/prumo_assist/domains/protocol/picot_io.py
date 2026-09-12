@@ -29,7 +29,7 @@ def read_picot(pj_path: Path) -> PicotSpec:
     path = picot_path(pj_path)
     if not path.exists():
         raise FileNotFoundError(
-            f"{path} não encontrado. Rode `/prumo-assist:formulate-picot init` primeiro."
+            f"{path} não encontrado. Rode `/prumo-assist:protocol picot init` primeiro."
         )
     with path.open("rb") as f:
         raw = tomllib.load(f)
