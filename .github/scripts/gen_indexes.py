@@ -1,7 +1,8 @@
 """Regenera os blocos delimitados de índice a partir das fontes únicas.
 
 Fontes (constitution, princípio VII):
-- skills/<nome>/SKILL.md  → tabela do README + catálogo do router `start`
+- skills/<nome>/SKILL.md + skills/<nome>/modes/*.md → tabela do README, catálogo do
+  router `start`, tabela frase→modo e frontmatter derivado de cada skill com modos
 - docs/superpowers/{specs,plans,plans/archive}/*.md (frontmatter) → docs/_index.md
 - docs/adr/adr-*.md → docs/adr/_index.md
 - .github/scripts/prose_conventions.md → bloco `prumo:prose` das skills de prosa (ADR-0021)
@@ -49,20 +50,88 @@ def _front_field(path: Path, field: str) -> str:
     return found.group(1).strip().strip('"') if found else "—"
 
 
+def _one_line(text: str) -> str:
+    return " ".join(text.split())
+
+
 def render_skills_table(registry: SkillRegistry) -> str:
-    lines = ["| Skill | Uso |", "|---|---|"]
+    """Uma linha por modo (frase típica → invocação); skill sem modos ocupa uma linha."""
+    lines = ["| Você diz | Invocação | O que faz |", "|---|---|---|"]
     for name in registry.names():
-        desc = " ".join(registry.get(name).description.split())
-        lines.append(f"| `/prumo-assist:{name}` | {desc} |")
+        skill = registry.get(name)
+        if not skill.modes:
+            lines.append(f"| — | `/prumo-assist:{name}` | {_one_line(skill.description)} |")
+            continue
+        for mode in skill.modes:
+            lines.append(
+                f'| "{mode.phrases[0]}" | `/prumo-assist:{name} {mode.name}` | '
+                f"{_one_line(mode.description)} |"
+            )
     return "\n".join(lines)
 
 
 def render_skills_catalog(registry: SkillRegistry) -> str:
     lines = []
     for name in registry.names():
-        desc = " ".join(registry.get(name).description.split())
-        lines.append(f"- `/prumo-assist:{name}` — {desc}")
+        skill = registry.get(name)
+        if not skill.modes:
+            lines.append(f"- `/prumo-assist:{name}` — {_one_line(skill.description)}")
+            continue
+        for mode in skill.modes:
+            lines.append(
+                f'- `/prumo-assist:{name} {mode.name}` — "{mode.phrases[0]}" — '
+                f"{_one_line(mode.description)}"
+            )
     return "\n".join(lines)
+
+
+def render_modes_table(skill: SkillManifest) -> str:
+    """Tabela frase → modo do ``SKILL.md`` (todas as frases de todos os modos)."""
+    lines = ["| Você diz | Modo |", "|---|---|"]
+    for mode in skill.modes:
+        for phrase in mode.phrases:
+            lines.append(f'| "{phrase}" | `{mode.name}` |')
+    return "\n".join(lines)
+
+
+def derived_frontmatter(skill: SkillManifest) -> dict[str, str]:
+    """Chaves do frontmatter de uma skill com modos, derivadas dos modos (Princípio VII).
+
+    ``when_to_use`` sai das frases; ``allowed-tools`` é a união ordenada dos modos;
+    ``argument-hint`` lista os modos. Cada valor já vem serializado como YAML.
+    """
+    tools: list[str] = []
+    for mode in skill.modes:
+        tools.extend(tool for tool in mode.allowed_tools if tool not in tools)
+    names = [m.name for m in skill.modes]
+    when = ["when_to_use: |", f"  Modos: {', '.join(names)}. Frases típicas:"]
+    for mode in skill.modes:
+        quoted = "; ".join(f'"{p}"' for p in mode.phrases)
+        when.append(f"  - {mode.name}: {quoted}")
+    return {
+        "when_to_use": "\n".join(when),
+        "allowed-tools": "allowed-tools: " + " ".join(tools),
+        "argument-hint": f'argument-hint: "[{"|".join(names)}] [argumentos do modo]"',
+    }
+
+
+def replace_frontmatter_key(text: str, key: str, rendered: str, *, where: str) -> str:
+    """Substitui ``key`` (escalar ou bloco ``|``) no frontmatter; insere antes de ``prumo:``."""
+    match = _FRONT_RE.match(text)
+    if not match:
+        raise SystemExit(f"gen_indexes: {where} sem frontmatter.")
+    lines = match.group(1).split("\n")
+    start = next((i for i, ln in enumerate(lines) if ln.startswith(f"{key}:")), None)
+    new_lines = rendered.split("\n")
+    if start is None:
+        anchor = next((i for i, ln in enumerate(lines) if ln.startswith("prumo:")), len(lines))
+        lines[anchor:anchor] = new_lines
+    else:
+        end = start + 1
+        while end < len(lines) and lines[end].startswith(" "):
+            end += 1
+        lines[start:end] = new_lines
+    return "---\n" + "\n".join(lines) + "\n---" + text[match.end() :]
 
 
 def render_kb_index() -> str:
@@ -283,6 +352,13 @@ def render_skill_blocks(manifest: SkillManifest) -> list[tuple[str, str, str]]:
     ``body`` vazio significa "este bloco NÃO deve existir nesta skill" — é assim
     que a remoção fica simétrica à estampagem.
     """
+    if manifest.modes:
+        # A porta da skill não opera: preflight e prosa moram em cada modo.
+        return [
+            ("preflight", "", ""),
+            ("prose", "", ""),
+            ("modes-table", render_modes_table(manifest), ""),
+        ]
     preflight_end = "<!-- prumo:preflight:end -->\n"
     return [
         ("preflight", render_preflight(manifest), ""),
@@ -323,12 +399,14 @@ def main() -> int:
         old = path.read_text(encoding="utf-8")
         _sync(path, rel, old, replace_block(old, tag, body, where=rel))
 
-    for name in registry.names():
-        manifest = registry.get(name)
+    def _stamp(manifest: SkillManifest) -> None:
         rel = str(manifest.path.relative_to(REPO))
         old = manifest.path.read_text(encoding="utf-8")
-        # Os blocos compõem sobre o mesmo texto — um único _sync por skill.
+        # Os blocos compõem sobre o mesmo texto — um único _sync por arquivo.
         new = old
+        if manifest.modes:
+            for key, rendered in derived_frontmatter(manifest).items():
+                new = replace_frontmatter_key(new, key, rendered, where=rel)
         for tag, body, after in render_skill_blocks(manifest):
             new = (
                 stamp_block(new, tag, body, where=rel, after=after)
@@ -336,6 +414,12 @@ def main() -> int:
                 else strip_block(new, tag)
             )
         _sync(manifest.path, rel, old, new)
+
+    for name in registry.names():
+        skill = registry.get(name)
+        _stamp(skill)
+        for mode in skill.modes:
+            _stamp(mode)
 
     if check and stale:
         print("gen_indexes --check: índices dessincronizados:", ", ".join(stale))
