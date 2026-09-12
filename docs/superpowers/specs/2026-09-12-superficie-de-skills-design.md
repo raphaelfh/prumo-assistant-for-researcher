@@ -295,3 +295,12 @@ Decisões tomadas ao implementar F1, registradas aqui para o spec não contradiz
 7. **`.claude/skills/<antigo>/` não é apagado** pelo `update` (pode ter customização); o `doctor` aponta.
 8. **Bug pré-existente corrigido no caminho**: `archive_as_finding` gravava o `generator` no lugar do verbo do `_log.md`, e o `wiki lint` marcava toda entrada de finding como `broken_log_prefix`. O verbo passa a `note`, com o gerador entre parênteses.
 9. **Installer copia a árvore inteira da skill.** Antes copiava só o `SKILL.md`, então `references/` já não chegava aos projetos.
+
+## Emenda de implementação (F2 e F3, 2026-09-12)
+
+1. **O contrato do `reviewer` é `PeerReviewReport/v1`**, o nome que a skill já publicava, e não um `CritiqueReport` novo.
+2. **`prumo validate <schema>` é o consumidor dos contratos que ninguém persiste** (`SupportReport/v1`, `PeerReviewReport/v1`). Sem ele, "JSON inválido → 1 retry com o erro" não seria verificável. Registry em `src/prumo_assist/contracts.py`, no topo do pacote.
+3. **O transporte é duplo sem esperar a F0.** O modo despacha o agent pelo nome e cai em `general-purpose` com o mesmo `agents/<nome>.md`; o installer copia `agents/` para `.claude/agents/`. A F0 passa a só medir qual caminho roda no Desktop e no Cowork, e a ADR-0033 não depende dela.
+4. **`SupportVerdict` ganha a via `no-source`** (PDF indisponível) e o veredito `fully`/`partially` exige trecho literal.
+5. **O `_meta` do extract vai para o `_meta.md`**, não para o `_extract.md`: o disclosure lê um registro por arquivo, e dois carimbos por paper contariam o uso em dobro.
+6. **`status` não usa `review.status()`**: aquela função exige os três sidecars e levanta sem eles; `status` lê `events.yaml` e `review.md` direto e conta 0 para sidecar ausente ou ilegível.

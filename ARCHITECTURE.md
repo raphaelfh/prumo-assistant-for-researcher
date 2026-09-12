@@ -36,7 +36,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
        └────────────────┴───────────────┼────────────────┴────────────────┘
                                  ┌──────▼──────┐
                                  │   prumo     │  ← CLI (Typer); raiz: init ·
-                                 │             │     doctor · update · status · skills · add · mcp (+ capture)
+                                 │             │     doctor · update · status · validate · skills · add · mcp (+ capture)
                                  └──────┬──────┘
                                  ┌──────▼──────────────────────┐
                                  │ core/ (transversal)         │
@@ -75,12 +75,13 @@ prumo-assist/
 │   ├── __init__.py            ← hierarquia de exceções (PrumoError + cross-cutting;
 │                                 bases por domínio em domains/<X>/errors.py)
 │   ├── api.py                 ← Python API pública (SemVer)
-│   ├── cli.py                 ← Typer root: init · doctor · update · status · skills · add · mcp (+ capture)
+│   ├── cli.py                 ← Typer root: init · doctor · update · status · validate · skills · add · mcp (+ capture)
 │   ├── mcp_server.py          ← servidor MCP local (stdio) `prumo`; vive no TOPO
 │                                 do pacote por design (nunca em domains/) — importa
 │                                 domains/ livremente (ADR-0017)
 │   ├── status.py              ← `prumo status`: compõe leituras de domínios e só lê o
 │                                 disco; mesmo precedente do mcp_server (ADR-0017)
+│   ├── contracts.py           ← `prumo validate`: registry dos contratos devolvidos por subagents
 │   ├── _filters/              ← filtros Lua vendorados do Pandoc (zotero_live_docx.lua)
 │   ├── core/                  ← transversal; NUNCA importa domains/ (ADR-0005)
 │   ├── domains/               ← paper · wiki · capture · protocol · write
@@ -91,6 +92,8 @@ prumo-assist/
 │
 ├── skills/                    ← start + 5 skills por domínio; cada uma com modes/<modo>.md
 │                                 (frontmatter = única metadata, ADR-0003, ADR-0032)
+├── agents/                    ← subagents read-only: reader · verifier · reviewer (ADR-0033);
+│                                 force-include no wheel; `prumo init` copia p/ .claude/agents/
 ├── templates/
 │   ├── pj_base/               ← núcleo mínimo copiado por `prumo init`
 │   └── modules/             ← overlays opt-in (`prumo add`), self-describing (_module.toml):
@@ -109,13 +112,13 @@ prumo-assist/
 Claude Code carrega skills/paper/SKILL.md, que manda ler skills/paper/modes/extract.md
         ▼
 A skill valida pré-requisitos (Bash), lê config (core/config.py),
-despacha subagent que lê o PDF com a tool Read
+despacha o subagent `reader` (agents/reader.md), que lê o PDF com Read
         ▼
-O JSON extraído é aplicado pelo backend determinístico
+O reader grava via `prumo paper extract`: o JSON é validado por PaperCallout/v1 e aplicado pelo backend determinístico
 (domains/paper/callout.py) dentro do bloco delimitado (ADR-0009) em
 docs/references/papers/smith2024/_extract.md  — layout α (ADR-0008)
         ▼
-_meta.md ganha extracted_at / extracted_template_hash (staleness por hash)
+_meta.md ganha extracted_* (staleness por hash) e o bloco `_meta` de proveniência (Princípio V)
 ```
 
 ## Como contribuir

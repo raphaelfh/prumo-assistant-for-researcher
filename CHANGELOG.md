@@ -9,6 +9,9 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Alterado
 
+- **`prumo paper extract` valida o payload por `PaperCallout/v1`** e recusa, sem gravar,
+  seção fora do template ou valor que não é texto; antes a chave errada virava seção
+  "pendente" em silêncio. Aceita a forma plana legada e `{"sections", "locators"}`.
 - **⚠ Breaking — 16 skills viram `start` + cinco skills por domínio com modos**
   ([ADR-0032](docs/adr/adr-0032-superficie-por-dominio-e-modos.md)). A fricção mais vista era
   escolher a skill: descrições sobrepostas e 16 nomes no contexto de toda sessão. Agora são
@@ -35,6 +38,17 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Adicionado
 
+- **Três subagents read-only** ([ADR-0033](docs/adr/adr-0033-subagents-nomeados.md)): `reader`
+  extrai o PDF e grava via `prumo paper extract`, com locators por seção; `verifier` julga se
+  a fonte sustenta a frase lendo o PDF, nunca o `_extract.md`; `reviewer` critica o draft sem
+  ter visto a conversa de redação. Prompt canônico em `agents/<nome>.md`, copiado para
+  `.claude/agents/` pelo `prumo init`. Os modos despacham pelo nome e, se o tipo não existir
+  na sessão, `general-purpose` com o mesmo arquivo.
+- **`prumo validate <schema>`** valida o JSON devolvido por um subagent contra
+  `SupportReport/v1` ou `PeerReviewReport/v1` (agora contratos Pydantic) e aponta o campo a
+  corrigir (Princípio II).
+- **Proveniência ligada no extract** (Princípio V): o apply carimba `_meta` (skill, schema,
+  modelo, `input_hash`) no `_meta.md` — primeiro produtor real de `core/provenance.py`.
 - **`prumo status`** diz, só lendo o disco, em que ponto o estudo está e qual a próxima frase
   dizer ao agente: bibliografia vazia → papers com PDF sem extract → PICOT não fechada →
   escopo sem draft → eventos ambíguos de revisão. `--json` sai versionado
