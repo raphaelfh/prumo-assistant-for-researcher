@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.domains.wiki.schemas.v1 import StepLog
-from prumo_assist.domains.wiki.study import (
+from par.domains.wiki.schemas.v1 import StepLog
+from par.domains.wiki.study import (
     append_step,
     create_session_log,
     finalize_session,

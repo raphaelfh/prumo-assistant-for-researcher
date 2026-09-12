@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from prumo_assist.core.bib import extract_field, extract_year, parse_bib
+from par.core.bib import extract_field, extract_year, parse_bib
 
 
 def test_parses_minimal_entry() -> None:

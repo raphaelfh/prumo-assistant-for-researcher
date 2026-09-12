@@ -23,8 +23,8 @@ from typing import Protocol
 import pytest
 import yaml
 
-from prumo_assist.domains.write.export import slugify
-from prumo_assist.domains.write.schemas.v1 import (
+from par.domains.write.export import slugify
+from par.domains.write.schemas.v1 import (
     CiteMapFile,
     CiteOccurrence,
     ReviewComment,

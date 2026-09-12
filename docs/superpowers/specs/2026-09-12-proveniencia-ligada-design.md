@@ -28,7 +28,7 @@ O Princípio V exige `_meta` em todo artefato gerado, mas só `paper extract` ca
 1. Cada produtor marcado chama `build_meta(...).to_dict()` e grava a chave `_meta` no frontmatter YAML (Markdown) ou no JSON (sidecar). A chave de frontmatter é machine-owned, o mesmo arranjo do `_meta.md` do extract; o corpo humano e as demais chaves são preservados. No `--into`, o bloco `<!-- write:begin -->` continua sendo a região do corpo que a máquina reescreve (ADR-0009), e o `_meta` vai no frontmatter.
 2. `skill` usa o id `<skill>/<modo>` do registry: `wiki/query`/`wiki/study` (o `--generator` de sempre), `write/manuscript` (drafts/out), `write/section` (into). Sem flag nova; `model` fica ausente onde o CLI não o recebe.
 3. `disclosure.collect_records` lê o `_meta` canônico primeiro. Fallback legado só para `extracted_model`/`extracted_at`. `human_reviewed` é o OU entre o frontmatter (flag humana) e o `_meta`.
-4. `TraceWriter`, `is_trace_disabled` e seus testes saem (Princípio VI; ADR-0035).
+4. `TraceWriter`, `is_trace_disabled` e seus testes saem (Princípio VI; ADR-0036).
 
 ## Contagem legada nos `pj_*` (leitura, 2026-09-12)
 

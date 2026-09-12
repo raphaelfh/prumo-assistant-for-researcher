@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.domains.paper.lint import lint, set_primary
+from par.domains.paper.lint import lint, set_primary
 
 
 def _setup_project(tmp_path: Path, bib_text: str = "") -> Path:

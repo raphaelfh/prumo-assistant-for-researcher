@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from prumo_assist.domains.paper.schemas.v1 import (
+from par.domains.paper.schemas.v1 import (
     Locator,
     PaperCallout,
     SupportReport,

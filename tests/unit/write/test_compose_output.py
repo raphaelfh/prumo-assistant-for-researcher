@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.core.obsidian import split_frontmatter
-from prumo_assist.domains.write.compose import write_output
+from par.core.obsidian import split_frontmatter
+from par.domains.write.compose import write_output
 
 
 def test_write_output_drafts_stamps_meta_preserving_frontmatter(tmp_path: Path) -> None:

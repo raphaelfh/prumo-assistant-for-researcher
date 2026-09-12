@@ -87,7 +87,7 @@ A revisão roda num contexto que não viu a conversa de redação — é isso qu
 torna independente. Não resuma o draft para ele nem explique o que o autor quis
 dizer; não leia o draft inteiro no thread principal antes de despachar.
 
-Despache o `reviewer` (tool `Agent`, `subagent_type: "reviewer"`; se o plugin registrar com prefixo, `prumo-assist:reviewer`). Se nenhum dos dois tipos existir nesta sessão, leia o prompt canônico `agents/reviewer.md` (em `$CLAUDE_PLUGIN_ROOT/agents/` ou `.claude/agents/`) e despache `subagent_type: "general-purpose"` com o corpo do arquivo como prompt.
+Despache o `reviewer` (tool `Agent`, `subagent_type: "reviewer"`; se o plugin registrar com prefixo, `par:reviewer`). Se nenhum dos dois tipos existir nesta sessão, leia o prompt canônico `agents/reviewer.md` (em `$CLAUDE_PLUGIN_ROOT/agents/` ou `.claude/agents/`) e despache `subagent_type: "general-purpose"` com o corpo do arquivo como prompt.
 Preencha só: `draft_path` (absoluto), `guidelines_path` (absoluto de
 [`../references/reporting-guidelines.md`](../references/reporting-guidelines.md)),
 `draft_genre` (passo 1) e, se pedidos, `section`, `venue`, `critical_only`.
@@ -114,7 +114,7 @@ e `executive_summary` não vazios; `recommendation` ∈ `accept|minor|major|reje
 fraqueza com `section`, `point` e `fix`; todo `quote` com até 25 palavras e achado
 literalmente no draft (Grep). Falhou → mesma regra de uma devolução ao
 reviewer. Se foi subcomando ausente, diga ao pesquisador UMA vez que
-`uv tool upgrade prumo-assist` traz a validação e rode SÓ com consentimento; a
+`uv tool upgrade prumo-assistant-for-researcher` traz a validação e rode SÓ com consentimento; a
 revisão não espera por isso.
 
 O contrato completo é `PeerReviewReport/v1`; exemplo preenchido em
@@ -146,10 +146,10 @@ Imprima uma versão markdown legível do JSON validado, nesta ordem:
 
 ## Variações úteis
 
-- **`/prumo-assist:review critique --critical-only`**: foca só em fraquezas críticas (quando o
+- **`/par:review critique --critical-only`**: foca só em fraquezas críticas (quando o
   usuário só quer saber o que precisa fixar antes de submeter).
-- **`/prumo-assist:review critique --section X`**: revisa só uma seção específica.
-- **`/prumo-assist:review critique --venue NEJM`**: aplica mental model do venue alvo (NEJM,
+- **`/par:review critique --section X`**: revisa só uma seção específica.
+- **`/par:review critique --venue NEJM`**: aplica mental model do venue alvo (NEJM,
   Lancet, JAMA, Nature Medicine, Radiology, MICCAI, NeurIPS).
 
 ## Pós-review

@@ -1,4 +1,4 @@
-"""Figuras e tabelas numeradas no export (ADR-0034).
+"""Figuras e tabelas numeradas no export (ADR-0035).
 
 Testes do builder rodam sempre. Os de pipeline completo usam o pandoc real
 (filtro Lua não tem como ser mockado de forma útil) e são pulados sem pandoc
@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.domains.write import export as export_mod
-from prumo_assist.domains.write.export import (
+from par.domains.write import export as export_mod
+from par.domains.write.export import (
     PandocFailedError,
     _assert_no_citeproc_missing,
     _build_pandoc_cmd,
@@ -90,7 +90,7 @@ def test_export_passa_writing_language_ao_pandoc(
         out.write_text("<html/>")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake_run)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake_run)
     export_mod.export(page, to="html", project_root=root)
     assert "--metadata=prumo_lang:pt-BR" in calls[0]
 

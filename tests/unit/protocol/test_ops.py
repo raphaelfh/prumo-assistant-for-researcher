@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.domains.protocol.ops import (
+from par.domains.protocol.ops import (
     AdrResult,
     InitResult,
     PropagateReport,
@@ -16,8 +16,8 @@ from prumo_assist.domains.protocol.ops import (
     init_picot_spec,
     propagate,
 )
-from prumo_assist.domains.protocol.picot_io import picot_path, write_picot
-from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
+from par.domains.protocol.picot_io import picot_path, write_picot
+from par.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 
 def _spec(version: int = 1, population: str = "DS_A") -> PicotSpec:
@@ -118,8 +118,8 @@ def test_diff_against_last_adr_no_baseline_returns_diff_with_no_changes(
 
 def test_diff_against_last_adr_detects_structural_change(tmp_path: Path) -> None:
     """Após ADR inicial, mudar campo estrutural produz diff structural."""
-    from prumo_assist.domains.protocol.adr import compose_adr, next_number
-    from prumo_assist.domains.protocol.diff import PicotDiff
+    from par.domains.protocol.adr import compose_adr, next_number
+    from par.domains.protocol.diff import PicotDiff
 
     pj, scope = _bootstrap_pj(tmp_path)
     spec_v1 = _spec(version=1, population="DS_A")

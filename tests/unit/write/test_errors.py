@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from prumo_assist import PrumoError
-from prumo_assist.domains.write import export, review
-from prumo_assist.domains.write.errors import WriteError
+from par import PrumoError
+from par.domains.write import export, review
+from par.domains.write.errors import WriteError
 
 _WRITE_LEAVES = (
     export.ZoteroNotRunningError,

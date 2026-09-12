@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.domains.wiki.lint import check_single_primary, lint
+from par.domains.wiki.lint import check_single_primary, lint
 
 
 def _scope(root: Path, slug: str) -> Path:

@@ -1,4 +1,4 @@
-"""Tests para o pipeline pandoc de ``prumo_assist.domains.write.export``.
+"""Tests para o pipeline pandoc de ``par.domains.write.export``.
 
 Cobre:
 
@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.core.citations import scan_citekeys
-from prumo_assist.domains.write.export import (
+from par.core.citations import scan_citekeys
+from par.domains.write.export import (
     MissingBibliographyPlaceholderError,
     ZoteroCitekeyNotFoundError,
     _assert_bibliography_present,

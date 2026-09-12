@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-from prumo_assist.core.paths import resolve_resource
+from par.core.paths import resolve_resource
 
 REPO = Path(__file__).resolve().parents[2]
 _WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
@@ -43,7 +43,7 @@ def test_todo_agent_eh_despachado_por_algum_modo() -> None:
 def test_wheel_force_inclui_agents() -> None:
     data = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     force = data["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
-    assert force["agents"] == "prumo_assist/_agents"
+    assert force["agents"] == "par/_agents"
 
 
 def test_resolve_resource_acha_agents() -> None:

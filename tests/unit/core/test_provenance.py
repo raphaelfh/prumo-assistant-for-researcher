@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from prumo_assist.core.provenance import (
+from par.core.provenance import (
     build_meta,
     hash_input,
     new_run_id,

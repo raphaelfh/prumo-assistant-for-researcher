@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.core.note_paths import (
+from par.core.note_paths import (
     annotations_path,
     child_note_path,
     extract_path,
@@ -68,7 +68,7 @@ def test_slugify_handles_empty() -> None:
 
 
 def test_iter_note_meta_files_includes_alpha(tmp_path: Path) -> None:
-    from prumo_assist.core.note_paths import iter_note_meta_files
+    from par.core.note_paths import iter_note_meta_files
 
     notes = tmp_path / "docs" / "references" / "papers"
     (notes / "smith2024").mkdir(parents=True)
@@ -80,7 +80,7 @@ def test_iter_note_meta_files_includes_alpha(tmp_path: Path) -> None:
 
 
 def test_iter_note_meta_files_includes_legacy_during_transition(tmp_path: Path) -> None:
-    from prumo_assist.core.note_paths import citekey_from_meta_path, iter_note_meta_files
+    from par.core.note_paths import citekey_from_meta_path, iter_note_meta_files
 
     notes = tmp_path / "docs" / "references" / "papers"
     notes.mkdir(parents=True)
@@ -94,7 +94,7 @@ def test_iter_note_meta_files_includes_legacy_during_transition(tmp_path: Path) 
 
 
 def test_iter_note_meta_files_prefers_alpha_when_both_exist(tmp_path: Path) -> None:
-    from prumo_assist.core.note_paths import iter_note_meta_files
+    from par.core.note_paths import iter_note_meta_files
 
     notes = tmp_path / "docs" / "references" / "papers"
     notes.mkdir(parents=True)

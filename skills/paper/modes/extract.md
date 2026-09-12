@@ -1,6 +1,6 @@
 ---
 name: extract
-description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em docs/references/papers/<citekey>/_extract.md. Pressupõe /prumo-assist:paper library sync executado + symlinks via prumo paper sync-pdfs."
+description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em docs/references/papers/<citekey>/_extract.md. Pressupõe /par:paper library sync executado + symlinks via prumo paper sync-pdfs."
 argument-hint: "[citekey] | --all [--limit N] [--stale-only]"
 allowed-tools: Read Write Edit Glob Grep Bash(prumo paper *) Bash(cat *) Agent
 prumo:
@@ -28,13 +28,13 @@ prumo:
 > **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
 >
 > 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
->    operação desta skill; roteie para `/prumo-assist:start` (instalação guiada com
+>    operação desta skill; roteie para `/par:start` (instalação guiada com
 >    consentimento) e pare aqui.
 > 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
 >    definido, compare a versão do CLI com o campo `version` de
 >    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
 >    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
->    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
+>    `uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,
 >    pule este passo em silêncio.
 > 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
@@ -52,11 +52,11 @@ Skill que lê o PDF (via symlink em `docs/references/pdfs/<citekey>.pdf`), gera 
 - A validação de pré-requisitos (template, `.bib`, PDF, `_meta.md`) e a leitura de
   config são feitas por `prumo paper extract-prep <citekey>` (aborta com o comando de correção).
 - O CLI `prumo` precisa estar no PATH (rode `prumo doctor`; se ausente:
-  `uv tool install git+https://github.com/raphaelfh/prumo-assist`).
+  `uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher`).
 
 ## Operações
 
-### 1. `/prumo-assist:paper extract <citekey>` — single
+### 1. `/par:paper extract <citekey>` — single
 
 Interativo, 1 paper.
 
@@ -68,7 +68,7 @@ Passos:
    ```
    Capture `language`, `template_path`, `pdf_path` e `meta_path` do JSON. Se falhar (exit ≠ 0), aborte mostrando a mensagem (ela já traz o comando de correção).
 
-2. **Despachar o subagent `reader`** (tool `Agent`, `subagent_type: "reader"`; se o plugin registrar com prefixo, `prumo-assist:reader`). Se nenhum dos dois tipos existir nesta sessão, leia o prompt canônico `agents/reader.md` (em `$CLAUDE_PLUGIN_ROOT/agents/` ou `.claude/agents/`) e despache `subagent_type: "general-purpose"` com o corpo do arquivo como prompt.
+2. **Despachar o subagent `reader`** (tool `Agent`, `subagent_type: "reader"`; se o plugin registrar com prefixo, `par:reader`). Se nenhum dos dois tipos existir nesta sessão, leia o prompt canônico `agents/reader.md` (em `$CLAUDE_PLUGIN_ROOT/agents/` ou `.claude/agents/`) e despache `subagent_type: "general-purpose"` com o corpo do arquivo como prompt.
    Preencha: `citekey`, `pdf_path`, `template_path` e `language` (do passo 1), `pj_path` (absoluto),
    `model` (o modelo desta sessão) e `date` (hoje, YYYY-MM-DD).
 
@@ -79,9 +79,9 @@ Passos:
 4. **Não grave o extract pelo thread principal.** O PDF e o JSON ficam no contexto do reader; aqui
    só chega o status.
 
-5. **Mostrar o callout** gravado ao usuário e perguntar: "Arquivar TL;DR como finding (`type: finding`) em `docs/studies/<slug>/notes/`?". Se sim, delegar a `/prumo-assist:wiki query` ou criar finding direto.
+5. **Mostrar o callout** gravado ao usuário e perguntar: "Arquivar TL;DR como finding (`type: finding`) em `docs/studies/<slug>/notes/`?". Se sim, delegar a `/par:wiki query` ou criar finding direto.
 
-### 2. `/prumo-assist:paper extract [--limit N] [--stale-only]` — batch
+### 2. `/par:paper extract [--limit N] [--stale-only]` — batch
 
 Non-interactive em modo headless (via `claude -p`) ou interactive.
 

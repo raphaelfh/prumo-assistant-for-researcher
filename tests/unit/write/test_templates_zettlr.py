@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from prumo_assist.core.paths import resolve_resource
+from par.core.paths import resolve_resource
 
 # kind → template do modo que declara ``prumo.write_kind``.
 TEMPLATES = {

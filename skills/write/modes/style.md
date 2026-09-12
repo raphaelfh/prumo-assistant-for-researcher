@@ -281,7 +281,7 @@ Sugerir ao usuário criar snapshot versionado em `docs/qualification/versions/<d
 ## Anti-padrões da skill
 
 - ❌ Não traduzir o draft. O idioma resolvido escolhe as convenções, nunca converte o texto.
-- ❌ Não reescrever introdução inteira porque parece "fraca". Isso é peer-review (use `/prumo-assist:review critique`).
+- ❌ Não reescrever introdução inteira porque parece "fraca". Isso é peer-review (use `/par:review critique`).
 - ❌ Não acrescentar citação que não está no draft, mesmo se obviamente faltante. Apenas marcar `<!-- REVER: faltam refs sobre X -->`.
 - ❌ Não reescrever claim causal, hedging ou antropomorfismo por conta própria — isso é substância, e a ação é sinalizar.
 - ❌ Não traduzir termo técnico estabelecido (`missing data`, `cross-modal`, `late fusion`, `foundation model`, `gated product-of-experts`). Em pt-BR ficam em inglês com itálico; em en-US, sem itálico.
@@ -300,13 +300,13 @@ Após o passe, reportar ao usuário:
 
 ## Integração com outras skills
 
-- **Antes desta skill.** `/prumo-assist:review critique` para revisão de conteúdo. Esta skill assume que o conteúdo já está estável.
+- **Antes desta skill.** `/par:review critique` para revisão de conteúdo. Esta skill assume que o conteúdo já está estável.
 - **Depois desta skill.** Pipeline de export `build_reference_docx.py` (ou equivalente) consome o draft com convenções aplicadas e gera DOCX/PDF com citações fundidas em campo único pelo normalizador.
-- **Em paralelo.** `/prumo-assist:wiki lint` se o draft é parte de um wiki ingerido.
+- **Em paralelo.** `/par:wiki lint` se o draft é parte de um wiki ingerido.
 
 ## Notas de manutenção
 
 - O **contrato de prosa** estampado no topo desta skill vem de `.github/scripts/prose_conventions.md` e é machine-owned: edite a fonte e rode `uv run python .github/scripts/gen_indexes.py`. O detalhamento C1–C8 vive aqui e deve ser mantido coerente com aquele resumo (ADR-0021).
 - As listas lexicais de C4, C5 e C8 vivem aqui e não em arquivo externo. Adicionar termos quando recorrentes em revisões.
 - A tabela de preservação em C3 deve ser mantida em sincronia com o normalizador de export. Se o normalizador mudar (e.g. passar a aceitar `[@a, @b]` como multi-cite), atualizar C2 conforme.
-- Em projetos `pj_*` que usam o template do prumo-assist, considerar copiar a skill `write` para `.claude/skills/write/` se o usuário quiser uma variante customizada por projeto (por exemplo, manter superlativos específicos da área).
+- Em projetos `pj_*` que usam o template do PAR, considerar copiar a skill `write` para `.claude/skills/write/` se o usuário quiser uma variante customizada por projeto (por exemplo, manter superlativos específicos da área).

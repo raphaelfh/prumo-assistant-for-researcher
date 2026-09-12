@@ -4,7 +4,7 @@
 
 ## Tagline e escopo
 
-> **prumo-assist** — Knowledge, bibliography & academic writing assistant for scientific research. Lives between Zotero, your wiki (Markdown; Zettlr front — Obsidian legacy), and your agent-host.
+> **PAR (prumo-assistant-for-researcher)** — Knowledge, bibliography & academic writing assistant for scientific research. Lives between Zotero, your wiki (Markdown; Zettlr front — Obsidian legacy), and your agent-host.
 
 **É:** um assistente de pesquisa pra pesquisador. Cobre gerir conhecimento (wiki), gerir bibliografia (Zotero ↔ notas), formalizar (escrever e/ou revisar) protocolos e templates, capturar fontes e escrever documentos (export docx + revisão crítica).
 
@@ -55,8 +55,8 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
 ## Layout do repositório
 
 ```
-prumo-assist/
-├── pyproject.toml             ← entry point: prumo = prumo_assist.cli:app;
+prumo-assistant-for-researcher/
+├── pyproject.toml             ← entry point: prumo = par.cli:app;
 │                                 force-include: templates/ e skills/ no wheel (ADR-0002)
 ├── CLAUDE.md / AGENTS.md      ← guia do repo pra agentes (AGENTS.md é symlink)
 ├── .claude/rules/             ← regras modulares (code, release)
@@ -70,7 +70,7 @@ prumo-assist/
 │   ├── schemas/               ← schemas vivos do validador de plugin (ADR-0010)
 │   └── scripts/               ← sync_manifest_version.py · validate_manifests.py · gen_indexes.py
 │
-├── src/prumo_assist/
+├── src/par/
 │   ├── _version.py            ← FONTE ÚNICA de versão (constitution VII)
 │   ├── __init__.py            ← hierarquia de exceções (PrumoError + cross-cutting;
 │                                 bases por domínio em domains/<X>/errors.py)
@@ -107,7 +107,7 @@ prumo-assist/
 ## Como dados fluem (caso típico: extrair um paper)
 
 ```
-/prumo-assist:paper extract @smith2024
+/par:paper extract @smith2024
         ▼
 Claude Code carrega skills/paper/SKILL.md, que manda ler skills/paper/modes/extract.md
         ▼

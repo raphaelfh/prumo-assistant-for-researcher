@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.core import pj_layout
-from prumo_assist.domains.write import compose
-from prumo_assist.domains.write.compose import read_inputs
+from par.core import pj_layout
+from par.domains.write import compose
+from par.domains.write.compose import read_inputs
 
 
 def _project(root: Path) -> Path:

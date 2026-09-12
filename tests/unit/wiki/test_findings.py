@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.core.pj_layout import PjRootNotFoundError
-from prumo_assist.domains.wiki.findings import archive_as_finding
+from par.core.pj_layout import PjRootNotFoundError
+from par.domains.wiki.findings import archive_as_finding
 
 
 def _project(root: Path) -> Path:
@@ -168,7 +168,7 @@ def test_archive_stamps_meta_in_frontmatter(tmp_path: Path) -> None:
 def test_default_generator_e_log_passam_no_wiki_lint(tmp_path: Path) -> None:
     import yaml
 
-    from prumo_assist.domains.wiki.lint import LOG_PREFIX_RE
+    from par.domains.wiki.lint import LOG_PREFIX_RE
 
     root = _project(tmp_path)
     scope = _scope(root, "a")

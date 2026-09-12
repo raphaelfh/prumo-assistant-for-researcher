@@ -19,7 +19,7 @@ não batem com o recálculo.
 2. Testes vermelhos em `tests/unit/wiki/test_stats_check.py`: `wilson_interval`,
    `benjamini_hochberg`, recorte real sem divergência, sintético com as duas divergências,
    não parseável pulado, agrupamento `global` entre tabelas, integração via `lint()`.
-3. `src/prumo_assist/domains/wiki/stats_check.py`: regex de proporção, parser de tabela,
+3. `src/par/domains/wiki/stats_check.py`: regex de proporção, parser de tabela,
    BH com limites de arredondamento, `stat_mismatches(text) -> list[str]`.
 4. `lint.py`: uma chamada no laço de páginas de `_lint_scope`.
 5. `skills/wiki/modes/lint.md`: acrescentar `stat_mismatch` à lista de códigos.

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from prumo_assist.domains.write.schemas.v1 import (
+from par.domains.write.schemas.v1 import (
     CiteMapFile,
     CiteOccurrence,
     ComposeInputs,
@@ -261,8 +261,8 @@ def test_review_events_file_roundtrip() -> None:
 def test_sample_report_do_plugin_valida_contra_o_contrato() -> None:
     import json
 
-    from prumo_assist.core.paths import resolve_resource
-    from prumo_assist.domains.write.schemas.v1 import PeerReviewReport
+    from par.core.paths import resolve_resource
+    from par.domains.write.schemas.v1 import PeerReviewReport
 
     sample = resolve_resource("skills") / "review" / "examples" / "sample_report.json"
     report = PeerReviewReport.model_validate(json.loads(sample.read_text(encoding="utf-8")))
@@ -274,7 +274,7 @@ def test_peer_review_report_recusa_recomendacao_fora_da_lista() -> None:
     import pytest
     from pydantic import ValidationError
 
-    from prumo_assist.domains.write.schemas.v1 import PeerReviewReport
+    from par.domains.write.schemas.v1 import PeerReviewReport
 
     with pytest.raises(ValidationError):
         PeerReviewReport.model_validate(

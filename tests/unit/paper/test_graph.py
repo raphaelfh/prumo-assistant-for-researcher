@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.domains.paper.graph import extract_citekeys, update_graph
+from par.domains.paper.graph import extract_citekeys, update_graph
 
 
 def test_extract_citekeys_dedups_and_orders() -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.domains.write.compose import extract_missing_refs, write_output
+from par.domains.write.compose import extract_missing_refs, write_output
 
 
 def test_extract_missing_refs_captures_descriptions() -> None:

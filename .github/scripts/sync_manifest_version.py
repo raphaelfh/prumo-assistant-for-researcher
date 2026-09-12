@@ -1,4 +1,4 @@
-"""Sincroniza a versão dos manifests Claude Code com ``src/prumo_assist/_version.py``.
+"""Sincroniza a versão dos manifests Claude Code com ``src/par/_version.py``.
 
 Uso:
 
@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-VERSION_FILE = REPO / "src" / "prumo_assist" / "_version.py"
+VERSION_FILE = REPO / "src" / "par" / "_version.py"
 PLUGIN_JSON = REPO / ".claude-plugin" / "plugin.json"
 MARKETPLACE_JSON = REPO / ".claude-plugin" / "marketplace.json"
 

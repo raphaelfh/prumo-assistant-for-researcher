@@ -9,9 +9,17 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Alterado
 
-- **Proveniência ligada.** Findings, sessão de `wiki study`, `write draft` e o `citemap.json` do export carimbam `_meta` via `build_meta` (Princípio V); `write disclosure` lê o `_meta` canônico, com fallback só para `extracted_model`. `TraceWriter`, sem uso, foi removido (Princípio VI; ADR-0035).
+- **Proveniência ligada.** Findings, sessão de `wiki study`, `write draft` e o `citemap.json` do export carimbam `_meta` via `build_meta` (Princípio V); `write disclosure` lê o `_meta` canônico, com fallback só para `extracted_model`. `TraceWriter`, sem uso, foi removido (Princípio VI; ADR-0036).
 - Descrições de `protocol sap`, `protocol cep` e `write style` atenuadas para o que o modo de fato garante, alinhadas à nova página [`docs/positioning.md`](docs/positioning.md) (Princípio VIII).
 - `prumo protocol diff` em modo texto não repete mais o payload bruto (Princípio VIII).
+- **⚠ Breaking — o projeto vira `prumo-assistant-for-researcher` (PAR)**
+  ([ADR-0034](docs/adr/adr-0034-renomeia-para-par.md)). Repo, marketplace e distribuição Python
+  passam a `prumo-assistant-for-researcher`; o plugin passa a `par`, então as skills viram
+  `/par:paper extract`, `/par:start` etc.; o pacote Python passa de `prumo_assist` a `par`.
+  O CLI `prumo`, o MCP `prumo`, `.prumo/`, `prumo.*` e `PRUMO_*` não mudam. Sem migração:
+  reinstale com `/plugin marketplace add raphaelfh/prumo-assistant-for-researcher`,
+  `/plugin install par@prumo-assistant-for-researcher` e
+  `uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher.git`.
 - **`prumo paper extract` valida o payload por `PaperCallout/v1`** e recusa, sem gravar,
   seção fora do template ou valor que não é texto; antes a chave errada virava seção
   "pendente" em silêncio. Aceita a forma plana legada e `{"sections", "locators"}`.
@@ -46,7 +54,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - **`prumo wiki lint` recalcula estatísticas relatadas.** Porcentagens `x of n (p%)`, IC 95% de Wilson e valores q de Benjamini-Hochberg em tabelas Markdown; `stat_mismatch` mostra o valor relatado e o recalculado quando divergem (Princípios II, VI).
 - **`review critique` com trecho literal e fontes lidas.** Cada fraqueza e claim sem evidência pode trazer um `quote` literal (até 25 palavras) que `prumo validate PeerReviewReport/v1` confere contra o `draft_path`, e o relatório lista `sources_read`. Campos opcionais, forward-only (Princípios II, IV; ADR-0033).
 - **Passe adversarial no `review critique`, a pedido.** Com "seja o advogado do diabo", "seja duro" ou "revisa antes de submeter", um segundo `reviewer` ataca só o argumento central, com duplicatas removidas por sentido, sem schema novo. O padrão continua sendo uma chamada (Princípios VI, VIII; ADR-0033).
-- **Figuras e tabelas numeradas no export.** `prumo write export` e `compose` numeram `{#fig:x}` e `{#tbl:x}` e resolvem `@fig:x`/`@tbl:x` com rótulo no idioma de `[writing].language`, por um filtro Lua vendorizado antes do citeproc, sem binário novo (Princípios II, VIII; ADR-0034).
+- **Figuras e tabelas numeradas no export.** `prumo write export` e `compose` numeram `{#fig:x}` e `{#tbl:x}` e resolvem `@fig:x`/`@tbl:x` com rótulo no idioma de `[writing].language`, por um filtro Lua vendorizado antes do citeproc, sem binário novo (Princípios II, VIII; ADR-0035).
 - **Fronteira de confidencialidade no `pj_base`.** A rule `.claude/rules/safe_outputs.md` pede o mínimo necessário, célula mínima 5 para contagem de pacientes e dado fora do git; o `prumo doctor` ganha `[dado_versionavel]` para `content/` ou `.prumo/` fora do `.gitignore` ou rastreados. Projetos existentes recebem a rule com `prumo update` (Princípios II, VI).
 - **Três subagents read-only** ([ADR-0033](docs/adr/adr-0033-subagents-nomeados.md)): `reader`
   extrai o PDF e grava via `prumo paper extract`, com locators por seção; `verifier` julga se
@@ -974,7 +982,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   para quem não programa, com o kit de medição do piloto da Fase 2 (cronômetro
   até o primeiro output, meta ≤15 min; o que observar no consentimento da UI);
   a trilha dev do README passa a documentar a instalação do CLI (`uv tool
-  install git+https://github.com/raphaelfh/prumo-assist.git`), que antes não
+  install git+https://github.com/raphaelfh/prumo-assistant-for-researcher.git`), que antes não
   aparecia em nenhum lugar do repo.
 - **Finding `empty-bib`** (nível info) em `prumo paper verify-refs` — `.bib`
   sem entradas agora emite orientação explícita (adicionar referências no
@@ -1352,28 +1360,28 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assist/compare/v0.69.1...HEAD
-[0.69.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.69.0...v0.69.1
-[0.69.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.68.1...v0.69.0
-[0.68.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.68.0...v0.68.1
-[0.68.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.2...v0.68.0
-[0.67.2]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.1...v0.67.2
-[0.67.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.67.0...v0.67.1
-[0.67.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.66.0...v0.67.0
-[0.66.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.2...v0.66.0
-[0.65.2]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.1...v0.65.2
-[0.65.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.65.0...v0.65.1
-[0.65.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.1...v0.65.0
-[0.64.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.64.0...v0.64.1
-[0.64.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.63.0...v0.64.0
-[0.63.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.1...v0.63.0
-[0.62.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.62.0...v0.62.1
-[0.62.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.61.0...v0.62.0
-[0.61.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.6.0...v0.61.0
-[0.6.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.5.0...v0.6.0
-[0.5.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/raphaelfh/prumo-assist/compare/v0.1.1...v0.2.0
-[0.1.1]: https://github.com/raphaelfh/prumo-assist/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/raphaelfh/prumo-assist/releases/tag/v0.1.0
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.69.1...HEAD
+[0.69.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.69.0...v0.69.1
+[0.69.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.68.1...v0.69.0
+[0.68.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.68.0...v0.68.1
+[0.68.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.67.2...v0.68.0
+[0.67.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.67.1...v0.67.2
+[0.67.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.67.0...v0.67.1
+[0.67.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.66.0...v0.67.0
+[0.66.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.65.2...v0.66.0
+[0.65.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.65.1...v0.65.2
+[0.65.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.65.0...v0.65.1
+[0.65.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.64.1...v0.65.0
+[0.64.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.64.0...v0.64.1
+[0.64.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.63.0...v0.64.0
+[0.63.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.62.1...v0.63.0
+[0.62.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.62.0...v0.62.1
+[0.62.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.61.0...v0.62.0
+[0.61.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.6.0...v0.61.0
+[0.6.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/releases/tag/v0.1.0

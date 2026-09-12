@@ -6,7 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import patch
 
-from prumo_assist.core import safe_outputs
+from par.core import safe_outputs
 
 
 def _fake_git(
@@ -62,5 +62,5 @@ def test_rastreado_falha_com_comando_de_correcao(tmp_path: Path) -> None:
 
 
 def test_git_real_ausente_devolve_none(tmp_path: Path) -> None:
-    with patch("prumo_assist.core.safe_outputs.subprocess.run", side_effect=FileNotFoundError):
+    with patch("par.core.safe_outputs.subprocess.run", side_effect=FileNotFoundError):
         assert safe_outputs._git(tmp_path, "rev-parse", "--is-inside-work-tree") is None

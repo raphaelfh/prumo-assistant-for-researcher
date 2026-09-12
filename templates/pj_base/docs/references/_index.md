@@ -1,6 +1,6 @@
 # Acervo bibliográfico — pj_<NOME>
 
-Map of Content (MOC) do acervo. Mantido pela skill `/prumo-assist:paper library` e editável à mão.
+Map of Content (MOC) do acervo. Mantido pela skill `/par:paper library` e editável à mão.
 
 ## Paper principal
 

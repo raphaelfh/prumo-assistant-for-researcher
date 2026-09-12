@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.core.csl import CslNotFoundError, list_zotero_styles, resolve_csl
+from par.core.csl import CslNotFoundError, list_zotero_styles, resolve_csl
 
 
 def test_list_returns_sorted_basenames(tmp_path: Path) -> None:

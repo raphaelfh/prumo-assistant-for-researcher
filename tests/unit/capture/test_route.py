@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.domains.capture.route import classify
+from par.domains.capture.route import classify
 
 
 def test_classify_doi() -> None:

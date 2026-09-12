@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.core.note_paths import annotations_path, extract_path, meta_path
-from prumo_assist.domains.paper.migrate import migrate_pj
+from par.core.note_paths import annotations_path, extract_path, meta_path
+from par.domains.paper.migrate import migrate_pj
 
 
 def _bootstrap_legacy(tmp_path: Path) -> Path:

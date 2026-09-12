@@ -15,5 +15,5 @@ em `.claude/pj_config.toml` (default `en-US`); documento de CEP/CONEP é sempre 
   A forma da nota é `docs/references/_note_template.md` — não invente campo nem seção.
 - **Editor:** o front humano é o Zettlr (workspace na raiz). Setup one-time e limitações
   em `docs/project_guide.md`, seção "Editor (Zettlr)".
-- **Não sabe por onde começar:** `/prumo-assist:start`.
+- **Não sabe por onde começar:** `/par:start`.
 - **Evoluir o projeto:** `prumo add` (sem argumento) lista e ativa módulos.

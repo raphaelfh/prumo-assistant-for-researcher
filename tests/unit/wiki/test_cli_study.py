@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from prumo_assist.cli import app
+from par.cli import app
 
 runner = CliRunner()
 
@@ -205,7 +205,7 @@ def test_finding_sem_path_da_raiz_do_projeto_cai_sob_o_escopo(
 
     # A prova que fecha o repro do revisor: o finding entra no contexto de
     # escrita em vez de virar arquivo invisível com exit 0.
-    from prumo_assist.domains.write.compose import _read_findings
+    from par.domains.write.compose import _read_findings
 
     encontrados = _read_findings(pj / "docs" / "studies" / "principal")
     assert [f.path for f in encontrados] == [out]

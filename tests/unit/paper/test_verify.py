@@ -13,8 +13,8 @@ from typing import Any, cast
 
 import pytest
 
-from prumo_assist.core.bib import BibEntry, parse_bib
-from prumo_assist.domains.paper import verify
+from par.core.bib import BibEntry, parse_bib
+from par.domains.paper import verify
 
 
 def _entry(body: str, *, citekey: str = "smith2020", entry_type: str = "article") -> BibEntry:
@@ -168,7 +168,10 @@ class TestRefCache:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-        assert verify.default_cache_path() == tmp_path / "prumo-assist" / "refcheck.json"
+        assert (
+            verify.default_cache_path()
+            == tmp_path / "prumo-assistant-for-researcher" / "refcheck.json"
+        )
 
     def test_default_cache_path_fallback_home(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
@@ -178,7 +181,7 @@ class TestRefCache:
 
 class TestHttpSeam:
     def test_user_agent_identifica_projeto_sem_pii(self) -> None:
-        assert "prumo-assist/" in verify._USER_AGENT
+        assert "prumo-assistant-for-researcher/" in verify._USER_AGENT
         assert "@" not in verify._USER_AGENT  # sem e-mail/PII
 
 
@@ -233,7 +236,7 @@ class TestCheckEntry:
 
     def test_ok_sem_achados(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http(
                 {
                     "api.crossref.org/works?filter=updates": _UPDATES_EMPTY,
@@ -245,7 +248,7 @@ class TestCheckEntry:
 
     def test_doi_404_vira_error(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http({"api.crossref.org/works/": _http_404("u")}),
         )
         findings = verify.check_entry(_bib_entry_doi(), cache=self._cache(tmp_path))
@@ -254,7 +257,7 @@ class TestCheckEntry:
 
     def test_retracao_crossref(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http(
                 {
                     "api.crossref.org/works?filter=updates": _UPDATES_RETRACTED,
@@ -273,7 +276,7 @@ class TestCheckEntry:
     ) -> None:
         entry = _entry("title = {X},\n  doi = {10.1056/NEJMoa2002032},\n  note = {PMID: 9500320},")
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http(
                 {
                     "api.crossref.org/works?filter=updates": _UPDATES_RETRACTED,
@@ -289,7 +292,7 @@ class TestCheckEntry:
     def test_retracao_so_pubmed(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         entry = _entry("title = {X},\n  note = {PMID: 9500320},")
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http({"eutils.ncbi.nlm.nih.gov": _ESUMMARY_RETRACTED}),
         )
         findings = verify.check_entry(entry, cache=self._cache(tmp_path))
@@ -297,7 +300,7 @@ class TestCheckEntry:
 
     def test_title_mismatch_warning(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http(
                 {
                     "api.crossref.org/works?filter=updates": _UPDATES_EMPTY,
@@ -317,7 +320,7 @@ class TestCheckEntry:
     def test_pmid_invalido_warning(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         entry = _entry("title = {X},\n  pmid = {999999999},")
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http({"eutils.ncbi.nlm.nih.gov": _ESUMMARY_BAD_ID}),
         )
         findings = verify.check_entry(entry, cache=self._cache(tmp_path))
@@ -332,7 +335,7 @@ class TestCheckEntry:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http({"api.crossref.org/works/": urllib.error.URLError("dns down")}),
         )
         findings = verify.check_entry(_bib_entry_doi(), cache=self._cache(tmp_path))
@@ -349,7 +352,7 @@ class TestCheckEntry:
                 return _UPDATES_EMPTY
             return cast(dict[str, Any], _WORKS_OK)
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify._http_get_json", fake)
+        monkeypatch.setattr("par.domains.paper.verify._http_get_json", fake)
         cache = self._cache(tmp_path)
         verify.check_entry(_bib_entry_doi(), cache=cache)
         first = len(calls)
@@ -365,7 +368,7 @@ class TestCheckEntry:
                 return _UPDATES_EMPTY
             return cast(dict[str, Any], _WORKS_OK)
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify._http_get_json", fake)
+        monkeypatch.setattr("par.domains.paper.verify._http_get_json", fake)
         cache = self._cache(tmp_path)
         verify.check_entry(_bib_entry_doi(), cache=cache)
         first = len(calls)
@@ -397,7 +400,7 @@ class TestVerifyRefs:
 
     def test_escopo_todo_bib(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http(
                 {
                     "api.crossref.org/works?filter=updates": _UPDATES_EMPTY,
@@ -422,7 +425,7 @@ class TestVerifyRefs:
             encoding="utf-8",
         )
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http(
                 {
                     "api.crossref.org/works?filter=updates": _UPDATES_EMPTY,
@@ -450,7 +453,7 @@ class TestVerifyRefs:
             encoding="utf-8",
         )
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http(
                 {
                     "api.crossref.org/works?filter=updates": _UPDATES_EMPTY,
@@ -473,7 +476,7 @@ class TestVerifyRefs:
         pagina = tmp_path / "draft.md"
         pagina.write_text("Prosa sem citação nenhuma.\n", encoding="utf-8")
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http({"api.crossref.org/works?filter=updates": _UPDATES_EMPTY}),
         )
         report = verify.verify_refs(pj, page=pagina, cache_path=tmp_path / "c.json")
@@ -526,7 +529,7 @@ class TestDuplicateCitekey:
             calls.append(url)
             raise AssertionError("nenhuma chamada de rede deveria ocorrer para citekey duplicada")
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify._http_get_json", fake)
+        monkeypatch.setattr("par.domains.paper.verify._http_get_json", fake)
         report = verify.verify_refs(self._pj(tmp_path), cache_path=tmp_path / "c.json")
         assert calls == []
         assert report["summary"]["errors"] == 1
@@ -546,7 +549,7 @@ class TestDuplicateCitekey:
         def fake(url: str, *, timeout: float = 10.0) -> dict[str, Any]:
             raise AssertionError("nenhuma chamada de rede deveria ocorrer")
 
-        monkeypatch.setattr("prumo_assist.domains.paper.verify._http_get_json", fake)
+        monkeypatch.setattr("par.domains.paper.verify._http_get_json", fake)
         report = verify.verify_refs(pj, page=pagina, cache_path=tmp_path / "c.json")
         assert [f["kind"] for f in report["findings"]] == ["duplicate-citekey"]
 
@@ -566,9 +569,7 @@ class TestHttpSeamContract:
         def fake_urlopen(request: Any, timeout: float = 10.0) -> _FakeResponse:
             return _FakeResponse()
 
-        monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify.urllib.request.urlopen", fake_urlopen
-        )
+        monkeypatch.setattr("par.domains.paper.verify.urllib.request.urlopen", fake_urlopen)
         with pytest.raises(json.JSONDecodeError, match="não é objeto"):
             verify._http_get_json("https://api.example.test/x")
 
@@ -619,7 +620,7 @@ class TestDeepLayer:
         def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise FileNotFoundError("uvx")
 
-        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
+        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
         with pytest.raises(verify.RefcheckerUnavailableError, match="uvx"):
             verify._run_refchecker("@article{a,}")
 
@@ -627,7 +628,7 @@ class TestDeepLayer:
         def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise subprocess.TimeoutExpired(cmd="uvx", timeout=1)
 
-        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
+        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
         with pytest.raises(verify.RefcheckerUnavailableError, match="excedeu"):
             verify._run_refchecker("@article{a,}", timeout=1)
 
@@ -637,7 +638,7 @@ class TestDeepLayer:
             report_path.write_text(json.dumps(_REPORT_FIXTURE), encoding="utf-8")
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
+        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
         report = verify._run_refchecker("@article{a,}")
         assert report["summary"]["total_errors_found"] == 2
 
@@ -645,7 +646,7 @@ class TestDeepLayer:
         def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")  # exit 0, sem report!
 
-        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
+        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
         with pytest.raises(verify.RefcheckerUnavailableError, match="report"):
             verify._run_refchecker("@article{a,}")
 
@@ -654,7 +655,7 @@ class TestDeepLayer:
             report_path.write_text("[1, 2]", encoding="utf-8")  # JSON válido mas não-dict
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run_list)
+        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run_list)
         with pytest.raises(verify.RefcheckerUnavailableError):
             verify._run_refchecker("@article{a,}")
 
@@ -666,7 +667,7 @@ class TestDeepLayer:
             _BIB_TEXT, encoding="utf-8"
         )
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http(
                 {
                     "api.crossref.org/works?filter=updates": _UPDATES_EMPTY,
@@ -682,7 +683,7 @@ class TestDeepLayer:
             report_path.write_text(json.dumps(_REPORT_FIXTURE), encoding="utf-8")
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
+        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
         report = verify.verify_refs(tmp_path, deep=True, cache_path=tmp_path / "c.json")
         assert report["deep"] is True
         deep_findings = [f for f in report["findings"] if f["source"] == "refchecker"]
@@ -697,7 +698,7 @@ class TestDeepLayer:
             _BIB_TEXT, encoding="utf-8"
         )
         monkeypatch.setattr(
-            "prumo_assist.domains.paper.verify._http_get_json",
+            "par.domains.paper.verify._http_get_json",
             _fake_http(
                 {
                     "api.crossref.org/works?filter=updates": _UPDATES_EMPTY,
@@ -709,7 +710,7 @@ class TestDeepLayer:
         def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise AssertionError("subprocess não deveria rodar sem --deep")
 
-        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
+        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
         report = verify.verify_refs(tmp_path, cache_path=tmp_path / "c.json")
         assert report["deep"] is False
 
@@ -727,7 +728,7 @@ class TestDeepLayer:
         def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise AssertionError("subprocess não deveria rodar com escopo só de duplicatas")
 
-        monkeypatch.setattr("prumo_assist.core.uvx.subprocess.run", fake_run)
+        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
         report = verify.verify_refs(tmp_path, deep=True, cache_path=tmp_path / "c.json")
         assert report["deep"] is True
         assert [f["kind"] for f in report["findings"]] == ["duplicate-citekey"]

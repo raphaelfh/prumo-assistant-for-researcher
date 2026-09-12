@@ -9,7 +9,7 @@ spec: "[[2026-09-12-figuras-e-tabelas-design]]"
 
 # Figuras e tabelas numeradas no export — plano
 
-Spec: [[2026-09-12-figuras-e-tabelas-design]] · ADR-0034.
+Spec: [[2026-09-12-figuras-e-tabelas-design]] · ADR-0035.
 
 - [x] T1 (vermelho): testes do builder — `crossref.lua` antes de `--citeproc` em todo formato; `--metadata=prumo_lang:` quando `lang` é dado.
 - [x] T2 (vermelho): teste com pandoc real (skip sem pandoc): legenda "Figure 1"/"Table 1" com `SEQ`, `@tbl:x` resolvido, campo `ZOTERO_ITEM` coexistindo, stderr sem citekey ausente; `[@fig:x]` e alvo inexistente falham; rótulo pt-BR.

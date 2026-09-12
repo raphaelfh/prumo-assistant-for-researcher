@@ -1,9 +1,9 @@
 ---
-title: Vault de documentação do prumo-assist
+title: Vault de documentação do PAR
 tags: [index]
 ---
 
-# prumo-assist · vault de documentação
+# PAR · vault de documentação
 
 Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [README](../README.md), [ARCHITECTURE](../ARCHITECTURE.md) e [ROADMAP](../ROADMAP.md) — focado em **didática** e **decisão de uso**, não em referência exaustiva.
 
@@ -41,10 +41,10 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 **Guias:**
 
 - [[Research Project Structure]] · Estrutura de Projeto de Pesquisa
-- [[actions-by-context]] · Contextos de necessidade → ações no prumo-assist
-- [[constitution]] · Prumo-assist Constitution
-- [[onboarding-pesquisador]] · Trilha do pesquisador — prumo-assist sem terminal
-- [[positioning]] · Posicionamento e claims do prumo-assist
+- [[actions-by-context]] · Contextos de necessidade → ações no PAR
+- [[constitution]] · PAR Constitution
+- [[onboarding-pesquisador]] · Trilha do pesquisador — PAR sem terminal
+- [[positioning]] · Posicionamento e claims do PAR
 
 **Specs** (não-perecíveis):
 

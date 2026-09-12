@@ -1,5 +1,5 @@
 ---
-title: Posicionamento e claims do prumo-assist
+title: Posicionamento e claims do PAR
 tags: [positioning, claims]
 ---
 
@@ -7,7 +7,7 @@ tags: [positioning, claims]
 
 ## O que o prumo é
 
-O prumo-assist é um plugin Claude Code com um CLI Python (`prumo`) que dá ao pesquisador clínico um projeto `pj_*` versionável: bibliografia espelhada do Zotero, wiki Markdown, protocolo (PICOT) e escrita via Pandoc. Todo passo repetível roda no CLI, sem LLM ([ADR-0004](adr/adr-0004-pacote-livre-de-llm.md)). O LLM entra só onde há julgamento, e o resultado dele é rascunho ou sinal que o pesquisador decide. O prumo não escreve o paper por você, não substitui revisor, estatístico nem comitê de ética, e não é um serviço: tudo fica na máquina e no projeto. O mapa do código está em [ARCHITECTURE](../ARCHITECTURE.md).
+O PAR é um plugin Claude Code com um CLI Python (`prumo`) que dá ao pesquisador clínico um projeto `pj_*` versionável: bibliografia espelhada do Zotero, wiki Markdown, protocolo (PICOT) e escrita via Pandoc. Todo passo repetível roda no CLI, sem LLM ([ADR-0004](adr/adr-0004-pacote-livre-de-llm.md)). O LLM entra só onde há julgamento, e o resultado dele é rascunho ou sinal que o pesquisador decide. O prumo não escreve o paper por você, não substitui revisor, estatístico nem comitê de ética, e não é um serviço: tudo fica na máquina e no projeto. O mapa do código está em [ARCHITECTURE](../ARCHITECTURE.md).
 
 ## Mecanismos recusados
 

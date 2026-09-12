@@ -1,0 +1,419 @@
+"""Subcomandos ``prumo paper *`` — Typer fachada.
+
+Lógica fica nos módulos de domínio (``sync``, ``graph``, ``find``, ``lint``,
+``pdfs``, ``zotero``, ``callout``). Aqui só parsing de args + saída.
+"""
+
+from __future__ import annotations
+
+import sys
+from collections.abc import Callable
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from par.core.cli_io import read_stdin_json
+from par.core.cli_op import cli_run
+from par.core.output import Console
+from par.domains.paper import (
+    connect,
+    find,
+    graph,
+    lint,
+    migrate,
+    pdfs,
+    sync,
+    verify,
+    zotero,
+)
+from par.domains.paper import prep as paper_prep
+from par.domains.paper.callout import apply_extraction, parse_extract_payload
+from par.domains.paper.sync_all import sync_all as _sync_all
+
+paper_app = typer.Typer(
+    name="paper",
+    help="Bibliografia: sync com Zotero/BBT, grafo, find, lint.",
+    no_args_is_help=True,
+)
+
+
+@paper_app.command("sync")
+def sync_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """``.bib`` → ``docs/references/papers/<citekey>/_meta.md`` (Better BibTeX, layout α)."""
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
+        report = sync.sync(path.resolve())
+        console.success(
+            f"{report['created']} novas, {report['updated']} atualizadas, "
+            f"{len(report['orphans'])} órfãs."
+        )
+        console.emit(report)
+
+
+@paper_app.command("graph")
+def graph_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Grafo passivo de citação: lê ``[@key]``/``@key`` no body, popula ``cites:`` no YAML."""
+    with cli_run(json_mode=json_mode) as console:
+        report = graph.update_graph(path.resolve())
+        console.success(
+            f"+{report['edges_added']} arestas adicionadas, -{report['edges_removed']} removidas."
+        )
+        console.emit(report)
+
+
+@paper_app.command("find")
+def find_command(
+    query: Annotated[str, typer.Argument(help="Texto livre.")],
+    path: Annotated[Path, typer.Option("--path", help="pj_* (default cwd).")] = Path("."),
+    top_k: Annotated[int, typer.Option("--top-k")] = 5,
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Fuzzy search sobre ``.bib`` + notas (autor, título, ano, tldr)."""
+    with cli_run(json_mode=json_mode) as console:
+        results = find.fuzzy_search(path.resolve(), query, top_k=top_k)
+        if not results:
+            console.warn("(nenhum match)")
+        console.emit({"query": query, "results": results})
+
+
+@paper_app.command("lint")
+def lint_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Auditoria: bib↔notas↔pdfs, citekeys quebradas, primary duplicado, etc."""
+    with cli_run(json_mode=json_mode) as console:
+        report = lint.lint(path.resolve())
+        if report["ok"]:
+            console.success(f"OK ({report['summary']['warnings']} warnings).")
+        else:
+            console.error(f"{report['summary']['errors']} erro(s) crítico(s).")
+        console.emit(report)
+        if not report["ok"]:
+            raise typer.Exit(code=1)
+
+
+@paper_app.command("verify-refs")
+def verify_refs_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    page: Annotated[
+        Path | None,
+        typer.Option("--page", help="Escopo: só as citekeys desta página .md (recomendado)."),
+    ] = None,
+    deep: Annotated[
+        bool,
+        typer.Option(
+            "--deep",
+            help=f"Verificação profunda via `uvx {verify.REFCHECKER_PIN}` (lento sem chave).",
+        ),
+    ] = False,
+    refresh: Annotated[
+        bool, typer.Option("--refresh", help="Ignora o cache local (TTL 7 dias).")
+    ] = False,
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Verifica referências do bib: existência (Crossref), retração (Crossref/PubMed), título."""
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
+        report = verify.verify_refs(
+            path.resolve(),
+            page=page.resolve() if page is not None else None,
+            deep=deep,
+            refresh=refresh,
+        )
+        for finding in report["findings"]:
+            line = f"[{finding['level']}] {finding['citekey']}: {finding['kind']} — {finding['message']}"
+            if finding["level"] == "error":
+                console.error(line)
+            elif finding["level"] == "warning":
+                console.warn(line)
+            else:
+                console.info(line)
+        summary = report["summary"]
+        if summary["errors"]:
+            console.error(
+                f"{report['checked']} referência(s) verificada(s): {summary['errors']} erro(s), "
+                f"{summary['warnings']} warning(s)."
+            )
+        else:
+            console.success(
+                f"{report['checked']} referência(s) verificada(s) — "
+                f"{summary['warnings']} warning(s), {summary['infos']} info(s)."
+            )
+        console.emit(report)
+        if summary["errors"]:
+            raise typer.Exit(code=1)
+
+
+@paper_app.command("set-primary")
+def set_primary_command(
+    citekey: Annotated[str, typer.Argument(help="Citekey alvo.")],
+    path: Annotated[Path, typer.Option("--path")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Marca um paper como ``role: primary`` (limpa de outros)."""
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
+        report = lint.set_primary(path.resolve(), citekey)
+        console.success(f"{citekey} é o primary agora.")
+        if report["cleared_from"]:
+            console.info(f"  removido de: {', '.join(report['cleared_from'])}")
+        console.emit(report)
+
+
+@paper_app.command("sync-pdfs")
+def sync_pdfs_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Cria/atualiza symlinks ``docs/references/pdfs/<key>.pdf`` → ``~/Zotero/storage/...``."""
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
+        report = pdfs.sync_pdfs(path.resolve())
+        console.success(
+            f"{report['created']} novos, {report['updated']} atualizados, "
+            f"{report['ok']} já ok, {len(report['no_attachment'])} sem anexo PDF no Zotero, "
+            f"{len(report['not_downloaded'])} com PDF não baixado."
+        )
+        if report["not_downloaded"]:
+            console.info(
+                "PDF não baixado = o anexo existe no Zotero, mas o arquivo não está nesta "
+                "máquina. Abra o anexo no Zotero para baixar, ou ligue Settings → Sync → "
+                "'Download files: at sync time', e rode `prumo paper sync-pdfs` de novo."
+            )
+        console.emit(report)
+
+
+def _make_creation_confirm(
+    console: Console, *, yes: bool, json_mode: bool
+) -> Callable[[connect.ConnectPlan], bool]:
+    """Callback de confirmação do ``--create``: eco do plano + decisão.
+
+    O motor (``connect.connect_collection``) não faz I/O — ele só pergunta.
+    Este callback é o lado CLI do contrato: imprime o ``bbt_path`` inteiro
+    com **cada segmento marcado** (existe / SERÁ CRIADA), porque um typo num
+    pai materializaria a cadeia toda, e o pesquisador precisa ver quantas
+    coleções nascem antes de autorizar.
+
+    Sem TTY e sem ``--yes`` (CI, pipe, ``--json``) a resposta é NÃO: travar
+    num prompt que ninguém vê seria pior, e assumir "sim" contrariaria o
+    opt-in explícito.
+    """
+
+    def confirm(plan: connect.ConnectPlan) -> bool:
+        console.warn(
+            f"--create vai MUTAR seu Zotero. Caminho a materializar: {plan.collection.bbt_path}"
+        )
+        for segment in plan.segments:
+            marca = "já existe" if segment.exists else "SERÁ CRIADA"
+            console.info(f"    • {segment.name} — {marca}")
+        console.info(
+            "  Não há desfazer pelo CLI: remover é manual, na UI do Zotero (a coleção "
+            "e o autoexport em Preferences → Better BibTeX → Automatic export)."
+        )
+        if yes:
+            return True
+        if json_mode or not sys.stdin.isatty():
+            console.error(
+                "sessão não-interativa: --create exige confirmação. Rode de novo com "
+                "--yes se é isso mesmo que você quer."
+            )
+            return False
+        return typer.confirm("Criar a coleção e conectar?", default=False)
+
+    return confirm
+
+
+@paper_app.command("connect")
+def connect_command(
+    collection: Annotated[
+        str, typer.Argument(help="Nome da coleção no Zotero (case-insensitive).")
+    ],
+    library: Annotated[
+        str | None,
+        typer.Option("--library", help="Desambigua quando o nome existe em mais de uma library."),
+    ] = None,
+    path: Annotated[Path, typer.Option("--path", help="pj_* (default cwd).")] = Path("."),
+    create: Annotated[
+        bool,
+        typer.Option(
+            "--create",
+            help="CRIA a coleção no Zotero se ela não existir (mostra o caminho antes).",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", "-y", help="Não pergunta antes de criar (só com --create).")
+    ] = False,
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Conecta a coleção do Zotero: cria o export automático do BBT → docs/references/_references.bib."""
+    with cli_run(
+        json_mode=json_mode,
+        exit_codes={connect.ZoteroOfflineError: 2, connect.CreationDeclinedError: 130},
+    ) as console:
+        confirm = _make_creation_confirm(console, yes=yes, json_mode=json_mode) if create else None
+        r = connect.connect_collection(
+            path.resolve(), collection, library=library, create=create, confirm=confirm
+        )
+        console.success(
+            f"coleção '{r.collection.path}' ({r.collection.library}) "
+            f"{'CRIADA e conectada' if r.created else 'conectada'} → {r.bib_path}"
+        )
+        if r.created:
+            console.warn(
+                "para desfazer, apague a coleção na UI do Zotero e o export em "
+                "Preferences → Better BibTeX → Automatic export — não há undo pelo CLI."
+            )
+        if not r.exported:
+            console.info(
+                "export agendado no BBT — o arquivo aparece em instantes; confira com "
+                "`prumo paper sync` em seguida."
+            )
+        console.emit(
+            {
+                "library": r.collection.library,
+                "path": r.collection.path,
+                "bbt_path": r.collection.bbt_path,
+                "bib_path": str(r.bib_path),
+                "exported": r.exported,
+                "created": r.created,
+                "next": "prumo paper sync",
+            }
+        )
+
+
+@paper_app.command("sync-annotations")
+def sync_annotations_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Sincroniza annotations + child notes do Zotero pra cada nota local.
+
+    Requer Zotero 9 aberto + Better BibTeX instalado (API local em
+    ``http://localhost:23119``)."""
+    with cli_run(
+        json_mode=json_mode,
+        catches=(FileNotFoundError, ConnectionError),
+        exit_code=2,
+    ) as console:
+        report = zotero.sync_annotations(path.resolve())
+        console.success(
+            f"{report['inserted']} inseridos, {report['updated']} atualizados, "
+            f"{report['unchanged']} já em dia."
+        )
+        console.emit(report)
+
+
+@paper_app.command("sync-notes")
+def sync_notes_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Projeta cada child note do Zotero em ``<key>/note__<itemKey>__<slug>.md``.
+
+    Read-only Zotero → repo. Requer Zotero 9 aberto + Better BibTeX
+    (API local em ``http://localhost:23119``)."""
+    with cli_run(
+        json_mode=json_mode,
+        catches=(FileNotFoundError, ConnectionError),
+        exit_code=2,
+    ) as console:
+        report = zotero.sync_notes(path.resolve())
+        console.success(
+            f"{report['inserted']} inseridas, {report['updated']} atualizadas, "
+            f"{report['unchanged']} já em dia."
+        )
+        console.emit(report)
+
+
+@paper_app.command("sync-all")
+def sync_all_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Orquestra ``sync`` + ``sync-annotations`` + ``sync-notes`` numa tacada.
+
+    ``sync`` roda offline (lê o ``.bib``). As fases que precisam do Zotero são
+    puladas com aviso se ele estiver fechado — o comando não falha por isso."""
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
+        report = _sync_all(path.resolve())
+        s = report["sync"]
+        console.success(f"meta: {s['created']} novas / {s['updated']} atualizadas.")
+        if report["annotations"] is not None:
+            a = report["annotations"]
+            console.info(f"  annotations: {a['inserted']} novas / {a['updated']} atualizadas.")
+        if report["notes"] is not None:
+            n = report["notes"]
+            console.info(f"  notes: {n['inserted']} novas / {n['updated']} atualizadas.")
+        for w in report["warnings"]:
+            console.warn(w)
+        console.emit(report)
+
+
+@paper_app.command("extract-prep")
+def extract_prep_command(
+    citekey: Annotated[str, typer.Argument(help="Citekey do paper.")],
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Valida pré-requisitos de extração e imprime idioma + caminhos."""
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
+        prep = paper_prep.extract_prep(path.resolve(), citekey)
+        console.success(f"Pronto pra extrair {citekey} (idioma {prep.language}).")
+        console.emit(
+            {
+                "language": prep.language,
+                "template_path": str(prep.template_path),
+                "pdf_path": str(prep.pdf_path),
+                "meta_path": str(prep.meta_path),
+            }
+        )
+
+
+@paper_app.command("migrate-layout")
+def migrate_layout_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """One-shot: migra ``<key>.md`` legado pra ``<key>/_meta.md`` (+ _extract, _annotations).
+
+    Idempotente. Preserva histórico via ``git mv`` quando o pj_* é repo git.
+    """
+    with cli_run(json_mode=json_mode) as console:
+        report = migrate.migrate_pj(path.resolve())
+        console.success(
+            f"{len(report['migrated'])} migradas, "
+            f"{len(report['already_migrated'])} já estavam em layout α."
+        )
+        if report["warnings"]:
+            for w in report["warnings"]:
+                console.warn(w)
+        console.emit(report)
+
+
+@paper_app.command("extract")
+def extract_command(
+    citekey: Annotated[str, typer.Argument(help="Citekey do paper.")],
+    model: Annotated[str, typer.Option("--model", help="Modelo que gerou a extração.")],
+    date: Annotated[str, typer.Option("--date", help="Data ISO YYYY-MM-DD.")],
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Aplica a extração (JSON via stdin: plano ou {sections, locators}); grava _extract.md."""
+    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
+        sections, locators = parse_extract_payload(read_stdin_json())
+        pj = path.resolve()
+        template_path = pj / ".claude" / "paper_extraction.md"
+        changed = apply_extraction(
+            pj_path=pj,
+            citekey=citekey,
+            template_path=template_path,
+            content=sections,
+            locators=locators,
+            model=model,
+            date=date,
+        )
+        console.result("MUDOU" if changed else "IDÊNTICO", {"changed": changed})

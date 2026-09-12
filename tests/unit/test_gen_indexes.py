@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from prumo_assist.core.skills import _TOOL_TOKEN_RE
+from par.core.skills import _TOOL_TOKEN_RE
 
 _SCRIPT = Path(__file__).resolve().parents[2] / ".github" / "scripts" / "gen_indexes.py"
 
@@ -35,7 +35,7 @@ def registry(gen: ModuleType) -> Any:
 
 
 def _mode(registry: Any, skill: str, mode: str) -> Any:
-    from prumo_assist.core.skills import SkillRef
+    from par.core.skills import SkillRef
 
     found = registry.find_mode(SkillRef(skill, mode))
     assert found is not None, f"{skill}/{mode}"
@@ -70,8 +70,8 @@ def test_replace_block_nao_interpreta_template_de_regex(gen: ModuleType) -> None
 
 def test_skills_table_tem_uma_linha_por_modo(gen: ModuleType, registry: Any) -> None:
     table = gen.render_skills_table(registry)
-    assert "`/prumo-assist:start`" in table
-    assert "`/prumo-assist:paper extract`" in table
+    assert "`/par:start`" in table
+    assert "`/par:paper extract`" in table
     sem_modos = sum(1 for n in registry.names() if not registry.get(n).modes)
     # uma linha por modo + uma por skill sem modos + 2 de cabeçalho
     assert table.count("\n") + 1 == len(registry.iter_modes()) + sem_modos + 2
@@ -279,5 +279,5 @@ def test_julgamento_puro_mantem_a_cascata_em_prosa(gen: ModuleType, registry: An
 def test_kb_index_lista_os_guias_de_docs(gen: ModuleType) -> None:
     """Página nova em docs/ entra no catálogo gerado, sem edição à mão."""
     body = gen.render_kb_index()
-    assert "- [[positioning]] · Posicionamento e claims do prumo-assist" in body
+    assert "- [[positioning]] · Posicionamento e claims do PAR" in body
     assert "[[_index]]" not in body

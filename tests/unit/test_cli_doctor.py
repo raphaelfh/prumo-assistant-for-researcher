@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from prumo_assist.cli import _resolve_template_dir, app
-from prumo_assist.core import scaffold
-from prumo_assist.core.deps import DepStatus
+from par.cli import _resolve_template_dir, app
+from par.core import scaffold
+from par.core.deps import DepStatus
 
 runner = CliRunner()
 
@@ -48,7 +48,7 @@ def test_doctor_json_includes_external_deps(tmp_path: Path) -> None:
             hint="abra o Zotero",
         ),
     ]
-    with patch("prumo_assist.cli.check_external_deps", return_value=fake):
+    with patch("par.cli.check_external_deps", return_value=fake):
         result = runner.invoke(app, ["doctor", str(pj), "--json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
@@ -64,7 +64,7 @@ def test_doctor_missing_dep_does_not_fail_exit_code(tmp_path: Path) -> None:
             name="qmd", present=False, required_by=["wiki-query"], detail="missing", hint="instale"
         ),
     ]
-    with patch("prumo_assist.cli.check_external_deps", return_value=fake):
+    with patch("par.cli.check_external_deps", return_value=fake):
         result = runner.invoke(app, ["doctor", str(pj), "--json"])
     # estrutura do projeto está OK → exit 0 mesmo com qmd ausente
     assert result.exit_code == 0, result.output
@@ -81,7 +81,7 @@ def test_doctor_human_output_shows_missing_dep_hint(tmp_path: Path) -> None:
             hint="bun install -g @tobilu/qmd",
         ),
     ]
-    with patch("prumo_assist.cli.check_external_deps", return_value=fake):
+    with patch("par.cli.check_external_deps", return_value=fake):
         result = runner.invoke(app, ["doctor", str(pj)])
     assert "qmd" in result.output
     assert "bun install -g @tobilu/qmd" in result.output
@@ -97,7 +97,7 @@ def test_doctor_flags_broken_zettlr_profile(tmp_path: Path) -> None:
         yaml.safe_dump({"reader": "markdown", "writer": "docx", "filters": ["/nao/existe.lua"]}),
         encoding="utf-8",
     )
-    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+    with patch("par.cli.check_external_deps", return_value=[]):
         result = runner.invoke(app, ["doctor", str(pj)])
     assert result.exit_code == 1
     assert "prumo write zettlr-profile" in result.output
@@ -105,7 +105,7 @@ def test_doctor_flags_broken_zettlr_profile(tmp_path: Path) -> None:
 
 def test_doctor_silent_when_no_zettlr_profile(tmp_path: Path) -> None:
     pj = _project(tmp_path)
-    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+    with patch("par.cli.check_external_deps", return_value=[]):
         result = runner.invoke(app, ["doctor", str(pj)])
     assert result.exit_code == 0, result.output
 
@@ -116,7 +116,7 @@ def test_doctor_avisa_bib_placeholder(tmp_path: Path) -> None:
         "% Bibliografia do projeto — formato Better BibTeX (BBT).\n%\n% Fluxo...\n",
         encoding="utf-8",
     )
-    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+    with patch("par.cli.check_external_deps", return_value=[]):
         result = runner.invoke(app, ["doctor", str(pj), "--json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
@@ -128,7 +128,7 @@ def test_doctor_sem_aviso_com_bib_real(tmp_path: Path) -> None:
     (pj / "docs" / "references" / "_references.bib").write_text(
         "@article{x2020,\n  title = {T},\n}\n", encoding="utf-8"
     )
-    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+    with patch("par.cli.check_external_deps", return_value=[]):
         result = runner.invoke(app, ["doctor", str(pj), "--json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
@@ -209,11 +209,11 @@ def test_doctor_nao_opina_sobre_projeto_sem_o_modulo_code(tmp_path: Path) -> Non
 
 def test_doctor_aponta_invocacao_antiga_e_skill_instalada_velha(tmp_path: Path) -> None:
     pj = _project(tmp_path)
-    (pj / "README.md").write_text("/prumo-assist:peer-review\n", encoding="utf-8")
+    (pj / "README.md").write_text("/par:peer-review\n", encoding="utf-8")
     (pj / ".claude" / "skills" / "peer-review").mkdir(parents=True)
     (pj / ".claude" / "skills" / "peer-review" / "SKILL.md").write_text("x", encoding="utf-8")
 
-    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+    with patch("par.cli.check_external_deps", return_value=[]):
         res = runner.invoke(app, ["doctor", str(pj), "--json"])
 
     issues = json.loads(res.stdout)["issues"]
@@ -225,9 +225,9 @@ def test_doctor_aponta_invocacao_antiga_e_skill_instalada_velha(tmp_path: Path) 
 
 def test_doctor_sem_sobras_nao_emite_skill_obsoleta(tmp_path: Path) -> None:
     pj = _project(tmp_path)
-    (pj / "README.md").write_text("/prumo-assist:review critique\n", encoding="utf-8")
+    (pj / "README.md").write_text("/par:review critique\n", encoding="utf-8")
 
-    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+    with patch("par.cli.check_external_deps", return_value=[]):
         res = runner.invoke(app, ["doctor", str(pj), "--json"])
 
     assert not [i for i in json.loads(res.stdout)["issues"] if "[skill_obsoleta]" in i]
@@ -237,8 +237,8 @@ def test_doctor_reprova_dado_versionavel(tmp_path: Path) -> None:
     pj = _project(tmp_path)
     issue = "[dado_versionavel] fake"
     with (
-        patch("prumo_assist.cli.check_external_deps", return_value=[]),
-        patch("prumo_assist.cli.safe_outputs_issues", return_value=[issue]),
+        patch("par.cli.check_external_deps", return_value=[]),
+        patch("par.cli.safe_outputs_issues", return_value=[issue]),
     ):
         result = runner.invoke(app, ["doctor", str(pj), "--json"])
     assert result.exit_code == 1, result.output

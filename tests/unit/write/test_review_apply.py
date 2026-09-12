@@ -21,8 +21,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from prumo_assist.core import criticmarkup
-from prumo_assist.domains.write.review import (
+from par.core import criticmarkup
+from par.domains.write.review import (
     ApplyResult,
     CitationConservationError,
     MarkLostError,
@@ -31,7 +31,7 @@ from prumo_assist.domains.write.review import (
     apply_review,
     propose_prose_edit,
 )
-from prumo_assist.domains.write.schemas.v1 import (
+from par.domains.write.schemas.v1 import (
     CiteOccurrence,
     ReviewEvent,
     ReviewEventsFile,

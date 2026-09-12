@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from prumo_assist.domains.wiki.schemas.v1 import SessionLog, StepLog
+from par.domains.wiki.schemas.v1 import SessionLog, StepLog
 
 
 def test_step_log_minimal() -> None:

@@ -10,9 +10,9 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from prumo_assist.cli import app
-from prumo_assist.domains.write import export, review
-from prumo_assist.domains.write.schemas.v1 import (
+from par.cli import app
+from par.domains.write import export, review
+from par.domains.write.schemas.v1 import (
     ReviewComment,
     ReviewCommentsFile,
     ReviewEvent,
@@ -298,7 +298,7 @@ def _stub_pandoc_seams(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
             target.write_text("<html>ok</html>")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake_run)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake_run)
 
 
 def test_write_export_docx_prints_first_use_note(
@@ -306,7 +306,7 @@ def test_write_export_docx_prints_first_use_note(
 ) -> None:
     pj, page = _pj_with_bib(tmp_path)
     fake_out = pj / "build" / "exports" / "p.docx"
-    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", lambda **kw: fake_out)
+    monkeypatch.setattr("par.domains.write.cli.export.export", lambda **kw: fake_out)
     result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
     assert result.exit_code == 0, result.output
     assert "Primeiro uso no Word" in result.output
@@ -317,7 +317,7 @@ def test_write_export_html_omits_first_use_note(
 ) -> None:
     pj, page = _pj_with_bib(tmp_path)
     fake_out = pj / "build" / "exports" / "p.html"
-    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", lambda **kw: fake_out)
+    monkeypatch.setattr("par.domains.write.cli.export.export", lambda **kw: fake_out)
     result = runner.invoke(app, ["write", "export", str(page), "--to", "html"])
     assert result.exit_code == 0, result.output
     assert "Primeiro uso no Word" not in result.output
@@ -358,7 +358,7 @@ def test_write_error_paths_show_clean_error(
     def _boom(**kw: object) -> Path:
         raise exc("mensagem teste")
 
-    monkeypatch.setattr(f"prumo_assist.domains.write.cli.export.{command}", _boom)
+    monkeypatch.setattr(f"par.domains.write.cli.export.{command}", _boom)
     result = runner.invoke(app, args)
     assert result.exit_code == 1
     assert "mensagem teste" in result.output
@@ -372,7 +372,7 @@ def test_write_compose_docx_prints_first_use_note(
     index = pj / "docs" / "index.md"
     index.write_text("---\npages: [docs/p.md]\n---\n")
     fake_out = pj / "build" / "exports" / "index.docx"
-    monkeypatch.setattr("prumo_assist.domains.write.cli.export.compose", lambda **kw: fake_out)
+    monkeypatch.setattr("par.domains.write.cli.export.compose", lambda **kw: fake_out)
     result = runner.invoke(app, ["write", "compose", "--index", str(index), "--to", "docx"])
     assert result.exit_code == 0, result.output
     assert "Primeiro uso no Word" in result.output
@@ -469,9 +469,9 @@ def test_zettlr_entry_calls_canonical_docx_export(
         called["to"] = to
         return tmp_path / "out.docx"
 
-    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", fake_export)
+    monkeypatch.setattr("par.domains.write.cli.export.export", fake_export)
     monkeypatch.setattr("sys.argv", ["prumo-zettlr-export", str(page)])
-    from prumo_assist.domains.write.cli import zettlr_export_entry
+    from par.domains.write.cli import zettlr_export_entry
 
     zettlr_export_entry()
     assert called == {"page": page.resolve(), "to": "docx"}
@@ -486,9 +486,9 @@ def test_zettlr_entry_export_error_exits_cleanly(
     def fake_export(*, page: Path, to: str = "docx", **kwargs: object) -> Path:
         raise FileNotFoundError("bibliografia não encontrada: x")
 
-    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", fake_export)
+    monkeypatch.setattr("par.domains.write.cli.export.export", fake_export)
     monkeypatch.setattr("sys.argv", ["prumo-zettlr-export", str(page)])
-    from prumo_assist.domains.write.cli import zettlr_export_entry
+    from par.domains.write.cli import zettlr_export_entry
 
     with pytest.raises(SystemExit) as exc:
         zettlr_export_entry()
@@ -497,7 +497,7 @@ def test_zettlr_entry_export_error_exits_cleanly(
 
 def test_zettlr_entry_usage_error_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sys.argv", ["prumo-zettlr-export"])
-    from prumo_assist.domains.write.cli import zettlr_export_entry
+    from par.domains.write.cli import zettlr_export_entry
 
     with pytest.raises(SystemExit) as exc:
         zettlr_export_entry()
@@ -507,7 +507,7 @@ def test_zettlr_entry_usage_error_exits_cleanly(monkeypatch: pytest.MonkeyPatch)
 def test_export_command_reports_citekey_error_cleanly(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from prumo_assist.domains.write.export import ZoteroCitekeyNotFoundError
+    from par.domains.write.export import ZoteroCitekeyNotFoundError
 
     page = tmp_path / "draft.md"
     page.write_text("x")
@@ -517,10 +517,8 @@ def test_export_command_reports_citekey_error_cleanly(
             "1 citekey(s) não existem no .bib: ghost2020. Confira a grafia."
         )
 
-    monkeypatch.setattr("prumo_assist.domains.write.cli.export.export", fake_export)
-    monkeypatch.setattr(
-        "prumo_assist.domains.write.cli.export.detect_project_root", lambda p: tmp_path
-    )
+    monkeypatch.setattr("par.domains.write.cli.export.export", fake_export)
+    monkeypatch.setattr("par.domains.write.cli.export.detect_project_root", lambda p: tmp_path)
     result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
     assert result.exit_code == 1
     assert "ghost2020" in result.output
@@ -571,7 +569,7 @@ def test_write_review_ingest_happy_path(tmp_path: Path, monkeypatch: pytest.Monk
     ) -> review.IngestResult:
         return _fake_ingest_result(review_md)
 
-    monkeypatch.setattr("prumo_assist.domains.write.cli.review.ingest", fake_ingest)
+    monkeypatch.setattr("par.domains.write.cli.review.ingest", fake_ingest)
     monkeypatch.setenv("COLUMNS", "300")  # evita quebra de linha do Rich no path longo
 
     plain = runner.invoke(app, ["write", "review", "ingest", str(docx), "--page", str(page)])
@@ -603,7 +601,7 @@ def test_write_review_ingest_source_changed_shows_clean_error(
     def fake_ingest(*args: object, **kwargs: object) -> review.IngestResult:
         raise review.SourceChangedError("fonte mudou desde o export — mensagem teste")
 
-    monkeypatch.setattr("prumo_assist.domains.write.cli.review.ingest", fake_ingest)
+    monkeypatch.setattr("par.domains.write.cli.review.ingest", fake_ingest)
     result = runner.invoke(app, ["write", "review", "ingest", str(docx), "--page", str(page)])
     assert result.exit_code == 1
     assert "mensagem teste" in result.output
@@ -617,7 +615,7 @@ def test_write_review_apply_happy_path(tmp_path: Path, monkeypatch: pytest.Monke
     def fake_apply(page_arg: Path, **kwargs: object) -> review.ApplyResult:
         return review.ApplyResult(page=page_arg, applied=2, rejected=1, drops_confirmed=["occ1"])
 
-    monkeypatch.setattr("prumo_assist.domains.write.cli.review.apply_review", fake_apply)
+    monkeypatch.setattr("par.domains.write.cli.review.apply_review", fake_apply)
     result = runner.invoke(
         app,
         ["write", "review", "apply", "--page", str(page), "--accept-all", "--json"],
@@ -641,7 +639,7 @@ def test_write_review_apply_missing_drop_confirmation_exits_1(
             "(I6 — decisão humana explícita em Git): occ occ1."
         )
 
-    monkeypatch.setattr("prumo_assist.domains.write.cli.review.apply_review", fake_apply)
+    monkeypatch.setattr("par.domains.write.cli.review.apply_review", fake_apply)
     result = runner.invoke(app, ["write", "review", "apply", "--page", str(page), "--accept-all"])
     assert result.exit_code == 1
     assert "citation-drop" in result.output
@@ -844,7 +842,7 @@ def test_review_ingest_cli_repassa_force(tmp_path: Path, monkeypatch: pytest.Mon
         captured.update(kwargs)
         raise ValueError("stop aqui — só interessa a captura do kwarg")
 
-    monkeypatch.setattr("prumo_assist.domains.write.review.ingest", fake_ingest)
+    monkeypatch.setattr("par.domains.write.review.ingest", fake_ingest)
     docx = tmp_path / "r.docx"
     docx.write_text("x")
     pagina = tmp_path / "p.md"

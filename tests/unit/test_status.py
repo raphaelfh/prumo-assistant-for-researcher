@@ -10,13 +10,13 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from prumo_assist.cli import app
-from prumo_assist.core.paths import resolve_resource
-from prumo_assist.core.skills import SkillRef, SkillRegistry, load_skill_registry
-from prumo_assist.domains.paper.callout import hash_template
-from prumo_assist.domains.protocol.picot_io import write_picot
-from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
-from prumo_assist.status import project_status, status_to_dict
+from par.cli import app
+from par.core.paths import resolve_resource
+from par.core.skills import SkillRef, SkillRegistry, load_skill_registry
+from par.domains.paper.callout import hash_template
+from par.domains.protocol.picot_io import write_picot
+from par.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
+from par.status import project_status, status_to_dict
 
 runner = CliRunner()
 
@@ -200,7 +200,7 @@ def test_subdiretorio_do_projeto_acha_a_raiz(tmp_path: Path, registry: SkillRegi
 def test_status_sem_registry_usa_a_invocacao(tmp_path: Path) -> None:
     pj = _init(tmp_path)
     st = project_status(pj)
-    assert st.next is not None and st.next.say == "/prumo-assist:paper library"
+    assert st.next is not None and st.next.say == "/par:paper library"
 
 
 def test_cli_json_tem_schema_e_invocacao(tmp_path: Path) -> None:
@@ -209,7 +209,7 @@ def test_cli_json_tem_schema_e_invocacao(tmp_path: Path) -> None:
     assert res.exit_code == 0, res.output
     payload = json.loads(res.stdout)
     assert payload["schema_version"] == "ProjectStatus/v1"
-    assert payload["next"]["invocation"] == "/prumo-assist:paper library"
+    assert payload["next"]["invocation"] == "/par:paper library"
     assert payload["scopes"][0]["slug"] == "principal"
     assert payload["library"] == status_to_dict(project_status(pj))["library"]
 

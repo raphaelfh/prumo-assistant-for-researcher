@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from prumo_assist import PrumoError
-from prumo_assist.cli import app
-from prumo_assist.contracts import CONTRACTS, validate_contract
-from prumo_assist.core.paths import resolve_resource
+from par import PrumoError
+from par.cli import app
+from par.contracts import CONTRACTS, validate_contract
+from par.core.paths import resolve_resource
 
 runner = CliRunner()
 

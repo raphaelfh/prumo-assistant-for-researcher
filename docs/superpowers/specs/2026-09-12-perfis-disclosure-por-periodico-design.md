@@ -11,7 +11,7 @@ política na hora da submissão, e o texto gerado não diz o que falta.
 
 ## Decisão
 
-- Arquivo de dados versionado `src/prumo_assist/domains/write/venue_policies.toml`
+- Arquivo de dados versionado `src/par/domains/write/venue_policies.toml`
   (`VenueDisclosure/v1`), dentro do pacote: sai no wheel por `packages`, sem
   force-include nem `core/paths.py`. Campos por perfil: `name`, `source_url`,
   `accessed`, `required`, `placement`, `prohibited`, `authorship`. Texto parafraseado

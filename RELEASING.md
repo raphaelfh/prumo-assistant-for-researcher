@@ -1,6 +1,6 @@
 # Política de versionamento e processo de release
 
-`prumo-assist` segue [SemVer](https://semver.org/lang/pt-BR/) — `MAJOR.MINOR.PATCH` — adaptado para a realidade de um plugin do Claude Code (skills + agents + MCP). Este documento explica **quando bumpar cada componente** para que a versão seja informativa, sem virar ruído.
+`PAR` segue [SemVer](https://semver.org/lang/pt-BR/) — `MAJOR.MINOR.PATCH` — adaptado para a realidade de um plugin do Claude Code (skills + agents + MCP). Este documento explica **quando bumpar cada componente** para que a versão seja informativa, sem virar ruído.
 
 ## Regra-mãe
 
@@ -45,7 +45,7 @@ Critério prático: se a entrada do `CHANGELOG.md` em **Adicionado** descreve al
 
 Mudanças que **quebram** o uso anterior — quem dependia do comportamento antigo precisa ajustar.
 
-- Skill removida ou renomeada (`/prumo-assist:foo` deixou de existir).
+- Skill removida ou renomeada (`/par:foo` deixou de existir).
 - Trigger de skill ficou mais restrito (algo que disparava antes não dispara mais).
 - Estrutura de projeto exigida pelo plugin mudou (ex.: skill agora exige `docs/_index.md` e antes não exigia).
 - Schema de configuração (`pj_config.toml`, `paper_extraction.md`) mudou de forma incompatível.
@@ -82,7 +82,7 @@ Suposição: você está num branch de trabalho ou direto no `main`, com mudanç
    - Mova as entradas de `## [Não publicado]` para `## [X.Y.Z] - AAAA-MM-DD`.
    - Recrie `## [Não publicado]` vazia no topo.
    - Atualize as referências de link no rodapé do arquivo.
-3. **Bump em `src/prumo_assist/_version.py`** (fonte única) e propague pros manifests:
+3. **Bump em `src/par/_version.py`** (fonte única) e propague pros manifests:
    ```bash
    # edite _version.py manualmente, depois:
    python .github/scripts/sync_manifest_version.py
@@ -97,7 +97,7 @@ Suposição: você está num branch de trabalho ou direto no `main`, com mudanç
 6. **Commit via branch de release + PR** (fluxo adotado desde a v0.61.0):
    ```bash
    git checkout -b release/vX.Y.Z
-   git add CHANGELOG.md CITATION.cff src/prumo_assist/_version.py .claude-plugin/plugin.json .claude-plugin/marketplace.json
+   git add CHANGELOG.md CITATION.cff src/par/_version.py .claude-plugin/plugin.json .claude-plugin/marketplace.json
    git commit -m "release: X.Y.Z - resumo curto"
    git push -u origin release/vX.Y.Z
    gh pr create --title "release: vX.Y.Z" --fill
@@ -113,7 +113,7 @@ Suposição: você está num branch de trabalho ou direto no `main`, com mudanç
    ```
 8. **Comunique aos consumidores** (se aplicável) que devem rodar:
    ```
-   /plugin marketplace update prumo-assist
+   /plugin marketplace update prumo-assistant-for-researcher
    /reload-plugins
    ```
 
@@ -122,7 +122,7 @@ Suposição: você está num branch de trabalho ou direto no `main`, com mudanç
 Em qualquer Claude Code que já tem o plugin instalado:
 
 ```
-/plugin marketplace update prumo-assist
+/plugin marketplace update prumo-assistant-for-researcher
 /reload-plugins
 ```
 
@@ -132,7 +132,7 @@ Em qualquer Claude Code que já tem o plugin instalado:
 
 A `0.1.1` deste plugin foi cortada em 2026-04-26 com:
 
-- **Adicionado:** `marketplace.json` (habilita instalação via `/plugin marketplace add raphaelfh/prumo-assist`), CI de validação, este `RELEASING.md`, `CHANGELOG.md`.
+- **Adicionado:** `marketplace.json` (habilita instalação via `/plugin marketplace add raphaelfh/prumo-assistant-for-researcher`), CI de validação, este `RELEASING.md`, `CHANGELOG.md`.
 - **Corrigido:** `repository` em `plugin.json` virou string (era objeto e o validador rejeitava); typo no README.
 
 Nada disso adiciona skill ou trigger novo → ficou em `PATCH`. Se tivesse incluído uma skill nova (ex.: `clinical-stats`), seria `0.2.0`.

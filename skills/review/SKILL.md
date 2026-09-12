@@ -16,7 +16,7 @@ prumo:
 
 Escolha o modo antes de agir:
 
-1. **Argumento explícito vence.** `/prumo-assist:review critique drafts/paper.md` → modo `critique`.
+1. **Argumento explícito vence.** `/par:review critique drafts/paper.md` → modo `critique`.
 2. **Senão, pela intenção**, usando a tabela abaixo.
 3. **Ambíguo entre modos → faça UMA pergunta** listando os candidatos com uma frase de exemplo cada. Na dúvida entre gerar e orientar, oriente.
 4. **Leia `modes/<modo>.md` inteiro antes de qualquer operação.** Este arquivo não contém instrução operacional; o preflight e o procedimento de cada modo estão lá.

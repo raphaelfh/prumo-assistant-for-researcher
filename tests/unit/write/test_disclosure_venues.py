@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist import PrumoError
-from prumo_assist.domains.write.disclosure import generate_disclosure, load_venue_profiles
+from par import PrumoError
+from par.domains.write.disclosure import generate_disclosure, load_venue_profiles
 
 
 def _project(tmp_path: Path) -> Path:
@@ -104,7 +104,7 @@ def test_elemento_desconhecido_falha() -> None:
 def test_cli_venue(tmp_path: Path) -> None:
     from typer.testing import CliRunner
 
-    from prumo_assist.domains.write.cli import write_app
+    from par.domains.write.cli import write_app
 
     result = CliRunner().invoke(
         write_app, ["disclosure", str(_project(tmp_path)), "--venue", "jama"]

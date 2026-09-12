@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.domains.write.compose import WritePrep, prep
-from prumo_assist.domains.write.schemas.v1 import ComposeInputs
+from par.domains.write.compose import WritePrep, prep
+from par.domains.write.schemas.v1 import ComposeInputs
 
 
 def test_prep_returns_inputs_and_template(tmp_path: Path) -> None:

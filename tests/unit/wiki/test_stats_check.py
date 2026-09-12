@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.domains.wiki.lint import lint
-from prumo_assist.domains.wiki.stats_check import (
+from par.domains.wiki.lint import lint
+from par.domains.wiki.stats_check import (
     benjamini_hochberg,
     stat_mismatches,
     wilson_interval,

@@ -26,13 +26,13 @@ prumo:
 > **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
 >
 > 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
->    operação desta skill; roteie para `/prumo-assist:start` (instalação guiada com
+>    operação desta skill; roteie para `/par:start` (instalação guiada com
 >    consentimento) e pare aqui.
 > 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
 >    definido, compare a versão do CLI com o campo `version` de
 >    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
 >    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
->    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
+>    `uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,
 >    pule este passo em silêncio.
 > 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
@@ -59,7 +59,7 @@ ou num wikilink interno**. Se a fonte não está no acervo, emita
 - A parte determinística (criar log, anexar steps, arquivar finding) é exposta
   via `prumo wiki *` (study-start/step/finish, finding). Você só cuida do agêntico.
 - O CLI `prumo` precisa estar no PATH (rode `prumo doctor`; se ausente:
-  `uv tool install git+https://github.com/raphaelfh/prumo-assist`).
+  `uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher`).
 
 ## Fluxo
 

@@ -5,14 +5,14 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from prumo_assist.domains.protocol.drift import (
+from par.domains.protocol.drift import (
     SourceText,
     find_drift,
     named_tests,
     prespec_polarity,
     windows,
 )
-from prumo_assist.domains.protocol.ops import manuscript_drift
+from par.domains.protocol.ops import manuscript_drift
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "protocol_drift"
 

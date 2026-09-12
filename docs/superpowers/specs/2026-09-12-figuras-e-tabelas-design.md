@@ -2,7 +2,7 @@
 
 - Data: 2026-09-12
 - Achado: ROADMAP "Figuras e tabelas" (gatilho "primeira submissão com figura" atingido: o draft piloto do `pj_piloto_questionario` cita Tables 1–3 e Figures 1–2 como texto fixo).
-- Decisão registrada em [ADR-0034](../../adr/adr-0034-figuras-e-tabelas-por-filtro-lua.md).
+- Decisão registrada em [ADR-0035](../../adr/adr-0035-figuras-e-tabelas-por-filtro-lua.md).
 
 ## Problema
 

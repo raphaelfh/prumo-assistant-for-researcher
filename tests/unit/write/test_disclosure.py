@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.domains.write.schemas.v1 import AIDisclosure, AIToolUse
+from par.domains.write.schemas.v1 import AIDisclosure, AIToolUse
 
 
 def test_aitooluse_defaults() -> None:
-    u = AIToolUse(tool="prumo-assist:paper-extract", task="t")
+    u = AIToolUse(tool="par:paper-extract", task="t")
     assert u.count == 1
     assert u.human_reviewed is False
     assert u.model is None
@@ -21,7 +21,7 @@ def test_aidisclosure_schema_version() -> None:
 
 
 def test_record_from_paper_meta() -> None:
-    from prumo_assist.domains.write.disclosure import _record_from_fm
+    from par.domains.write.disclosure import _record_from_fm
 
     rec = _record_from_fm({"extracted_model": "claude-opus-4", "extracted_at": "2026-05-01"})
     assert rec is not None
@@ -30,16 +30,16 @@ def test_record_from_paper_meta() -> None:
 
 
 def test_generator_solto_nao_e_mais_lido() -> None:
-    from prumo_assist.domains.write.disclosure import _record_from_fm
+    from par.domains.write.disclosure import _record_from_fm
 
     # 0 ocorrências nos pj_* (spec 2026-09-12-proveniencia-ligada): sem fallback.
     assert _record_from_fm({"type": "finding", "generator": "wiki-query"}) is None
 
 
 def test_fixture_mista_canonica_e_legada(tmp_path: Path) -> None:
-    from prumo_assist.domains.wiki.findings import archive_as_finding
-    from prumo_assist.domains.write.compose import write_output
-    from prumo_assist.domains.write.disclosure import generate_disclosure
+    from par.domains.wiki.findings import archive_as_finding
+    from par.domains.write.compose import write_output
+    from par.domains.write.disclosure import generate_disclosure
 
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
@@ -54,22 +54,22 @@ def test_fixture_mista_canonica_e_legada(tmp_path: Path) -> None:
 
     tools = {u.tool: u for u in disc.tools}
     assert set(tools) == {
-        "prumo-assist:paper extract",
-        "prumo-assist:wiki query",
-        "prumo-assist:write manuscript",
+        "par:paper extract",
+        "par:wiki query",
+        "par:write manuscript",
     }
-    assert tools["prumo-assist:paper extract"].model == "claude-opus-4"
+    assert tools["par:paper extract"].model == "claude-opus-4"
     assert disc.date_from == "2026-05-01"
 
 
 def test_record_from_plain_frontmatter_is_none() -> None:
-    from prumo_assist.domains.write.disclosure import _record_from_fm
+    from par.domains.write.disclosure import _record_from_fm
 
     assert _record_from_fm({"title": "just a note"}) is None
 
 
 def test_collect_records_walks_and_skips_dotdirs(tmp_path: Path) -> None:
-    from prumo_assist.domains.write.disclosure import collect_records
+    from par.domains.write.disclosure import collect_records
 
     (tmp_path / "docs" / "references" / "papers" / "a").mkdir(parents=True)
     (tmp_path / "docs" / "references" / "papers" / "a" / "_meta.md").write_text(
@@ -91,21 +91,21 @@ def _paper(p: Path, model: str) -> None:
 
 
 def test_generate_disclosure_names_tool_and_model(tmp_path: Path) -> None:
-    from prumo_assist.domains.write.disclosure import generate_disclosure
+    from par.domains.write.disclosure import generate_disclosure
 
     _paper(tmp_path / "docs/references/papers/a/_meta.md", "claude-opus-4")
     _paper(tmp_path / "docs/references/papers/b/_meta.md", "claude-opus-4")
     disc = generate_disclosure(root=tmp_path)
     assert len(disc.tools) == 1
     assert disc.tools[0].count == 2
-    assert disc.tools[0].tool == "prumo-assist:paper extract"
+    assert disc.tools[0].tool == "par:paper extract"
     assert "claude-opus-4" in disc.statement_en
     assert "responsibility" in disc.statement_en
     assert "responsabilidade" in disc.statement_pt
 
 
 def test_generate_disclosure_empty(tmp_path: Path) -> None:
-    from prumo_assist.domains.write.disclosure import generate_disclosure
+    from par.domains.write.disclosure import generate_disclosure
 
     disc = generate_disclosure(root=tmp_path)
     assert disc.tools == []
@@ -115,15 +115,15 @@ def test_generate_disclosure_empty(tmp_path: Path) -> None:
 def test_generate_disclosure_missing_root_raises() -> None:
     import pytest
 
-    from prumo_assist import PrumoError
-    from prumo_assist.domains.write.disclosure import generate_disclosure
+    from par import PrumoError
+    from par.domains.write.disclosure import generate_disclosure
 
     with pytest.raises(PrumoError):
         generate_disclosure(root=Path("/no/such/dir/xyz123"))
 
 
 def test_reexported() -> None:
-    from prumo_assist.domains.write.api import generate_disclosure
+    from par.domains.write.api import generate_disclosure
 
     assert callable(generate_disclosure)
 
@@ -131,7 +131,7 @@ def test_reexported() -> None:
 def test_cli_disclosure_json(tmp_path: Path) -> None:
     from typer.testing import CliRunner
 
-    from prumo_assist.domains.write.cli import write_app
+    from par.domains.write.cli import write_app
 
     (tmp_path / "docs" / "references" / "papers" / "a").mkdir(parents=True)
     (tmp_path / "docs" / "references" / "papers" / "a" / "_meta.md").write_text(
@@ -143,7 +143,7 @@ def test_cli_disclosure_json(tmp_path: Path) -> None:
 
 
 def test_record_from_canonical_meta_block() -> None:
-    from prumo_assist.domains.write.disclosure import _record_from_fm
+    from par.domains.write.disclosure import _record_from_fm
 
     rec = _record_from_fm(
         {
@@ -163,7 +163,7 @@ def test_record_from_canonical_meta_block() -> None:
 
 
 def test_aggregate_human_reviewed_is_and_across_group(tmp_path: Path) -> None:
-    from prumo_assist.domains.write.disclosure import generate_disclosure
+    from par.domains.write.disclosure import generate_disclosure
 
     base = tmp_path / "docs" / "references" / "papers"
     # Two paper-extract artifacts, same model → one aggregated tool group.
@@ -185,7 +185,7 @@ def test_aggregate_human_reviewed_is_and_across_group(tmp_path: Path) -> None:
 
 
 def test_legado_e_novo_agregam_numa_linha(tmp_path: Path) -> None:
-    from prumo_assist.domains.write.disclosure import generate_disclosure
+    from par.domains.write.disclosure import generate_disclosure
 
     notes = tmp_path / "docs" / "studies" / "principal" / "notes"
     notes.mkdir(parents=True)
@@ -199,24 +199,24 @@ def test_legado_e_novo_agregam_numa_linha(tmp_path: Path) -> None:
     disc = generate_disclosure(root=tmp_path)
 
     assert len(disc.tools) == 1
-    assert disc.tools[0].tool == "prumo-assist:wiki query"
+    assert disc.tools[0].tool == "par:wiki query"
     assert disc.tools[0].count == 2
     assert disc.tools[0].task == "synthesis of answers grounded in the project knowledge base"
 
 
 def test_skill_desconhecida_mantem_o_valor(tmp_path: Path) -> None:
-    from prumo_assist.domains.write.disclosure import generate_disclosure
+    from par.domains.write.disclosure import generate_disclosure
 
     (tmp_path / "x.md").write_text("---\n_meta:\n  skill: minha-skill\n---\n", encoding="utf-8")
     disc = generate_disclosure(root=tmp_path)
-    assert disc.tools[0].tool == "prumo-assist:minha-skill"
+    assert disc.tools[0].tool == "par:minha-skill"
     assert disc.tools[0].task == "assistive text generation"
 
 
 def test_meta_carimbado_pelo_extract_vira_paper_extract_sem_sombrear_revisao(
     tmp_path: Path,
 ) -> None:
-    from prumo_assist.domains.write.disclosure import generate_disclosure
+    from par.domains.write.disclosure import generate_disclosure
 
     meta = tmp_path / "docs" / "references" / "papers" / "a" / "_meta.md"
     meta.parent.mkdir(parents=True)
@@ -228,5 +228,5 @@ def test_meta_carimbado_pelo_extract_vira_paper_extract_sem_sombrear_revisao(
     )
     disc = generate_disclosure(root=tmp_path)
     assert len(disc.tools) == 1
-    assert disc.tools[0].tool == "prumo-assist:paper extract"
+    assert disc.tools[0].tool == "par:paper extract"
     assert disc.tools[0].human_reviewed is True
