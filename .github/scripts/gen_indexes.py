@@ -136,7 +136,11 @@ def replace_frontmatter_key(text: str, key: str, rendered: str, *, where: str) -
 
 def render_kb_index() -> str:
     sp = REPO / "docs" / "superpowers"
-    lines = ["**Specs** (não-perecíveis):", ""]
+    lines = ["**Guias:**", ""]
+    for p in sorted((REPO / "docs").glob("*.md")):
+        if p.name != "_index.md":
+            lines.append(f"- [[{p.stem}]] · {_front_field(p, 'title')}")
+    lines += ["", "**Specs** (não-perecíveis):", ""]
     for p in sorted((sp / "specs").glob("*.md")):
         lines.append(f"- [[superpowers/specs/{p.stem}]] · {_front_field(p, 'status')}")
     lines += ["", "**Plans ativos:**", ""]

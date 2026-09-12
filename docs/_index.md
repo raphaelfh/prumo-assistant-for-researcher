@@ -38,6 +38,14 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 ## Catálogo vivo (gerado — não editar à mão)
 
 <!-- prumo:kb-index:begin -->
+**Guias:**
+
+- [[Research Project Structure]] · Estrutura de Projeto de Pesquisa
+- [[actions-by-context]] · Contextos de necessidade → ações no prumo-assist
+- [[constitution]] · —
+- [[onboarding-pesquisador]] · Trilha do pesquisador — prumo-assist sem terminal
+- [[positioning]] · Posicionamento e claims do prumo-assist
+
 **Specs** (não-perecíveis):
 
 - [[superpowers/specs/2026-04-29-prumo-scientific-writer-design]] · superseded
