@@ -16,7 +16,7 @@ Você não precisa de terminal para usar o prumo-assist. Direto no Claude
 Desktop ou no Cowork: menu de plugins → **"Add from a repository"** →
 `raphaelfh/prumo-assist` (exige plano Claude pago — Pro ou Max).
 
-Depois de instalado, cole um trecho de draft e peça `/prumo-assist:peer-review`
+Depois de instalado, cole um trecho de draft e peça `/prumo-assist:review critique`
 — funciona sem instalar mais nada (julgamento puro; testado no spike da Fase 0
 sem CLI/Zotero/qmd). Quando quiser ir além (bibliografia, projeto no disco), a
 própria conversa guia a instalação do resto — `/prumo-assist:start` pede seu
@@ -86,7 +86,7 @@ O plugin orquestra duas ferramentas que vivem fora do pacote Python. Rode
 
 | Dependência | Necessária para | Como instalar / habilitar |
 |---|---|---|
-| **`qmd`** (MCP de busca) | `/prumo-assist:wiki-query`, `/prumo-assist:wiki-ingest`, `/prumo-assist:active-learning` | `bun install -g @tobilu/qmd` (repo: [github.com/tobi/qmd](https://github.com/tobi/qmd)). Precisa estar no `PATH`. Declarado em `.mcp.json` como servidor `qmd`. |
+| **`qmd`** (MCP de busca) | `/prumo-assist:wiki query`, `/prumo-assist:wiki ingest`, `/prumo-assist:wiki study` | `bun install -g @tobilu/qmd` (repo: [github.com/tobi/qmd](https://github.com/tobi/qmd)). Precisa estar no `PATH`. Declarado em `.mcp.json` como servidor `qmd`. |
 | **Zotero 9 + Better BibTeX** | `paper sync-annotations`, `paper sync-notes`, `write export --to docx` (citações vivas) | Abra o Zotero 9 com o [Better BibTeX](https://retorque.re/zotero-better-bibtex/) instalado. Ele expõe a API local em `127.0.0.1:23119`. Só é necessário para os comandos que leem anotações/notas — o resto do prumo funciona sem ele. |
 
 > [!tip]

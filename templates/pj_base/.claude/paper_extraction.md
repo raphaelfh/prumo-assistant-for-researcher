@@ -1,5 +1,5 @@
 <!-- Template de extração para este projeto.
-     O subagent do /prumo-assist:paper-extract preenche UMA seção por vez, ancorado
+     O subagent do /prumo-assist:paper extract preenche UMA seção por vez, ancorado
      estritamente no conteúdo do PDF. Zero opinião. Cite página quando
      souber: (p.5).
 

@@ -116,7 +116,7 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
     # pelas descriptions das skills.
     claude = (target / "CLAUDE.md").read_text()
     assert "Início rápido" not in claude
-    assert "/prumo-assist:paper-manager" in (target / "README.md").read_text()
+    assert "/prumo-assist:paper library" in (target / "README.md").read_text()
     assert "PyTorch" not in claude and "timm" not in claude
 
     # add reconstrói
@@ -124,3 +124,14 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
     assert runner.invoke(app, ["add", "ml", "-t", str(target)]).exit_code == 0
     assert (target / "docs" / "studies" / "principal" / "writing" / "protocol.md").is_file()
     assert (target / ".claude" / "rules" / "ml_stack.md").is_file()
+
+
+def test_scaffold_nao_carrega_invocacao_antiga() -> None:
+    from prumo_assist.core.paths import resolve_resource
+    from prumo_assist.core.skill_refs import scan_skill_refs
+    from prumo_assist.core.skills import load_skill_registry
+
+    registry, _ = load_skill_registry(resolve_resource("skills"))
+    for base in ("pj_base", "modules"):
+        raiz = resolve_resource("templates") / base
+        assert scan_skill_refs(raiz, registry.legacy_map()) == [], base

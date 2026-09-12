@@ -3,7 +3,7 @@
 # Documentação completa: docs/operations.md (seção "pj_config.toml")
 
 [paper_extract]
-# Idioma do callout auto-extraído pelo /prumo-assist:paper-extract.
+# Idioma do callout auto-extraído pelo /prumo-assist:paper extract.
 # Citações literais no corpo (> [!quote]) permanecem no idioma original.
 # Valores aceitos: "pt-BR" | "en" | "es"
 language = "pt-BR"
@@ -12,7 +12,7 @@ language = "pt-BR"
 template = ".claude/paper_extraction.md"
 
 [paper_extract.batch]
-# Default do flag --limit de /prumo-assist:paper-extract-all.
+# Default do flag --limit de /prumo-assist:paper extract.
 # Acima deste valor, passe --limit N explicitamente.
 default_limit = 20
 
@@ -20,7 +20,7 @@ default_limit = 20
 subagents_per_wave = 8
 
 [writing]
-# Idioma das skills de prosa (scientific-writing, write-*, peer-review).
+# Idioma dos modos de prosa (write style/manuscript/section, protocol sap, review critique).
 # Vale para o texto gerado e para as convenções aplicadas — nenhuma skill traduz
 # texto existente. Documento de CEP/CONEP é sempre pt-BR, independente desta chave.
 # Valores aceitos: "en-US" | "pt-BR"

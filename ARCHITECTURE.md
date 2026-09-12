@@ -87,7 +87,8 @@ prumo-assist/
 │   │                             exceção: capture é mínimo (cli.py + route.py, sem api/schemas)
 │   └── integrations/          ← adapters por agent-host (claude_code)
 │
-├── skills/                    ← 16 skills (SKILL.md = única metadata, ADR-0003)
+├── skills/                    ← start + 5 skills por domínio; cada uma com modes/<modo>.md
+│                                 (frontmatter = única metadata, ADR-0003, ADR-0032)
 ├── templates/
 │   ├── pj_base/               ← núcleo mínimo copiado por `prumo init`
 │   └── modules/             ← overlays opt-in (`prumo add`), self-describing (_module.toml):
@@ -101,9 +102,9 @@ prumo-assist/
 ## Como dados fluem (caso típico: extrair um paper)
 
 ```
-/prumo-assist:paper-extract @smith2024
+/prumo-assist:paper extract @smith2024
         ▼
-Claude Code carrega skills/paper-extract/SKILL.md (instalada via plugin)
+Claude Code carrega skills/paper/SKILL.md, que manda ler skills/paper/modes/extract.md
         ▼
 A skill valida pré-requisitos (Bash), lê config (core/config.py),
 despacha subagent que lê o PDF com a tool Read
@@ -117,14 +118,15 @@ _meta.md ganha extracted_at / extracted_template_hash (staleness por hash)
 
 ## Como contribuir
 
-1. **Skill nova:** crie `skills/<nome>/SKILL.md` com frontmatter rico (`prumo:`); não precisa tocar Python. Rode `uv run python .github/scripts/gen_indexes.py` para atualizar os catálogos.
+1. **Modo novo:** crie `skills/<skill>/modes/<modo>.md` com frontmatter rico (`prumo:`, inclusive `phrases`); não precisa tocar Python. Rode `uv run python .github/scripts/gen_indexes.py` — ele deriva o frontmatter e a tabela frase → modo da skill. Renomear um modo exige manter o nome anterior em `prumo.legacy` (ADR-0032).
 2. **Comando determinístico novo:** `domains/<X>/<op>.py` + exposição em `domains/<X>/cli.py` (via `cli_run`) + re-export em `domains/<X>/api.py` + teste em `tests/unit/<X>/test_<op>.py`.
 3. **Host novo (Cursor, Codex, ...):** subclasse `BaseIntegration` em `integrations/<host>/installer.py`. Skills universais: zero mudança. (Trigger no ROADMAP, fase 3.0.)
 4. **Decisão estrutural:** registre em `docs/adr/adr-NNNN-slug.md` e cite no PR.
 
 ## Glossário rápido
 
-- **Skill** — capability agêntica empacotada como `SKILL.md` universal.
+- **Skill** — porta de um domínio (`paper`, `wiki`, `protocol`, `write`, `review`) empacotada como `SKILL.md` universal; `start` é o roteador.
+- **Modo** — uma capability dentro da skill (`paper extract`), em `modes/<modo>.md`; é o que o pesquisador invoca.
 - **Integration** — adapter do formato canônico pro layout de um agent-host.
 - **`pj_*`** — projeto de pesquisa do usuário; vault Zettlr (novos) / Obsidian (legado) + `.claude/` scaffoldado por `prumo init`.
 - **Determinismo** — `agentic` | `deterministic` | `hybrid` (frontmatter `prumo.determinism`).
