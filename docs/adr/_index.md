@@ -39,4 +39,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0029-update-reflui-o-template]] — `prumo update` reflui o `pj_base` num projeto vivo, comparando ao vivo · aceito
 - [[adr/adr-0030-tipo-decision]] — `decision` é o quinto tipo de página do wiki · aceito
 - [[adr/adr-0031-casa-das-rodadas-de-ml]] — Rodadas persistidas de ML vivem em `experiments/<run_id>/` na raiz · aceito
+- [[adr/adr-0032-superficie-por-dominio-e-modos]] — Superfície por domínio: start + 5 skills com modos · aceito
 <!-- prumo:adr-index:end -->

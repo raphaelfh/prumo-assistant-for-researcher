@@ -281,3 +281,17 @@ Nenhuma emenda. Princípios exercidos:
 - **V** — primeiro produtor real de `core/provenance.py` (F2).
 - **VI / VIII** — sem orquestrador nem estado novo; 3 agents com critério de existência; modos 1:1 sem reescrita.
 - **VII** — `when_to_use`, tabela de modos, README e catálogo do `start` gerados.
+
+## Emenda de implementação (F1, 2026-09-12)
+
+Decisões tomadas ao implementar F1, registradas aqui para o spec não contradizer o código:
+
+1. **Metadados do modo moram no frontmatter de `modes/<mode>.md`**, não numa lista `prumo.modes` do `SKILL.md`. O arquivo do modo reusa `parse_skill_file` inteiro, e o `SKILL.md` fica pequeno no momento da invocação.
+2. **`start` continua sem `modes/`.** É um roteador curto; `status` entra como seção dele em F3.
+3. **Dois campos novos no frontmatter do modo**, ambos fonte única: `prumo.write_kind` (compose acha template e trava de idioma pelo modo) e `prumo.disclosure_task` (disclosure descreve a tarefa pelo modo).
+4. **Templates de escrita** em `skills/<skill>/templates/<modo>.md`.
+5. **Critério de disclosure em F1**: mesma contagem e mesmas tarefas de antes; o rótulo da ferramenta passa ao nome novo (`prumo-assist:wiki query`), porque legado e novo precisam agregar numa linha.
+6. **A exclusão de "blocos machine-owned" na migração cai.** No `pj_*`, blocos gerados vivem em `docs/references/papers/`, que já é excluído inteiro.
+7. **`.claude/skills/<antigo>/` não é apagado** pelo `update` (pode ter customização); o `doctor` aponta.
+8. **Bug pré-existente corrigido no caminho**: `archive_as_finding` gravava o `generator` no lugar do verbo do `_log.md`, e o `wiki lint` marcava toda entrada de finding como `broken_log_prefix`. O verbo passa a `note`, com o gerador entre parênteses.
+9. **Installer copia a árvore inteira da skill.** Antes copiava só o `SKILL.md`, então `references/` já não chegava aos projetos.
