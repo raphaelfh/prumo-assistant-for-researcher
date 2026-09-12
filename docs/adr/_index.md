@@ -42,4 +42,6 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0032-superficie-por-dominio-e-modos]] — Superfície por domínio: start + 5 skills com modos · aceito
 - [[adr/adr-0033-subagents-nomeados]] — Três subagents read-only com contrato verificado pelo CLI · aceito
 - [[adr/adr-0034-renomeia-para-par]] — Renomeia o projeto para prumo-assistant-for-researcher (PAR) · aceito
+- [[adr/adr-0035-figuras-e-tabelas-por-filtro-lua]] — Figuras e tabelas numeradas por filtro Lua vendorizado · aceito
+- [[adr/adr-0036-meta-embutido-sem-trace]] — Proveniência só no `_meta` embutido; trace JSONL adiado · aceito
 <!-- prumo:adr-index:end -->

@@ -1,14 +1,37 @@
-"""Tests pro normalizador Obsidian → Pandoc."""
+"""Tests pro normalizador do Markdown do wiki → Pandoc."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from par.core.obsidian import (
+from par.core.markdown import (
     normalize_markdown,
+    set_frontmatter_key,
     split_frontmatter,
     split_frontmatter_raw,
 )
+
+
+def test_set_frontmatter_key_preserves_comments_and_order() -> None:
+    text = "---\n# nota humana\ntitle: T  # comentario\ntags:\n- a\n- b\nz: 1\n---\n\nbody\n"
+    out = set_frontmatter_key(text, "_meta", {"skill": "s"})
+    assert out == (
+        "---\n# nota humana\ntitle: T  # comentario\ntags:\n- a\n- b\nz: 1\n"
+        "_meta:\n  skill: s\n---\n\nbody\n"
+    )
+
+
+def test_set_frontmatter_key_replaces_existing_block_in_place() -> None:
+    text = "---\na: 1\n_meta:\n  skill: old\n  model: m\n\n# fim\nb: 2\n---\nbody\n"
+    out = set_frontmatter_key(text, "_meta", {"skill": "new"})
+    assert out == "---\na: 1\n_meta:\n  skill: new\n\n# fim\nb: 2\n---\nbody\n"
+    assert set_frontmatter_key(out, "_meta", {"skill": "new"}) == out
+
+
+def test_set_frontmatter_key_creates_block_when_absent() -> None:
+    out = set_frontmatter_key("# Draft\n", "_meta", {"skill": "s"})
+    assert out == "---\n_meta:\n  skill: s\n---\n\n# Draft\n"
+    assert split_frontmatter(out) == ({"_meta": {"skill": "s"}}, "# Draft\n")
 
 
 def test_split_frontmatter_extracts_yaml() -> None:

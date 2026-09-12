@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import html
+import json
 import subprocess
 import zipfile
 from pathlib import Path
@@ -20,7 +21,7 @@ from pathlib import Path
 import pytest
 
 import par.domains.write.export as export_mod
-from par.core.obsidian import SpanFragment, normalize_markdown_with_map, split_frontmatter
+from par.core.markdown import SpanFragment, normalize_markdown_with_map, split_frontmatter
 from par.core.pj_layout import PjRootNotFoundError
 from par.domains.write.errors import WriteError
 from par.domains.write.export import (
@@ -454,7 +455,11 @@ def test_emit_sidecars_happy_path_writes_valid_sidecars(
     )
 
     assert out_dir == tmp_path / "reviews" / "achado"
+    raw = json.loads((out_dir / "citemap.json").read_text())
+    assert raw["_meta"]["schema"] == "CiteMapFile/v1"
+    assert raw["_meta"]["skill"] == "write/export"
     citemap = CiteMapFile.model_validate_json((out_dir / "citemap.json").read_text())
+    assert citemap.meta is not None and "prumo_version" in citemap.meta
     span_map = SpanMapFile.model_validate_json((out_dir / "span-map.json").read_text())
 
     assert citemap.export_git_sha == "deadbee"

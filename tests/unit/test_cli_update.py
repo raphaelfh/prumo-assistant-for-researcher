@@ -112,3 +112,17 @@ def test_update_nao_reescreve_proveniencia(tmp_path: Path) -> None:
 
     assert res.exit_code == 0, res.output
     assert "generator: wiki-query" in nota.read_text(encoding="utf-8")
+
+
+def test_update_traz_rule_safe_outputs_a_projeto_antigo(tmp_path: Path) -> None:
+    """Projeto de antes da rule a recebe pelo caminho normal do `update`."""
+    pj = tmp_path / "pj_antigo"
+    _init(pj)
+    rule = pj / ".claude" / "rules" / "safe_outputs.md"
+    rule.unlink()
+
+    res = runner.invoke(app, ["update", str(pj), "--json"])
+
+    assert res.exit_code == 0, res.output
+    assert rule.is_file()
+    assert ".claude/rules/safe_outputs.md" in json.loads(res.output)["copied"]

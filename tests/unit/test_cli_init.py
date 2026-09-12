@@ -229,10 +229,9 @@ def test_init_generates_zettlr_profile(tmp_path: Path) -> None:
 
 
 def test_init_scaffold_is_pandoc_pure(tmp_path: Path) -> None:
-    """pj_base v2: sem vault Obsidian e sem sintaxe Obsidian nos .md."""
+    """pj_base v2: scaffold Pandoc puro, sem sintaxe de wiki legada nos .md."""
     target = tmp_path / "pj_demo"
     assert runner.invoke(app, ["init", str(target), "--json"]).exit_code == 0
-    assert not (target / ".obsidian").exists()
     assert not (target / "docs" / "references" / "views").exists()
     assert not (target / "docs" / "canvas").exists()
     offenders: list[str] = []
@@ -280,3 +279,14 @@ def test_templates_nao_usam_ancora_bibliografica_sem_arroba() -> None:
             if "citekey" in alvo.lower():
                 ofensores.append(f"{path}: [[{alvo}]]")
     assert not ofensores, "âncora bibliográfica sem `@`: " + "; ".join(ofensores)
+
+
+def test_init_cria_rule_safe_outputs(tmp_path: Path) -> None:
+    """Fronteira de confidencialidade vem no núcleo, sempre-on (sem `paths:`)."""
+    target = tmp_path / "pj_seguro"
+    result = runner.invoke(app, ["init", str(target), "--json"])
+    assert result.exit_code == 0, result.output
+    rule = target / ".claude" / "rules" / "safe_outputs.md"
+    texto = rule.read_text(encoding="utf-8")
+    assert not texto.startswith("---")
+    assert "5" in texto and ".prumo/" in texto

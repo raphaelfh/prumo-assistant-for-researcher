@@ -4,12 +4,12 @@ description: "Simula revisão crítica de draft acadêmico (paper, capítulo, gr
 argument-hint: "<draft-path> [--critical-only] [--section NAME] [--venue NEJM|Lancet|JAMA|Nature-Medicine|Radiology|MICCAI|NeurIPS]"
 allowed-tools: Read Glob Grep Bash(prumo validate *) Agent
 prumo:
-  version: 1.3.0
+  version: 1.4.0
   guidelines_reviewed: "2026-05-30"
   schema: PeerReviewReport/v1
   determinism: agentic
   agent_compat: [claude-code]
-  cost_estimate: ~5-15k tokens (depende do tamanho do draft)
+  cost_estimate: ~5-15k tokens (o dobro com advogado do diabo; depende do tamanho do draft)
   inputs:
     draft_path: required
     critical_only: optional
@@ -20,6 +20,9 @@ prumo:
     - "revisa este draft"
     - "me dá um peer review"
     - "quais buracos no meu argumento"
+    - "seja o advogado do diabo"
+    - "seja duro"
+    - "revisa antes de submeter"
   legacy: [peer-review]
   disclosure_task: "critical review of draft sections"
 ---
@@ -89,9 +92,15 @@ Preencha só: `draft_path` (absoluto), `guidelines_path` (absoluto de
 [`../references/reporting-guidelines.md`](../references/reporting-guidelines.md)),
 `draft_genre` (passo 1) e, se pedidos, `section`, `venue`, `critical_only`.
 
+Só se o pesquisador pedir advogado do diabo, dureza ou revisão antes de
+submeter (e sem `--section`), despache em paralelo um segundo `reviewer` com
+`pass: adversarial`. Junte os achados dele descartando duplicatas por sentido
+(mesma afirmação na mesma seção, qualquer que seja o `quote`) e reavalie
+`recommendation` se a conclusão cair.
+
 ### 3. Validar o contrato
 
-Com o CLI disponível (`prumo --version`), valide o JSON devolvido:
+Com o CLI disponível (`prumo --version`), valide o JSON devolvido (juntado, se houve passe adversarial):
 `cat <<'JSON' | prumo validate PeerReviewReport/v1 --json`. Inválido → devolva
 a mensagem ao reviewer UMA vez; na segunda falha, mostre o erro ao pesquisador
 sem completar o relatório por conta própria.
@@ -102,7 +111,8 @@ instalado é mais antigo que o plugin) — confira à mão (este modo roda sem o
 `schema_version` = `PeerReviewReport/v1`; `draft_path`, `thesis_in_one_sentence`
 e `executive_summary` não vazios; `recommendation` ∈ `accept|minor|major|reject`;
 `draft_genre` e `mental_model_applied` nos valores de `agents/reviewer.md`; toda
-fraqueza com `section`, `point` e `fix`. Falhou → mesma regra de uma devolução ao
+fraqueza com `section`, `point` e `fix`; todo `quote` com até 25 palavras e achado
+literalmente no draft (Grep). Falhou → mesma regra de uma devolução ao
 reviewer. Se foi subcomando ausente, diga ao pesquisador UMA vez que
 `uv tool upgrade prumo-assistant-for-researcher` traz a validação e rode SÓ com consentimento; a
 revisão não espera por isso.
@@ -117,11 +127,13 @@ Imprima uma versão markdown legível do JSON validado, nesta ordem:
 1. **Resumo executivo** (3-5 linhas): tese identificada, recomendação geral
    (`accept | minor | major | reject`), top-3 issues a endereçar antes de submeter.
 2. **Forças** (3-5 bullets concretos).
-3. **Fraquezas críticas** (issues que impedem aceitação), cada uma com o fix.
-4. **Fraquezas menores**, cada uma com o fix.
-5. **Claims sem evidência** (lista citando seção/parágrafo).
+3. **Fraquezas críticas** (issues que impedem aceitação), cada uma com o `quote`
+   (quando houver) e o fix.
+4. **Fraquezas menores**, idem.
+5. **Claims sem evidência** (seção e `quote`).
 6. **Sugestões por seção**.
 7. **Mental model aplicado**.
+8. **Fontes lidas pelo reviewer** (`sources_read`), uma vez, se não vazio.
 
 ## O que NÃO fazer
 

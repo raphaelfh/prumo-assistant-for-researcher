@@ -1,0 +1,43 @@
+# VenueDisclosure/v1 — perfis de declaração de uso de IA por periódico.
+#
+# Cada perfil foi conferido na página primária do próprio periódico na data de
+# `accessed`; o texto é paráfrase nossa (nunca cópia). Periódico cuja página não
+# foi confirmada NÃO entra aqui — conteúdo adivinhado é pior que o fallback.
+#
+# `required`: elementos da declaração. Preenchidos pela proveniência: tool, model,
+# task, dates, human_review. Pedidos à pessoa: manufacturer, prompts, rationale.
+# `placement`: methods | acknowledgments | cover_letter | contributorship.
+
+schema_version = "VenueDisclosure/v1"
+
+[venues.icmje]
+name = "ICMJE Recommendations"
+source_url = "https://www.icmje.org/recommendations/browse/artificial-intelligence/ai-use-by-authors.html"
+accessed = "2026-09-12"
+required = ["tool", "model", "task", "human_review", "prompts"]
+placement = ["cover_letter", "acknowledgments", "methods"]
+prohibited = [
+  "Listing or citing an AI tool as author or co-author.",
+  "Referencing AI-generated material as the primary source.",
+]
+authorship = "AI tools cannot be authors; the human authors remain responsible for all submitted content."
+
+[venues.jama]
+name = "JAMA"
+source_url = "https://jamanetwork.com/journals/jama/pages/instructions-for-authors"
+accessed = "2026-09-12"
+required = ["tool", "model", "manufacturer", "dates", "task"]
+placement = ["methods", "acknowledgments"]
+prohibited = [
+  "Drafting opinion pieces (Viewpoints, A Piece of My Mind), poetry or letters to the editor with AI.",
+]
+authorship = "Nonhuman AI tools do not qualify for authorship; authors take responsibility for AI-generated content."
+
+[venues.bmj]
+name = "BMJ"
+source_url = "https://authors.bmj.com/policies/ai-use/"
+accessed = "2026-09-12"
+required = ["tool", "model", "task", "rationale"]
+placement = ["contributorship", "methods"]
+prohibited = ["Listing an AI technology as an author."]
+authorship = "AI technologies are not accepted as authors; human authors are fully responsible for AI-assisted content."

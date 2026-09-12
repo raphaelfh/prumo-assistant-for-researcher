@@ -143,7 +143,7 @@ def test_archive_raises_when_scope_sem_pj_root(tmp_path: Path) -> None:
         )
 
 
-def test_archive_stamps_generator_in_frontmatter(tmp_path: Path) -> None:
+def test_archive_stamps_meta_in_frontmatter(tmp_path: Path) -> None:
     import yaml
 
     root = _project(tmp_path)
@@ -155,11 +155,14 @@ def test_archive_stamps_generator_in_frontmatter(tmp_path: Path) -> None:
         body="body",
         sources=["[@a]"],
         date="2026-05-30",
-        generator="wiki-query",
+        generator="wiki/study",
     )
     text = out.read_text(encoding="utf-8")
     fm = yaml.safe_load(text.split("---", 2)[1])
-    assert fm["generator"] == "wiki-query"
+    assert "generator" not in fm
+    assert fm["_meta"]["skill"] == "wiki/study"
+    assert fm["_meta"]["schema"] == "finding"
+    assert {"run_id", "timestamp_utc", "prumo_version"} <= fm["_meta"].keys()
 
 
 def test_default_generator_e_log_passam_no_wiki_lint(tmp_path: Path) -> None:
@@ -173,7 +176,7 @@ def test_default_generator_e_log_passam_no_wiki_lint(tmp_path: Path) -> None:
         scope=scope, slug="d1", title="D1", body="b", sources=[], date="2026-09-12"
     )
     fm = yaml.safe_load(out.read_text(encoding="utf-8").split("---", 2)[1])
-    assert fm["generator"] == "wiki/query"
+    assert fm["_meta"]["skill"] == "wiki/query"
     entradas = [
         ln
         for ln in (root / "docs" / "_log.md").read_text(encoding="utf-8").splitlines()

@@ -6,7 +6,7 @@ Versionamento forward-only (vN+1 lê vN; nunca remove campo).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -101,6 +101,9 @@ class CiteMapFile(BaseModel):
     bib_sha256: str
     docx_sha256: str
     occurrences: list[CiteOccurrence]
+    # Proveniência (Princípio V); gravado como ``_meta`` no JSON. Opcional: citemap
+    # antigo sem o bloco continua válido.
+    meta: dict[str, Any] | None = Field(default=None, alias="_meta")
 
 
 class AIToolUse(BaseModel):
@@ -113,6 +116,19 @@ class AIToolUse(BaseModel):
     human_reviewed: bool = False
 
 
+class VenueProfile(BaseModel):
+    """VenueDisclosure/v1 — política de uso de IA de um periódico, conferida na fonte."""
+
+    key: str
+    name: str
+    source_url: str
+    accessed: str
+    required: list[str]
+    placement: list[str]
+    prohibited: list[str] = Field(default_factory=list)
+    authorship: str
+
+
 class AIDisclosure(BaseModel):
     """AIDisclosure/v1 — declaração de uso de IA derivada da proveniência."""
 
@@ -123,6 +139,7 @@ class AIDisclosure(BaseModel):
     tools: list[AIToolUse] = Field(default_factory=list)
     statement_pt: str
     statement_en: str
+    venue: VenueProfile | None = None
 
 
 class ReviewComment(BaseModel):
@@ -222,12 +239,18 @@ class ReviewWeakness(BaseModel):
     section: str = Field(..., min_length=1)
     point: str = Field(..., min_length=1)
     fix: str = Field(..., min_length=1)
+    quote: str | None = Field(
+        default=None, description="Trecho literal do draft (≤25 palavras); conferido no validate."
+    )
 
 
 class UnsupportedClaim(BaseModel):
     section: str = Field(..., min_length=1)
     claim: str = Field(..., min_length=1)
     where_to_find_evidence_or_remove: str = Field(..., min_length=1)
+    quote: str | None = Field(
+        default=None, description="Trecho literal do draft (≤25 palavras); conferido no validate."
+    )
 
 
 class SectionSuggestion(BaseModel):
@@ -250,3 +273,6 @@ class PeerReviewReport(BaseModel):
     claims_without_evidence: list[UnsupportedClaim] = Field(default_factory=list)
     suggestions_by_section: list[SectionSuggestion] = Field(default_factory=list)
     mental_model_applied: MentalModel
+    sources_read: list[str] = Field(
+        default_factory=list, description="Arquivos lidos além do draft e do guideline."
+    )

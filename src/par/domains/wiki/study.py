@@ -13,6 +13,7 @@ from typing import Any, Literal
 import yaml
 
 from par.core import pj_layout
+from par.core.provenance import build_meta
 from par.domains.wiki.schemas.v1 import SessionLog, StepLog
 
 _STEP_TITLES = {
@@ -99,6 +100,7 @@ def finalize_session(
 def _render_skeleton(log: SessionLog) -> str:
     fm = log.model_dump(mode="python", exclude={"steps"})
     fm["finding_archived"] = None  # explicito no YAML
+    fm["_meta"] = build_meta(schema=log.schema_version, skill="wiki/study").to_dict()
     yaml_block = yaml.safe_dump(fm, sort_keys=False, allow_unicode=True).strip()
     body = [
         f"# Study session — {log.topic} ({log.date})",

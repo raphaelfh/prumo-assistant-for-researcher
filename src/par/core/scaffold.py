@@ -61,10 +61,8 @@ UPDATE_SKIP: tuple[str, ...] = ("docs/studies",)
 #: exatamente o gatilho. E é a única sem substituição de placeholder: os
 #: arquivos que passam por :func:`apply_project_name` divergem do template
 #: POR CONSTRUÇÃO, e compará-los reportaria drift em todo projeto existente.
-#: O ``pj_base`` não ship rule nenhuma desde a v0.69.0, então HOJE nada
-#: cai sob este prefixo e ``diverged`` sai sempre vazio. A comparação
-#: fica de pé para o dia em que uma rule voltar ao núcleo — a lógica
-#: segue coberta por :func:`_fake_base` nos testes de unidade.
+#: Desde a v0.69.0 a única rule do núcleo é ``safe_outputs.md``, sempre-on
+#: (sem ``paths:``); a lógica segue coberta por :func:`_fake_base` nos testes.
 COMPARE_PREFIX = ".claude/rules"
 
 #: Formulário de contexto morto desde a v0.69.0 — ver

@@ -45,6 +45,7 @@ from par.core.deps import check_external_deps
 from par.core.output import Console
 from par.core.packaging import packaging_issues
 from par.core.paths import find_resource, resolve_resource
+from par.core.safe_outputs import safe_outputs_issues
 from par.core.scaffold import (
     ModuleInfo,
     TemplateDrift,
@@ -675,6 +676,9 @@ def doctor_command(
     # Empacotamento do projeto: instalável? pacote nomeado? sobrou sys.path?
     # (ADR-0027 — só fala quando o módulo `code` está aplicado.)
     issues.extend(packaging_issues(target))
+
+    # Confidencialidade: dado bruto e trace de LLM fora do git (safe_outputs).
+    issues.extend(safe_outputs_issues(target))
 
     for adapter_cls in INTEGRATIONS.values():
         adapter = adapter_cls()

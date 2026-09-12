@@ -9,6 +9,10 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Alterado
 
+- **Obsidian sai do produto.** O normalizador `core/obsidian` vira `core/markdown` (mesmo comportamento: wikilink, embed, callout e block ID continuam convertidos para Pandoc); documentação, modo `paper library` e keywords do plugin deixam de citar o Obsidian; a constitution passa a 1.2.2, com o Zettlr como front do wiki na stack do projeto-cliente (Princípio VIII). Pastas `.obsidian/` em projetos existentes não são tocadas.
+- **Proveniência ligada.** Findings, sessão de `wiki study`, `write draft` e o `citemap.json` do export carimbam `_meta` via `build_meta` (Princípio V); `write disclosure` lê o `_meta` canônico, com fallback só para `extracted_model`. `TraceWriter`, sem uso, foi removido (Princípio VI; ADR-0036).
+- Descrições de `protocol sap`, `protocol cep` e `write style` atenuadas para o que o modo de fato garante, alinhadas à nova página [`docs/positioning.md`](docs/positioning.md) (Princípio VIII).
+- `prumo protocol diff` em modo texto não repete mais o payload bruto (Princípio VIII).
 - **⚠ Breaking — o projeto vira `prumo-assistant-for-researcher` (PAR)**
   ([ADR-0034](docs/adr/adr-0034-renomeia-para-par.md)). Repo, marketplace e distribuição Python
   passam a `prumo-assistant-for-researcher`; o plugin passa a `par`, então as skills viram
@@ -46,6 +50,13 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Adicionado
 
+- **Declaração de IA por periódico.** `prumo write disclosure --venue icmje|jama|bmj` segue a política do periódico conferida na fonte (`source_url` e `accessed`), lista o que falta preencher e diz onde inserir. Sem `--venue` a saída não muda; periódico sem perfil recebe o texto genérico com aviso. NEJM e The Lancet ficaram de fora porque a página oficial não pôde ser conferida (Princípios II, IV, VI, VIII).
+- **`prumo protocol diff` aponta drift do manuscrito.** Compara os drafts de `writing/` com `protocol.md` e a PICOT: janela de coleta, `n`, testes estatísticos nomeados e pré-especificação de subgrupos, com arquivo:linha dos dois lados e dica de correção. Fato ausente no draft não conta como drift, e cada divergência aparece uma vez. Só lê (Princípios I, II, VIII).
+- **`prumo wiki lint` recalcula estatísticas relatadas.** Porcentagens `x of n (p%)`, IC 95% de Wilson e valores q de Benjamini-Hochberg em tabelas Markdown; `stat_mismatch` mostra o valor relatado e o recalculado quando divergem (Princípios II, VI).
+- **`review critique` com trecho literal e fontes lidas.** Cada fraqueza e claim sem evidência pode trazer um `quote` literal (até 25 palavras) que `prumo validate PeerReviewReport/v1` confere contra o `draft_path`, e o relatório lista `sources_read`. Campos opcionais, forward-only (Princípios II, IV; ADR-0033).
+- **Passe adversarial no `review critique`, a pedido.** Com "seja o advogado do diabo", "seja duro" ou "revisa antes de submeter", um segundo `reviewer` ataca só o argumento central, com duplicatas removidas por sentido, sem schema novo. O padrão continua sendo uma chamada (Princípios VI, VIII; ADR-0033).
+- **Figuras e tabelas numeradas no export.** `prumo write export` e `compose` numeram `{#fig:x}` e `{#tbl:x}` e resolvem `@fig:x`/`@tbl:x` com rótulo no idioma de `[writing].language`, por um filtro Lua vendorizado antes do citeproc, sem binário novo (Princípios II, VIII; ADR-0035).
+- **Fronteira de confidencialidade no `pj_base`.** A rule `.claude/rules/safe_outputs.md` pede o mínimo necessário, célula mínima 5 para contagem de pacientes e dado fora do git; o `prumo doctor` ganha `[dado_versionavel]` para `content/` ou `.prumo/` fora do `.gitignore` ou rastreados. Projetos existentes recebem a rule com `prumo update` (Princípios II, VI).
 - **Três subagents read-only** ([ADR-0033](docs/adr/adr-0033-subagents-nomeados.md)): `reader`
   extrai o PDF e grava via `prumo paper extract`, com locators por seção; `verifier` julga se
   a fonte sustenta a frase lendo o PDF, nunca o `_extract.md`; `reviewer` critica o draft sem

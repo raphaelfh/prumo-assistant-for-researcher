@@ -25,8 +25,10 @@ import yaml
 from par.core import pj_layout
 from par.core.bib import extract_field, extract_year, parse_bib
 from par.core.citations import scan_citekeys
+from par.core.markdown import set_frontmatter_key
 from par.core.note_paths import extract_path
 from par.core.paths import find_resource
+from par.core.provenance import build_meta
 from par.core.skills import SkillManifest, load_skill_registry
 from par.domains.write.errors import WriteError
 from par.domains.write.schemas.v1 import (
@@ -333,15 +335,12 @@ def write_output(
             updated = block_specific_re.sub(new_block, existing, count=1)
         else:
             updated = existing.rstrip() + "\n\n" + new_block + "\n"
-        target.write_text(updated, encoding="utf-8")
-    elif mode == "out":
-        if target.exists() and not force:
+        target.write_text(_stamp_meta(updated, "write/section"), encoding="utf-8")
+    else:  # drafts | out
+        if mode == "out" and target.exists() and not force:
             raise FileExistsError(f"{target} já existe. Use force=True pra sobrescrever.")
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-    else:  # drafts
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        target.write_text(_stamp_meta(content, "write/manuscript"), encoding="utf-8")
 
     return WriteOutput(
         output_path=target,
@@ -353,6 +352,16 @@ def write_output(
         references_missing=extract_missing_refs(content),
         words_generated=len(content.split()),
     )
+
+
+def _stamp_meta(text: str, skill: str) -> str:
+    """Grava ``_meta`` (Princípio V) no frontmatter; demais linhas e corpo preservados.
+
+    A chave ``_meta`` é machine-owned; comentários, ordem de chaves e corpo
+    humanos ficam byte a byte intactos (ADR-0009).
+    """
+    meta = build_meta(schema="WriteOutput/v1", skill=skill).to_dict()
+    return set_frontmatter_key(text, "_meta", meta)
 
 
 def extract_missing_refs(text: str) -> list[str]:

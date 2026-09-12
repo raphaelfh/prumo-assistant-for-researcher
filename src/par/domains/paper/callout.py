@@ -163,8 +163,8 @@ def _validated_callout(
 def _provenance(callout: PaperCallout) -> dict[str, Any]:
     """Bloco ``_meta`` do extract (Princípio V), sem ``human_reviewed``.
 
-    A flag de revisão é do humano, no frontmatter do ``_meta.md``; carimbá-la aqui
-    com ``False`` a sombrearia na declaração de uso de IA.
+    A flag de revisão é do humano, no frontmatter do ``_meta.md``; ``Meta`` a omite
+    enquanto não declarada, então o carimbo nunca a sombreia.
     """
     payload = json.dumps(
         {
@@ -180,7 +180,6 @@ def _provenance(callout: PaperCallout) -> dict[str, Any]:
         model=callout.model,
         input_hash=hash_input(payload),
     ).to_dict()
-    meta.pop("human_reviewed", None)
     return meta
 
 

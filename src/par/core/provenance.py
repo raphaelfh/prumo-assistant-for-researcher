@@ -1,26 +1,19 @@
-"""Provenance: bloco ``_meta`` e trace JSONL **local-only**.
+"""Provenance: bloco ``_meta`` embutido em cada artefato gerado.
 
 Justificativa (clínico/IRB): toda saída de ``prumo`` precisa ser auditável daqui
-a 5 anos sem depender de SaaS de terceiros (Langfuse, Logfire). Política default:
+a 5 anos sem depender de SaaS de terceiros. O ``_meta`` vai dentro de cada
+artefato (frontmatter de nota, sidecar JSON do export), pra que o artefato
+sozinho seja auto-suficiente pra reproduzir / auditar / citar.
 
-- Trace é JSONL append-only em ``<project>/.prumo/traces/YYYY-MM-DD.jsonl``.
-- Nunca sai da máquina sem opt-in explícito (flag ``--trace remote`` futura).
-- Cada evento carrega ``run_id`` + ``timestamp_utc`` + ``event`` + payload livre.
-
-O ``_meta`` block é o irmão "embutido" do trace: vai dentro de cada artefato
-gerado (callout em nota, JSON de export, etc.), pra que o artefato sozinho seja
-auto-suficiente pra reproduzir / auditar / citar.
+Trace JSONL em ``.prumo/traces/`` está adiado até haver consumidor (ADR-0036).
 """
 
 from __future__ import annotations
 
 import hashlib
-import json
-import os
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from par._version import __version__
@@ -60,7 +53,8 @@ class Meta:
     model: str | None = None
     input_hash: str | None = None
     cost_usd: float | None = None
-    human_reviewed: bool = False
+    # ``None`` = não declarado: omitido do ``_meta`` para não sombrear a flag humana.
+    human_reviewed: bool | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -78,7 +72,7 @@ def build_meta(
     input_hash: str | None = None,
     cost_usd: float | None = None,
     run_id: str | None = None,
-    human_reviewed: bool = False,
+    human_reviewed: bool | None = None,
     extra: dict[str, Any] | None = None,
 ) -> Meta:
     """Helper para construir ``Meta`` com defaults sensatos."""
@@ -95,49 +89,3 @@ def build_meta(
         human_reviewed=human_reviewed,
         extra=extra or {},
     )
-
-
-class TraceWriter:
-    """Append-only JSONL writer em ``<project>/.prumo/traces/YYYY-MM-DD.jsonl``.
-
-    Falhas de IO são swallowed silenciosamente (com fallback pra stderr) — trace
-    nunca pode quebrar o comando do usuário. Use ``flush=True`` em testes.
-    """
-
-    def __init__(self, project_dir: Path | None = None) -> None:
-        base = project_dir or Path.cwd()
-        self._dir = base / ".prumo" / "traces"
-
-    def emit(self, event: str, run_id: str, payload: dict[str, Any]) -> None:
-        record = {
-            "timestamp_utc": now_utc(),
-            "run_id": run_id,
-            "event": event,
-            "prumo_version": __version__,
-            **payload,
-        }
-        try:
-            self._dir.mkdir(parents=True, exist_ok=True)
-            today = datetime.now(UTC).strftime("%Y-%m-%d")
-            target = self._dir / f"{today}.jsonl"
-            with target.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(record, ensure_ascii=False) + "\n")
-        except OSError as exc:
-            # Trace é best-effort. Em CI / sandboxes read-only, ignore.
-            print(f"[prumo:trace] ignorado ({exc})", file=_stderr())
-
-    @property
-    def directory(self) -> Path:
-        return self._dir
-
-
-def _stderr() -> Any:
-    """Lazy import pra evitar overhead em hot paths."""
-    import sys
-
-    return sys.stderr
-
-
-def is_trace_disabled() -> bool:
-    """Permite desligar trace via env var (útil em CI puro / sandboxing)."""
-    return os.environ.get("PRUMO_NO_TRACE", "").lower() in {"1", "true", "yes"}

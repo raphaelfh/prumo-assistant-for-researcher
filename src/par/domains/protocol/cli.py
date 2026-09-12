@@ -48,13 +48,28 @@ def diff_command(
     path: Annotated[Path, typer.Argument(help=_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Compara ``picot.toml`` atual contra snapshot do último ADR ``picot-v<N>``."""
+    """Compara ``picot.toml`` atual contra snapshot do último ADR ``picot-v<N>`` e
+    reporta drift dos drafts de ``writing/`` contra protocolo/PICOT (um ``.md`` em
+    ``path`` restringe a esse draft)."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         scope = pj_layout.find_scope_root(path.resolve())
+        draft = path.resolve() if path.suffix == ".md" and path.is_file() else None
+        drifts = ops.manuscript_drift(scope, draft=draft)
+        for d in drifts:
+            console.warn(d.message())
+        drift_payload = [asdict(d) for d in drifts]
         diff = ops.diff_against_last_adr(scope)
         if diff is None:
             console.warn("`.claude/picot.toml` não encontrado.")
-            console.emit({"changes": [], "has_structural": False, "missing": True})
+            if json_mode:
+                console.emit(
+                    {
+                        "changes": [],
+                        "has_structural": False,
+                        "missing": True,
+                        "drift": drift_payload,
+                    }
+                )
             return
         if not diff.changes:
             console.success("Sem mudanças desde o último ADR (ou sem baseline).")
@@ -67,12 +82,14 @@ def diff_command(
                     f"  • {c.field}: {c.before!r} → {c.after!r} "
                     f"({'estrutural' if c.structural else 'cosmético'})"
                 )
-        console.emit(
-            {
-                "changes": [_change_to_dict(c) for c in diff.changes],
-                "has_structural": diff.has_structural,
-            }
-        )
+        if json_mode:  # modo texto já disse tudo nas linhas acima (Princípio VIII)
+            console.emit(
+                {
+                    "changes": [_change_to_dict(c) for c in diff.changes],
+                    "has_structural": diff.has_structural,
+                    "drift": drift_payload,
+                }
+            )
 
 
 @protocol_app.command("detect-mode")

@@ -1,9 +1,8 @@
-"""Normalizador Obsidian Markdown → Pandoc Markdown.
+"""Normalizador do Markdown do wiki (wikilink, embed, callout, block ID) → Pandoc Markdown.
 
-Transformado de ``monorepo-anterior/.claude/scripts/_obsidian_md.py`` sem mudança
-de comportamento. Citação é gramática Pandoc pura (``[@key]``/``@key`` — ver
+Citação é gramática Pandoc pura (``[@key]``/``@key`` — ver
 ``core/citations``); este módulo não tem nenhuma regra de citação, só o
-wikilink de página e os demais átomos Obsidian abaixo (spec 2026-07-22,
+wikilink de página e os demais átomos de wiki abaixo (spec 2026-07-22,
 retirada do legado ``[[@key]]``). Regras (ver spec sec. 4.2 do export
 pipeline):
 
@@ -84,6 +83,39 @@ def split_frontmatter_raw(text: str) -> tuple[str, str]:
     return match.group(0), text[match.end() :]
 
 
+def set_frontmatter_key(text: str, key: str, value: Any) -> str:
+    """Grava ou substitui UMA chave de topo no frontmatter, sem re-dump do bloco.
+
+    Só as linhas da chave ``key`` (e suas continuações indentadas ou de lista)
+    são reescritas, com o valor renderizado por ``yaml.safe_dump``; toda outra
+    linha — comentários e ordem de chaves inclusos — fica byte a byte igual
+    (ADR-0009). Chave ausente vai ao fim do bloco; sem frontmatter, o bloco é
+    criado no topo do texto.
+    """
+    rendered = yaml.safe_dump({key: value}, sort_keys=False, allow_unicode=True).rstrip("\n")
+    match = _FRONTMATTER_RE.match(text)
+    if not match:
+        return f"---\n{rendered}\n---\n\n{text}"
+    inner = match.group(1)
+    lines = inner.split("\n") if inner.strip() else []
+    start = next((i for i, ln in enumerate(lines) if ln.startswith(f"{key}:")), None)
+    if start is None:
+        lines.append(rendered)
+    else:
+        end = start + 1
+        last = end
+        while end < len(lines):
+            ln = lines[end]
+            if ln.startswith((" ", "\t", "-")):
+                last = end = end + 1
+            elif not ln.strip():
+                end += 1  # linha vazia só conta se uma continuação vier depois
+            else:
+                break
+        lines[start:last] = [rendered]
+    return text[: match.start(1)] + "\n".join(lines) + text[match.end(1) :]
+
+
 @dataclass(frozen=True)
 class SpanFragment:
     """Fragmento do mapa norm↔source (offsets absolutos, fim exclusivo).
@@ -91,7 +123,7 @@ class SpanFragment:
     ``kind`` é um de ``identity | wikilink | image | callout | block-id |
     code``. Fragmentos são contíguos e cobrem ``[0, len(source))``
     e ``[0, len(norm))`` sem buracos nem sobreposição (ver invariantes em
-    ``tests/unit/core/test_obsidian_spanmap.py``).
+    ``tests/unit/core/test_markdown_spanmap.py``).
     """
 
     source_start: int
@@ -212,7 +244,7 @@ def _dedupe(edits: list[_Edit]) -> list[_Edit]:
 def normalize_markdown_with_map(
     text: str, page_dir: Path | None = None
 ) -> tuple[str, list[SpanFragment]]:
-    """Normaliza Obsidian→Pandoc e emite o mapa lossless norm↔source.
+    """Normaliza Markdown do wiki→Pandoc e emite o mapa lossless norm↔source.
 
     O mapa é a base do transplante da ponte docx↔CriticMarkup: nunca se
     inverte a normalização (many-to-one) — inverte-se o mapa.
@@ -283,10 +315,10 @@ def normalize_markdown_with_map(
 
 
 def normalize_markdown(text: str, page_dir: Path | None = None) -> str:
-    """Aplica todas as regras de normalização Obsidian → Pandoc.
+    """Aplica todas as regras de normalização do Markdown do wiki → Pandoc.
 
     Args:
-        text: markdown Obsidian (sem frontmatter; chame ``split_frontmatter`` antes).
+        text: markdown do wiki (sem frontmatter; chame ``split_frontmatter`` antes).
         page_dir: diretório da página-fonte para resolver embeds de imagem.
     """
     return normalize_markdown_with_map(text, page_dir)[0]

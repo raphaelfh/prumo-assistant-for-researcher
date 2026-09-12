@@ -36,7 +36,7 @@ prumo:
 > operação exata nunca é simulada.
 <!-- prumo:preflight:end -->
 
-1. Rode `prumo write disclosure --lang <pt|en> --json` na raiz do `pj_*`. O idioma segue o pedido da pessoa; sem pedido, use o idioma do manuscrito.
-2. Mostre o parágrafo (`statement_pt` ou `statement_en`) e a tabela de `tools`: ferramenta, modelo, tarefa, contagem e se houve revisão humana.
+1. Rode `prumo write disclosure --lang <pt|en> --json` na raiz do `pj_*`. O idioma segue o pedido da pessoa; sem pedido, use o idioma do manuscrito. Se a pessoa citar o periódico, acrescente `--venue <chave>` (perfis: `icmje`, `jama`, `bmj`); outro nome também vai no `--venue` e devolve o texto genérico com o aviso de conferir a política.
+2. Mostre o parágrafo (`statement_pt` ou `statement_en`) e a tabela de `tools`: ferramenta, modelo, tarefa, contagem e se houve revisão humana. Com `venue` preenchido, mostre também `prohibited`, `authorship`, `source_url` e `accessed`; os itens de "Complete antes de submeter" são da pessoa, não seus.
 3. Se `tools` vier vazio, diga que nenhum artefato do projeto registra uso de IA. Não invente uso.
 4. Nunca edite o parágrafo para acrescentar ferramenta que o comando não listou. Correção de proveniência se faz no artefato, não na declaração.

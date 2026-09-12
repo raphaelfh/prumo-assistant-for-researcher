@@ -23,7 +23,8 @@
     {
       "section": "Results",
       "point": "Calibração ausente. A claim primária é 'modelos combinados superam de comparação em AUROC' sem ECE/Brier reportados, mas o protocol.md lista ECE como métrica secundária obrigatória.",
-      "fix": "Adicionar tabela com ECE e Brier por modelo (uni vs multi) com IC 95% bootstrap. Discutir trade-off discriminação × calibração."
+      "fix": "Adicionar tabela com ECE e Brier por modelo (uni vs multi) com IC 95% bootstrap. Discutir trade-off discriminação × calibração.",
+      "quote": "modelos combinados superam de comparação em AUROC"
     },
     {
       "section": "Methods § Evaluation",
@@ -33,7 +34,8 @@
     {
       "section": "Discussion",
       "point": "Claim 'modelo robusto a missing data' sem ablation. 'Robusto' aqui é superlativo sem definição operacional.",
-      "fix": "Adicionar ablation com 20%/40%/60%/80% de missing por modalidade. Definir robusto operacionalmente (queda <X pts AUROC sob Y% missing)."
+      "fix": "Adicionar ablation com 20%/40%/60%/80% de missing por modalidade. Definir robusto operacionalmente (queda <X pts AUROC sob Y% missing).",
+      "quote": "o modelo é robusto a missing data"
     }
   ],
   "minor_weaknesses": [
@@ -52,7 +54,8 @@
     {
       "section": "Abstract",
       "claim": "'mais interpretável que baselines'",
-      "where_to_find_evidence_or_remove": "Não há análise de interpretabilidade no draft. Remover do abstract ou adicionar SHAP/attention analysis em Results."
+      "where_to_find_evidence_or_remove": "Não há análise de interpretabilidade no draft. Remover do abstract ou adicionar SHAP/attention analysis em Results.",
+      "quote": "mais interpretável que baselines"
     },
     {
       "section": "Discussion §2",
@@ -70,5 +73,8 @@
       "suggestion": "Considerar gráfico de Forest plot para AUROC por subgrupo (idade, etnia, estágio) — adequado para TRIPOD+AI."
     }
   ],
-  "mental_model_applied": "TRIPOD+AI"
+  "mental_model_applied": "TRIPOD+AI",
+  "sources_read": [
+    "docs/studies/principal/protocol.md"
+  ]
 }

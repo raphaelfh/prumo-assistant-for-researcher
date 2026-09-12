@@ -40,13 +40,15 @@ import yaml
 
 from par.core import pj_layout
 from par.core.citations import iter_marked_citation_spans, scan_citekeys
+from par.core.config import load_project_config
 from par.core.csl import list_zotero_styles, resolve_csl
-from par.core.obsidian import (
+from par.core.markdown import (
     SpanFragment,
     normalize_markdown,
     normalize_markdown_with_map,
     split_frontmatter,
 )
+from par.core.provenance import build_meta, hash_input
 from par.domains.write.errors import WriteError
 from par.domains.write.schemas.v1 import (
     CiteMapFile,
@@ -122,6 +124,11 @@ class OutputExistsError(WriteError):
     """
 
 
+def _project_language(project_root: Path) -> str:
+    """Idioma de escrita do projeto (``writing.language`` do ``prumo.toml``)."""
+    return str(load_project_config(project_root)["writing"]["language"])
+
+
 def _check_pandoc() -> str:
     pandoc = shutil.which("pandoc")
     if not pandoc:
@@ -160,6 +167,12 @@ def _zotero_live_docx_filter() -> Path:
     ref = resources.files("par._filters").joinpath("zotero_live_docx.lua")
     with resources.as_file(ref) as p:
         return Path(p)
+
+
+def _crossref_filter() -> Path:
+    """Filtro que numera figuras/tabelas e resolve ``@fig:x``/``@tbl:x`` (ADR-0035)."""
+    ref = resources.files("par._filters").joinpath("crossref.lua")
+    return Path(str(ref))
 
 
 def fetch_bbt_zotero_metadata(
@@ -683,6 +696,9 @@ def _emit_review_sidecars(
         docx_sha256=hashlib.sha256(docx_path.read_bytes()).hexdigest(),
         occurrences=occurrences,
     )
+    citemap.meta = build_meta(
+        schema="CiteMapFile/v1", skill="write/export", input_hash=hash_input(norm_text)
+    ).to_dict()
     span_map = SpanMapFile(
         page=str(rel_page),
         source_sha256=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
@@ -700,7 +716,7 @@ def _emit_review_sidecars(
 
     out_dir = project_root / "reviews" / slugify(page, project_root)
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "citemap.json").write_text(citemap.model_dump_json(indent=2))
+    (out_dir / "citemap.json").write_text(citemap.model_dump_json(indent=2, by_alias=True))
     (out_dir / "span-map.json").write_text(span_map.model_dump_json(indent=2))
     return out_dir
 
@@ -744,6 +760,7 @@ def _build_pandoc_cmd(
     to_format: str,
     zotero_lookup_file: Path | None = None,
     resource_path: Path | str | None = None,
+    lang: str | None = None,
 ) -> list[str]:
     """Monta o comando do pandoc.
 
@@ -762,18 +779,26 @@ def _build_pandoc_cmd(
     uma página só) ou uma ``str`` já no formato do pandoc — múltiplos
     diretórios separados por ``:`` (:func:`compose`, que combina páginas de
     diretórios potencialmente diferentes).
+
+    ``crossref.lua`` entra ANTES de ``--citeproc`` em todo formato (ADR-0035):
+    ``@fig:x`` tem forma de citekey e o citeproc a daria como ausente. ``lang``
+    (``[writing].language``) vira ``prumo_lang`` só para o rótulo — nunca
+    ``lang``, que trocaria o locale do CSL.
     """
     cmd = [
         pandoc_bin,
         str(input_md),
         "--from=markdown+yaml_metadata_block+pipe_tables+grid_tables+fenced_code_blocks",
         f"--output={output}",
+        f"--lua-filter={_crossref_filter()}",
         "--citeproc",
         f"--bibliography={bib}",
         f"--csl={csl}",
     ]
     if resource_path is not None:
         cmd += ["--resource-path", str(resource_path)]
+    if lang:
+        cmd += [f"--metadata=prumo_lang:{lang}"]
     if to_format == "docx":
         cmd += [
             "--to=docx",
@@ -890,6 +915,7 @@ def export(
             to_format=to,
             zotero_lookup_file=zotero_lookup_file,
             resource_path=page.parent,
+            lang=_project_language(project_root),
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
         if to == "docx":
@@ -1019,6 +1045,7 @@ def compose(
             to_format=to,
             zotero_lookup_file=zotero_lookup_file,
             resource_path=":".join(str(d) for d in resource_dirs),
+            lang=_project_language(project_root),
         )
         if meta.get("toc"):
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]

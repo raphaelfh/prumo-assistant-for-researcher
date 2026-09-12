@@ -38,6 +38,14 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 ## Catálogo vivo (gerado — não editar à mão)
 
 <!-- prumo:kb-index:begin -->
+**Guias:**
+
+- [[Research Project Structure]] · Estrutura de Projeto de Pesquisa
+- [[actions-by-context]] · Contextos de necessidade → ações no PAR
+- [[constitution]] · PAR Constitution
+- [[onboarding-pesquisador]] · Trilha do pesquisador — PAR sem terminal
+- [[positioning]] · Posicionamento e claims do PAR
+
 **Specs** (não-perecíveis):
 
 - [[superpowers/specs/2026-04-29-prumo-scientific-writer-design]] · superseded
@@ -57,13 +65,21 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-08-08-layout-por-escopo-design]] · approved
 - [[superpowers/specs/2026-08-23-ponte-zotero-auditoria-design]] · approved
 - [[superpowers/specs/2026-08-24-pj-instalavel-design]] · approved
+- [[superpowers/specs/2026-09-12-critique-devils-advocate-design]] · implemented
+- [[superpowers/specs/2026-09-12-critique-quote-anchors-design]] · implemented
+- [[superpowers/specs/2026-09-12-drift-manuscrito-protocolo-design]] · —
+- [[superpowers/specs/2026-09-12-figuras-e-tabelas-design]] · —
+- [[superpowers/specs/2026-09-12-perfis-disclosure-por-periodico-design]] · —
+- [[superpowers/specs/2026-09-12-proveniencia-ligada-design]] · implemented
+- [[superpowers/specs/2026-09-12-recalculo-estatisticas-lint-design]] · approved
+- [[superpowers/specs/2026-09-12-safe-outputs-design]] · accepted
 - [[superpowers/specs/2026-09-12-superficie-de-skills-design]] · approved
 
 **Plans ativos:**
 
 - (nenhum)
 
-**Plans arquivados:** 33 em `superpowers/plans/archive/`
+**Plans arquivados:** 41 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->

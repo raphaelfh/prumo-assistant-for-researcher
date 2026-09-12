@@ -1,12 +1,8 @@
-"""Tests pra provenance: _meta block e trace JSONL."""
+"""Tests pra provenance: bloco _meta."""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 from par.core.provenance import (
-    TraceWriter,
     build_meta,
     hash_input,
     new_run_id,
@@ -55,39 +51,14 @@ def test_build_meta_carries_extra() -> None:
     assert m.to_dict()["extra"] == {"venue": "Nature Medicine"}
 
 
-def test_trace_writer_appends_jsonl(tmp_path: Path) -> None:
-    tw = TraceWriter(project_dir=tmp_path)
-    tw.emit("paper.extract.start", run_id="abc12345", payload={"citekey": "smith2024"})
-    tw.emit("paper.extract.end", run_id="abc12345", payload={"ok": True})
-
-    files = list((tmp_path / ".prumo" / "traces").glob("*.jsonl"))
-    assert len(files) == 1
-    lines = files[0].read_text(encoding="utf-8").strip().splitlines()
-    assert len(lines) == 2
-
-    rec1 = json.loads(lines[0])
-    assert rec1["event"] == "paper.extract.start"
-    assert rec1["run_id"] == "abc12345"
-    assert rec1["citekey"] == "smith2024"
-
-    rec2 = json.loads(lines[1])
-    assert rec2["event"] == "paper.extract.end"
-    assert rec2["ok"] is True
-
-
-def test_trace_writer_handles_unwriteable_dir(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
-    # Aponta pra um arquivo (não dir) — mkdir vai falhar e o escritor deve tolerar.
-    blocker = tmp_path / "blocker"
-    blocker.write_text("not a dir", encoding="utf-8")
-    tw = TraceWriter(project_dir=blocker)
-    # Não deve lançar:
-    tw.emit("evt", run_id="x", payload={"k": 1})
-
-
-def test_build_meta_human_reviewed_default_false() -> None:
+def test_build_meta_human_reviewed_unset_is_omitted() -> None:
     m = build_meta(schema="X/v1")
-    assert m.human_reviewed is False
-    assert m.to_dict()["human_reviewed"] is False
+    assert m.human_reviewed is None
+    assert "human_reviewed" not in m.to_dict()
+
+
+def test_build_meta_keeps_explicit_human_reviewed_false() -> None:
+    assert build_meta(schema="X/v1", human_reviewed=False).to_dict()["human_reviewed"] is False
 
 
 def test_build_meta_records_human_reviewed() -> None:

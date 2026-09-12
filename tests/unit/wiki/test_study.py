@@ -19,6 +19,17 @@ def _bootstrap(tmp_path: Path) -> Path:
     return pj
 
 
+def test_create_session_log_stamps_meta(tmp_path: Path) -> None:
+    import yaml
+
+    out = create_session_log(
+        scope=_bootstrap(tmp_path), topic="t", date="2026-09-12", sources_consulted=[]
+    )
+    fm = yaml.safe_load(out.read_text(encoding="utf-8").split("---", 2)[1])
+    assert fm["_meta"]["skill"] == "wiki/study"
+    assert fm["_meta"]["schema"] == "SessionLog/v1"
+
+
 def test_session_log_path_no_escopo(tmp_path: Path) -> None:
     scope = _bootstrap(tmp_path)
     out = session_log_path(scope, "curvas-roc", "2026-05-03")

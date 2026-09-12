@@ -29,13 +29,37 @@ def test_record_from_paper_meta() -> None:
     assert rec.model == "claude-opus-4"
 
 
-def test_record_from_finding_generator() -> None:
+def test_generator_solto_nao_e_mais_lido() -> None:
     from par.domains.write.disclosure import _record_from_fm
 
-    rec = _record_from_fm({"type": "finding", "generator": "wiki-query", "added": "2026-05-02"})
-    assert rec is not None
-    assert rec.skill == "wiki-query"
-    assert rec.model is None
+    # 0 ocorrências nos pj_* (spec 2026-09-12-proveniencia-ligada): sem fallback.
+    assert _record_from_fm({"type": "finding", "generator": "wiki-query"}) is None
+
+
+def test_fixture_mista_canonica_e_legada(tmp_path: Path) -> None:
+    from par.domains.wiki.findings import archive_as_finding
+    from par.domains.write.compose import write_output
+    from par.domains.write.disclosure import generate_disclosure
+
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    scope = tmp_path / "docs" / "studies" / "principal"
+    archive_as_finding(scope=scope, slug="f1", title="F1", body="b", sources=[], date="2026-09-12")
+    write_output(
+        content="# D\n", scope=scope, kind="paper", mode="drafts", date="2026-09-12", slug="d"
+    )
+    _paper(tmp_path / "docs/references/papers/a/_meta.md", "claude-opus-4")  # legado
+
+    disc = generate_disclosure(root=tmp_path)
+
+    tools = {u.tool: u for u in disc.tools}
+    assert set(tools) == {
+        "par:paper extract",
+        "par:wiki query",
+        "par:write manuscript",
+    }
+    assert tools["par:paper extract"].model == "claude-opus-4"
+    assert disc.date_from == "2026-05-01"
 
 
 def test_record_from_plain_frontmatter_is_none() -> None:
@@ -166,10 +190,10 @@ def test_legado_e_novo_agregam_numa_linha(tmp_path: Path) -> None:
     notes = tmp_path / "docs" / "studies" / "principal" / "notes"
     notes.mkdir(parents=True)
     (notes / "a.md").write_text(
-        "---\ntype: finding\ngenerator: wiki-query\nadded: '2026-05-01'\n---\n", encoding="utf-8"
+        "---\ntype: finding\n_meta:\n  skill: wiki-query\n---\n", encoding="utf-8"
     )
     (notes / "b.md").write_text(
-        "---\ntype: finding\ngenerator: wiki/query\nadded: '2026-05-02'\n---\n", encoding="utf-8"
+        "---\ntype: finding\n_meta:\n  skill: wiki/query\n---\n", encoding="utf-8"
     )
 
     disc = generate_disclosure(root=tmp_path)
@@ -183,7 +207,7 @@ def test_legado_e_novo_agregam_numa_linha(tmp_path: Path) -> None:
 def test_skill_desconhecida_mantem_o_valor(tmp_path: Path) -> None:
     from par.domains.write.disclosure import generate_disclosure
 
-    (tmp_path / "x.md").write_text("---\ngenerator: minha-skill\n---\n", encoding="utf-8")
+    (tmp_path / "x.md").write_text("---\n_meta:\n  skill: minha-skill\n---\n", encoding="utf-8")
     disc = generate_disclosure(root=tmp_path)
     assert disc.tools[0].tool == "par:minha-skill"
     assert disc.tools[0].task == "assistive text generation"

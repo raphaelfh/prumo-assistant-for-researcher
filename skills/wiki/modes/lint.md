@@ -59,7 +59,8 @@ não corrige automaticamente.
 > primeiro e gaste orçamento de LLM apenas nas seções **6 (contradições)** e
 > **7 (stale claims)**, que exigem julgamento semântico. Códigos emitidos:
 > `broken_citekey`, `orphan_page`, `broken_log_prefix`, `multiple_primary`,
-> `dead_link`, `concept_candidate` (severity `info`).
+> `dead_link`, `concept_candidate` (severity `info`), `stat_mismatch` (%, IC de Wilson ou q de
+> BH relatado que não bate com o recálculo).
 
 ### 1. Páginas órfãs
 

@@ -26,6 +26,7 @@ from par.domains.protocol.adr import (
     next_number,
 )
 from par.domains.protocol.diff import PicotDiff, diff_picot
+from par.domains.protocol.drift import Drift, SourceText, collect, find_drift, merge_drift
 from par.domains.protocol.picot_io import (
     picot_hash,
     picot_path,
@@ -201,3 +202,36 @@ def diff_against_last_adr(scope: Path) -> PicotDiff | None:
     parsed = tomllib.loads(snapshot_text)
     baseline = PicotSpec.model_validate(parsed["picot"])
     return diff_picot(baseline, current)
+
+
+def manuscript_drift(scope: Path, draft: Path | None = None) -> list[Drift]:
+    """Drift entre drafts do escopo e o lado protocolo (``protocol.md`` + ``picot.toml``).
+
+    ``draft`` restringe a um arquivo; sem ele, todo ``writing/*.md`` exceto
+    ``protocol.md``. Só lê — nunca edita o manuscrito.
+    """
+    pj_root = find_pj_root(scope)
+    protocol_md = pj_layout.writing_dir(scope) / "protocol.md"
+    protocol_side = [_source(p, pj_root) for p in (protocol_md, picot_path(pj_root)) if p.is_file()]
+    if not protocol_side:
+        return []
+    if draft is not None:
+        drafts = [draft] if draft.resolve() != protocol_md.resolve() else []
+    else:
+        drafts = sorted(
+            p for p in pj_layout.writing_dir(scope).glob("*.md") if p.name != "protocol.md"
+        )
+    protocol_facts = collect(protocol_side)
+    return merge_drift(
+        d for path in drafts for d in find_drift(protocol_facts, _source(path, pj_root))
+    )
+
+
+def _source(path: Path, pj_root: Path) -> SourceText:
+    resolved = path.resolve()
+    try:
+        label = resolved.relative_to(pj_root.resolve()).as_posix()
+    except ValueError:
+        label = str(resolved)
+    lines = tuple(resolved.read_text(encoding="utf-8", errors="ignore").splitlines())
+    return SourceText(label=label, lines=lines)

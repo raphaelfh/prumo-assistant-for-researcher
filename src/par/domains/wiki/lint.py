@@ -42,7 +42,8 @@ import yaml
 from par.core import pj_layout
 from par.core.bib import parse_bib
 from par.core.citations import body_lines, scan_marked_citekeys
-from par.core.obsidian import split_frontmatter
+from par.core.markdown import split_frontmatter
+from par.domains.wiki.stats_check import stat_mismatches
 
 # Subdiretórios do ESCOPO onde frontmatter é esperado — não é mais taxonomia
 # de docs/, é a estrutura fixa de todo `docs/studies/<slug>/` (ADR-0022/0024).
@@ -129,6 +130,9 @@ def _lint_scope(
             issues.append(
                 WikiIssue("warning", "no_frontmatter", "sem frontmatter", page=rel, scope=slug)
             )
+        issues.extend(
+            WikiIssue("warning", "stat_mismatch", m, rel, slug) for m in stat_mismatches(text)
+        )
 
         for ck in scan_marked_citekeys(text):
             cited = True
