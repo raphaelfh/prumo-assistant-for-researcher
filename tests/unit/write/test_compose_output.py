@@ -27,6 +27,24 @@ def test_write_output_drafts_stamps_meta_preserving_frontmatter(tmp_path: Path) 
     assert out.words_generated == 7
 
 
+def test_write_output_stamp_keeps_frontmatter_comments_and_order(tmp_path: Path) -> None:
+    content = "---\n# rascunho do Raphael\ntitle: T  # provisório\n_meta:\n  skill: old\nz: 1\n---\n\nbody\n"
+    out = write_output(
+        content=content,
+        scope=tmp_path / "pj",
+        kind="paper",
+        mode="drafts",
+        date="2026-09-12",
+        slug="x",
+    )
+    text = out.output_path.read_text(encoding="utf-8")
+    assert text.startswith("---\n# rascunho do Raphael\ntitle: T  # provisório\n_meta:\n")
+    assert text.endswith("z: 1\n---\n\nbody\n")
+    fm, _ = split_frontmatter(text)
+    assert list(fm) == ["title", "_meta", "z"]
+    assert fm["_meta"]["skill"] == "write/manuscript"
+
+
 def test_write_output_into_stamps_meta_and_keeps_human_text(tmp_path: Path) -> None:
     target = tmp_path / "paper.md"
     target.write_text("---\nauthor: R\n---\n\n# Paper\n\nTexto humano.\n", encoding="utf-8")

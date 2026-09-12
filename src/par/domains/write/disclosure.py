@@ -53,8 +53,8 @@ def _read_frontmatter(md: Path) -> dict[str, Any] | None:
 def _record_from_fm(fm: dict[str, Any]) -> ProvRecord | None:
     _raw_meta = fm.get("_meta")
     meta: dict[str, Any] = _raw_meta if isinstance(_raw_meta, dict) else {}
-    # A flag humana mora no frontmatter; o ``_meta`` carimbado nunca a sombreia.
-    reviewed = bool(fm.get("human_reviewed") or meta.get("human_reviewed"))
+    # A flag humana mora no frontmatter e prevalece; ``_meta`` só a traz se declarada.
+    reviewed = bool(fm.get("human_reviewed", meta.get("human_reviewed")))
     if meta.get("skill") or meta.get("model"):  # bloco canônico
         return ProvRecord(
             skill=str(meta.get("skill") or "par"),
@@ -140,12 +140,12 @@ def _phrase(use: AIToolUse) -> str:
     return f"{head} for {use.task}"
 
 
-def _render(uses: list[AIToolUse], lang: str) -> str:
+def _render(uses: list[AIToolUse], lang: str, *, dates: str = "") -> str:
     if not uses:
         if lang == "pt":
             return "Nenhuma ferramenta de IA generativa foi usada na preparação deste trabalho."
         return "No generative AI tools were used in the preparation of this work."
-    items = "; ".join(_phrase(u) for u in uses)
+    items = "; ".join(_phrase(u) for u in uses) + dates
     if lang == "pt":
         return (
             f"Durante a preparação deste trabalho, o(s) autor(es) utilizaram {items}. "
@@ -220,11 +220,8 @@ def _render_venue(
     date_from: str | None,
     date_to: str | None,
 ) -> str:
-    base = _render(uses, lang)
-    if uses and "dates" in prof.required:
-        clause = _dates_clause(date_from, date_to, lang)
-        items = "; ".join(_phrase(u) for u in uses)
-        base = base.replace(f"{items}.", f"{items}{clause}.", 1)
+    dates = _dates_clause(date_from, date_to, lang) if "dates" in prof.required else ""
+    base = _render(uses, lang, dates=dates)
     idx = 0 if lang == "pt" else 1
     where = " / ".join(_PLACEMENT[p][idx] for p in prof.placement)
     manual = [_MANUAL[e][idx] for e in prof.required if e in _MANUAL]
@@ -265,17 +262,22 @@ def generate_disclosure(*, root: Path | None = None, venue: str | None = None) -
     dates = sorted(r.date for r in records if r.date)
     date_from = dates[0] if dates else None
     date_to = dates[-1] if dates else None
-    statements = {lang: _render(uses, lang) for lang in ("pt", "en")}
     prof: VenueProfile | None = None
+    known: list[str] = []
     if venue:
         profiles = load_venue_profiles()
         prof = profiles.get(venue.strip().lower())
-        for lang in statements:
-            if prof is None:
-                line = _unknown_venue_line(venue, sorted(profiles), lang)
-                statements[lang] = f"{statements[lang]}\n\n{line}"
-            else:
-                statements[lang] = _render_venue(uses, lang, prof, date_from, date_to)
+        known = sorted(profiles)
+
+    def render(lang: str) -> str:
+        if prof is not None:
+            return _render_venue(uses, lang, prof, date_from, date_to)
+        text = _render(uses, lang)
+        if venue:
+            text = f"{text}\n\n{_unknown_venue_line(venue, known, lang)}"
+        return text
+
+    statements = {lang: render(lang) for lang in ("pt", "en")}
     return AIDisclosure(
         generated_at=now_utc(),
         date_from=date_from,
