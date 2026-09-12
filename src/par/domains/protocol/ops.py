@@ -26,7 +26,7 @@ from par.domains.protocol.adr import (
     next_number,
 )
 from par.domains.protocol.diff import PicotDiff, diff_picot
-from par.domains.protocol.drift import Drift, SourceText, find_drift, merge_drift
+from par.domains.protocol.drift import Drift, SourceText, collect, find_drift, merge_drift
 from par.domains.protocol.picot_io import (
     picot_hash,
     picot_path,
@@ -221,8 +221,9 @@ def manuscript_drift(scope: Path, draft: Path | None = None) -> list[Drift]:
         drafts = sorted(
             p for p in pj_layout.writing_dir(scope).glob("*.md") if p.name != "protocol.md"
         )
+    protocol_facts = collect(protocol_side)
     return merge_drift(
-        d for path in drafts for d in find_drift(protocol_side, _source(path, pj_root))
+        d for path in drafts for d in find_drift(protocol_facts, _source(path, pj_root))
     )
 
 
