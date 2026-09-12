@@ -40,6 +40,7 @@ import yaml
 
 from prumo_assist.core import pj_layout
 from prumo_assist.core.citations import iter_marked_citation_spans, scan_citekeys
+from prumo_assist.core.config import load_project_config
 from prumo_assist.core.csl import list_zotero_styles, resolve_csl
 from prumo_assist.core.obsidian import (
     SpanFragment,
@@ -160,6 +161,12 @@ def _zotero_live_docx_filter() -> Path:
     ref = resources.files("prumo_assist._filters").joinpath("zotero_live_docx.lua")
     with resources.as_file(ref) as p:
         return Path(p)
+
+
+def _crossref_filter() -> Path:
+    """Filtro que numera figuras/tabelas e resolve ``@fig:x``/``@tbl:x`` (ADR-0034)."""
+    ref = resources.files("prumo_assist._filters").joinpath("crossref.lua")
+    return Path(str(ref))
 
 
 def fetch_bbt_zotero_metadata(
@@ -744,6 +751,7 @@ def _build_pandoc_cmd(
     to_format: str,
     zotero_lookup_file: Path | None = None,
     resource_path: Path | str | None = None,
+    lang: str | None = None,
 ) -> list[str]:
     """Monta o comando do pandoc.
 
@@ -762,18 +770,26 @@ def _build_pandoc_cmd(
     uma página só) ou uma ``str`` já no formato do pandoc — múltiplos
     diretórios separados por ``:`` (:func:`compose`, que combina páginas de
     diretórios potencialmente diferentes).
+
+    ``crossref.lua`` entra ANTES de ``--citeproc`` em todo formato (ADR-0034):
+    ``@fig:x`` tem forma de citekey e o citeproc a daria como ausente. ``lang``
+    (``[writing].language``) vira ``prumo_lang`` só para o rótulo — nunca
+    ``lang``, que trocaria o locale do CSL.
     """
     cmd = [
         pandoc_bin,
         str(input_md),
         "--from=markdown+yaml_metadata_block+pipe_tables+grid_tables+fenced_code_blocks",
         f"--output={output}",
+        f"--lua-filter={_crossref_filter()}",
         "--citeproc",
         f"--bibliography={bib}",
         f"--csl={csl}",
     ]
     if resource_path is not None:
         cmd += ["--resource-path", str(resource_path)]
+    if lang:
+        cmd += [f"--metadata=prumo_lang:{lang}"]
     if to_format == "docx":
         cmd += [
             "--to=docx",
@@ -890,6 +906,7 @@ def export(
             to_format=to,
             zotero_lookup_file=zotero_lookup_file,
             resource_path=page.parent,
+            lang=str(load_project_config(project_root)["writing"]["language"]),
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
         if to == "docx":
@@ -1019,6 +1036,7 @@ def compose(
             to_format=to,
             zotero_lookup_file=zotero_lookup_file,
             resource_path=":".join(str(d) for d in resource_dirs),
+            lang=str(load_project_config(project_root)["writing"]["language"]),
         )
         if meta.get("toc"):
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]

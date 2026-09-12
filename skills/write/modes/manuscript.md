@@ -96,6 +96,7 @@ template, usando os inputs estruturados do projeto.
 
 1. **Citação strict.** Só `[@citekey]` que existe em `docs/references/_references.bib`. Se a claim precisa de paper fora do acervo, escreva `[REF FALTANTE: <descrição curta>]`. Nunca invente citekey ou escreva `[Smith et al., 2024]` sem citekey.
 2. **Não toca `## References`.** Lista bibliográfica é gerada por export Pandoc.
+   **Figura e tabela nunca têm número digitado.** Marque `![Legenda](figures/x.png){#fig:x}` e `: Legenda {#tbl:x}` sob a tabela; no texto, `@fig:x`/`@tbl:x` solto, nunca entre colchetes. O export numera e resolve.
 3. **Use PicotSpec do projeto** se existir (`.claude/picot.toml`). Population = coorte; Intervention = método; Comparison = baseline; Outcome = métrica primária; Hypothesis.statement = hipótese formal.
 4. **Use callouts `_extract.md`** dos papers como insumo. Extract content tem PICOT/Método/Resultados/Limitações estruturados.
 5. **Modo de output**: default `drafts` (grava em `writing/` do escopo); `--into` requer `--section`; `--out` ad-hoc.
