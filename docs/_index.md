@@ -61,9 +61,9 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 
 **Plans ativos:**
 
-- [[superpowers/plans/2026-09-12-superficie-f1-consolidacao]] · in-progress
+- (nenhum)
 
-**Plans arquivados:** 30 em `superpowers/plans/archive/`
+**Plans arquivados:** 31 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->

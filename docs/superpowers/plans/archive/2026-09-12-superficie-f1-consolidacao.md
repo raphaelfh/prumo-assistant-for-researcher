@@ -1,7 +1,18 @@
 ---
-status: in-progress
+status: implemented
+verified: 2026-09-12
+release: "pendente — MINOR ⚠ Breaking (ADR-0015)"
 spec: "[[2026-09-12-superficie-de-skills-design]]"
 ---
+
+> **Fechamento (2026-09-12).** Tasks 1–11 implementadas em TDD no branch
+> `docs/skill-surface-consolidation`. Verificação: suíte inteira verde exceto 11 testes de
+> `tests/unit/write/test_review_ingest.py` que dependem de `uvx` no PATH — falham igual no
+> `main` intocado (baseline 839f9a9), portanto ambientais; `ruff check`, `ruff format --check`,
+> `mypy` (176 arquivos), `gen_indexes --check`, `validate_manifests` e
+> `sync_manifest_version --check` limpos; smoke `prumo init` instala as 6 skills com `modes/`
+> e o `doctor` não emite `[skill_obsoleta]`. Pendente: medição manual da lista-ouro no Desktop
+> (≥ 27/30) e o corte do release.
 
 # Superfície de skills — F1: consolidação em start + 5 skills Implementation Plan
 
