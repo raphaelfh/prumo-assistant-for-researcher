@@ -9,7 +9,7 @@ que outros agent-hosts (Cursor, Codex, Gemini) já consomem.
 Exemplo mínimo (campos obrigatórios em **bold**):
 
     ---
-    name: paper-extract              # **obrigatório** — id único
+    name: paper                      # **obrigatório** — id único
     description: Extrai PDF → callout estruturado.   # **obrigatório**
     prumo:
       version: 1.0.0                 # default "0.0.0" se omitido
@@ -27,7 +27,7 @@ Exemplo mínimo (campos obrigatórios em **bold**):
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -41,6 +41,43 @@ _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
 
 VALID_DETERMINISM = frozenset({"agentic", "deterministic", "hybrid"})
 VALID_REQUIRES = frozenset({"cli", "qmd", "zotero"})
+
+# Token de ``allowed-tools``: ``Bash(prumo paper *)`` tem espaço dentro do
+# parêntese e precisa sair inteiro; o resto é separado por espaço.
+_TOOL_TOKEN_RE = re.compile(r"[^\s(]+\([^)]*\)|\S+")
+
+
+def _str_tuple(raw: object, *, field_name: str, path: Path) -> tuple[str, ...]:
+    """Normaliza string-ou-lista em tupla sem vazios nem duplicatas (ordem preservada)."""
+    if raw is None:
+        return ()
+    if isinstance(raw, str):
+        items = [raw]
+    elif isinstance(raw, list):
+        items = [str(x) for x in raw]
+    else:
+        raise ManifestError(f"{path}: {field_name} deve ser string ou lista.")
+    return tuple(dict.fromkeys(i.strip() for i in items if i.strip()))
+
+
+@dataclass(frozen=True)
+class SkillRef:
+    """Endereço de um modo: ``skill`` + ``mode`` (ex.: ``paper`` + ``extract``).
+
+    ``slug`` é a forma gravada em proveniência nova (``paper/extract``);
+    ``invocation`` é a forma que o pesquisador digita no agent-host.
+    """
+
+    skill: str
+    mode: str
+
+    @property
+    def slug(self) -> str:
+        return f"{self.skill}/{self.mode}"
+
+    @property
+    def invocation(self) -> str:
+        return f"prumo-assist:{self.skill} {self.mode}"
 
 
 @dataclass(frozen=True)
@@ -65,6 +102,14 @@ class SkillManifest:
     requires: tuple[str, ...] = ()
     prose: bool = False
     locale_lock: str | None = None
+    # Superfície por domínio (spec 2026-09-12): campos de modo.
+    phrases: tuple[str, ...] = ()
+    legacy: tuple[str, ...] = ()
+    write_kind: str | None = None
+    disclosure_task: str | None = None
+    allowed_tools: tuple[str, ...] = ()
+    argument_hint: str | None = None
+    modes: tuple[SkillManifest, ...] = ()
 
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -162,6 +207,17 @@ def parse_skill_file(path: Path) -> SkillManifest:
                 "(a trava dirige o bloco de prosa gerado)."
             )
 
+    allowed_raw = meta.get("allowed-tools")
+    if allowed_raw is None:
+        allowed_tools: tuple[str, ...] = ()
+    elif isinstance(allowed_raw, str):
+        allowed_tools = tuple(dict.fromkeys(_TOOL_TOKEN_RE.findall(allowed_raw)))
+    elif isinstance(allowed_raw, list):
+        allowed_tools = tuple(dict.fromkeys(str(x) for x in allowed_raw))
+    else:
+        raise ManifestError(f"{path}: allowed-tools deve ser string ou lista.")
+    argument_hint_raw = meta.get("argument-hint")
+
     extra_keys = set(prumo_block) - {
         "version",
         "schema",
@@ -173,6 +229,10 @@ def parse_skill_file(path: Path) -> SkillManifest:
         "requires",
         "prose",
         "locale_lock",
+        "phrases",
+        "legacy",
+        "write_kind",
+        "disclosure_task",
     }
     extra = {k: prumo_block[k] for k in extra_keys}
 
@@ -197,8 +257,42 @@ def parse_skill_file(path: Path) -> SkillManifest:
         requires=requires,
         prose=prose,
         locale_lock=locale_lock,
+        phrases=_str_tuple(prumo_block.get("phrases"), field_name="prumo.phrases", path=path),
+        legacy=_str_tuple(prumo_block.get("legacy"), field_name="prumo.legacy", path=path),
+        write_kind=(str(prumo_block["write_kind"]) if prumo_block.get("write_kind") else None),
+        disclosure_task=(
+            str(prumo_block["disclosure_task"]) if prumo_block.get("disclosure_task") else None
+        ),
+        allowed_tools=allowed_tools,
+        argument_hint=(str(argument_hint_raw) if argument_hint_raw else None),
         extra=extra,
     )
+
+
+def load_modes(skill_dir: Path) -> tuple[SkillManifest, ...]:
+    """Modos de uma skill: ``<skill_dir>/modes/*.md``, em ordem alfabética.
+
+    Cada arquivo é parseado como um ``SKILL.md`` (mesmo contrato de frontmatter).
+    ``name`` precisa bater com o nome do arquivo — é o endereço usado na
+    invocação — e todo modo declara ao menos uma frase em ``prumo.phrases``,
+    porque é dela que o gerador deriva o roteamento.
+    """
+    modes_dir = skill_dir / "modes"
+    if not modes_dir.is_dir():
+        return ()
+    out: list[SkillManifest] = []
+    for mode_path in sorted(modes_dir.glob("*.md")):
+        mode = parse_skill_file(mode_path)
+        if mode.name != mode_path.stem:
+            raise ManifestError(
+                f"{mode_path}: name '{mode.name}' difere do arquivo '{mode_path.name}'."
+            )
+        if not mode.phrases:
+            raise ManifestError(
+                f"{mode_path}: prumo.phrases obrigatório (ao menos uma frase) em modo."
+            )
+        out.append(mode)
+    return tuple(out)
 
 
 @dataclass(frozen=True)
@@ -216,6 +310,42 @@ class SkillRegistry:
 
     def names(self) -> list[str]:
         return sorted(self.skills)
+
+    def iter_modes(self) -> list[tuple[SkillRef, SkillManifest]]:
+        """Todos os modos do registry, ordenados por skill e depois por modo."""
+        return [(SkillRef(n, m.name), m) for n in self.names() for m in self.skills[n].modes]
+
+    def find_mode(self, ref: SkillRef) -> SkillManifest | None:
+        skill = self.skills.get(ref.skill)
+        if skill is None:
+            return None
+        return next((m for m in skill.modes if m.name == ref.mode), None)
+
+    def legacy_map(self) -> dict[str, SkillRef]:
+        """Nome de skill antiga → modo novo. Levanta se um nome aparece em dois modos."""
+        out: dict[str, SkillRef] = {}
+        for ref, mode in self.iter_modes():
+            for old in mode.legacy:
+                if old in out:
+                    raise ManifestError(
+                        f"nome legado '{old}' declarado em {out[old].slug} e {ref.slug}."
+                    )
+                out[old] = ref
+        return out
+
+    def resolve(self, value: str) -> SkillRef | None:
+        """Resolve ``paper/extract``, ``prumo-assist:paper extract`` ou um nome legado.
+
+        Devolve ``None`` para valor que não aponta um modo existente — quem chama
+        decide o fallback (ex.: disclosure mantém o valor cru).
+        """
+        raw = value.strip().removeprefix("/").removeprefix("prumo-assist:")
+        for sep in ("/", " "):
+            if sep in raw:
+                skill, _, mode = raw.partition(sep)
+                ref = SkillRef(skill.strip(), mode.strip())
+                return ref if self.find_mode(ref) else None
+        return self.legacy_map().get(raw)
 
 
 def load_skill_registry(
@@ -253,7 +383,7 @@ def load_skill_registry(
         if not skill_md.is_file():
             continue
         try:
-            manifest = parse_skill_file(skill_md)
+            manifest = replace(parse_skill_file(skill_md), modes=load_modes(child))
         except ManifestError as e:
             if strict:
                 raise
@@ -265,7 +395,9 @@ def load_skill_registry(
             )
         found[manifest.name] = manifest
 
-    return SkillRegistry(skills=found), warnings
+    registry = SkillRegistry(skills=found)
+    registry.legacy_map()  # nome legado em dois modos é erro em qualquer modo de leitura
+    return registry, warnings
 
 
 def stale_guideline_warnings(
@@ -281,8 +413,10 @@ def stale_guideline_warnings(
     TRIPOD-LLM mudam a cada ~3 meses; sem revisão a prose envelhece em silêncio.
     """
     out: list[str] = []
-    for name in registry.names():
-        raw = registry.get(name).guidelines_reviewed
+    labeled: list[tuple[str, SkillManifest]] = [(n, registry.get(n)) for n in registry.names()]
+    labeled += [(f"{ref.skill} {ref.mode}", mode) for ref, mode in registry.iter_modes()]
+    for name, manifest in labeled:
+        raw = manifest.guidelines_reviewed
         if not raw:
             continue
         try:
