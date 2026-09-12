@@ -28,13 +28,13 @@ prumo:
 > **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
 >
 > 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
->    operação desta skill; roteie para `/prumo-assist:start` (instalação guiada com
+>    operação desta skill; roteie para `/par:start` (instalação guiada com
 >    consentimento) e pare aqui.
 > 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
 >    definido, compare a versão do CLI com o campo `version` de
 >    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
 >    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
->    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
+>    `uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,
 >    pule este passo em silêncio.
 > 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
@@ -49,7 +49,7 @@ prumo:
 
 Skill para manter o acervo de papers como motor file-based: 1 `.md` por paper, 1 BibTeX central, PDFs em `pdfs/` (gitignored). Todas as operações são feitas via `WebFetch` + `Read`/`Edit`/`Write` — sem novas deps Python.
 
-Pressuposto: o diretório corrente é um `pj_*` com a estrutura padrão em `docs/references/`. Se `docs/references/` não existir, orientar `prumo init pj_<nome>` (via /prumo-assist:start se o CLI não existir) — nunca retrofit manual.
+Pressuposto: o diretório corrente é um `pj_*` com a estrutura padrão em `docs/references/`. Se `docs/references/` não existir, orientar `prumo init pj_<nome>` (via /par:start se o CLI não existir) — nunca retrofit manual.
 
 ## Layout esperado
 
@@ -94,7 +94,7 @@ Regras:
 ## Operações
 
 > [!note]
-> A operação `add <doi>` (fetching CrossRef direto) foi removida. Hoje o Zotero é a fonte única de metadata e PDF. Para adicionar um paper: (1) insira no Zotero (arraste o PDF, cole o DOI, etc.); (2) o Better BibTeX regrava `_references.bib` automaticamente; (3) rode `/prumo-assist:paper library sync`. Para os PDFs: `prumo paper sync-pdfs`.
+> A operação `add <doi>` (fetching CrossRef direto) foi removida. Hoje o Zotero é a fonte única de metadata e PDF. Para adicionar um paper: (1) insira no Zotero (arraste o PDF, cole o DOI, etc.); (2) o Better BibTeX regrava `_references.bib` automaticamente; (3) rode `/par:paper library sync`. Para os PDFs: `prumo paper sync-pdfs`.
 
 ### 1. `sync`
 
@@ -116,7 +116,7 @@ Passos:
    ```
    ✓ N notas novas, M atualizadas, K órfãs.
    ✓ Grafo: +X arestas, -Y removidas.
-   Para extrair conteúdo dos PDFs: /prumo-assist:paper extract
+   Para extrair conteúdo dos PDFs: /par:paper extract
    ```
 
 4. **Órfãs** (citekey em `papers/` mas ausente do `.bib`) **não são deletadas** automaticamente — é aviso para o usuário renomear no Zotero ou deletar a nota à mão.

@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.domains.protocol.picot_io import (
+from par.domains.protocol.picot_io import (
     picot_hash,
     picot_path,
     read_picot,
     write_picot,
 )
-from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
+from par.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 
 def _spec() -> PicotSpec:

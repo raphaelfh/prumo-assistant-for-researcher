@@ -30,11 +30,11 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from prumo_assist import mcp_server
-from prumo_assist._version import __version__
-from prumo_assist.cli import app
-from prumo_assist.domains.write.schemas import v1
-from prumo_assist.domains.write.schemas.v1 import ReviewComment, ReviewEvent
+from par import mcp_server
+from par._version import __version__
+from par.cli import app
+from par.domains.write.schemas import v1
+from par.domains.write.schemas.v1 import ReviewComment, ReviewEvent
 from tests.unit.conftest import InitProject, WriteReviewArtifacts
 
 runner = CliRunner()

@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist import ConfigError
-from prumo_assist.domains.write.compose import locale_lock, prep, resolve_language
-from prumo_assist.domains.write.errors import WriteError
+from par import ConfigError
+from par.domains.write.compose import locale_lock, prep, resolve_language
+from par.domains.write.errors import WriteError
 
 
 def _config(pj_path: Path, body: str) -> None:
@@ -74,7 +74,7 @@ def test_prep_carrega_idioma_junto_do_template(tmp_path: Path) -> None:
 
 
 def test_locale_lock_vem_do_modo() -> None:
-    from prumo_assist.domains.write.compose import locale_lock
+    from par.domains.write.compose import locale_lock
 
     assert locale_lock("projeto-cep") == "pt-BR"
     assert locale_lock("paper") is None

@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 import typer
 
-from prumo_assist import PrumoError
-from prumo_assist.core.cli_op import cli_run
+from par import PrumoError
+from par.core.cli_op import cli_run
 
 
 class _DomainError(PrumoError):

@@ -1,4 +1,4 @@
-# prumo-assist — guia do repo
+# PAR (prumo-assistant-for-researcher) — guia do repo
 
 Plugin Claude Code + CLI Python (`prumo`) de pesquisa clínica: bibliografia (Zotero/BBT), wiki (Markdown; front Zettlr — legado Obsidian), protocolo (PICOT) e escrita (Pandoc/Typst). Prosa em pt-BR; identificadores, comandos e nomes de schema em inglês.
 
@@ -17,7 +17,7 @@ Plugin Claude Code + CLI Python (`prumo`) de pesquisa clínica: bibliografia (Zo
 ## Armadilhas deste repo
 
 - `templates/pj_base/CLAUDE.md` é PRODUTO (scaffolding de projetos `pj_*`), não orientação deste repo.
-- `skills/` e `templates/` são force-included no wheel (pyproject) e resolvidos por `src/prumo_assist/core/paths.py` — mover qualquer um exige atualizar os dois lados juntos.
+- `skills/` e `templates/` são force-included no wheel (pyproject) e resolvidos por `src/par/core/paths.py` — mover qualquer um exige atualizar os dois lados juntos.
 - Plugin root = raiz do repo (`.claude-plugin/marketplace.json` usa `source: "./"`) — não mover `skills/`, `.mcp.json`, `.claude-plugin/`.
 - `.mcp.json` é, ao mesmo tempo, config MCP deste projeto E config MCP distribuída aos consumidores do plugin.
 - Índices têm blocos gerados (README, `skills/start/SKILL.md`, `docs/_index.md`, `docs/adr/_index.md`): edite a fonte e rode o gerador — nunca o bloco à mão.

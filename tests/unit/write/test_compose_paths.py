@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.domains.write.compose import (
+from par.domains.write.compose import (
     compose_path,
     resolve_template,
     template_candidates,

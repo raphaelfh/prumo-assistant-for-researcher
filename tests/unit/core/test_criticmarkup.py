@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from prumo_assist.core.criticmarkup import Mark, accept, apply, emit, parse, reject
+from par.core.criticmarkup import Mark, accept, apply, emit, parse, reject
 
 
 def test_parse_insertion() -> None:

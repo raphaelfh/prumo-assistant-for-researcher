@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from prumo_assist.core.provenance import (
+from par.core.provenance import (
     TraceWriter,
     build_meta,
     hash_input,

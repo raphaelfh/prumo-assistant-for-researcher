@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from prumo_assist.core.note_paths import annotations_path, meta_path
-from prumo_assist.domains.paper.zotero import (
+from par.core.note_paths import annotations_path, meta_path
+from par.domains.paper.zotero import (
     ZoteroRef,
     compose_annotations_file,
     render_annotation,
@@ -52,7 +52,7 @@ def test_compose_annotations_file_has_yaml_and_block() -> None:
 
 
 def test_sync_annotations_writes_dedicated_file(tmp_path: Path) -> None:
-    from prumo_assist.domains.paper.zotero import sync_annotations
+    from par.domains.paper.zotero import sync_annotations
 
     refs = tmp_path / "docs" / "references"
     refs.mkdir(parents=True)
@@ -73,13 +73,13 @@ def test_sync_annotations_writes_dedicated_file(tmp_path: Path) -> None:
     ]
 
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
         patch(
-            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            "par.domains.paper.zotero.resolve_citekey",
             return_value=ZoteroRef("users/13049353", "ABCD1234"),
         ),
-        patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=fake_children),
-        patch("prumo_assist.domains.paper.zotero.fetch_annotations_index", return_value={}),
+        patch("par.domains.paper.zotero.fetch_children", return_value=fake_children),
+        patch("par.domains.paper.zotero.fetch_annotations_index", return_value={}),
     ):
         report = sync_annotations(tmp_path)
 
@@ -93,7 +93,7 @@ def test_sync_annotations_writes_dedicated_file(tmp_path: Path) -> None:
 
 def test_sync_annotations_unchanged_when_content_identical(tmp_path: Path) -> None:
     """Re-sync com mesmo conteúdo do Zotero conta como `unchanged`, não `updated`."""
-    from prumo_assist.domains.paper.zotero import sync_annotations
+    from par.domains.paper.zotero import sync_annotations
 
     refs = tmp_path / "docs" / "references"
     refs.mkdir(parents=True)
@@ -114,13 +114,13 @@ def test_sync_annotations_unchanged_when_content_identical(tmp_path: Path) -> No
     ]
 
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
         patch(
-            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            "par.domains.paper.zotero.resolve_citekey",
             return_value=ZoteroRef("users/13049353", "ABCD1234"),
         ),
-        patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=fake_children),
-        patch("prumo_assist.domains.paper.zotero.fetch_annotations_index", return_value={}),
+        patch("par.domains.paper.zotero.fetch_children", return_value=fake_children),
+        patch("par.domains.paper.zotero.fetch_annotations_index", return_value={}),
     ):
         sync_annotations(tmp_path)  # primeira chamada: inserted
         report = sync_annotations(tmp_path)  # segunda: idêntica
@@ -132,7 +132,7 @@ def test_sync_annotations_unchanged_when_content_identical(tmp_path: Path) -> No
 
 def test_sync_annotations_updated_when_content_changes(tmp_path: Path) -> None:
     """Re-sync com conteúdo diferente do Zotero conta como `updated`."""
-    from prumo_assist.domains.paper.zotero import sync_annotations
+    from par.domains.paper.zotero import sync_annotations
 
     refs = tmp_path / "docs" / "references"
     refs.mkdir(parents=True)
@@ -163,16 +163,16 @@ def test_sync_annotations_updated_when_content_changes(tmp_path: Path) -> None:
     ]
 
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
         patch(
-            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            "par.domains.paper.zotero.resolve_citekey",
             return_value=ZoteroRef("users/13049353", "ABCD1234"),
         ),
-        patch("prumo_assist.domains.paper.zotero.fetch_annotations_index", return_value={}),
+        patch("par.domains.paper.zotero.fetch_annotations_index", return_value={}),
     ):
-        with patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=first):
+        with patch("par.domains.paper.zotero.fetch_children", return_value=first):
             sync_annotations(tmp_path)
-        with patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=second):
+        with patch("par.domains.paper.zotero.fetch_children", return_value=second):
             report = sync_annotations(tmp_path)
 
     assert report["updated"] == 1
@@ -239,7 +239,7 @@ def _annotation(key: str, parent: str, text: str, sort_index: str) -> dict[str, 
 
 def test_sync_annotations_collects_grandchild_annotations(tmp_path: Path) -> None:
     """`/children` só traz attachments — as annotations vêm do índice por parentItem."""
-    from prumo_assist.domains.paper.zotero import sync_annotations
+    from par.domains.paper.zotero import sync_annotations
 
     _bootstrap(tmp_path, "peng2024mismatch")
     children = [_attachment("9JUI5P4Q", "5MSIQBA3"), _attachment("SNAPSHOT1", "5MSIQBA3")]
@@ -252,14 +252,14 @@ def test_sync_annotations_collects_grandchild_annotations(tmp_path: Path) -> Non
     }
 
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
         patch(
-            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            "par.domains.paper.zotero.resolve_citekey",
             return_value=ZoteroRef("users/13049353", "5MSIQBA3"),
         ),
-        patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=children),
+        patch("par.domains.paper.zotero.fetch_children", return_value=children),
         patch(
-            "prumo_assist.domains.paper.zotero.fetch_annotations_index",
+            "par.domains.paper.zotero.fetch_annotations_index",
             return_value=index,
         ),
     ):
@@ -275,7 +275,7 @@ def test_sync_annotations_collects_grandchild_annotations(tmp_path: Path) -> Non
 
 def test_sync_annotations_fetches_index_once_per_library(tmp_path: Path) -> None:
     """Uma chamada a /items?itemType=annotation resolve a biblioteca inteira."""
-    from prumo_assist.domains.paper.zotero import sync_annotations
+    from par.domains.paper.zotero import sync_annotations
 
     _bootstrap(tmp_path, "a2024", "b2024", "c2024")
     children = [_attachment("ANEXO001", "TOP00001")]
@@ -286,13 +286,13 @@ def test_sync_annotations_fetches_index_once_per_library(tmp_path: Path) -> None
         return {"ANEXO001": [_annotation("AN1", "ANEXO001", "Hello", "001")]}
 
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
         patch(
-            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            "par.domains.paper.zotero.resolve_citekey",
             return_value=ZoteroRef("users/13049353", "TOP00001"),
         ),
-        patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=children),
-        patch("prumo_assist.domains.paper.zotero.fetch_annotations_index", fake_index),
+        patch("par.domains.paper.zotero.fetch_children", return_value=children),
+        patch("par.domains.paper.zotero.fetch_annotations_index", fake_index),
     ):
         report = sync_annotations(tmp_path)
 
@@ -302,19 +302,19 @@ def test_sync_annotations_fetches_index_once_per_library(tmp_path: Path) -> None
 
 def test_sync_annotations_without_any_annotation_is_no_children(tmp_path: Path) -> None:
     """Item sem annotation nenhuma continua sendo 'sem anotações' — não é erro."""
-    from prumo_assist.domains.paper.zotero import sync_annotations
+    from par.domains.paper.zotero import sync_annotations
 
     _bootstrap(tmp_path, "smith2024")
     children = [_attachment("ANEXO001", "TOP00001")]
 
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
         patch(
-            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            "par.domains.paper.zotero.resolve_citekey",
             return_value=ZoteroRef("users/13049353", "TOP00001"),
         ),
-        patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=children),
-        patch("prumo_assist.domains.paper.zotero.fetch_annotations_index", return_value={}),
+        patch("par.domains.paper.zotero.fetch_children", return_value=children),
+        patch("par.domains.paper.zotero.fetch_annotations_index", return_value={}),
     ):
         report = sync_annotations(tmp_path)
 
@@ -328,19 +328,19 @@ def test_sync_annotations_propagates_local_api_disabled(tmp_path: Path) -> None:
     """403 na Local API vira erro acionável — não some como 'sem anotações'."""
     import pytest
 
-    from prumo_assist.domains.paper.errors import PaperError
-    from prumo_assist.domains.paper.zotero import sync_annotations
+    from par.domains.paper.errors import PaperError
+    from par.domains.paper.zotero import sync_annotations
 
     _bootstrap(tmp_path, "smith2024")
 
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
         patch(
-            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            "par.domains.paper.zotero.resolve_citekey",
             return_value=ZoteroRef("users/13049353", "TOP00001"),
         ),
         patch(
-            "prumo_assist.domains.paper.zotero.fetch_children",
+            "par.domains.paper.zotero.fetch_children",
             side_effect=PaperError("A API local do Zotero está desligada (HTTP 403)"),
         ),
         pytest.raises(PaperError),

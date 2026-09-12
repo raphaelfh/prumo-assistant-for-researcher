@@ -5,7 +5,7 @@ from __future__ import annotations
 import zipfile
 from pathlib import Path
 
-from prumo_assist.domains.write.comments import (
+from par.domains.write.comments import (
     Comment,
     Revision,
     render_checklist,
@@ -47,7 +47,7 @@ def test_extract_from_docx_handles_minimal_file(tmp_path: Path) -> None:
     )
     with zipfile.ZipFile(docx, "w") as z:
         z.writestr("word/document.xml", minimal_doc)
-    from prumo_assist.domains.write.comments import extract_from_docx
+    from par.domains.write.comments import extract_from_docx
 
     result = extract_from_docx(docx)
     assert result.comments == []

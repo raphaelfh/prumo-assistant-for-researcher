@@ -9,8 +9,8 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from prumo_assist.core.paths import resolve_resource
-from prumo_assist.core.skills import load_skill_registry
+from par.core.paths import resolve_resource
+from par.core.skills import load_skill_registry
 
 _FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "routing_phrases.toml"
 

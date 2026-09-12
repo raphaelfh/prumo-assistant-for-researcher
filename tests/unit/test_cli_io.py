@@ -6,8 +6,8 @@ import io
 
 import pytest
 
-from prumo_assist import PrumoError
-from prumo_assist.core import cli_io
+from par import PrumoError
+from par.core import cli_io
 
 
 def test_read_stdin_text_retorna_corpo() -> None:

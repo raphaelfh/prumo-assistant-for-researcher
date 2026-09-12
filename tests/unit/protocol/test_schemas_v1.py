@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
+from par.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 
 def _valid_clinical() -> dict[str, Any]:

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.core.note_paths import extract_path, meta_path
-from prumo_assist.domains.paper.callout import (
+from par.core.note_paths import extract_path, meta_path
+from par.domains.paper.callout import (
     EXTRACT_BEGIN,
     EXTRACT_END,
     ExtractionSection,
@@ -16,8 +16,8 @@ from prumo_assist.domains.paper.callout import (
     parse_extraction_template,
     render_callout,
 )
-from prumo_assist.domains.paper.errors import PaperError
-from prumo_assist.domains.paper.sync import read_nota_yaml
+from par.domains.paper.errors import PaperError
+from par.domains.paper.sync import read_nota_yaml
 
 
 def test_parse_template_extracts_section_names_and_instructions() -> None:

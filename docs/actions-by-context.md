@@ -1,11 +1,11 @@
 ---
-title: Contextos de necessidade → ações no prumo-assist
+title: Contextos de necessidade → ações no PAR
 tags: [journey, playbook]
 ---
 
 # Contextos de necessidade → ações
 
-> Mapa de bolso: dado um *gatilho* da rotina do pesquisador, qual sequência de comandos do prumo-assist resolve. Organizado pelas 3 fases da [[journey|jornada]].
+> Mapa de bolso: dado um *gatilho* da rotina do pesquisador, qual sequência de comandos do PAR resolve. Organizado pelas 3 fases da [[journey|jornada]].
 
 ## Fase 0 · Setup do projeto
 
@@ -25,18 +25,18 @@ tags: [journey, playbook]
 
 ### "Tópico novo — preciso mapeamento de literatura amplo *antes* de fechar pergunta"
 *Busca exploratória pré-PICOT. Objetivo: ver o terreno.*
-1. `/prumo-assist:wiki query` — pergunta livre, retorna síntese com citações do que já existe no acervo.
+1. `/par:wiki query` — pergunta livre, retorna síntese com citações do que já existe no acervo.
 2. `prumo paper find "<keyword>"` — fuzzy lookup, ver o que está perto.
 3. Capturar achados como rascunhos em `docs/brainstorm/daily/<data>.md` (se módulo `brainstorm-pipeline` ativado).
 
 ### "Achei um paper que parece relevante"
 1. `prumo capture <doi|arxiv|url>` — classifica o input.
-2. `/prumo-assist:wiki ingest <link>` — adiciona ao wiki (delega papers ao `paper library`).
+2. `/par:wiki ingest <link>` — adiciona ao wiki (delega papers ao `paper library`).
 3. Voltar pra `wiki query` se precisar contextualizar.
 
 ### "Preciso fechar um PICOT antes de prosseguir"
 *Pivô da Fase 1: da busca ampla → busca focada.*
-1. `/prumo-assist:protocol picot` — auto-detecta modo:
+1. `/par:protocol picot` — auto-detecta modo:
    - greenfield → Socrático (perguntas P/I/C/O/T ancoradas em `wiki query`)
    - prose existente → Formalize (extrai de `protocol.md`/`project.md`, confirma)
 2. Skill grava `.claude/picot.toml` (canônico), regenera blocos delimitados em `protocol.md` e `project.md`, e cria `adr-NNNN-picot-v1-versao-inicial.md`.
@@ -44,25 +44,25 @@ tags: [journey, playbook]
 
 ### "PICOT mudou — preciso registrar"
 *Sub-fluxo de versão: bumpa picot.toml e gera ADR.*
-1. Editar `.claude/picot.toml` à mão (ou via `/prumo-assist:protocol picot`).
+1. Editar `.claude/picot.toml` à mão (ou via `/par:protocol picot`).
 2. `prumo protocol diff` — mostra campos mudados; classifica estrutural vs cosmético.
-3. Se estrutural: `/prumo-assist:protocol picot diff` (skill pergunta motivação) → cria `adr-NNNN-picot-v<N+1>-<slug>.md` + atualiza blocos delimitados.
+3. Se estrutural: `/par:protocol picot diff` (skill pergunta motivação) → cria `adr-NNNN-picot-v<N+1>-<slug>.md` + atualiza blocos delimitados.
 4. Se cosmético (apenas `last_updated` ou `hypothesis.rationale`): `prumo protocol propagate` basta.
 
 ### "PICOT fechado — agora preciso busca focada e cumulativa"
 *Busca dirigida pós-PICOT. Objetivo: literatura robusta sobre o escopo definido.*
 1. Lista de DOIs do PICOT em mãos.
-2. `/prumo-assist:wiki ingest <DOI>` em batch — um por vez ou em lote.
-3. `/prumo-assist:paper extract --batch` — gera callouts estruturados de todos.
+2. `/par:wiki ingest <DOI>` em batch — um por vez ou em lote.
+3. `/par:paper extract --batch` — gera callouts estruturados de todos.
 4. `prumo paper graph` — popula `cites:` no YAML; vê quem cita quem.
-5. `/prumo-assist:wiki lint` — confirma que o acervo está internamente consistente.
+5. `/par:wiki lint` — confirma que o acervo está internamente consistente.
 
 ---
 
 ## Fase 2 · Evidência  *(Study and Develop)*
 
 ### "Quero extrair conteúdo estruturado de um PDF"
-1. `/prumo-assist:paper extract @<citekey>` — preenche callout (TL;DR + PICOT + Método + Resultados + Limitações).
+1. `/par:paper extract @<citekey>` — preenche callout (TL;DR + PICOT + Método + Resultados + Limitações).
 2. Conferir em `docs/references/papers/<citekey>/_extract.md` *(layout α)*.
 3. `prumo paper graph` — atualiza arestas `[@key]` no YAML.
 
@@ -71,7 +71,7 @@ tags: [journey, playbook]
 2. `prumo paper sync-pdfs` — symlinks pra `~/Zotero/storage/`.
 3. `prumo paper sync-annotations` — highlights → `_annotations.md`.
 4. `prumo paper sync-notes` — child notes Zotero → `note__*.md` *(novo, spec B1)*.
-5. `/prumo-assist:paper extract --batch` quando quiser callouts em massa.
+5. `/par:paper extract --batch` quando quiser callouts em massa.
 6. `prumo paper sync-all` faz 1–4 em sequência *(orquestrador, novo)*.
 
 ### "Vou ler um paper a fundo agora — leitura ativa estruturada"
@@ -84,7 +84,7 @@ tags: [journey, playbook]
 
 ### "Quero estudar conceito X usando minhas próprias fontes"
 *Claude como tutor metacognitivo. Sessão Socrática em 5 steps ancorada no acervo.*
-1. `/prumo-assist:wiki study <topic>` — skill conduz: Recall → Anchor → Connect → Apply → Reflect.
+1. `/par:wiki study <topic>` — skill conduz: Recall → Anchor → Connect → Apply → Reflect.
 2. Skill cria log em `docs/studies/<escopo>/notes/session-<topic>-<data>.md`.
 3. No step Reflect, skill oferece arquivar insight como finding.
 4. Citação strict — só citekeys do acervo. Refs faltantes viram `[REF FALTANTE]`.
@@ -95,7 +95,7 @@ tags: [journey, playbook]
 3. `prumo paper find "<seed>"` quando o grafo for grande demais.
 
 ### "Suspeito que o wiki está degradando"
-1. `/prumo-assist:wiki lint` — citekeys quebradas, páginas órfãs, contradições, stale claims.
+1. `/par:wiki lint` — citekeys quebradas, páginas órfãs, contradições, stale claims.
 2. Resolver erros críticos antes de PR.
 3. `prumo wiki stats` — sanidade quantitativa por tipo.
 
@@ -106,21 +106,21 @@ tags: [journey, playbook]
 ### "Vou começar um draft"
 1. Criar o `.md` do draft em `docs/studies/<slug>/writing/` — nota de apoio (`type: finding`, `type: source`) vai em `docs/studies/<slug>/notes/`, com frontmatter.
 2. Escrever — usando `[@key]` (ou `@key` narrativa) pra citações inline.
-3. `/prumo-assist:write style` — passe editorial (pontuação, citação, superlativos).
+3. `/par:write style` — passe editorial (pontuação, citação, superlativos).
 
 ### "Terminei um draft e quero auto-revisar antes do orientador"
-1. `/prumo-assist:write style` — limpa pontuação e estilo.
-2. `/prumo-assist:review critique` — força/fraqueza/claims sem evidência.
+1. `/par:write style` — limpa pontuação e estilo.
+2. `/par:review critique` — força/fraqueza/claims sem evidência.
 3. Iterar até que o `review critique` pare de devolver achados críticos.
 
 ### "Vou submeter pro CEP / Comitê de Ética em Pesquisa"
 *Documento brasileiro com estrutura específica (Plataforma Brasil, TCLE, riscos/benefícios).*
-1. `/prumo-assist:protocol cep` — gera draft completo a partir do PICOT + protocol.md.
+1. `/par:protocol cep` — gera draft completo a partir do PICOT + protocol.md.
 2. Revisar manualmente o TCLE (skill põe placeholder; conteúdo depende do cenário com/sem participante).
 3. `prumo write export <draft>.md --to docx` pra entregar formatado.
 
 ### "Vou montar artigo pra venue (NEJM/Lancet/Nature Med/...)"
-1. `/prumo-assist:write manuscript --venue=<NEJM|Lancet|...>` — gera draft IMRaD venue-aware.
+1. `/par:write manuscript --venue=<NEJM|Lancet|...>` — gera draft IMRaD venue-aware.
 2. `prumo write list-styles` confirma o CSL do venue.
 3. `prumo write export draft.md --to docx --style <venue>`.
    - **Pré-requisito (docx):** Zotero + Better BibTeX rodando com a janela
@@ -132,7 +132,7 @@ tags: [journey, playbook]
 4. No Word: aba Zotero → `Refresh` → revisar bibliografia antes de submeter.
 
 ### "Vou escrever a seção de métodos estatísticos"
-1. `/prumo-assist:protocol sap` — gera PAE completo (sample size, métricas, sensitivity).
+1. `/par:protocol sap` — gera PAE completo (sample size, métricas, sensitivity).
 2. Conferir cálculo de sample size; ajustar effect size se necessário.
 3. Referenciar plano no project.md ou CEP via wikilink.
 

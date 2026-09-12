@@ -25,13 +25,13 @@ prumo:
 > **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
 >
 > 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
->    operação desta skill; roteie para `/prumo-assist:start` (instalação guiada com
+>    operação desta skill; roteie para `/par:start` (instalação guiada com
 >    consentimento) e pare aqui.
 > 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
 >    definido, compare a versão do CLI com o campo `version` de
 >    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
 >    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
->    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
+>    `uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,
 >    pule este passo em silêncio.
 > 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
@@ -249,12 +249,12 @@ Anexar ao topo de `docs/_log.md`:
 
 Sugestão de próximas ações:
   - Órfãs: linkar do _index.md ou deletar
-  - Citekeys: rodar /prumo-assist:paper library sync-bib
-  - Conceitos candidatos: /prumo-assist:wiki ingest para criar páginas
+  - Citekeys: rodar /par:paper library sync-bib
+  - Conceitos candidatos: /par:wiki ingest para criar páginas
 ```
 
 ## Boundaries
 
-- **Não corrige** — só reporta. Correções vão para o usuário ou para outras skills (`/prumo-assist:paper library`, `/prumo-assist:wiki ingest`).
+- **Não corrige** — só reporta. Correções vão para o usuário ou para outras skills (`/par:paper library`, `/par:wiki ingest`).
 - **Não apaga páginas órfãs** — pode ser que sejam drafts; listar e deixar decisão com o humano.
 - **Seções 6/7 (LLM-based)** são caras — respeitar o limite de arquivos por rodada e reportar "coverage parcial" honestamente.

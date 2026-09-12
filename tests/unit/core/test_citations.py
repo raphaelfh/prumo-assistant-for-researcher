@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from prumo_assist.core.citations import (
+from par.core.citations import (
     CITEKEY_RE,
     iter_citekeys,
     iter_narrative_citation_spans,

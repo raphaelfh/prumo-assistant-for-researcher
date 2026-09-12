@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from prumo_assist.domains.protocol.adr import (
+from par.domains.protocol.adr import (
     SNAPSHOT_BEGIN,
     SNAPSHOT_END,
     compose_adr,
@@ -13,8 +13,8 @@ from prumo_assist.domains.protocol.adr import (
     find_last_picot_adr,
     next_number,
 )
-from prumo_assist.domains.protocol.diff import FieldChange, PicotDiff
-from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
+from par.domains.protocol.diff import FieldChange, PicotDiff
+from par.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 
 def _spec(version: int = 1, population: str = "DS_A") -> PicotSpec:
@@ -52,7 +52,7 @@ def test_next_number_increments(tmp_path: Path) -> None:
 
 
 def test_numeracao_de_adr_e_por_escopo(tmp_path: Path) -> None:
-    from prumo_assist.domains.protocol import adr
+    from par.domains.protocol import adr
 
     a = tmp_path / "docs" / "studies" / "a" / "decisions"
     b = tmp_path / "docs" / "studies" / "b" / "decisions"

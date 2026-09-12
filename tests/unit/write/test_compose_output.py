@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.domains.write.compose import write_output
+from par.domains.write.compose import write_output
 
 
 def test_write_output_drafts_creates_file(tmp_path: Path) -> None:

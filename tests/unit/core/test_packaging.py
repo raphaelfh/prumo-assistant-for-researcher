@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from prumo_assist.core import packaging
+from par.core import packaging
 
 _PYPROJECT_VIRTUAL = '[project]\nname = "pj_demo"\nversion = "0.1.0"\n'
 _PYPROJECT_INSTALAVEL = (

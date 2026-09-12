@@ -22,7 +22,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
-from prumo_assist.core.skills import SkillManifest, SkillRegistry, load_skill_registry  # noqa: E402
+from par.core.skills import SkillManifest, SkillRegistry, load_skill_registry  # noqa: E402
 
 _FRONT_RE = re.compile(r"\A---\n(.*?)\n---", re.DOTALL)
 
@@ -60,11 +60,11 @@ def render_skills_table(registry: SkillRegistry) -> str:
     for name in registry.names():
         skill = registry.get(name)
         if not skill.modes:
-            lines.append(f"| — | `/prumo-assist:{name}` | {_one_line(skill.description)} |")
+            lines.append(f"| — | `/par:{name}` | {_one_line(skill.description)} |")
             continue
         for mode in skill.modes:
             lines.append(
-                f'| "{mode.phrases[0]}" | `/prumo-assist:{name} {mode.name}` | '
+                f'| "{mode.phrases[0]}" | `/par:{name} {mode.name}` | '
                 f"{_one_line(mode.description)} |"
             )
     return "\n".join(lines)
@@ -75,12 +75,11 @@ def render_skills_catalog(registry: SkillRegistry) -> str:
     for name in registry.names():
         skill = registry.get(name)
         if not skill.modes:
-            lines.append(f"- `/prumo-assist:{name}` — {_one_line(skill.description)}")
+            lines.append(f"- `/par:{name}` — {_one_line(skill.description)}")
             continue
         for mode in skill.modes:
             lines.append(
-                f'- `/prumo-assist:{name} {mode.name}` — "{mode.phrases[0]}" — '
-                f"{_one_line(mode.description)}"
+                f'- `/par:{name} {mode.name}` — "{mode.phrases[0]}" — {_one_line(mode.description)}'
             )
     return "\n".join(lines)
 
@@ -172,7 +171,7 @@ _PREFLIGHT_HEADER = (
 
 _PF_CLI = (
     "**CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA\n"
-    "operação desta skill; roteie para `/prumo-assist:start` (instalação guiada com\n"
+    "operação desta skill; roteie para `/par:start` (instalação guiada com\n"
     "consentimento) e pare aqui."
 )
 
@@ -181,7 +180,7 @@ _PF_DRIFT = (
     "definido, compare a versão do CLI com o campo `version` de\n"
     "`$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise\n"
     '("CLI X < plugin Y — comandos novos podem não existir") e ofereça\n'
-    "`uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,\n"
+    "`uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,\n"
     "pule este passo em silêncio."
 )
 
@@ -201,7 +200,7 @@ _PF_QMD = (
 
 # Skills só-qmd (sem `cli`) não ganham o item 1 — que roteia pro /start quando o
 # CLI falta — então o item de qmd absorve essa frase de roteamento.
-_PF_QMD_SEM_CLI = _PF_QMD + " Se precisar do stack completo, roteie para `/prumo-assist:start`."
+_PF_QMD_SEM_CLI = _PF_QMD + " Se precisar do stack completo, roteie para `/par:start`."
 
 _PF_ZOTERO = (
     "**Zotero:** confira `prumo doctor --json` → `external_deps[name=zotero].present`;\n"

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.core import pj_layout as L
+from par.core import pj_layout as L
 
 
 def _mk_project(root: Path, *scopes: str) -> Path:

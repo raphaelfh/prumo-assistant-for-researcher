@@ -1,0 +1,1181 @@
+"""``prumo`` — entry point CLI (Typer).
+
+Filosofia: este arquivo é a **fina fachada** que costura os comandos do CLI.
+Lógica real fica em ``core/`` (transversal) e ``domains/`` (a entrar nos PR1+).
+Aqui só tem: parsing de args, chamada da função certa, formatação de saída.
+
+Comandos disponíveis no PR0 (fundação):
+
+- ``prumo --version`` — mostra a versão
+- ``prumo init [project]`` — cria estrutura de ``pj_*`` a partir do template
+  (wizard interativo se ``project`` for omitido)
+- ``prumo doctor [path]`` — health-check do projeto e das skills instaladas
+- ``prumo status [path]`` — onde o estudo está e a próxima frase (só lê o disco)
+- ``prumo validate <schema>`` — valida o JSON de um subagent contra o contrato
+
+Subcomandos por domínio (``prumo paper ...``, ``prumo wiki ...``, ...) entram
+nos PR1-2. O ``cli.py`` apenas registra esses sub-apps quando os domínios
+forem implementados.
+"""
+
+from __future__ import annotations
+
+import re
+import shutil
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Annotated
+
+import typer
+from rich.panel import Panel
+from rich.text import Text
+
+from par import (
+    IntegrationError,
+    ManifestError,
+    PrumoError,
+    __version__,
+)
+from par.contracts import validate_contract
+from par.core import pj_layout
+from par.core.cli_io import read_stdin_json
+from par.core.cli_op import cli_run
+from par.core.deps import check_external_deps
+from par.core.output import Console
+from par.core.packaging import packaging_issues
+from par.core.paths import find_resource, resolve_resource
+from par.core.scaffold import (
+    ModuleInfo,
+    TemplateDrift,
+    apply_pkg_name,
+    apply_project_name,
+    apply_template_update,
+    discover_modules,
+    get_module,
+    is_applied,
+    migrate_project_context,
+    module_requires_pkg,
+    module_requires_scope,
+    pkg_name,
+    standard_issues,
+    template_drift,
+)
+from par.core.scaffold import overlay as _overlay
+from par.core.skill_refs import (
+    legacy_installed_dirs,
+    migrate_skill_names,
+    scan_skill_refs,
+)
+from par.core.skills import SkillRef, SkillRegistry, load_skill_registry
+from par.domains.capture.cli import capture_command
+from par.domains.paper.cli import paper_app
+from par.domains.paper.connect import bib_is_placeholder
+from par.domains.protocol.cli import protocol_app
+from par.domains.wiki.cli import wiki_app
+from par.domains.write.cli import write_app
+from par.domains.write.zettlr import profile_issues as zettlr_profile_issues
+from par.integrations import REGISTRY as INTEGRATIONS
+from par.status import project_status, render_status, status_to_dict
+
+app = typer.Typer(
+    name="prumo",
+    help=(
+        "Knowledge, bibliography & academic writing assistant for clinical research.\n"
+        "Lives between Zotero, Zettlr, and your agent-host."
+    ),
+    add_completion=False,
+    no_args_is_help=True,
+)
+# Subcomandos por domínio. Cada domínio é uma sub-app independente.
+app.add_typer(paper_app)
+app.add_typer(protocol_app)
+app.add_typer(wiki_app)
+app.add_typer(write_app)
+app.command(
+    "capture", help="Classifica input (URL, DOI, arXiv, PDF, citekey) e sugere próximo passo."
+)(capture_command)
+
+# Referência ao stdin capturada na importação. Usada para decidir se um comando
+# roda em modo interativo. Capturamos o objeto (em vez de ler ``sys.stdin``
+# direto no momento da decisão) porque o ``CliRunner`` dos testes substitui
+# ``sys.stdin`` por um wrapper durante o ``invoke`` — ler o objeto vivo nesse
+# instante perderia o ``isatty`` injetado pelo teste no stdin original.
+_STDIN = sys.stdin
+
+
+def _stdin_isatty() -> bool:
+    """``True`` se a entrada padrão é um terminal interativo.
+
+    Lê do objeto stdin capturado na importação (ver ``_STDIN``), de modo que
+    permaneça testável via ``monkeypatch.setattr(cli.sys.stdin, "isatty", ...)``
+    mesmo quando o ``CliRunner`` troca ``sys.stdin`` por baixo dos panos.
+    """
+    try:
+        return _STDIN.isatty()
+    except (ValueError, OSError):  # stdin fechado/sem fd (ex.: alguns runners)
+        return False
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"prumo {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: Annotated[
+        bool,
+        typer.Option("--version", help="Mostra versão e sai.", callback=_version_callback),
+    ] = False,
+) -> None:
+    """Entry point — flags globais."""
+
+
+# ---------------------------------------------------------------------------
+# prumo init
+# ---------------------------------------------------------------------------
+
+
+# Modos de criação do pj_*. Mantém ordem de exibição no wizard.
+MODE_NEW = "new"
+MODE_MERGE = "merge"
+MODE_FORCE = "force"
+
+_VALID_PREFIXES = ("pj_",)
+_NAME_RE = re.compile(r"^[a-z0-9_]+$")
+
+
+def _resolve_template_dir() -> Path:
+    """Localiza ``templates/pj_base/`` (instalado ou worktree)."""
+    return resolve_resource("templates") / "pj_base"
+
+
+def _resolve_skills_dir() -> Path | None:
+    """Localiza ``skills/`` da fonte (raiz do plugin) ou retorna ``None``."""
+    return find_resource("skills")
+
+
+def _skill_registry() -> SkillRegistry | None:
+    """Registry do bundle de skills, ou ``None`` quando o bundle não existe."""
+    skills_dir = _resolve_skills_dir()
+    if skills_dir is None:
+        return None
+    registry, _ = load_skill_registry(skills_dir, strict=False)
+    return registry
+
+
+def _legacy_skill_map() -> dict[str, SkillRef]:
+    """Nomes de skill antigos → modo novo, lidos do bundle (vazio sem bundle)."""
+    registry = _skill_registry()
+    return registry.legacy_map() if registry else {}
+
+
+def _validate_project_name(raw: str) -> tuple[Path, str]:
+    """Normaliza e valida o nome do projeto.
+
+    Aceita: ``pj_x``, ``./pj_x``, ``/tmp/pj_x``.
+    Rejeita: nomes sem prefixo válido, caracteres inválidos.
+
+    Retorna ``(absolute_path, basename)``.
+    """
+    target = Path(raw).resolve()
+    name = target.name
+    if not name.startswith(_VALID_PREFIXES):
+        raise typer.BadParameter(
+            f"Nome do projeto deve começar com {' ou '.join(_VALID_PREFIXES)} (recebido: {name!r})."
+        )
+    if not _NAME_RE.match(name):
+        raise typer.BadParameter(
+            f"Nome do projeto deve usar apenas [a-z0-9_] (recebido: {name!r})."
+        )
+    return target, name
+
+
+def _is_dir_empty(p: Path) -> bool:
+    """``True`` se o diretório não existe ou só tem arquivos ``.DS_Store``-like."""
+    if not p.exists():
+        return True
+    if not p.is_dir():
+        return False
+    for child in p.iterdir():
+        if child.name in {".DS_Store", "Thumbs.db"}:
+            continue
+        return False
+    return True
+
+
+def _render_banner(console: Console) -> None:
+    """Banner Rich estilo Speckit para abrir o wizard interativo."""
+    if console.json_mode:
+        return
+    body = Text.assemble(
+        ("prumo init  ", "bold cyan"),
+        (f"v{__version__}\n", "dim"),
+        ("Knowledge, bibliography & writing scaffold\n", ""),
+        ("for clinical research projects.", "dim"),
+    )
+    console._rich.print(Panel(body, border_style="cyan", padding=(0, 2)))
+
+
+def _render_next_steps(console: Console, target: Path, mode: str) -> None:
+    """Mostra passos seguintes — invocado após sucesso, ignorado em JSON."""
+    if console.json_mode:
+        return
+    rel = target.name
+    console._rich.print()
+    console._rich.print("[bold]Próximos passos:[/bold]")
+    console._rich.print(f"  [cyan]cd {rel}[/cyan]")
+    if mode == MODE_NEW:
+        console._rich.print(
+            "  Edite [cyan]docs/project_guide.md[/cyan] — objetivo, hipótese, escopo do wiki"
+        )
+        console._rich.print("  Ative módulos opcionais (clínico, ML): [cyan]prumo add[/cyan]")
+        console._rich.print("  No Claude Code, comece por: [cyan]/par:start[/cyan]")
+    elif mode == MODE_MERGE:
+        console._rich.print(
+            "  Revise as diferenças no [cyan]git status[/cyan] — arquivos existentes foram preservados."
+        )
+        console._rich.print(
+            "  Ative módulos com [cyan]prumo add[/cyan]; no Claude Code: [cyan]/par:start[/cyan]."
+        )
+    else:  # MODE_FORCE
+        console._rich.print(
+            "  [yellow]Conteúdo anterior foi substituído.[/yellow] Confira [cyan]git status[/cyan]."
+        )
+
+
+@dataclass(frozen=True)
+class WizardAnswers:
+    """Respostas coletadas pelo wizard interativo de ``prumo init``."""
+
+    target: Path
+    mode: str
+    integrations: list[str]
+    modules: list[str]
+    init_git: bool
+    scope_slug: str
+
+
+def _wizard(console: Console, default_target: str | None = None) -> WizardAnswers:
+    """Wizard interativo Speckit-style. Retorna respostas do usuário."""
+    _render_banner(console)
+    # 1. Nome do projeto
+    name = typer.prompt(
+        "Nome do projeto (ex.: pj_my_study)",
+        default=default_target or "pj_",
+    )
+    target, _ = _validate_project_name(name)
+
+    # 1b. Slug do primeiro escopo de escrita (docs/studies/<slug>/) — sugerido
+    # a partir do nome do projeto, aceito com Enter.
+    slug_default = name.removeprefix("pj_") or "principal"
+    scope_slug = typer.prompt("Slug do primeiro escopo de escrita", default=slug_default)
+
+    # 2. Modo
+    if target.exists() and not _is_dir_empty(target):
+        console._rich.print(
+            f"\n[yellow]⚠[/yellow]  [bold]{target}[/bold] já existe e tem conteúdo."
+        )
+        console._rich.print("Como prosseguir?\n")
+        console._rich.print(
+            "  [bold cyan]1)[/bold cyan] Merge — preserva seus arquivos, adiciona só o que falta [dim](recomendado)[/dim]"
+        )
+        console._rich.print(
+            "  [bold cyan]2)[/bold cyan] Force — apaga tudo e recria do zero [red](destrutivo)[/red]"
+        )
+        console._rich.print("  [bold cyan]3)[/bold cyan] Cancelar\n")
+        choice = typer.prompt("Escolha [1/2/3]", default="1")
+        if choice.strip() == "3":
+            raise typer.Abort()
+        mode = MODE_MERGE if choice.strip() == "1" else MODE_FORCE
+        if mode == MODE_FORCE:
+            confirm = typer.confirm(f"Confirma DELETAR tudo em {target}?", default=False)
+            if not confirm:
+                raise typer.Abort()
+    else:
+        mode = MODE_NEW
+
+    # 3. Integrações (multi-select simplificado)
+    available = list(INTEGRATIONS.keys())
+    console._rich.print()
+    if len(available) <= 1:
+        integrations = available
+    else:
+        console._rich.print("[bold]Integrações disponíveis:[/bold]")
+        for i, key in enumerate(available, 1):
+            console._rich.print(f"  [cyan]{i})[/cyan] {key}")
+        raw = typer.prompt(
+            "Quais instalar? (números separados por vírgula, ou 'all')",
+            default="1" if len(available) >= 1 else "",
+        )
+        if raw.strip().lower() == "all":
+            integrations = available
+        else:
+            try:
+                idxs = [int(x.strip()) - 1 for x in raw.split(",") if x.strip()]
+                integrations = [available[i] for i in idxs if 0 <= i < len(available)]
+            except ValueError:
+                integrations = ["claude_code"] if "claude_code" in available else available[:1]
+
+    # Módulos opcionais (à la carte, todos desmarcados).
+    _modules = discover_modules()
+    selected_modules: list[str] = []
+    if _modules:
+        console._rich.print("\n[bold]Módulos opcionais (Enter para nenhum):[/bold]")
+        for _i, _m in enumerate(_modules, 1):
+            console._rich.print(f"  [cyan]{_i})[/cyan] {_m.name} — {_m.description}")
+        _raw = typer.prompt("Quais ativar? (números separados por vírgula)", default="")
+        for _tok in _raw.split(","):
+            _tok = _tok.strip()
+            if not _tok:
+                continue
+            try:
+                _idx = int(_tok) - 1
+            except ValueError:
+                continue
+            if 0 <= _idx < len(_modules):
+                selected_modules.append(_modules[_idx].name)
+
+    # 4. git init (apenas se MODE_NEW)
+    init_git = False
+    if mode == MODE_NEW:
+        init_git = typer.confirm("Inicializar repositório git?", default=True)
+
+    return WizardAnswers(
+        target=target,
+        mode=mode,
+        integrations=integrations,
+        modules=selected_modules,
+        init_git=init_git,
+        scope_slug=scope_slug,
+    )
+
+
+def _init_git_repo(target: Path) -> bool:
+    """Roda ``git init`` no target. Retorna True se sucesso."""
+    if (target / ".git").exists():
+        return False
+    import subprocess
+
+    try:
+        subprocess.run(
+            ["git", "init", "--quiet"],
+            cwd=target,
+            check=True,
+            capture_output=True,
+        )
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+
+@app.command("init")
+def init_command(
+    project: Annotated[
+        str | None,
+        typer.Argument(
+            help="Nome do diretório do pj_* a criar. Omita para wizard interativo.",
+        ),
+    ] = None,
+    integration: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--integration",
+            "-i",
+            help="Adapter de agent-host a configurar. Pode repetir. Default: claude_code.",
+        ),
+    ] = None,
+    with_modules: Annotated[
+        str | None,
+        typer.Option(
+            "--with",
+            help="Módulos a ativar na criação, separados por vírgula (ex.: clinical,ml).",
+        ),
+    ] = None,
+    json_mode: Annotated[
+        bool, typer.Option("--json", help="Saída em JSON pra scripts/notebooks.")
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            "-f",
+            help="Apaga o destino e recria do zero (DESTRUTIVO).",
+        ),
+    ] = False,
+    merge: Annotated[
+        bool,
+        typer.Option(
+            "--merge",
+            "-m",
+            help="Mescla scaffold em diretório existente sem sobrescrever arquivos.",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Não-interativo: aceita defaults e pula wizard (útil em CI).",
+        ),
+    ] = False,
+    init_git: Annotated[
+        bool,
+        typer.Option(
+            "--git/--no-git",
+            help="Inicializa git no novo projeto (modo não-interativo; default: True).",
+        ),
+    ] = True,
+) -> None:
+    """Cria um novo projeto ``pj_*`` a partir do template e instala skills.
+
+    Modos:
+
+    \b
+    - ``prumo init`` (sem args, TTY) → wizard interativo (Speckit-style)
+    - ``prumo init pj_x`` → cria do zero (erro se já existir)
+    - ``prumo init pj_x --merge`` → mescla sem sobrescrever existentes
+    - ``prumo init pj_x --force`` → apaga e recria (DESTRUTIVO)
+    - ``prumo init pj_x --yes`` → não-interativo (CI)
+    """
+    console = Console(json_mode=json_mode)
+
+    if force and merge:
+        console.error("--force e --merge são mutuamente exclusivos.")
+        raise typer.Exit(code=2)
+
+    # Decide se vai pro wizard ou modo direto.
+    interactive = project is None and not yes and not json_mode and sys.stdin.isatty()
+
+    if interactive:
+        try:
+            answers = _wizard(console)
+        except typer.Abort:
+            console.warn("Cancelado.")
+            raise typer.Exit(code=130) from None  # 130 = SIGINT convention
+        target = answers.target
+        mode = answers.mode
+        integration_list = list(answers.integrations)
+        init_git_flag = answers.init_git
+        scope_slug = answers.scope_slug
+    else:
+        if project is None:
+            console.error("Informe o nome do projeto ou rode em terminal interativo (TTY).")
+            raise typer.Exit(code=2)
+        target, _ = _validate_project_name(project)
+        integration_list = integration or ["claude_code"]
+        init_git_flag = init_git
+        # Sem wizard, ninguém escolhe slug — o template já nasce com
+        # `docs/studies/principal/` (default da decisão de layout por escopo).
+        scope_slug = "principal"
+        if merge:
+            mode = MODE_MERGE
+        elif force:
+            mode = MODE_FORCE
+        else:
+            mode = MODE_NEW
+
+    # Validações de existência conforme modo.
+    if mode == MODE_NEW and target.exists() and not _is_dir_empty(target):
+        console.error(
+            f"{target} já existe e tem conteúdo. Use --merge (preservar) ou --force (apagar)."
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        template = _resolve_template_dir()
+        copied: list[str] = []
+        skipped: list[str] = []
+
+        if mode == MODE_FORCE and target.exists():
+            shutil.rmtree(target)
+
+        if mode == MODE_MERGE:
+            target.mkdir(parents=True, exist_ok=True)
+            copied, skipped = _overlay(template, target)
+        else:  # MODE_NEW or MODE_FORCE
+            shutil.copytree(template, target)
+            copied = [str(p.relative_to(template)) for p in template.rglob("*") if p.is_file()]
+
+        apply_project_name(target, target.name, copied)
+
+        # Escopo inicial com o slug escolhido no wizard — o template já nasce
+        # com `docs/studies/principal/`; só renomeia quando o usuário pediu
+        # outro slug (aceitar o default "principal" com Enter não move nada;
+        # --merge nunca reorganiza uma árvore que já pode ser do usuário).
+        if mode != MODE_MERGE and scope_slug != "principal":
+            principal_scope = target / pj_layout.STUDIES_RELPATH / "principal"
+            chosen_scope = target / pj_layout.STUDIES_RELPATH / scope_slug
+            if principal_scope.is_dir() and not chosen_scope.exists():
+                principal_scope.rename(chosen_scope)
+
+        # git init (somente em MODE_NEW por default; merge não toca git existente).
+        git_initialized = False
+        if mode == MODE_NEW and init_git_flag:
+            git_initialized = _init_git_repo(target)
+
+        # Instala skills via integrations escolhidas (modo tolerante).
+        skills_dir = _resolve_skills_dir()
+        registry = None
+        if skills_dir is not None:
+            registry, skill_warnings = load_skill_registry(skills_dir, strict=False)
+            for w in skill_warnings:
+                console.warn(f"skill ignorada: {w}")
+
+        installed_summary: list[dict[str, object]] = []
+        for key in integration_list:
+            cls = INTEGRATIONS.get(key)
+            if cls is None:
+                console.warn(f"Integration '{key}' desconhecida; ignorada.")
+                continue
+            adapter = cls()
+            if registry is not None:
+                report = adapter.install(target, registry)
+                installed_summary.append(
+                    {
+                        "integration": report.integration,
+                        "installed": report.installed,
+                        "skipped": [{"skill": s, "reason": r} for s, r in report.skipped],
+                    }
+                )
+            else:
+                installed_summary.append(
+                    {"integration": adapter.name, "installed": [], "skipped": []}
+                )
+
+        # Módulos a ativar (wizard no modo interativo; --with no modo direto).
+        if interactive:
+            module_names = list(answers.modules)
+        else:
+            module_names = (
+                [m.strip() for m in with_modules.split(",") if m.strip()] if with_modules else []
+            )
+        modules_applied: list[str] = []
+        for _name in module_names:
+            _info = get_module(_name)
+            if _info is None:
+                console.warn(f"Módulo '{_name}' desconhecido; ignorado.")
+                continue
+            # `scope_slug` já é o slug real deste projeto (renomeado acima, se
+            # o usuário pediu outro) — módulos por-escopo (ex. `clinical`)
+            # caem direto nele; módulos sem marcador de escopo ignoram o kwarg.
+            # Idem `pkg` para o módulo `code` (ADR-0027).
+            _pkg = pkg_name(target.name) if module_requires_pkg(_info) else None
+            _mod_copied, _ = _overlay(_info.path, target, scope=scope_slug, pkg=_pkg)
+            apply_project_name(target, target.name, _mod_copied)
+            if _pkg is not None:
+                apply_pkg_name(target, _pkg, _mod_copied)
+            modules_applied.append(_name)
+
+        # Perfil de export do Zettlr — caminhos absolutos por máquina,
+        # então é gerado aqui (nunca vem do template). Não pode derrubar
+        # o scaffold: falha vira warning com o fix embutido.
+        zettlr_profile: str | None = None
+        try:
+            from par.domains.write.zettlr import generate_profile
+
+            zettlr_profile = str(generate_profile(target))
+        except (OSError, PrumoError) as e:
+            console.warn(
+                f"Perfil Zettlr não gerado ({e}). Rode depois: `prumo write zettlr-profile`."
+            )
+
+        payload = {
+            "project": str(target),
+            "template": str(template),
+            "mode": mode,
+            "files_copied": len(copied),
+            "files_skipped": len(skipped),
+            "git_initialized": git_initialized,
+            "integrations": installed_summary,
+            "modules_applied": modules_applied,
+            "zettlr_profile": zettlr_profile,
+            "version": __version__,
+        }
+
+        verb = {MODE_NEW: "criado", MODE_MERGE: "mesclado", MODE_FORCE: "recriado"}[mode]
+        console.success(f"Projeto {verb} em {target}")
+        if mode == MODE_MERGE and not json_mode:
+            # Sem marcação Rich embutida (Fix pós-review, Crítico #2 do
+            # Console: `info()` agora sempre `markup=False`) — a tag `[dim]`
+            # apareceria literal na saída em vez de ser interpretada.
+            console.info(
+                f"  {len(copied)} arquivo(s) novo(s), {len(skipped)} já existiam (preservados)."
+            )
+        console.emit(payload)
+        _render_next_steps(console, target, mode)
+    except PrumoError as e:
+        console.error(str(e))
+        raise typer.Exit(code=1) from e
+
+
+# ---------------------------------------------------------------------------
+# prumo doctor
+# ---------------------------------------------------------------------------
+
+
+@app.command("doctor")
+def doctor_command(
+    path: Annotated[
+        Path,
+        typer.Argument(help="Diretório do pj_* a auditar (default: cwd).", exists=False),
+    ] = Path("."),
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Health-check do projeto: estrutura, skills instaladas, integrations OK?
+
+    Também reporta dependências externas (qmd, Zotero). Dependência externa
+    ausente é informativa — não muda o exit code; só problemas estruturais
+    (diretórios/skills faltando) retornam 1.
+    """
+    console = Console(json_mode=json_mode)
+    target = path.resolve()
+    issues: list[str] = []
+
+    expected = [".claude", "docs"]
+    for name in expected:
+        if not (target / name).is_dir():
+            issues.append(f"Diretório esperado ausente: {name}/")
+
+    # Prosa: layout legado + drift do template, numa issue só. Os três
+    # sintomas (ADR-0022/0025, núcleo ausente, rule vendorizada velha) têm o
+    # MESMO remédio, e remédio igual é mensagem única (Princípio VIII).
+    issues.extend(standard_issues(target, _resolve_template_dir()))
+
+    # Superfície por domínio (ADR-0032): invocação antiga no projeto ou skill
+    # antiga instalada. Remédio único → issue única (Princípio VIII).
+    legacy = _legacy_skill_map()
+    antigos = [c.path for c in scan_skill_refs(target, legacy)]
+    instalados = legacy_installed_dirs(target, legacy)
+    if antigos or instalados:
+        partes: list[str] = []
+        if antigos:
+            partes.append(f"invocações antigas em {', '.join(antigos)}")
+        if instalados:
+            partes.append(
+                f"skills antigas instaladas em {', '.join(instalados)} — apague-as depois de "
+                "conferir que não há customização"
+            )
+        issues.append(
+            "[skill_obsoleta] o PAR agora tem 5 skills com modos "
+            "(paper, wiki, protocol, write, review): "
+            + "; ".join(partes)
+            + ". Rode `prumo update` para reescrever as invocações."
+        )
+
+    if (target / "references").is_dir() and not pj_layout.is_legacy_layout(target):
+        issues.append(
+            "[references_ressuscitado] `docs/references/` existe E `references/` reapareceu "
+            "na raiz — assinatura do autoexport do Better BibTeX apontando para o caminho "
+            "antigo. Corrija em Zotero → Preferences → Better BibTeX → Automatic export."
+        )
+
+    # Empacotamento do projeto: instalável? pacote nomeado? sobrou sys.path?
+    # (ADR-0027 — só fala quando o módulo `code` está aplicado.)
+    issues.extend(packaging_issues(target))
+
+    for adapter_cls in INTEGRATIONS.values():
+        adapter = adapter_cls()
+        issues.extend(adapter.doctor(target))
+
+    # Perfil de export do Zettlr (se existir) aponta pra arquivos vivos?
+    issues.extend(zettlr_profile_issues(target))
+
+    # Staleness das checklists clínicas (Princípio II: validade sem LLM).
+    skills_dir = _resolve_skills_dir()
+    if skills_dir is not None:
+        from datetime import UTC, datetime
+
+        from par.core.skills import stale_guideline_warnings
+
+        registry, _warns = load_skill_registry(skills_dir, strict=False)
+        issues.extend(stale_guideline_warnings(registry, today=datetime.now(UTC).date()))
+
+    deps = check_external_deps()
+
+    # Warnings fecham ANTES do payload — nada de popular a lista por
+    # aliasing depois que o dict já foi montado.
+    warnings: list[str] = []
+    if not issues and bib_is_placeholder(target):
+        warnings.append(
+            "docs/references/_references.bib ainda é o placeholder do scaffold — "
+            'conecte sua coleção do Zotero: prumo paper connect "<nome da coleção>"'
+        )
+
+    payload = {
+        "project": str(target),
+        "ok": not issues,
+        "issues": issues,
+        "warnings": warnings,
+        "external_deps": [d.as_dict() for d in deps],
+        "version": __version__,
+    }
+    if issues:
+        console.warn(f"{len(issues)} problema(s) estrutural(is) encontrado(s).")
+        for i in issues:
+            console.info(f"  • {i}")
+    else:
+        console.success("Estrutura do projeto OK.")
+    for aviso in warnings:
+        console.warn(aviso)
+
+    console.info("")
+    console.info("Dependências externas:")
+    for d in deps:
+        mark = "✓" if d.present else "○"
+        console.info(f"  {mark} {d.name} — {d.detail}")
+        if not d.present:
+            console.info(f"      ↳ {d.hint}")
+
+    console.emit(payload)
+    if issues:
+        raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# prumo update (o pj_base reflui pra um projeto vivo)
+# ---------------------------------------------------------------------------
+
+
+@app.command("update")
+def update_command(
+    path: Annotated[
+        Path,
+        typer.Argument(help="Diretório do pj_* a atualizar (default: cwd)."),
+    ] = Path("."),
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Só mostra o que mudaria; não escreve nada.")
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Aceita sobrescrever os arquivos divergentes sem perguntar.",
+        ),
+    ] = False,
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Traz o ``pj_base`` de volta a um projeto que ficou para trás.
+
+    O ``init`` é overlay de uma vez só: sem este comando, o template nunca
+    voltava a fluir para um projeto vivo, e uma rule vendorizada podia
+    ensinar layout obsoleto ao agente por meses sem que nada reclamasse.
+
+    Arquivo AUSENTE é adição pura e entra direto. Arquivo que existe e DIFERE
+    do template só é tocado com confirmação — o pesquisador pode ter
+    customizado a rule, e sobrescrever em silêncio seria pior que o drift.
+
+    A comparação é feita ao vivo contra o template instalado; nada de hash
+    gravado no ``pj_config.toml``, que seria uma terceira fonte de verdade
+    livre para dessincronizar (Princípio VIII).
+    """
+    with cli_run(json_mode=json_mode) as console:
+        pj_root = pj_layout.find_pj_root(path.resolve())
+        template = _resolve_template_dir()
+        drift = template_drift(pj_root, template)
+
+        copied: list[str] = []
+        updated: list[str] = []
+        migrated: str | None = None
+        legacy = _legacy_skill_map()
+        if dry_run:
+            skill_refs = scan_skill_refs(pj_root, legacy)
+        else:
+            migrated = migrate_project_context(pj_root)
+            skill_refs = migrate_skill_names(pj_root, legacy)
+            copied = apply_template_update(pj_root, template, drift.missing)
+            confirmados = _confirm_diverged(console, drift.diverged, yes=yes)
+            updated = apply_template_update(pj_root, template, confirmados)
+
+        console.result(
+            _update_summary(
+                drift,
+                copied=copied,
+                updated=updated,
+                dry_run=dry_run,
+                migrated=migrated,
+                skill_refs=len(skill_refs),
+            ),
+            {
+                "project": str(pj_root),
+                "dry_run": dry_run,
+                "missing": list(drift.missing),
+                "diverged": list(drift.diverged),
+                "copied": copied,
+                "updated": updated,
+                "migrated": migrated,
+                "skill_refs": [asdict(c) for c in skill_refs],
+            },
+        )
+
+
+def _confirm_diverged(console: Console, diverged: tuple[str, ...], *, yes: bool) -> list[str]:
+    """Quais divergentes sobrescrever. Sem TTY e sem ``--yes``, nenhum.
+
+    O default é preservar o arquivo do pesquisador: um ``update`` rodado em
+    CI ou por agente não pode apagar customização por falta de alguém para
+    responder.
+    """
+    if not diverged:
+        return []
+    if yes:
+        return list(diverged)
+    if console.json_mode:
+        return []  # o payload já carrega `diverged`; repetir seria dizer duas vezes
+    if not _stdin_isatty():
+        for rel in diverged:
+            console.warn(f"{rel} difere do template e foi PRESERVADO (rode com --yes).")
+        return []
+    aceitos: list[str] = []
+    for rel in diverged:
+        console.info(f"\n{rel} difere do template:")
+        if typer.confirm(f"  sobrescrever {rel} com a versão do pj_base?", default=False):
+            aceitos.append(rel)
+    return aceitos
+
+
+def _update_summary(
+    drift: TemplateDrift,
+    *,
+    copied: list[str],
+    updated: list[str],
+    dry_run: bool,
+    migrated: str | None = None,
+    skill_refs: int = 0,
+) -> str:
+    refs = (
+        f"{skill_refs} arquivo(s) com invocação de skill antiga "
+        + ("a reescrever. " if dry_run else "reescrito(s). ")
+        if skill_refs
+        else ""
+    )
+    if dry_run:
+        if drift.clean and not skill_refs:
+            return "Projeto já está no padrão; nada a atualizar."
+        template = (
+            ""
+            if drift.clean
+            else f"{len(drift.missing)} arquivo(s) a copiar e {len(drift.diverged)} divergente(s). "
+        )
+        return refs + template + "Rode sem --dry-run para aplicar."
+    aviso = (
+        f"{migrated} saiu do projeto — o conteúdo preenchido foi para docs/project_guide.md. "
+        if migrated
+        else ""
+    )
+    if not copied and not updated and not skill_refs:
+        return aviso + "Projeto já está no padrão; nada a atualizar."
+    return aviso + refs + f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
+
+
+# ---------------------------------------------------------------------------
+# prumo status (onde o estudo está, só lendo o disco)
+# ---------------------------------------------------------------------------
+
+
+@app.command("status")
+def status_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_* (default: cwd).")] = Path("."),
+    scope: Annotated[
+        str | None,
+        typer.Option("--scope", help="Slug do escopo em docs/studies/ (default: todos)."),
+    ] = None,
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Onde o estudo está e qual a próxima frase dizer ao agente. Só lê o disco."""
+    with cli_run(json_mode=json_mode) as console:
+        result = project_status(path.resolve(), scope=scope, registry=_skill_registry())
+        console.result(render_status(result), status_to_dict(result))
+
+
+# ---------------------------------------------------------------------------
+# prumo validate (contratos devolvidos por subagents)
+# ---------------------------------------------------------------------------
+
+
+@app.command("validate")
+def validate_command(
+    schema: Annotated[str, typer.Argument(help="Contrato, ex.: SupportReport/v1.")],
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Valida o JSON do stdin contra um contrato versionado (saída de subagent)."""
+    with cli_run(json_mode=json_mode) as console:
+        normalized = validate_contract(schema, read_stdin_json())
+        console.result(
+            f"JSON válido contra {schema}.",
+            {"valid": True, "schema": schema, "payload": normalized},
+        )
+
+
+# ---------------------------------------------------------------------------
+# prumo skills (descoberta)
+# ---------------------------------------------------------------------------
+
+
+@app.command("skills")
+def skills_command(
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Lista skills disponíveis no plugin (descoberta, não instalação)."""
+    console = Console(json_mode=json_mode)
+    skills_dir = _resolve_skills_dir()
+    if skills_dir is None:
+        console.warn("Diretório de skills não encontrado.")
+        console.emit({"skills": []})
+        return
+    try:
+        registry, warnings = load_skill_registry(skills_dir, strict=False)
+    except ManifestError as e:
+        console.error(str(e))
+        raise typer.Exit(code=1) from e
+    for w in warnings:
+        console.warn(f"skill ignorada: {w}")
+    payload = {
+        "skills": [
+            {
+                "name": s.name,
+                "version": s.version,
+                "schema": s.schema,
+                "determinism": s.determinism,
+                "description": s.description,
+            }
+            for s in (registry.get(n) for n in registry.names())
+        ]
+    }
+    console.emit(payload)
+
+
+# ---------------------------------------------------------------------------
+# prumo add (módulos opcionais via overlay não-destrutivo)
+# ---------------------------------------------------------------------------
+
+
+@app.command("add")
+def add_command(
+    module: Annotated[
+        str | None,
+        typer.Argument(
+            help="Módulo a ativar (ex.: clinical, ml) ou `study` para criar um escopo de "
+            "escrita novo (`prumo add study <slug>`). Omita para listar/escolher."
+        ),
+    ] = None,
+    slug: Annotated[
+        str | None,
+        typer.Argument(
+            help="Slug do escopo novo — só junto de `study` (ex.: prumo add study mortalidade-uti)."
+        ),
+    ] = None,
+    target: Annotated[
+        Path, typer.Option("--target", "-t", help="Projeto alvo (default: cwd).")
+    ] = Path("."),
+    scope: Annotated[
+        str | None,
+        typer.Option(
+            "--scope",
+            help="Slug do escopo alvo (docs/studies/<slug>/) para módulos por-escopo "
+            "(ex.: clinical). Obrigatório quando o projeto tem mais de um escopo.",
+        ),
+    ] = None,
+    list_only: Annotated[
+        bool, typer.Option("--list", help="Só lista módulos disponíveis.")
+    ] = False,
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Ativa um módulo (overlay não-destrutivo) ou cria um escopo de escrita novo."""
+    console = Console(json_mode=json_mode)
+    target = target.resolve()
+    modules = discover_modules()
+
+    if list_only or (module is None and (json_mode or not _stdin_isatty())):
+        _emit_module_list(console, modules, target)
+        return
+
+    if module is None:
+        module = _pick_module_interactive(console, modules, target)
+        if module is None:
+            console.warn("Nenhum módulo selecionado.")
+            raise typer.Exit(code=130)
+
+    if module == "study":
+        _add_study(console, target=target, slug=slug)
+        return
+
+    info = get_module(module)
+    if info is None:
+        console.error(f"Módulo '{module}' não encontrado. Use `prumo add --list`.")
+        raise typer.Exit(code=1)
+
+    scope_slug: str | None = None
+    pkg: str | None = None
+    try:
+        if module_requires_scope(info):
+            scope_slug = _resolve_module_scope(target, module, scope)
+        if module_requires_pkg(info):
+            # O nome do pacote vem do nome do PROJETO, sem o prefixo `pj_`
+            # (ADR-0027). Nome de diretório impróprio falha aqui, antes de
+            # copiar qualquer arquivo.
+            pkg = pkg_name(target.name)
+    except PrumoError as e:
+        console.error(str(e))
+        raise typer.Exit(code=1) from e
+
+    copied, skipped = _overlay(info.path, target, scope=scope_slug, pkg=pkg)
+    # Mesma substituição de placeholder de nome do `init` (ex.: `code/pyproject.toml`
+    # ainda carrega `pj-NOME`) — só nos arquivos recém-copiados deste módulo.
+    apply_project_name(target, target.name, copied)
+    if pkg is not None:
+        # `overlay` resolveu o marcador no CAMINHO; falta o CONTEÚDO
+        # (`[tool.hatch.build.targets.wheel] packages` e os exemplos da rule).
+        apply_pkg_name(target, pkg, copied)
+    payload = {
+        "module": module,
+        "target": str(target),
+        "files_copied": len(copied),
+        "files_skipped": len(skipped),
+    }
+    console.success(f"Módulo '{module}' aplicado em {target}")
+    if not json_mode and skipped:
+        # Sem marcação Rich embutida — mesmo motivo do fix acima em `_do_init`.
+        console.info(f"  {len(skipped)} arquivo(s) já existiam (preservados).")
+    console.emit(payload)
+
+
+def _resolve_module_scope(target: Path, module: str, requested: str | None) -> str:
+    """Resolve o slug do escopo alvo pra módulos por-escopo (ex. ``clinical``).
+
+    Sem ambiguidade não precisa perguntar: um escopo só resolve sozinho. Zero
+    ou vários escopos exigem decisão explícita do usuário (``prumo add study
+    <slug>`` no primeiro caso, ``--scope <slug>`` no segundo).
+    """
+    slugs = [s.name for s in pj_layout.iter_scopes(target)]
+    if requested is not None:
+        if requested not in slugs:
+            disponiveis = ", ".join(slugs) if slugs else "(nenhum)"
+            raise PrumoError(
+                f"Escopo '{requested}' não encontrado em {target}. Disponíveis: {disponiveis}."
+            )
+        return requested
+    if not slugs:
+        raise PrumoError(
+            f"Nenhum escopo encontrado em {target}. Crie um com `prumo add study <slug>` "
+            f"antes de `prumo add {module}`."
+        )
+    if len(slugs) == 1:
+        return slugs[0]
+    raise PrumoError(
+        f"Mais de um escopo em {target} ({', '.join(slugs)}). Diga qual usar: "
+        f"`prumo add {module} --scope <slug>`."
+    )
+
+
+def _add_study(console: Console, *, target: Path, slug: str | None) -> None:
+    """``prumo add study <slug>`` — cria só a pasta irmã do escopo novo.
+
+    Não move nada, não reescreve link nenhum, não grava manifesto (decisão do
+    plano de layout por escopo). Recusa se o slug já existir.
+    """
+    try:
+        if not slug:
+            raise PrumoError("Informe o slug do escopo: `prumo add study <slug>`.")
+        pj_root = pj_layout.find_pj_root(target)
+        pj_layout.assert_current_layout(pj_root)
+        scope = pj_root / pj_layout.STUDIES_RELPATH / slug
+        if scope.exists():
+            raise PrumoError(f"{scope} já existe. Escolha outro slug.")
+        for sub in pj_layout.SCOPE_DIRS:
+            (scope / sub).mkdir(parents=True)
+            (scope / sub / ".gitkeep").touch()
+    except PrumoError as e:
+        console.error(str(e))
+        raise typer.Exit(code=1) from e
+    console.result(
+        f"Escopo criado em {scope.relative_to(pj_root).as_posix()}.",
+        {"scope": str(scope), "slug": slug},
+    )
+
+
+def _emit_module_list(console: Console, modules: list[ModuleInfo], target: Path) -> None:
+    payload = {
+        "modules": [
+            {
+                "name": m.name,
+                "description": m.description,
+                "when_to_use": m.when_to_use,
+                "applied": is_applied(target, m),
+            }
+            for m in modules
+        ]
+    }
+    if not console.json_mode:
+        for m in modules:
+            mark = " [green][aplicado][/green]" if is_applied(target, m) else ""
+            console._rich.print(f"  [cyan]{m.name}[/cyan]{mark} — {m.description}")
+    console.emit(payload)
+
+
+def _pick_module_interactive(
+    console: Console, modules: list[ModuleInfo], target: Path
+) -> str | None:
+    if not modules:
+        console.warn("Nenhum módulo disponível.")
+        return None
+    console._rich.print("[bold]Módulos disponíveis:[/bold]")
+    for i, m in enumerate(modules, 1):
+        mark = " [green][aplicado][/green]" if is_applied(target, m) else ""
+        console._rich.print(f"  [cyan]{i})[/cyan] {m.name}{mark} — {m.description}")
+    raw = typer.prompt("Número do módulo (vazio para cancelar)", default="")
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        idx = int(raw) - 1
+    except ValueError:
+        return None
+    if 0 <= idx < len(modules):
+        return modules[idx].name
+    return None
+
+
+# ---------------------------------------------------------------------------
+# prumo mcp (servidor MCP local, stdio — expõe o ciclo de revisão a agentes)
+# ---------------------------------------------------------------------------
+
+mcp_app = typer.Typer(
+    name="mcp",
+    help="Servidor MCP local (stdio) do prumo — expõe o ciclo de revisão para agentes.",
+    no_args_is_help=True,
+)
+app.add_typer(mcp_app)
+
+
+@mcp_app.command("serve")
+def mcp_serve_command() -> None:
+    """Inicia o servidor MCP ``prumo`` via stdio.
+
+    Usado por agent-hosts (Claude Code/Desktop) via ``.mcp.json``. Bloqueia
+    a chamada: o transporte stdio consome stdin/stdout inteiros para o
+    protocolo MCP (JSON-RPC) até o cliente encerrar a conexão — por isso
+    nenhuma mensagem é emitida via ``Console`` aqui (qualquer texto solto em
+    stdout corromperia o protocolo). Erros de inicialização, se houver,
+    ainda viram ``typer.Exit`` via ``cli_run``.
+    """
+    with cli_run():
+        from par import mcp_server
+
+        mcp_server.run_stdio()
+
+
+def _entry() -> None:
+    """Entry point usado pelo ``project.scripts``."""
+    try:
+        app()
+    except IntegrationError as e:
+        print(f"prumo: integration error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    _entry()

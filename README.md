@@ -1,4 +1,4 @@
-# prumo-assist
+# PAR — prumo-assistant-for-researcher
 
 > **Knowledge, bibliography & academic writing assistant for clinical research.**
 > Lives between Zotero, your wiki (Markdown; Zettlr front — Obsidian legacy), and your agent-host.
@@ -12,14 +12,14 @@ Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de
 
 ## Para pesquisadores (Desktop/Cowork, sem terminal)
 
-Você não precisa de terminal para usar o prumo-assist. Direto no Claude
+Você não precisa de terminal para usar o PAR. Direto no Claude
 Desktop ou no Cowork: menu de plugins → **"Add from a repository"** →
-`raphaelfh/prumo-assist` (exige plano Claude pago — Pro ou Max).
+`raphaelfh/prumo-assistant-for-researcher` (exige plano Claude pago — Pro ou Max).
 
-Depois de instalado, cole um trecho de draft e peça `/prumo-assist:review critique`
+Depois de instalado, cole um trecho de draft e peça `/par:review critique`
 — funciona sem instalar mais nada (julgamento puro; testado no spike da Fase 0
 sem CLI/Zotero/qmd). Quando quiser ir além (bibliografia, projeto no disco), a
-própria conversa guia a instalação do resto — `/prumo-assist:start` pede seu
+própria conversa guia a instalação do resto — `/par:start` pede seu
 consentimento a cada comando.
 
 Guia completo, passo a passo, em linguagem simples:
@@ -32,23 +32,23 @@ Guia completo, passo a passo, em linguagem simples:
 <!-- prumo:skills-table:begin -->
 | Você diz | Invocação | O que faz |
 |---|---|---|
-| "resuma o paper X" | `/prumo-assist:paper extract` | Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em docs/references/papers/<citekey>/_extract.md. Pressupõe /prumo-assist:paper library sync executado + symlinks via prumo paper sync-pdfs. |
-| "sincroniza minha bibliografia" | `/prumo-assist:paper library` | Gerencia o acervo bibliográfico do pj_* (docs/references/): sincroniza .bib do Zotero/BBT, atualiza grafo de citação passivo, marca paper principal, lista bibliografia, busca por palavra-chave, vê quem cita quem, audita consistência .bib↔notas. |
-| "as referências batem com o que eu afirmo?" | `/prumo-assist:paper support` | Classifica se cada citação de uma página sustenta a frase que a cita (Fully/Partially/Unsubstantiated/No-source) com o subagent verifier lendo o PDF — SINALIZA apenas, nunca edita nem bloqueia. Roda `prumo paper verify-refs` antes (base determinística: existência/retração/título). |
-| "gera o projeto CEP" | `/prumo-assist:protocol cep` | Gera projeto pra CEP/CONEP via Plataforma Brasil a partir do PICOT, protocol.md e acervo — estrutura formal (Resumo, Pergunta, Justificativa, Hipótese, Coorte, Métodos, Riscos, TCLE, Cronograma, Orçamento, Conformidade). Citação strict. Linguagem acessível pra revisor não-técnico no Resumo. |
-| "fecha a PICOT" | `/prumo-assist:protocol picot` | Formaliza, propaga e versiona a PICOT do projeto em 3 destinos (.claude/picot.toml canônico, docs/studies/<slug>/writing/protocol.md operacional, docs/project_guide.md acadêmico) + ADR append-only quando muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado. |
-| "gera o plano de análise estatística" | `/prumo-assist:protocol sap` | Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa PicotSpec.outcome+metrics e protocol.md § Splits. TRIPOD+AI/SPIRIT-AI compatível; TRIPOD-LLM quando o pipeline usa LLM; reporting CONSORT 2025/DECIDE-AI conforme o desenho. |
-| "revisa este draft" | `/prumo-assist:review critique` | Simula revisão crítica de draft acadêmico (paper, capítulo, grant, proposta) produzindo feedback estruturado por seção com forças, fraquezas, claims sem evidência e sugestões acionáveis. Aplica mental model adequado (TRIPOD+AI / TRIPOD-LLM / DECIDE-AI / CLAIM / CONSORT 2025 / PRISMA / STROBE). |
-| "reconcilia os eventos ambíguos da revisão" | `/prumo-assist:review reconcile` | Reconcilia eventos ambíguos do round-trip de revisão (unanchored/ambiguous/non-identity) propondo marcas CriticMarkup pendentes no worklist via prumo — o humano decide com `prumo write review apply`. NUNCA propõe/move/cunha citação (I1/I3b: eventos de citação são decisão humana). |
-| — | `/prumo-assist:start` | Porta de entrada do prumo-assist: instala o que falta e roteia para a skill e o modo certos (paper, wiki, protocol, write, review). |
-| "adiciona esta fonte ao wiki" | `/prumo-assist:wiki ingest` | Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria a nota da fonte (type: source) em docs/studies/<escopo>/notes/, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /prumo-assist:paper library. |
-| "audita o wiki" | `/prumo-assist:wiki lint` | Health-check do wiki de um pj_*: detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos sem página, links mortos, prefixo de log inválido, múltiplos role:primary. Gera relatório timestamped como finding (type: finding) em docs/studies/<slug>/notes/_lint_<data>.md. |
-| "o que a literatura diz sobre X" | `/prumo-assist:wiki query` | Responde pergunta ancorada no wiki do pj_* (docs/ + docs/references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [@citekeys]). Oferece arquivar a resposta como finding (type: finding) em docs/studies/<slug>/notes/ quando útil. NÃO é para perguntas de código. |
-| "me ensina X" | `/prumo-assist:wiki study` | Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/studies/<slug>/notes/. No Reflect, oferece arquivar insight como finding. |
-| "gera a declaração de uso de IA" | `/prumo-assist:write disclosure` | Gera a declaração de uso de IA do projeto a partir da proveniência gravada nos artefatos (determinístico, pt ou en). |
-| "escreve um draft do meu paper" | `/prumo-assist:write manuscript` | Gera draft de paper IMRaD venue-aware a partir do PICOT, callouts _extract.md, protocol.md e project_guide.md, com citação strict do acervo ([REF FALTANTE] quando ausente). |
-| "escreve essa seção" | `/prumo-assist:write section` | Gera prose acadêmica genérica quando o usuário tem texto-base ou só uma seção isolada e não cabe em paper/CEP/statistics. Aceita --seed, --section, --template. Citação strict do acervo. |
-| "aplica as convenções de escrita científica" | `/prumo-assist:write style` | Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc, em pt-BR ou inglês americano (idioma resolvido por cascata, default en-US) — citação sempre imediatamente antes do ponto final, múltiplas citações num único colchete ([@a; @b]), pontuação sem travessão/dois-pontos/ponto-e-vírgula em texto corrido, remoção de superlativo, economia lexical, coesão entre períodos. Preserva conteúdo (forma, não substância). |
+| "resuma o paper X" | `/par:paper extract` | Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em docs/references/papers/<citekey>/_extract.md. Pressupõe /par:paper library sync executado + symlinks via prumo paper sync-pdfs. |
+| "sincroniza minha bibliografia" | `/par:paper library` | Gerencia o acervo bibliográfico do pj_* (docs/references/): sincroniza .bib do Zotero/BBT, atualiza grafo de citação passivo, marca paper principal, lista bibliografia, busca por palavra-chave, vê quem cita quem, audita consistência .bib↔notas. |
+| "as referências batem com o que eu afirmo?" | `/par:paper support` | Classifica se cada citação de uma página sustenta a frase que a cita (Fully/Partially/Unsubstantiated/No-source) com o subagent verifier lendo o PDF — SINALIZA apenas, nunca edita nem bloqueia. Roda `prumo paper verify-refs` antes (base determinística: existência/retração/título). |
+| "gera o projeto CEP" | `/par:protocol cep` | Gera projeto pra CEP/CONEP via Plataforma Brasil a partir do PICOT, protocol.md e acervo — estrutura formal (Resumo, Pergunta, Justificativa, Hipótese, Coorte, Métodos, Riscos, TCLE, Cronograma, Orçamento, Conformidade). Citação strict. Linguagem acessível pra revisor não-técnico no Resumo. |
+| "fecha a PICOT" | `/par:protocol picot` | Formaliza, propaga e versiona a PICOT do projeto em 3 destinos (.claude/picot.toml canônico, docs/studies/<slug>/writing/protocol.md operacional, docs/project_guide.md acadêmico) + ADR append-only quando muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado. |
+| "gera o plano de análise estatística" | `/par:protocol sap` | Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa PicotSpec.outcome+metrics e protocol.md § Splits. TRIPOD+AI/SPIRIT-AI compatível; TRIPOD-LLM quando o pipeline usa LLM; reporting CONSORT 2025/DECIDE-AI conforme o desenho. |
+| "revisa este draft" | `/par:review critique` | Simula revisão crítica de draft acadêmico (paper, capítulo, grant, proposta) produzindo feedback estruturado por seção com forças, fraquezas, claims sem evidência e sugestões acionáveis. Aplica mental model adequado (TRIPOD+AI / TRIPOD-LLM / DECIDE-AI / CLAIM / CONSORT 2025 / PRISMA / STROBE). |
+| "reconcilia os eventos ambíguos da revisão" | `/par:review reconcile` | Reconcilia eventos ambíguos do round-trip de revisão (unanchored/ambiguous/non-identity) propondo marcas CriticMarkup pendentes no worklist via prumo — o humano decide com `prumo write review apply`. NUNCA propõe/move/cunha citação (I1/I3b: eventos de citação são decisão humana). |
+| — | `/par:start` | Porta de entrada do par: instala o que falta e roteia para a skill e o modo certos (paper, wiki, protocol, write, review). |
+| "adiciona esta fonte ao wiki" | `/par:wiki ingest` | Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria a nota da fonte (type: source) em docs/studies/<escopo>/notes/, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /par:paper library. |
+| "audita o wiki" | `/par:wiki lint` | Health-check do wiki de um pj_*: detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos sem página, links mortos, prefixo de log inválido, múltiplos role:primary. Gera relatório timestamped como finding (type: finding) em docs/studies/<slug>/notes/_lint_<data>.md. |
+| "o que a literatura diz sobre X" | `/par:wiki query` | Responde pergunta ancorada no wiki do pj_* (docs/ + docs/references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [@citekeys]). Oferece arquivar a resposta como finding (type: finding) em docs/studies/<slug>/notes/ quando útil. NÃO é para perguntas de código. |
+| "me ensina X" | `/par:wiki study` | Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/studies/<slug>/notes/. No Reflect, oferece arquivar insight como finding. |
+| "gera a declaração de uso de IA" | `/par:write disclosure` | Gera a declaração de uso de IA do projeto a partir da proveniência gravada nos artefatos (determinístico, pt ou en). |
+| "escreve um draft do meu paper" | `/par:write manuscript` | Gera draft de paper IMRaD venue-aware a partir do PICOT, callouts _extract.md, protocol.md e project_guide.md, com citação strict do acervo ([REF FALTANTE] quando ausente). |
+| "escreve essa seção" | `/par:write section` | Gera prose acadêmica genérica quando o usuário tem texto-base ou só uma seção isolada e não cabe em paper/CEP/statistics. Aceita --seed, --section, --template. Citação strict do acervo. |
+| "aplica as convenções de escrita científica" | `/par:write style` | Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc, em pt-BR ou inglês americano (idioma resolvido por cascata, default en-US) — citação sempre imediatamente antes do ponto final, múltiplas citações num único colchete ([@a; @b]), pontuação sem travessão/dois-pontos/ponto-e-vírgula em texto corrido, remoção de superlativo, economia lexical, coesão entre períodos. Preserva conteúdo (forma, não substância). |
 <!-- prumo:skills-table:end -->
 
 ### MCP
@@ -59,20 +59,20 @@ Guia completo, passo a passo, em linguagem simples:
 
 ```bash
 # No Claude Code, dentro de qualquer projeto pj_*:
-/plugin marketplace add raphaelfh/prumo-assist
-/plugin install prumo-assist@prumo-assist
+/plugin marketplace add raphaelfh/prumo-assistant-for-researcher
+/plugin install par@prumo-assistant-for-researcher
 ```
 
-Após a instalação, as skills aparecem com o prefixo `/prumo-assist:...`.
+Após a instalação, as skills aparecem com o prefixo `/par:...`.
 
 Para usar as skills que dependem do CLI Python (bibliografia, escrita, wiki),
 instale também o `prumo`:
 
 ```bash
-uv tool install git+https://github.com/raphaelfh/prumo-assist.git
+uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher.git
 ```
 
-Atualizar depois: `uv tool upgrade prumo-assist`.
+Atualizar depois: `uv tool upgrade prumo-assistant-for-researcher`.
 
 Guia sem terminal para quem prefere não usar o CLI/Claude Code: [Para
 pesquisadores](#para-pesquisadores-desktopcowork-sem-terminal) acima, ou o
@@ -86,7 +86,7 @@ O plugin orquestra duas ferramentas que vivem fora do pacote Python. Rode
 
 | Dependência | Necessária para | Como instalar / habilitar |
 |---|---|---|
-| **`qmd`** (MCP de busca) | `/prumo-assist:wiki query`, `/prumo-assist:wiki ingest`, `/prumo-assist:wiki study` | `bun install -g @tobilu/qmd` (repo: [github.com/tobi/qmd](https://github.com/tobi/qmd)). Precisa estar no `PATH`. Declarado em `.mcp.json` como servidor `qmd`. |
+| **`qmd`** (MCP de busca) | `/par:wiki query`, `/par:wiki ingest`, `/par:wiki study` | `bun install -g @tobilu/qmd` (repo: [github.com/tobi/qmd](https://github.com/tobi/qmd)). Precisa estar no `PATH`. Declarado em `.mcp.json` como servidor `qmd`. |
 | **Zotero 9 + Better BibTeX** | `paper sync-annotations`, `paper sync-notes`, `write export --to docx` (citações vivas) | Abra o Zotero 9 com o [Better BibTeX](https://retorque.re/zotero-better-bibtex/) instalado. Ele expõe a API local em `127.0.0.1:23119`. Só é necessário para os comandos que leem anotações/notas — o resto do prumo funciona sem ele. |
 
 > [!tip]
@@ -131,7 +131,7 @@ Camadas opcionais com gatilho (`prumo add <módulo>`): `code`, `data`, `notebook
 Para atualizar o plugin num Claude Code já configurado:
 
 ```
-/plugin marketplace update prumo-assist
+/plugin marketplace update prumo-assistant-for-researcher
 /reload-plugins
 ```
 

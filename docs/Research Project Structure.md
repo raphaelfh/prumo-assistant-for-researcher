@@ -68,7 +68,7 @@ pj_<nome>/
 
 ### `.claude/skills/` — infraestrutura, não área de trabalho
 
-`pj_x/.claude/skills/` é onde o **Claude Code** procura as skills pra disparar `/prumo-assist:<nome>`. Tem dois usos:
+`pj_x/.claude/skills/` é onde o **Claude Code** procura as skills pra disparar `/par:<nome>`. Tem dois usos:
 
 1. **Cópia local das skills universais** do plugin — preenchida automaticamente por `prumo init` e atualizada por `prumo doctor`. Pesquisador não toca.
 2. **Skills específicas do projeto** (opcional) — capabilities que só fazem sentido nesse `pj_*` e não vale promover pro plugin (ex.: `pj_x/.claude/skills/cpu-profile-rsl-2024/`). Vira módulo formal só quando a primeira skill local nascer.

@@ -634,7 +634,7 @@ wheels = [
 ]
 
 [[package]]
-name = "prumo-assist"
+name = "prumo-assistant-for-researcher"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },

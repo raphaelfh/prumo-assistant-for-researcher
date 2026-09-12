@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from prumo_assist.domains.paper.sync_all import sync_all
+from par.domains.paper.sync_all import sync_all
 
 
 def _bootstrap(tmp_path: Path) -> Path:
@@ -19,11 +19,11 @@ def test_sync_all_runs_three_phases(tmp_path: Path) -> None:
     pj = _bootstrap(tmp_path)
     with (
         patch(
-            "prumo_assist.domains.paper.sync_all.sync",
+            "par.domains.paper.sync_all.sync",
             return_value={"created": 1, "updated": 0, "orphans": []},
         ) as m_sync,
         patch(
-            "prumo_assist.domains.paper.sync_all.sync_annotations",
+            "par.domains.paper.sync_all.sync_annotations",
             return_value={
                 "inserted": 2,
                 "updated": 0,
@@ -35,7 +35,7 @@ def test_sync_all_runs_three_phases(tmp_path: Path) -> None:
             },
         ) as m_annot,
         patch(
-            "prumo_assist.domains.paper.sync_all.sync_notes",
+            "par.domains.paper.sync_all.sync_notes",
             return_value={
                 "inserted": 3,
                 "updated": 0,
@@ -59,15 +59,15 @@ def test_sync_all_reports_zotero_offline_without_crashing(tmp_path: Path) -> Non
     pj = _bootstrap(tmp_path)
     with (
         patch(
-            "prumo_assist.domains.paper.sync_all.sync",
+            "par.domains.paper.sync_all.sync",
             return_value={"created": 1, "updated": 0, "orphans": []},
         ),
         patch(
-            "prumo_assist.domains.paper.sync_all.sync_annotations",
+            "par.domains.paper.sync_all.sync_annotations",
             side_effect=ConnectionError("Zotero offline"),
         ),
         patch(
-            "prumo_assist.domains.paper.sync_all.sync_notes",
+            "par.domains.paper.sync_all.sync_notes",
             side_effect=ConnectionError("Zotero offline"),
         ),
     ):

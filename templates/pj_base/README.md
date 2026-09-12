@@ -6,7 +6,7 @@ Projeto de pesquisa: bibliografia (Zotero), wiki e escrita.
 
 ```bash
 uv sync                        # ambiente Python base
-/plugin install prumo-assist   # no Claude Code: skills + agents + MCP qmd
+/plugin install par@prumo-assistant-for-researcher   # no Claude Code: skills + agents + MCP qmd
 ```
 
 Editor recomendado: [Zettlr](https://www.zettlr.com) ≥ 3.0 — preview vivo de citações; setup em `docs/project_guide.md`.
@@ -35,12 +35,12 @@ prumo add ml         # stack de ML/dados + notebook
 
 | Quero… | Invoque |
 |---|---|
-| não sei por onde começar | `/prumo-assist:start` |
-| adicionar papers do Zotero ao acervo | `/prumo-assist:paper library` |
-| extrair um PDF → resumo estruturado | `/prumo-assist:paper extract` |
-| guardar uma fonte (URL/DOI/PDF) no wiki | `/prumo-assist:wiki ingest <fonte>` |
-| perguntar ao meu acervo, com citações | `/prumo-assist:wiki query "..."` |
-| revisar / escrever um texto | `/prumo-assist:write style` · `:review critique` · `:write manuscript` |
+| não sei por onde começar | `/par:start` |
+| adicionar papers do Zotero ao acervo | `/par:paper library` |
+| extrair um PDF → resumo estruturado | `/par:paper extract` |
+| guardar uma fonte (URL/DOI/PDF) no wiki | `/par:wiki ingest <fonte>` |
+| perguntar ao meu acervo, com citações | `/par:wiki query "..."` |
+| revisar / escrever um texto | `/par:write style` · `:review critique` · `:write manuscript` |
 
 ## Objetivo
 _(preencher em `docs/project_guide.md`)_

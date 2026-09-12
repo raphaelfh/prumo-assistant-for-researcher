@@ -1,6 +1,9 @@
 <!--
 Sync impact report:
-  Version: 1.2.0 (2026-09-06) — emenda MINOR: adicionado o Princípio VIII
+  Version: 1.2.1 (2026-09-12) — emenda PATCH: renomeação do projeto para
+    prumo-assistant-for-researcher (PAR), pacote `par` (ADR-0034). Título, caminhos
+    `src/par/` e comando de distribuição atualizados. Nenhuma norma alterada.
+  Anterior: 1.2.0 (2026-09-06) — emenda MINOR: adicionado o Princípio VIII
     (Simplicidade é o default). Trigger concreto: auditoria de organização do
     `pj_piloto_genetica` (2026-09-06), cujo plano de correção adicionava
     três issue codes, um módulo e um comando para problemas com um remédio só —
@@ -45,13 +48,13 @@ Sync impact report:
       → resolvido pela simplificação do pj_base (v0.61.0, spec 2026-05-30).
 -->
 
-# Prumo-assist Constitution
+# PAR Constitution
 
 ## Core Principles
 
 ### I · Lógica em um lugar só
 
-Cada operação determinística (sync, lint, export, find, graph) DEVE existir em **uma** implementação dentro de `src/prumo_assist/domains/<X>/`.
+Cada operação determinística (sync, lint, export, find, graph) DEVE existir em **uma** implementação dentro de `src/par/domains/<X>/`.
 
 - CLI (`domains/<X>/cli.py`), Python API (`domains/<X>/api.py`) e skills (`skills/<nome>/SKILL.md`) são **fachadas finas** sobre essa implementação.
 - A camada de fachada NÃO contém lógica de negócio: parsing de argumentos, formatação de saída, captura padronizada via `core/cli_op.cli_run`.
@@ -87,7 +90,7 @@ Schemas Pydantic versionados (`schemas/v1.py`, `schemas/v2.py`, ...) DEVEM ser a
 
 ### V · Provenance em todo output
 
-Todo artefato gerado pelo prumo-assist (callout de paper, export, peer-review, ingest) DEVE conter um bloco `_meta`.
+Todo artefato gerado pelo PAR (callout de paper, export, peer-review, ingest) DEVE conter um bloco `_meta`.
 
 - `_meta` inclui no mínimo: `run_id`, `model`, `prompt_version`, `input_hash`, `timestamp`, `prumo_version`.
 - Eventos de execução (`start`, `tool_call`, `end`) DEVEM ser gravados em `.prumo/traces/YYYY-MM-DD.jsonl` no projeto local.
@@ -107,7 +110,7 @@ Hooks plugáveis, cache de LLM, lockfile, eval gates em CI, multi-host, packs ex
 
 Todo artefato que deriva de uma fonte única DEVE ser produzido por script, nunca mantido à mão.
 
-- Versão: `src/prumo_assist/_version.py` é a fonte; `.github/scripts/sync_manifest_version.py` propaga para `plugin.json`/`marketplace.json`. Editar versão num manifest à mão é defeito.
+- Versão: `src/par/_version.py` é a fonte; `.github/scripts/sync_manifest_version.py` propaga para `plugin.json`/`marketplace.json`. Editar versão num manifest à mão é defeito.
 - Índices e catálogos (tabela de skills do README, router `start`, `docs/_index.md`, `docs/adr/_index.md`) derivam do registry (`core/skills.py`) e do filesystem via `.github/scripts/gen_indexes.py`, dentro de blocos delimitados (ADR-0009).
 - O CI DEVE falhar quando um derivado está dessincronizado da fonte (`--check`).
 - Metadata de skill segue o princípio III (frontmatter único); este princípio cobre o restante da cadeia derivada.
@@ -128,8 +131,8 @@ O custo de uma adição se mede em **conceitos que o pesquisador precisa aprende
 - **Linguagem**: Python ≥ 3.11. Tipagem estrita (`mypy --strict`); `from __future__ import annotations` em todos os módulos.
 - **CLI**: Typer + `core/cli_op.cli_run` (context manager que injeta `Console` e captura `PrumoError`). Nada de `print()` direto fora de `core/output.py`.
 - **Qualidade**: `ruff check` e `mypy strict` zerados em `main`. CI roda matrix Python 3.11/3.12.
-- **Build**: hatchling; versão única em `src/prumo_assist/_version.py`. `_templates/` empacotado via `force-include`.
-- **Distribuição**: `uv tool install prumo-assist`, `pipx install prumo-assist`, ou plugin marketplace do Claude Code.
+- **Build**: hatchling; versão única em `src/par/_version.py`. `_templates/` empacotado via `force-include`.
+- **Distribuição**: `uv tool install prumo-assistant-for-researcher`, `pipx install prumo-assistant-for-researcher`, ou plugin marketplace do Claude Code.
 - **Stack externa do projeto-cliente** (`pj_*`): Zotero + Better BibTeX (bibliografia), Obsidian (vault), Pandoc + Typst + CSL (export), MCP `qmd` (busca BM25 + vector + rerank local).
 - **Sem dependência de SaaS para operação core**: tudo que importa para reproduzir uma análise existe localmente no `pj_*`.
 
@@ -137,18 +140,18 @@ O custo de uma adição se mede em **conceitos que o pesquisador precisa aprende
 
 - Feature nova: `superpowers:brainstorming` → spec em `docs/superpowers/specs/AAAA-MM-DD-*.md` → plano → implementação TDD.
 - Cada subcomando Typer envolvido em `cli_run`; cada operação determinística testada em `tests/unit/<domain>/`.
-- Tests espelham layout do código (`tests/unit/<area>/test_<modulo>.py` ↔ `src/prumo_assist/<area>/<modulo>.py`).
+- Tests espelham layout do código (`tests/unit/<area>/test_<modulo>.py` ↔ `src/par/<area>/<modulo>.py`).
 - Commits atômicos. Mensagem indica intenção (`refactor:`, `feat:`, `fix:`, `release:`); detalhes no corpo, não no título.
 - Revisão DEVE checar conformidade com os princípios desta constitution. Conflito entre prática e princípio: o princípio prevalece, ou o princípio é emendado.
 - Skills agênticas DEVEM ter `tests/golden/` quando o output é estruturado (callouts, JSON schema).
 
 ## Governança
 
-Esta constitution é o documento de mais alta autoridade para decisões de design no prumo-assist. Quando uma prática conflita com um princípio aqui declarado, a constitution prevalece.
+Esta constitution é o documento de mais alta autoridade para decisões de design no PAR. Quando uma prática conflita com um princípio aqui declarado, a constitution prevalece.
 
 - Emendas DEVEM passar por PR explícito que atualiza este arquivo + a tabela "Sync impact report" no topo.
 - Bump de versão da constitution segue [SemVer](https://semver.org/lang/pt-BR/) aplicado a *princípios*: `MAJOR` quando um princípio é removido ou redefinido, `MINOR` quando um princípio é adicionado, `PATCH` para clarificação textual.
 - Decisões estruturais pontuais são registradas em `docs/adr/` (MADR minimal, `adr-NNNN-slug.md`, imutáveis após aceitas — revisão = ADR novo). Princípios (normas vivas) moram aqui; o que muda por emenda nunca mora num ADR.
-- Versão atual: **1.2.0** (2026-09-06).
+- Versão atual: **1.2.1** (2026-09-12).
 - Princípios novos DEVEM ter trigger concreto (não "pode ser útil no futuro") — coerência com o princípio VI.
 - O agent-host (Claude Code, Cursor, Codex, Gemini) NÃO pode reescrever esta constitution sem revisão humana.

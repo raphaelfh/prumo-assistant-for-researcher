@@ -82,4 +82,4 @@ da variável `MARIMO_TOKEN`. Para não aprovar cada chamada, libere os scripts
 O pair é opt-in e não substitui as regras deste projeto: o que virar código de
 verdade sai do notebook para `src/<pacote>/`, e dado bruto continua somente-leitura.
 
-[ADR-0027]: https://github.com/raphaelfh/prumo-assist/blob/main/docs/adr/adr-0027-pj-instalavel.md
+[ADR-0027]: https://github.com/raphaelfh/prumo-assistant-for-researcher/blob/main/docs/adr/adr-0027-pj-instalavel.md

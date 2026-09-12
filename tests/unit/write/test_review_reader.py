@@ -15,14 +15,14 @@ from pathlib import Path
 
 import pytest
 
-import prumo_assist.domains.write.export as export_mod
-from prumo_assist.domains.write.review import (
+import par.domains.write.export as export_mod
+from par.domains.write.review import (
     CitationConservationError,
     DocxCitation,
     check_conservation,
     read_docx_citations_with_state,
 )
-from prumo_assist.domains.write.schemas.v1 import CiteMapFile, CiteOccurrence
+from par.domains.write.schemas.v1 import CiteMapFile, CiteOccurrence
 from tests.unit.conftest import W_XMLNS
 
 

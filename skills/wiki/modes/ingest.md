@@ -1,6 +1,6 @@
 ---
 name: ingest
-description: "Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria a nota da fonte (type: source) em docs/studies/<escopo>/notes/, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /prumo-assist:paper library."
+description: "Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria a nota da fonte (type: source) em docs/studies/<escopo>/notes/, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /par:paper library."
 argument-hint: "[url | path | doi]"
 allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) mcp__qmd__embed mcp__qmd__query
 prumo:
@@ -28,7 +28,7 @@ prumo:
 >    inventário NESTA sessão, diga isso explicitamente ("busca semântica
 >    indisponível — resultados via leitura direta, mais lentos/parciais") e
 >    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
->    operação com o hint do `prumo doctor`. Se precisar do stack completo, roteie para `/prumo-assist:start`.
+>    operação com o hint do `prumo doctor`. Se precisar do stack completo, roteie para `/par:start`.
 >
 > Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
 > operação exata nunca é simulada.
@@ -44,7 +44,7 @@ tipo está nos passos 4 e 5 desta skill.
   menos um escopo `docs/studies/<escopo>/` com `notes/`, `writing/` e `decisions/`).
 - Se o projeto tiver mais de um escopo, perguntar em qual ingerir **antes** do passo 4 — nunca
   escolher sozinho. Escopo único resolve sozinho.
-- Se faltar estrutura, orientar `prumo init pj_<nome>` (via /prumo-assist:start se o CLI não existir). NUNCA criar o scaffold manualmente — o agente não simula trabalho do CLI.
+- Se faltar estrutura, orientar `prumo init pj_<nome>` (via /par:start se o CLI não existir). NUNCA criar o scaffold manualmente — o agente não simula trabalho do CLI.
 
 ## Fluxo
 
@@ -52,7 +52,7 @@ tipo está nos passos 4 e 5 desta skill.
 
 | Input | Caminho |
 |---|---|
-| DOI, arXiv ID, URL de journal | **Orientar o usuário a adicionar o paper no Zotero** e rodar `/prumo-assist:paper library sync`. A skill não resolve metadata diretamente; Zotero é a fonte de verdade. |
+| DOI, arXiv ID, URL de journal | **Orientar o usuário a adicionar o paper no Zotero** e rodar `/par:paper library sync`. A skill não resolve metadata diretamente; Zotero é a fonte de verdade. |
 | URL de blog, tutorial, doc, slide, vídeo, transcript | Continuar nesta skill. Cria `docs/studies/<escopo>/notes/<slug>.md` com `type: source`. |
 | PDF local que não é paper acadêmico (relatório, white paper, slide deck) | Continuar nesta skill. Ler com a tool `Read` (lê PDF nativamente; use o parâmetro de páginas se >10). |
 | Decisão clínica ou editorial (memo, ata) | Continuar nesta skill. `kind: decision`. |
@@ -179,7 +179,7 @@ qmd embed
 
 - **Nunca baixa PDF automaticamente** (copyright). Para paper, o usuário coloca o PDF em `docs/references/pdfs/<citekey>.pdf` manualmente.
 - **Não mexe em** `content/`, `pyproject.toml`, notebooks.
-- **Paper científico** nunca entra direto pelo `/prumo-assist:wiki ingest`. Orientar o usuário: (1) adicionar no Zotero; (2) `/prumo-assist:paper library sync`; (3) voltar aqui para costurar a fonte a outras páginas do wiki se quiser.
+- **Paper científico** nunca entra direto pelo `/par:wiki ingest`. Orientar o usuário: (1) adicionar no Zotero; (2) `/par:paper library sync`; (3) voltar aqui para costurar a fonte a outras páginas do wiki se quiser.
 - **Máximo de 15 páginas tocadas** por ingest. Se mais forem necessárias, quebrar em ingests separados e deixar claro no log que é parte N/M.
 
 ## Erros comuns

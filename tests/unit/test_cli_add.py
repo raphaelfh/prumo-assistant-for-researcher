@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from prumo_assist.cli import app
+from par.cli import app
 
 runner = CliRunner()
 

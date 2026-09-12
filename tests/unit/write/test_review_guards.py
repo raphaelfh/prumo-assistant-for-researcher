@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.domains.write.review import (
+from par.domains.write.review import (
     StructuralChangeError,
     assert_no_structural_changes,
 )

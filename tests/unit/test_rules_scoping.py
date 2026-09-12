@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.core.paths import resolve_resource
+from par.core.paths import resolve_resource
 
 
 def _rules() -> list[Path]:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from prumo_assist.domains.protocol.render import (
+from par.domains.protocol.render import (
     BLOCK_BEGIN_RE,
     PICOT_BEGIN_PREFIX,
     PICOT_END,
@@ -10,7 +10,7 @@ from prumo_assist.domains.protocol.render import (
     render_protocol_block,
     replace_or_insert_block,
 )
-from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
+from par.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 
 def _spec() -> PicotSpec:

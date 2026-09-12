@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from prumo_assist.domains.write.zettlr import PROFILE_RELPATH, generate_profile, profile_issues
+from par.domains.write.zettlr import PROFILE_RELPATH, generate_profile, profile_issues
 
 
 def _pj(tmp_path: Path) -> Path:
@@ -22,7 +22,7 @@ def _pj(tmp_path: Path) -> Path:
 def _gen(tmp_path: Path) -> Any:
     _pj(tmp_path)
     with patch(
-        "prumo_assist.domains.write.zettlr.resolve_csl",
+        "par.domains.write.zettlr.resolve_csl",
         return_value=Path("/fake/styles/apa.csl"),
     ):
         out = generate_profile(tmp_path)
@@ -53,11 +53,11 @@ def test_profile_carries_style_metadata_and_csl(tmp_path: Path) -> None:
 
 
 def test_profile_omits_csl_when_style_unavailable(tmp_path: Path) -> None:
-    from prumo_assist.core.csl import CslNotFoundError
+    from par.core.csl import CslNotFoundError
 
     _pj(tmp_path)
     with patch(
-        "prumo_assist.domains.write.zettlr.resolve_csl",
+        "par.domains.write.zettlr.resolve_csl",
         side_effect=CslNotFoundError("sem estilo"),
     ):
         out = generate_profile(tmp_path)
