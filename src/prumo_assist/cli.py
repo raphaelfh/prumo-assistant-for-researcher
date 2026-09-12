@@ -10,6 +10,7 @@ Comandos disponíveis no PR0 (fundação):
 - ``prumo init [project]`` — cria estrutura de ``pj_*`` a partir do template
   (wizard interativo se ``project`` for omitido)
 - ``prumo doctor [path]`` — health-check do projeto e das skills instaladas
+- ``prumo status [path]`` — onde o estudo está e a próxima frase (só lê o disco)
 
 Subcomandos por domínio (``prumo paper ...``, ``prumo wiki ...``, ...) entram
 nos PR1-2. O ``cli.py`` apenas registra esses sub-apps quando os domínios
@@ -63,7 +64,7 @@ from prumo_assist.core.skill_refs import (
     migrate_skill_names,
     scan_skill_refs,
 )
-from prumo_assist.core.skills import SkillRef, load_skill_registry
+from prumo_assist.core.skills import SkillRef, SkillRegistry, load_skill_registry
 from prumo_assist.domains.capture.cli import capture_command
 from prumo_assist.domains.paper.cli import paper_app
 from prumo_assist.domains.paper.connect import bib_is_placeholder
@@ -72,6 +73,7 @@ from prumo_assist.domains.wiki.cli import wiki_app
 from prumo_assist.domains.write.cli import write_app
 from prumo_assist.domains.write.zettlr import profile_issues as zettlr_profile_issues
 from prumo_assist.integrations import REGISTRY as INTEGRATIONS
+from prumo_assist.status import project_status, render_status, status_to_dict
 
 app = typer.Typer(
     name="prumo",
@@ -152,13 +154,19 @@ def _resolve_skills_dir() -> Path | None:
     return find_resource("skills")
 
 
-def _legacy_skill_map() -> dict[str, SkillRef]:
-    """Nomes de skill antigos → modo novo, lidos do bundle (vazio sem bundle)."""
+def _skill_registry() -> SkillRegistry | None:
+    """Registry do bundle de skills, ou ``None`` quando o bundle não existe."""
     skills_dir = _resolve_skills_dir()
     if skills_dir is None:
-        return {}
+        return None
     registry, _ = load_skill_registry(skills_dir, strict=False)
-    return registry.legacy_map()
+    return registry
+
+
+def _legacy_skill_map() -> dict[str, SkillRef]:
+    """Nomes de skill antigos → modo novo, lidos do bundle (vazio sem bundle)."""
+    registry = _skill_registry()
+    return registry.legacy_map() if registry else {}
 
 
 def _validate_project_name(raw: str) -> tuple[Path, str]:
@@ -858,6 +866,26 @@ def _update_summary(
     if not copied and not updated and not skill_refs:
         return aviso + "Projeto já está no padrão; nada a atualizar."
     return aviso + refs + f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
+
+
+# ---------------------------------------------------------------------------
+# prumo status (onde o estudo está, só lendo o disco)
+# ---------------------------------------------------------------------------
+
+
+@app.command("status")
+def status_command(
+    path: Annotated[Path, typer.Argument(help="Diretório do pj_* (default: cwd).")] = Path("."),
+    scope: Annotated[
+        str | None,
+        typer.Option("--scope", help="Slug do escopo em docs/studies/ (default: todos)."),
+    ] = None,
+    json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
+) -> None:
+    """Onde o estudo está e qual a próxima frase dizer ao agente. Só lê o disco."""
+    with cli_run(json_mode=json_mode) as console:
+        result = project_status(path.resolve(), scope=scope, registry=_skill_registry())
+        console.result(render_status(result), status_to_dict(result))
 
 
 # ---------------------------------------------------------------------------
