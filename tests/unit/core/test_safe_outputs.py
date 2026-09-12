@@ -6,6 +6,8 @@ from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from par.core import safe_outputs
 
 
@@ -15,12 +17,12 @@ def _fake_git(
     ignorados = ignored if ignored is not None else {"content", ".prumo"}
     rastreados = tracked or []
 
-    def fake(root: Path, *args: str) -> str | None:
-        if args[0] == "rev-parse":
-            return "true" if repo else None
+    def fake(root: Path, *args: str, ok_codes: tuple[int, ...] = (0,)) -> str | None:
+        if not repo:
+            return None
         if args[0] == "check-ignore":
-            probe = args[-1]
-            return probe if probe.split("/")[0] in ignorados else None
+            assert ok_codes == (0, 1)
+            return "\n".join(p for p in args[1:] if p.split("/")[0] in ignorados)
         if args[0] == "ls-files":
             return "\n".join(rastreados)
         raise AssertionError(args)
@@ -33,16 +35,18 @@ def _issues(tmp_path: Path, fake: Callable[..., str | None]) -> list[str]:
         return safe_outputs.safe_outputs_issues(tmp_path)
 
 
-def test_fora_de_git_silencia(tmp_path: Path) -> None:
-    assert _issues(tmp_path, _fake_git(repo=False, ignored=set())) == []
-
-
-def test_ignorado_e_limpo_passa(tmp_path: Path) -> None:
-    assert _issues(tmp_path, _fake_git()) == []
-
-
-def test_gitkeep_rastreado_e_tolerado(tmp_path: Path) -> None:
-    fake = _fake_git(tracked=["content/01_raw/.gitkeep", "content/02_processed/.gitkeep"])
+@pytest.mark.parametrize(
+    "fake",
+    [
+        pytest.param(_fake_git(repo=False, ignored=set()), id="fora_de_git_silencia"),
+        pytest.param(_fake_git(), id="ignorado_e_limpo_passa"),
+        pytest.param(
+            _fake_git(tracked=["content/01_raw/.gitkeep", "content/02_processed/.gitkeep"]),
+            id="gitkeep_rastreado_e_tolerado",
+        ),
+    ],
+)
+def test_sem_issue(tmp_path: Path, fake: Callable[..., str | None]) -> None:
     assert _issues(tmp_path, fake) == []
 
 
@@ -63,4 +67,4 @@ def test_rastreado_falha_com_comando_de_correcao(tmp_path: Path) -> None:
 
 def test_git_real_ausente_devolve_none(tmp_path: Path) -> None:
     with patch("par.core.safe_outputs.subprocess.run", side_effect=FileNotFoundError):
-        assert safe_outputs._git(tmp_path, "rev-parse", "--is-inside-work-tree") is None
+        assert safe_outputs._git(tmp_path, "ls-files") is None

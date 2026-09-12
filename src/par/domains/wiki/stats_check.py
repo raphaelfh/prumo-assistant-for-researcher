@@ -91,20 +91,17 @@ def _show(raw: str) -> str:
     return raw.replace(",", ".")
 
 
-def _check_proportions(line: str) -> tuple[int, list[str]]:
-    checked = 0
+def _check_proportions(line: str) -> list[str]:
     found: list[str] = []
     for m in _PROPORTION_RE.finditer(line):
         x, n, pct = int(m[1]), int(m[2]), m[3]
         if n == 0 or x > n:
             continue
-        checked += 1
         exact = 100 * x / n
         if abs(_value(pct) - exact) > _unit(pct) / 2 + _EPS:
             found.append(f'"{m[0]}": relatado {_show(pct)}%, recalculado {_fmt(exact, pct)}%')
         if m[4] is None or m[5] is None:
             continue
-        checked += 1
         lo, hi = (100 * v for v in wilson_interval(x, n))
         if (
             abs(_value(m[4]) - lo) > _unit(m[4]) + _EPS
@@ -114,7 +111,7 @@ def _check_proportions(line: str) -> tuple[int, list[str]]:
                 f'"{m[0]}": IC 95% de Wilson relatado {_show(m[4])} a {_show(m[5])}, '
                 f"recalculado {_fmt(lo, m[4])} a {_fmt(hi, m[5])}"
             )
-    return checked, found
+    return found
 
 
 def _split_row(line: str) -> list[str]:
@@ -169,9 +166,8 @@ def _check_q_values(cells: list[_QCell]) -> list[str]:
     return found
 
 
-def check_reported_stats(text: str) -> tuple[int, list[str]]:
-    """Confere as estatísticas reconhecíveis de ``text``. Retorna ``(conferidas, divergências)``."""
-    checked = 0
+def stat_mismatches(text: str) -> list[str]:
+    """Mensagem única de ``stat_mismatch`` para a página, ou lista vazia se tudo bate."""
     found: list[str] = []
     cells: list[_QCell] = []
     heading = ""
@@ -188,17 +184,8 @@ def check_reported_stats(text: str) -> tuple[int, list[str]]:
         if line.startswith("#"):
             heading = line.lstrip("#").strip()
             continue
-        n, issues = _check_proportions(line)
-        checked += n
-        found.extend(issues)
-    checked += len(cells)
+        found.extend(_check_proportions(line))
     found.extend(_check_q_values(cells))
-    return checked, found
-
-
-def stat_mismatches(text: str) -> list[str]:
-    """Mensagem única de ``stat_mismatch`` para a página, ou lista vazia se tudo bate."""
-    _, found = check_reported_stats(text)
     if not found:
         return []
     return [

@@ -19,32 +19,33 @@ PRIVATE_DIRS: tuple[str, ...] = ("content", ".prumo")
 _PLACEHOLDER = ".gitkeep"
 
 
-def _git(root: Path, *args: str) -> str | None:
+def _git(root: Path, *args: str, ok_codes: tuple[int, ...] = (0,)) -> str | None:
     """Roda ``git`` em ``root``; stdout, ou ``None`` se falhou ou não há git.
 
-    Seam dos testes: nenhum teste chama o binário de verdade.
+    ``ok_codes`` lista os exit codes que não são falha (``check-ignore`` sai 1
+    quando nenhum caminho é ignorado). Seam dos testes: nenhum teste chama o
+    binário de verdade.
     """
     try:
         proc = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)
-    except (FileNotFoundError, OSError):
+    except OSError:
         return None
-    return proc.stdout.strip() if proc.returncode == 0 else None
+    return proc.stdout.strip() if proc.returncode in ok_codes else None
 
 
 def safe_outputs_issues(root: Path) -> list[str]:
     """Issue ``[dado_versionavel]`` (ou lista vazia). Fora de git, silêncio."""
-    if _git(root, "rev-parse", "--is-inside-work-tree") != "true":
+    listagem = _git(root, "ls-files", "--", *PRIVATE_DIRS)
+    if listagem is None:  # fora de git, ou git ausente
         return []
+    rastreados = [p for p in listagem.splitlines() if p and Path(p).name != _PLACEHOLDER]
 
     # Sonda com nome inexistente: arquivo rastreado nunca é "ignorado" para o
     # check-ignore, então testar um arquivo real mascararia o .gitignore.
-    nao_ignorados = [
-        d for d in PRIVATE_DIRS if _git(root, "check-ignore", "-q", f"{d}/__probe__") is None
-    ]
-    listagem = _git(root, "ls-files", "--", *PRIVATE_DIRS) or ""
-    rastreados = [p for p in listagem.splitlines() if p and Path(p).name != _PLACEHOLDER]
-    if not nao_ignorados and not rastreados:
-        return []
+    sondas = [f"{d}/__probe__" for d in PRIVATE_DIRS]
+    saida = _git(root, "check-ignore", *sondas, ok_codes=(0, 1))
+    ignorados = set((saida or "").splitlines())
+    nao_ignorados = [d for d, s in zip(PRIVATE_DIRS, sondas, strict=True) if s not in ignorados]
 
     partes: list[str] = []
     if nao_ignorados:
@@ -59,8 +60,9 @@ def safe_outputs_issues(root: Path) -> list[str]:
             f"`git rm -r --cached {alvos}` e faça commit; se já houve push, "
             "o dado continua no histórico remoto e precisa de reescrita"
         )
-    return [
+    mensagem = (
         "[dado_versionavel] dado do projeto pode vazar pelo git: "
         + "; ".join(partes)
         + ". Ver `.claude/rules/safe_outputs.md` (traga-a com `prumo update`)."
-    ]
+    )
+    return [mensagem] if partes else []
