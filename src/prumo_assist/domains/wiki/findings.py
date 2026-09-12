@@ -17,6 +17,7 @@ from pathlib import Path
 import yaml
 
 from prumo_assist.core import pj_layout
+from prumo_assist.core.provenance import build_meta
 
 
 def archive_as_finding(
@@ -35,7 +36,8 @@ def archive_as_finding(
     ``body`` é texto markdown livre que vai abaixo do frontmatter.
     ``sources`` é lista de âncoras: citação Pandoc (``"[@key]"``) ou alvo de
     página (wikilink ``"[[page]]"`` ou link markdown ``"[texto](page.md)"``).
-    ``generator`` identifica quem chamou (``"wiki/query"`` ou ``"wiki/study"``).
+    ``generator`` identifica quem chamou (``"wiki/query"`` ou ``"wiki/study"``) e
+    vira ``_meta.skill`` no frontmatter (Princípio V).
 
     Raises:
         PjRootNotFoundError: se ``scope`` não estiver dentro de um projeto
@@ -53,9 +55,9 @@ def archive_as_finding(
         "title": title,
         "added": date,
         "status": "active",
-        "generator": generator,
         "tags": tags or [],
         "sources": sources,
+        "_meta": build_meta(schema="finding", skill=generator).to_dict(),
     }
     yaml_block = yaml.safe_dump(fm, sort_keys=False, allow_unicode=True).strip()
     text = f"---\n{yaml_block}\n---\n\n# {title}\n\n{body.strip()}\n"
