@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Annotated
 
@@ -58,7 +58,12 @@ from prumo_assist.core.scaffold import (
     template_drift,
 )
 from prumo_assist.core.scaffold import overlay as _overlay
-from prumo_assist.core.skills import load_skill_registry
+from prumo_assist.core.skill_refs import (
+    legacy_installed_dirs,
+    migrate_skill_names,
+    scan_skill_refs,
+)
+from prumo_assist.core.skills import SkillRef, load_skill_registry
 from prumo_assist.domains.capture.cli import capture_command
 from prumo_assist.domains.paper.cli import paper_app
 from prumo_assist.domains.paper.connect import bib_is_placeholder
@@ -145,6 +150,15 @@ def _resolve_template_dir() -> Path:
 def _resolve_skills_dir() -> Path | None:
     """Localiza ``skills/`` da fonte (raiz do plugin) ou retorna ``None``."""
     return find_resource("skills")
+
+
+def _legacy_skill_map() -> dict[str, SkillRef]:
+    """Nomes de skill antigos → modo novo, lidos do bundle (vazio sem bundle)."""
+    skills_dir = _resolve_skills_dir()
+    if skills_dir is None:
+        return {}
+    registry, _ = load_skill_registry(skills_dir, strict=False)
+    return registry.legacy_map()
 
 
 def _validate_project_name(raw: str) -> tuple[Path, str]:
@@ -619,6 +633,27 @@ def doctor_command(
     # MESMO remédio, e remédio igual é mensagem única (Princípio VIII).
     issues.extend(standard_issues(target, _resolve_template_dir()))
 
+    # Superfície por domínio (ADR-0032): invocação antiga no projeto ou skill
+    # antiga instalada. Remédio único → issue única (Princípio VIII).
+    legacy = _legacy_skill_map()
+    antigos = [c.path for c in scan_skill_refs(target, legacy)]
+    instalados = legacy_installed_dirs(target, legacy)
+    if antigos or instalados:
+        partes: list[str] = []
+        if antigos:
+            partes.append(f"invocações antigas em {', '.join(antigos)}")
+        if instalados:
+            partes.append(
+                f"skills antigas instaladas em {', '.join(instalados)} — apague-as depois de "
+                "conferir que não há customização"
+            )
+        issues.append(
+            "[skill_obsoleta] o prumo-assist agora tem 5 skills com modos "
+            "(paper, wiki, protocol, write, review): "
+            + "; ".join(partes)
+            + ". Rode `prumo update` para reescrever as invocações."
+        )
+
     if (target / "references").is_dir() and not pj_layout.is_legacy_layout(target):
         issues.append(
             "[references_ressuscitado] `docs/references/` existe E `references/` reapareceu "
@@ -734,15 +769,24 @@ def update_command(
         copied: list[str] = []
         updated: list[str] = []
         migrated: str | None = None
-        if not dry_run:
+        legacy = _legacy_skill_map()
+        if dry_run:
+            skill_refs = scan_skill_refs(pj_root, legacy)
+        else:
             migrated = migrate_project_context(pj_root)
+            skill_refs = migrate_skill_names(pj_root, legacy)
             copied = apply_template_update(pj_root, template, drift.missing)
             confirmados = _confirm_diverged(console, drift.diverged, yes=yes)
             updated = apply_template_update(pj_root, template, confirmados)
 
         console.result(
             _update_summary(
-                drift, copied=copied, updated=updated, dry_run=dry_run, migrated=migrated
+                drift,
+                copied=copied,
+                updated=updated,
+                dry_run=dry_run,
+                migrated=migrated,
+                skill_refs=len(skill_refs),
             ),
             {
                 "project": str(pj_root),
@@ -752,6 +796,7 @@ def update_command(
                 "copied": copied,
                 "updated": updated,
                 "migrated": migrated,
+                "skill_refs": [asdict(c) for c in skill_refs],
             },
         )
 
@@ -788,22 +833,31 @@ def _update_summary(
     updated: list[str],
     dry_run: bool,
     migrated: str | None = None,
+    skill_refs: int = 0,
 ) -> str:
+    refs = (
+        f"{skill_refs} arquivo(s) com invocação de skill antiga "
+        + ("a reescrever. " if dry_run else "reescrito(s). ")
+        if skill_refs
+        else ""
+    )
     if dry_run:
-        if drift.clean:
+        if drift.clean and not skill_refs:
             return "Projeto já está no padrão; nada a atualizar."
-        return (
-            f"{len(drift.missing)} arquivo(s) a copiar e {len(drift.diverged)} divergente(s). "
-            "Rode sem --dry-run para aplicar."
+        template = (
+            ""
+            if drift.clean
+            else f"{len(drift.missing)} arquivo(s) a copiar e {len(drift.diverged)} divergente(s). "
         )
+        return refs + template + "Rode sem --dry-run para aplicar."
     aviso = (
         f"{migrated} saiu do projeto — o conteúdo preenchido foi para docs/project_guide.md. "
         if migrated
         else ""
     )
-    if not copied and not updated:
+    if not copied and not updated and not skill_refs:
         return aviso + "Projeto já está no padrão; nada a atualizar."
-    return aviso + f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
+    return aviso + refs + f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
 
 
 # ---------------------------------------------------------------------------

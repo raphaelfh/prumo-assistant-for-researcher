@@ -205,3 +205,29 @@ def test_doctor_nao_opina_sobre_projeto_sem_o_modulo_code(tmp_path: Path) -> Non
     payload = json.loads(result.stdout)
     assert not any("projeto_nao_instalavel" in i for i in payload["issues"])
     assert not any("sys_path_hack" in i for i in payload["issues"])
+
+
+def test_doctor_aponta_invocacao_antiga_e_skill_instalada_velha(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    (pj / "README.md").write_text("/prumo-assist:peer-review\n", encoding="utf-8")
+    (pj / ".claude" / "skills" / "peer-review").mkdir(parents=True)
+    (pj / ".claude" / "skills" / "peer-review" / "SKILL.md").write_text("x", encoding="utf-8")
+
+    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+        res = runner.invoke(app, ["doctor", str(pj), "--json"])
+
+    issues = json.loads(res.stdout)["issues"]
+    obsoleta = [i for i in issues if i.startswith("[skill_obsoleta]")]
+    assert len(obsoleta) == 1, issues
+    assert "README.md" in obsoleta[0] and "prumo update" in obsoleta[0]
+    assert ".claude/skills/peer-review" in obsoleta[0]
+
+
+def test_doctor_sem_sobras_nao_emite_skill_obsoleta(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    (pj / "README.md").write_text("/prumo-assist:review critique\n", encoding="utf-8")
+
+    with patch("prumo_assist.cli.check_external_deps", return_value=[]):
+        res = runner.invoke(app, ["doctor", str(pj), "--json"])
+
+    assert not [i for i in json.loads(res.stdout)["issues"] if "[skill_obsoleta]" in i]
