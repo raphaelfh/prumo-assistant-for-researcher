@@ -1,7 +1,11 @@
 ---
-status: in-progress
+status: implemented
+verified: 2026-09-12
+release: "pendente — PATCH (ADR-0015), junto do [Não publicado]"
 spec: "[[2026-09-12-superficie-de-skills-design]]"
 ---
+
+> **Fechamento (2026-09-12).** Tasks 1–4 implementadas em TDD: `src/prumo_assist/status.py`, comando `prumo status`, `start` sugerindo `next.say`. Smoke num `prumo init` novo devolve `paper library` com a frase do frontmatter. Pendente: corte do release. Verificação: suíte inteira verde exceto os 11 testes de `tests/unit/write/test_review_ingest.py` que dependem de `uvx` no PATH (falham igual no `main`); ruff, mypy, `gen_indexes --check`, `validate_manifests` e `sync_manifest_version --check` limpos.
 
 # Superfície de skills — F3: `prumo status` Implementation Plan
 

@@ -61,9 +61,9 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 
 **Plans ativos:**
 
-- [[superpowers/plans/2026-09-12-superficie-f2-subagents]] · in-progress
+- (nenhum)
 
-**Plans arquivados:** 32 em `superpowers/plans/archive/`
+**Plans arquivados:** 33 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->

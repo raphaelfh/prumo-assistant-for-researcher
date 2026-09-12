@@ -1,7 +1,11 @@
 ---
-status: in-progress
+status: implemented
+verified: 2026-09-12
+release: "pendente — PATCH (ADR-0015), junto do [Não publicado]"
 spec: "[[2026-09-12-superficie-de-skills-design]]"
 ---
+
+> **Fechamento (2026-09-12).** Tasks 1–6 implementadas em TDD: locators e validação por `PaperCallout/v1` no extract, `_meta` carimbado no `_meta.md`, `SupportReport/v1` e `PeerReviewReport/v1`, `prumo validate`, `agents/` no plugin, no wheel e em `.claude/agents/`, modos despachando `reader`/`verifier`/`reviewer` com fallback `general-purpose`, ADR-0033. Pendente: spike F0 (qual transporte roda no Desktop e no Cowork) e o corte do release. Verificação: suíte inteira verde exceto os 11 testes de `tests/unit/write/test_review_ingest.py` que dependem de `uvx` no PATH (falham igual no `main`); ruff, mypy, `gen_indexes --check`, `validate_manifests` e `sync_manifest_version --check` limpos.
 
 # Superfície de skills — F2: três subagents com contratos verificáveis Implementation Plan
 
