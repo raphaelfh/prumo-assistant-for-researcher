@@ -119,7 +119,7 @@ def hash_template(path: Path) -> str:
 
 def _validation_summary(exc: ValidationError) -> str:
     return "; ".join(
-        f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}" for err in exc.errors()[:3]
+        f"{'.'.join(str(p) for p in err['loc'])}: {err['msg'].rstrip('.')}" for err in exc.errors()[:3]
     )
 
 

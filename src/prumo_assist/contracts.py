@@ -45,7 +45,7 @@ def validate_contract(name: str, payload: dict[str, Any]) -> dict[str, Any]:
         return model.model_validate(payload).model_dump(mode="json")
     except ValidationError as exc:
         erros = "; ".join(
-            f"{'.'.join(str(p) for p in err['loc']) or '(raiz)'}: {err['msg']}"
+            f"{'.'.join(str(p) for p in err['loc']) or '(raiz)'}: {err['msg'].rstrip('.')}"
             for err in exc.errors()[:5]
         )
         raise PrumoError(
