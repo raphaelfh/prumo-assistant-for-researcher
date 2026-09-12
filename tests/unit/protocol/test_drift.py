@@ -7,6 +7,7 @@ from pathlib import Path
 
 from par.domains.protocol.drift import (
     SourceText,
+    collect,
     find_drift,
     named_tests,
     prespec_polarity,
@@ -19,6 +20,16 @@ FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "protocol_drift"
 
 def _src(name: str, text: str) -> SourceText:
     return SourceText(label=name, lines=tuple(text.splitlines()))
+
+
+def _mk_writing(tmp_path: Path) -> Path:
+    """Cria um ``pj_demo`` mínimo e devolve ``docs/studies/principal/writing``."""
+    pj = tmp_path / "pj_demo"
+    (pj / ".claude").mkdir(parents=True)
+    (pj / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
+    writing = pj / "docs" / "studies" / "principal" / "writing"
+    writing.mkdir(parents=True)
+    return writing
 
 
 def test_windows_bilingual() -> None:
@@ -43,7 +54,7 @@ def test_fixture_detects_three_contradictions() -> None:
     protocol = _src("protocol.md", (FIXTURES / "protocol.md").read_text(encoding="utf-8"))
     picot = _src("picot.toml", (FIXTURES / "picot.toml").read_text(encoding="utf-8"))
     draft = _src("draft.md", (FIXTURES / "draft.md").read_text(encoding="utf-8"))
-    drifts = find_drift([protocol, picot], draft)
+    drifts = find_drift(collect([protocol, picot]), draft)
     kinds = sorted(d.kind for d in drifts)
     assert kinds == ["prespecification", "test", "test", "window"]
     window = next(d for d in drifts if d.kind == "window")
@@ -71,7 +82,7 @@ def test_agreeing_texts_report_no_drift() -> None:
         "We used the Fisher exact and Mann-Whitney tests.\n"
         "Subgroup comparisons were prespecified.\n",
     )
-    assert find_drift([protocol], draft) == []
+    assert find_drift(collect([protocol]), draft) == []
 
 
 def test_absence_is_not_drift() -> None:
@@ -81,24 +92,20 @@ def test_absence_is_not_drift() -> None:
         "Qui-quadrado.\nEstratificações exploratórias pré-declaradas.\n",
     )
     draft = _src("draft.md", "We describe perceptions of 51 records.\n")
-    assert find_drift([protocol], draft) == []
+    assert find_drift(collect([protocol]), draft) == []
 
 
 def test_sample_size_stated_differently() -> None:
     protocol = _src("protocol.md", "n=48 no módulo sociodemográfico\n")
     draft = _src("draft.md", "Subgroup (n=21).\nSociodemographic module (n = 54).\n")
-    drifts = find_drift([protocol], draft)
+    drifts = find_drift(collect([protocol]), draft)
     assert [
         (d.kind, d.protocol_value, d.draft_value, d.protocol_loc, d.draft_locs) for d in drifts
     ] == [("sample_size", "n=48", "n=54", "protocol.md:1", ("draft.md:2",))]
 
 
 def test_same_drift_in_several_drafts_is_reported_once(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / ".claude").mkdir(parents=True)
-    (pj / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
-    writing = pj / "docs" / "studies" / "principal" / "writing"
-    writing.mkdir(parents=True)
+    writing = _mk_writing(tmp_path)
     (writing / "protocol.md").write_text("Coleta entre março e agosto de 2023.\n")
     (writing / "a.md").write_text("Between March and July 2023.\n")
     (writing / "b.md").write_text("Intro.\nBetween March and July 2023.\n")
@@ -111,12 +118,8 @@ def test_same_drift_in_several_drafts_is_reported_once(tmp_path: Path) -> None:
 
 
 def test_manuscript_drift_scans_writing_drafts(tmp_path: Path) -> None:
-    pj = tmp_path / "pj_demo"
-    (pj / ".claude").mkdir(parents=True)
-    (pj / ".claude" / "pj_config.toml").write_text("", encoding="utf-8")
-    shutil.copy(FIXTURES / "picot.toml", pj / ".claude" / "picot.toml")
-    writing = pj / "docs" / "studies" / "principal" / "writing"
-    writing.mkdir(parents=True)
+    writing = _mk_writing(tmp_path)
+    shutil.copy(FIXTURES / "picot.toml", tmp_path / "pj_demo" / ".claude" / "picot.toml")
     shutil.copy(FIXTURES / "protocol.md", writing / "protocol.md")
     shutil.copy(FIXTURES / "draft.md", writing / "paper.md")
     scope = writing.parent
