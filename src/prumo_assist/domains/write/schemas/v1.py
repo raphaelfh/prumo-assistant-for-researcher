@@ -116,6 +116,19 @@ class AIToolUse(BaseModel):
     human_reviewed: bool = False
 
 
+class VenueProfile(BaseModel):
+    """VenueDisclosure/v1 — política de uso de IA de um periódico, conferida na fonte."""
+
+    key: str
+    name: str
+    source_url: str
+    accessed: str
+    required: list[str]
+    placement: list[str]
+    prohibited: list[str] = Field(default_factory=list)
+    authorship: str
+
+
 class AIDisclosure(BaseModel):
     """AIDisclosure/v1 — declaração de uso de IA derivada da proveniência."""
 
@@ -126,6 +139,7 @@ class AIDisclosure(BaseModel):
     tools: list[AIToolUse] = Field(default_factory=list)
     statement_pt: str
     statement_en: str
+    venue: VenueProfile | None = None
 
 
 class ReviewComment(BaseModel):
