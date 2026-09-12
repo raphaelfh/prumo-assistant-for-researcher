@@ -63,7 +63,10 @@ def diff_command(
         diff = ops.diff_against_last_adr(scope)
         if diff is None:
             console.warn("`.claude/picot.toml` não encontrado.")
-            console.emit({"changes": [], "has_structural": False, "missing": True, "drift": drift})
+            if json_mode:
+                console.emit(
+                    {"changes": [], "has_structural": False, "missing": True, "drift": drift}
+                )
             return
         if not diff.changes:
             console.success("Sem mudanças desde o último ADR (ou sem baseline).")
@@ -76,13 +79,14 @@ def diff_command(
                     f"  • {c.field}: {c.before!r} → {c.after!r} "
                     f"({'estrutural' if c.structural else 'cosmético'})"
                 )
-        console.emit(
-            {
-                "changes": [_change_to_dict(c) for c in diff.changes],
-                "has_structural": diff.has_structural,
-                "drift": drift,
-            }
-        )
+        if json_mode:  # modo texto já disse tudo nas linhas acima (Princípio VIII)
+            console.emit(
+                {
+                    "changes": [_change_to_dict(c) for c in diff.changes],
+                    "has_structural": diff.has_structural,
+                    "drift": drift,
+                }
+            )
 
 
 @protocol_app.command("detect-mode")
