@@ -41,6 +41,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Adicionado
 
+- **Declaração de IA por periódico.** `prumo write disclosure --venue icmje|jama|bmj` segue a política do periódico conferida na fonte (`source_url` e `accessed`), lista o que falta preencher e diz onde inserir. Sem `--venue` a saída não muda; periódico sem perfil recebe o texto genérico com aviso. NEJM e The Lancet ficaram de fora porque a página oficial não pôde ser conferida (Princípios II, IV, VI, VIII).
 - **`prumo protocol diff` aponta drift do manuscrito.** Compara os drafts de `writing/` com `protocol.md` e a PICOT: janela de coleta, `n`, testes estatísticos nomeados e pré-especificação de subgrupos, com arquivo:linha dos dois lados e dica de correção. Fato ausente no draft não conta como drift, e cada divergência aparece uma vez. Só lê (Princípios I, II, VIII).
 - **`prumo wiki lint` recalcula estatísticas relatadas.** Porcentagens `x of n (p%)`, IC 95% de Wilson e valores q de Benjamini-Hochberg em tabelas Markdown; `stat_mismatch` mostra o valor relatado e o recalculado quando divergem (Princípios II, VI).
 - **`review critique` com trecho literal e fontes lidas.** Cada fraqueza e claim sem evidência pode trazer um `quote` literal (até 25 palavras) que `prumo validate PeerReviewReport/v1` confere contra o `draft_path`, e o relatório lista `sources_read`. Campos opcionais, forward-only (Princípios II, IV; ADR-0033).

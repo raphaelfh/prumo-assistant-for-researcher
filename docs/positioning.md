@@ -56,7 +56,7 @@ Nível = `prumo.determinism` no frontmatter do modo. Evidência = o que existe h
 |---|---|---|---|
 | `manuscript`, `section` | agentic | `tests/unit/write/test_compose_*.py` | Rascunho a partir das entradas do projeto, com citekeys do acervo e `[REF FALTANTE]` nas lacunas. A verificação é do pesquisador. |
 | `style` | agentic | diff de citações obrigatório no próprio modo | Reformata a prosa. O diff confere que nenhuma citação entrou ou saiu. A preservação do sentido não é verificada por máquina. |
-| `disclosure` | deterministic | `tests/unit/write/test_disclosure.py` | Declaração derivada do `_meta` gravado. Não cobre uso de IA fora do prumo. |
+| `disclosure` | deterministic | `tests/unit/write/test_disclosure.py`, `test_disclosure_venues.py` | Declaração derivada do `_meta` gravado, no formato de ICMJE, JAMA ou BMJ quando pedido, com a política conferida na fonte e datada. Não cobre uso de IA fora do prumo, e a política do periódico pode ter mudado desde `accessed`. |
 
 ### review
 
