@@ -1,9 +1,9 @@
 ---
-title: Vault de documentação do prumo-assist
+title: Vault de documentação do PAR
 tags: [index]
 ---
 
-# prumo-assist · vault de documentação
+# PAR · vault de documentação
 
 Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [README](../README.md), [ARCHITECTURE](../ARCHITECTURE.md) e [ROADMAP](../ROADMAP.md) — focado em **didática** e **decisão de uso**, não em referência exaustiva.
 

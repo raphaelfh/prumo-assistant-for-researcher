@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from prumo_assist.domains.protocol.diff import (
+from par.domains.protocol.diff import (
     PicotDiff,
     diff_picot,
     is_structural_field,
 )
-from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
+from par.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 
 def _spec(**overrides: object) -> PicotSpec:

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist import PrumoError
-from prumo_assist.core import scaffold
+from par import PrumoError
+from par.core import scaffold
 
 
 def test_overlay_copies_into_empty_target(tmp_path: Path) -> None:

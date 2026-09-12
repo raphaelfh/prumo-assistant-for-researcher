@@ -7,9 +7,9 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from prumo_assist.cli import app
-from prumo_assist.domains.protocol.picot_io import write_picot
-from prumo_assist.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
+from par.cli import app
+from par.domains.protocol.picot_io import write_picot
+from par.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
 
 runner = CliRunner()
 

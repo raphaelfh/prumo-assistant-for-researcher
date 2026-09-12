@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist import ManifestError
-from prumo_assist.core.skills import (
+from par import ManifestError
+from par.core.skills import (
     SkillRef,
     load_modes,
     load_skill_registry,
@@ -174,7 +174,7 @@ def test_guidelines_reviewed_not_in_extra(tmp_path: Path) -> None:
 def test_stale_guideline_warnings_flags_old(tmp_path: Path) -> None:
     from datetime import date
 
-    from prumo_assist.core.skills import stale_guideline_warnings
+    from par.core.skills import stale_guideline_warnings
 
     _write(
         tmp_path / "old" / "SKILL.md",
@@ -196,7 +196,7 @@ def test_stale_guideline_warnings_flags_old(tmp_path: Path) -> None:
 def test_stale_guideline_warnings_flags_malformed_date(tmp_path: Path) -> None:
     from datetime import date
 
-    from prumo_assist.core.skills import stale_guideline_warnings
+    from par.core.skills import stale_guideline_warnings
 
     _write(
         tmp_path / "bad" / "SKILL.md",
@@ -380,14 +380,14 @@ def test_registry_anexa_modos_e_resolve_referencias(tmp_path: Path) -> None:
     assert [m.name for m in reg.get("paper").modes] == ["extract", "library"]
     ref = SkillRef("paper", "extract")
     assert ref.slug == "paper/extract"
-    assert ref.invocation == "prumo-assist:paper extract"
+    assert ref.invocation == "par:paper extract"
     assert reg.legacy_map()["paper-extract-all"] == ref
     for value in (
         "paper/extract",
-        "prumo-assist:paper extract",
-        "/prumo-assist:paper extract",
+        "par:paper extract",
+        "/par:paper extract",
         "paper-extract",
-        "prumo-assist:paper-extract",
+        "par:paper-extract",
     ):
         assert reg.resolve(value) == ref, value
     assert reg.resolve("paper") is None
@@ -460,5 +460,5 @@ def test_subcomando_recente_tem_fallback_de_subcomando_ausente(
     missing = subcommand.split()[1]
     for slug, body in callers.items():
         assert f"No such command '{missing}'" in body, slug
-        assert "uv tool upgrade prumo-assist" in body, slug
+        assert "uv tool upgrade prumo-assistant-for-researcher" in body, slug
         assert "consentimento" in body, slug

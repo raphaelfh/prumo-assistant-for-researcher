@@ -30,10 +30,10 @@ from __future__ import annotations
 
 import pytest
 
-import prumo_assist.domains.write.review as review_mod
-from prumo_assist.core import criticmarkup
-from prumo_assist.core.obsidian import normalize_markdown_with_map
-from prumo_assist.domains.write.review import (
+import par.domains.write.review as review_mod
+from par.core import criticmarkup
+from par.core.obsidian import normalize_markdown_with_map
+from par.domains.write.review import (
     DocxCitation,
     LocatedMark,
     MarkLostError,
@@ -41,7 +41,7 @@ from prumo_assist.domains.write.review import (
     locate_marks_in_norm,
     transplant_to_source,
 )
-from prumo_assist.domains.write.schemas.v1 import CiteMapFile, CiteOccurrence
+from par.domains.write.schemas.v1 import CiteMapFile, CiteOccurrence
 
 
 def _occ(

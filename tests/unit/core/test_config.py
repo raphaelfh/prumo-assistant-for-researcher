@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist import ConfigError
-from prumo_assist.core.config import DEFAULTS, load_project_config
+from par import ConfigError
+from par.core.config import DEFAULTS, load_project_config
 
 
 def test_returns_defaults_when_no_config(tmp_path: Path) -> None:

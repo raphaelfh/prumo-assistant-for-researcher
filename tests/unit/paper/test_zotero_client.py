@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-import prumo_assist.domains.paper.zotero as zot
-from prumo_assist.domains.paper.zotero import (
+import par.domains.paper.zotero as zot
+from par.domains.paper.zotero import (
     ZoteroRef,
     check_zotero_running,
     fetch_children,
@@ -87,7 +87,7 @@ def test_render_note_empty_marks_vazia() -> None:
 
 def test_resolve_citekey_empty_result_is_none() -> None:
     with patch(
-        "prumo_assist.domains.paper.zotero._http_post_json",
+        "par.domains.paper.zotero._http_post_json",
         return_value={"jsonrpc": "2.0", "result": [], "id": 1},
     ):
         assert resolve_citekey("missing") is None
@@ -95,14 +95,14 @@ def test_resolve_citekey_empty_result_is_none() -> None:
 
 def test_resolve_citekey_network_error_is_none() -> None:
     with patch(
-        "prumo_assist.domains.paper.zotero._http_post_json",
+        "par.domains.paper.zotero._http_post_json",
         side_effect=urllib.error.URLError("connection refused"),
     ):
         assert resolve_citekey("smith2024") is None
 
 
 def test_resolve_citekey_non_dict_response_is_none() -> None:
-    with patch("prumo_assist.domains.paper.zotero._http_post_json", return_value=["unexpected"]):
+    with patch("par.domains.paper.zotero._http_post_json", return_value=["unexpected"]):
         assert resolve_citekey("smith2024") is None
 
 
@@ -176,7 +176,7 @@ def test_resolve_citekey_my_library_uses_uri_user_path() -> None:
             "audisio2025total", 4712, "http://zotero.org/users/13049353/items/UGJ7VBQ8"
         ),
     ]
-    with patch("prumo_assist.domains.paper.zotero._http_post_json", side_effect=responses):
+    with patch("par.domains.paper.zotero._http_post_json", side_effect=responses):
         ref = resolve_citekey("audisio2025total")
     assert ref == ZoteroRef(library_path="users/13049353", item_key="UGJ7VBQ8")
 
@@ -188,7 +188,7 @@ def test_resolve_citekey_group_library_uses_groups_path() -> None:
             "silva2024llm", 8123, "http://zotero.org/groups/5772858/items/ABCD1234"
         ),
     ]
-    with patch("prumo_assist.domains.paper.zotero._http_post_json", side_effect=responses):
+    with patch("par.domains.paper.zotero._http_post_json", side_effect=responses):
         ref = resolve_citekey("silva2024llm")
     assert ref == ZoteroRef(library_path="groups/5772858", item_key="ABCD1234")
 
@@ -201,7 +201,7 @@ def test_resolve_citekey_falls_back_to_library_of_first_result() -> None:
             "smith2024", 99, "http://zotero.org/users/13049353/items/ZZZZ9999"
         ),
     ]
-    with patch("prumo_assist.domains.paper.zotero._http_post_json", side_effect=responses):
+    with patch("par.domains.paper.zotero._http_post_json", side_effect=responses):
         ref = resolve_citekey("smith2024")
     assert ref == ZoteroRef(library_path="users/13049353", item_key="ZZZZ9999")
 
@@ -213,7 +213,7 @@ def test_resolve_citekey_unknown_key_is_none_without_second_call() -> None:
         calls.append(payload)
         return {"jsonrpc": "2.0", "result": [], "id": 1}
 
-    with patch("prumo_assist.domains.paper.zotero._http_post_json", fake_post):
+    with patch("par.domains.paper.zotero._http_post_json", fake_post):
         assert resolve_citekey("naoexiste2099") is None
     assert len(calls) == 1
 
@@ -223,7 +223,7 @@ def test_resolve_citekey_none_when_pandoc_filter_omits_key() -> None:
         _real_search_response("audisio2025total", "My Library"),
         {"jsonrpc": "2.0", "result": {"items": {}}, "id": 1},
     ]
-    with patch("prumo_assist.domains.paper.zotero._http_post_json", side_effect=responses):
+    with patch("par.domains.paper.zotero._http_post_json", side_effect=responses):
         assert resolve_citekey("audisio2025total") is None
 
 
@@ -232,7 +232,7 @@ def test_resolve_citekey_jsonrpc_error_body_does_not_raise() -> None:
         _real_search_response("audisio2025total", "My Library"),
         _RPC_ERROR_BODY,
     ]
-    with patch("prumo_assist.domains.paper.zotero._http_post_json", side_effect=responses):
+    with patch("par.domains.paper.zotero._http_post_json", side_effect=responses):
         assert resolve_citekey("audisio2025total") is None
 
 
@@ -242,7 +242,7 @@ def test_fetch_children_extracts_data_field() -> None:
         {"key": "C2", "data": {"itemType": "note", "note": "<p>y</p>"}},
         {"key": "C3", "no_data_here": True},  # ignorado
     ]
-    with patch("prumo_assist.domains.paper.zotero._http_get_json", return_value=api_response):
+    with patch("par.domains.paper.zotero._http_get_json", return_value=api_response):
         out = fetch_children(ZoteroRef("users/13049353", "PARENT01"))
     assert len(out) == 2
     assert out[0]["itemType"] == "annotation"
@@ -250,13 +250,13 @@ def test_fetch_children_extracts_data_field() -> None:
 
 
 def test_fetch_children_non_list_response_is_empty() -> None:
-    with patch("prumo_assist.domains.paper.zotero._http_get_json", return_value={"error": "x"}):
+    with patch("par.domains.paper.zotero._http_get_json", return_value={"error": "x"}):
         assert fetch_children(ZoteroRef("users/13049353", "PARENT01")) == []
 
 
 def test_fetch_children_network_error_is_empty() -> None:
     with patch(
-        "prumo_assist.domains.paper.zotero._http_get_json",
+        "par.domains.paper.zotero._http_get_json",
         side_effect=urllib.error.URLError("refused"),
     ):
         assert fetch_children(ZoteroRef("users/13049353", "PARENT01")) == []
@@ -339,7 +339,7 @@ def test_fetch_annotations_index_groups_by_parent_item() -> None:
         calls.append(url)
         return page if "start=0" in url or "start" not in url else []
 
-    with patch("prumo_assist.domains.paper.zotero._http_get_json", fake_get):
+    with patch("par.domains.paper.zotero._http_get_json", fake_get):
         index = zot.fetch_annotations_index("users/13049353")
 
     assert set(index) == {"9JUI5P4Q", "OUTROANX"}
@@ -367,11 +367,11 @@ def test_annotations_for_item_matches_attachments_of_children() -> None:
 
 def test_fetch_children_http_403_explains_how_to_enable_local_api() -> None:
     """403 = Local API desligada: erro acionável, nunca lista vazia."""
-    from prumo_assist.domains.paper.errors import PaperError
+    from par.domains.paper.errors import PaperError
 
     with (
         patch(
-            "prumo_assist.domains.paper.zotero._http_get_json",
+            "par.domains.paper.zotero._http_get_json",
             side_effect=_http_error(
                 "http://127.0.0.1:23119/api/users/0/items/X/children",
                 403,
@@ -388,11 +388,11 @@ def test_fetch_children_http_403_explains_how_to_enable_local_api() -> None:
 
 
 def test_fetch_children_http_400_raises_instead_of_empty_list() -> None:
-    from prumo_assist.domains.paper.errors import PaperError
+    from par.domains.paper.errors import PaperError
 
     with (
         patch(
-            "prumo_assist.domains.paper.zotero._http_get_json",
+            "par.domains.paper.zotero._http_get_json",
             side_effect=_http_error(
                 "http://127.0.0.1:23119/api/users/1/items/X/children", 400, "Bad Request"
             ),
@@ -404,11 +404,11 @@ def test_fetch_children_http_400_raises_instead_of_empty_list() -> None:
 
 
 def test_fetch_annotations_index_http_403_raises() -> None:
-    from prumo_assist.domains.paper.errors import PaperError
+    from par.domains.paper.errors import PaperError
 
     with (
         patch(
-            "prumo_assist.domains.paper.zotero._http_get_json",
+            "par.domains.paper.zotero._http_get_json",
             side_effect=_http_error(
                 "http://127.0.0.1:23119/api/users/0/items", 403, "Local API is not enabled"
             ),
@@ -431,7 +431,7 @@ def test_fetch_annotations_index_paginates_until_short_page() -> None:
         start = int(url.split("start=")[1].split("&")[0])
         return pages.get(start, [])
 
-    with patch("prumo_assist.domains.paper.zotero._http_get_json", fake_get):
+    with patch("par.domains.paper.zotero._http_get_json", fake_get):
         index = zot.fetch_annotations_index("users/13049353")
 
     assert len(index["9JUI5P4Q"]) == zot._ANNOTATIONS_PAGE_SIZE
@@ -450,7 +450,7 @@ def test_fetch_annotations_index_survives_ignored_start_param() -> None:
         calls.append(url)
         return page  # sempre a mesma página, `start` ignorado
 
-    with patch("prumo_assist.domains.paper.zotero._http_get_json", fake_get):
+    with patch("par.domains.paper.zotero._http_get_json", fake_get):
         index = zot.fetch_annotations_index("users/13049353")
 
     assert len(index["9JUI5P4Q"]) == zot._ANNOTATIONS_PAGE_SIZE

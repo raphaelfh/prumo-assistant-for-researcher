@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.core.skills import load_skill_registry
-from prumo_assist.integrations.claude_code.installer import ClaudeCodeIntegration
+from par.core.skills import load_skill_registry
+from par.integrations.claude_code.installer import ClaudeCodeIntegration
 
 
 def test_install_copia_modos_references_e_templates(tmp_path: Path) -> None:
@@ -54,7 +54,7 @@ def test_install_copia_agents_para_claude_agents(
     agents.mkdir()
     (agents / "reader.md").write_text("---\nname: reader\n---\ncorpo\n", encoding="utf-8")
     monkeypatch.setattr(
-        "prumo_assist.integrations.claude_code.installer.find_resource",
+        "par.integrations.claude_code.installer.find_resource",
         lambda name: agents if name == "agents" else None,
     )
     registry, _ = load_skill_registry(tmp_path / "sem-skills")

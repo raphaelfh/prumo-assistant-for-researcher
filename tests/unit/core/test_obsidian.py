@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.core.obsidian import (
+from par.core.obsidian import (
     normalize_markdown,
     split_frontmatter,
     split_frontmatter_raw,

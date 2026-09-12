@@ -31,17 +31,17 @@ from pathlib import Path
 import pytest
 import yaml
 
-from prumo_assist.core.obsidian import normalize_markdown_with_map
-from prumo_assist.domains.write import review
-from prumo_assist.domains.write.export import slugify
-from prumo_assist.domains.write.review import (
+from par.core.obsidian import normalize_markdown_with_map
+from par.domains.write import review
+from par.domains.write.export import slugify
+from par.domains.write.review import (
     AdeuUnavailableError,
     CitationConservationError,
     IngestResult,
     SourceChangedError,
     ingest,
 )
-from prumo_assist.domains.write.schemas.v1 import (
+from par.domains.write.schemas.v1 import (
     CiteOccurrence,
     ReviewCommentsFile,
     ReviewEventsFile,
@@ -206,7 +206,7 @@ def test_ingest_fails_fast_without_uvx(
     docx = _write_docx(tmp_path / "revisado.docx", paragraphs=[])
 
     # Monkeypatch shutil.which no módulo review para simular uvx ausente
-    monkeypatch.setattr("prumo_assist.domains.write.review.shutil.which", lambda _: None)
+    monkeypatch.setattr("par.domains.write.review.shutil.which", lambda _: None)
 
     with pytest.raises(AdeuUnavailableError) as exc:
         ingest(reviewed_docx=docx, page=page, project_root=project_root)

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.domains.paper.pdfs import sync_pdfs
+from par.domains.paper.pdfs import sync_pdfs
 
 
 def _setup_project(tmp_path: Path, bib_text: str) -> Path:

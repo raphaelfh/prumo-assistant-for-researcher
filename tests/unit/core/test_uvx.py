@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
-from prumo_assist.core.uvx import PinnedTool, run_pinned
+from par.core.uvx import PinnedTool, run_pinned
 
 
 class _ToolDownError(RuntimeError):
@@ -42,7 +42,7 @@ def _completed(returncode: int = 0, stdout: str = "", stderr: str = "") -> Any:
 
 
 def test_run_pinned_success_returns_completed_process() -> None:
-    with patch("prumo_assist.core.uvx.subprocess.run", return_value=_completed(stdout="ok")) as run:
+    with patch("par.core.uvx.subprocess.run", return_value=_completed(stdout="ok")) as run:
         proc = run_pinned(_TOOL, _ARGV, timeout=120)
     assert proc.stdout == "ok"
     run.assert_called_once_with(_ARGV, capture_output=True, text=True, timeout=120)
@@ -50,7 +50,7 @@ def test_run_pinned_success_returns_completed_process() -> None:
 
 def test_run_pinned_uvx_missing_raises_error_cls_with_hint() -> None:
     with (
-        patch("prumo_assist.core.uvx.subprocess.run", side_effect=FileNotFoundError("uvx")),
+        patch("par.core.uvx.subprocess.run", side_effect=FileNotFoundError("uvx")),
         pytest.raises(_ToolDownError) as exc,
     ):
         run_pinned(_TOOL, _ARGV, timeout=120)
@@ -65,7 +65,7 @@ def test_run_pinned_uvx_missing_raises_error_cls_with_hint() -> None:
 def test_run_pinned_timeout_raises_error_cls_with_detail() -> None:
     with (
         patch(
-            "prumo_assist.core.uvx.subprocess.run",
+            "par.core.uvx.subprocess.run",
             side_effect=subprocess.TimeoutExpired(cmd="uvx", timeout=120),
         ),
         pytest.raises(_ToolDownError) as exc,
@@ -80,7 +80,7 @@ def test_run_pinned_timeout_raises_error_cls_with_detail() -> None:
 def test_run_pinned_nonzero_exit_raises_with_stderr_tail() -> None:
     stderr = "x" * 3000 + "FIM"
     with (
-        patch("prumo_assist.core.uvx.subprocess.run", return_value=_completed(1, stderr=stderr)),
+        patch("par.core.uvx.subprocess.run", return_value=_completed(1, stderr=stderr)),
         pytest.raises(_ToolDownError) as exc,
     ):
         run_pinned(_TOOL, _ARGV, timeout=120)
@@ -97,7 +97,7 @@ def test_run_pinned_zero_exit_never_raises_even_with_stderr() -> None:
     """Exit 0 com stderr barulhento passa direto — quem decide sobre o
     conteúdo é o wrapper (ex.: refchecker sai 0 mesmo com erros)."""
     with patch(
-        "prumo_assist.core.uvx.subprocess.run",
+        "par.core.uvx.subprocess.run",
         return_value=_completed(0, stdout="{}", stderr="warning: barulho"),
     ):
         proc = run_pinned(_TOOL, _ARGV, timeout=5)

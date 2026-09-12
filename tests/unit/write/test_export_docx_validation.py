@@ -19,11 +19,11 @@ from pathlib import Path
 
 import pytest
 
-import prumo_assist.domains.write.export as export_mod
-from prumo_assist.core.obsidian import SpanFragment, normalize_markdown_with_map, split_frontmatter
-from prumo_assist.core.pj_layout import PjRootNotFoundError
-from prumo_assist.domains.write.errors import WriteError
-from prumo_assist.domains.write.export import (
+import par.domains.write.export as export_mod
+from par.core.obsidian import SpanFragment, normalize_markdown_with_map, split_frontmatter
+from par.core.pj_layout import PjRootNotFoundError
+from par.domains.write.errors import WriteError
+from par.domains.write.export import (
     CorruptDocxError,
     MissingFieldLockError,
     MissingZoteroPrefsError,
@@ -35,7 +35,7 @@ from prumo_assist.domains.write.export import (
     _run_and_validate_docx,
     _validate_docx_structure,
 )
-from prumo_assist.domains.write.schemas.v1 import CiteMapFile, SpanMapFile
+from par.domains.write.schemas.v1 import CiteMapFile, SpanMapFile
 
 _CONTENT_TYPES_OK = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -124,7 +124,7 @@ def test_run_and_validate_passes_first_try(tmp_path: Path, monkeypatch: pytest.M
     out = tmp_path / "saida.docx"
     calls: list[list[str]] = []
     fake = _fake_run_writing(out, [_good_docx_bytes(tmp_path)], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
     _run_and_validate_docx(["pandoc", f"--output={out}"], out)
     assert len(calls) == 1
 
@@ -135,7 +135,7 @@ def test_run_and_validate_retries_once_on_corrupt_output(
     out = tmp_path / "saida.docx"
     calls: list[list[str]] = []
     fake = _fake_run_writing(out, [b"lixo nao-zip", _good_docx_bytes(tmp_path)], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
     _run_and_validate_docx(["pandoc", f"--output={out}"], out)
     assert len(calls) == 2
 
@@ -146,7 +146,7 @@ def test_run_and_validate_raises_after_second_failure(
     out = tmp_path / "saida.docx"
     calls: list[list[str]] = []
     fake = _fake_run_writing(out, [b"lixo 1", b"lixo 2"], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
     with pytest.raises(CorruptDocxError) as exc:
         _run_and_validate_docx(["pandoc", f"--output={out}"], out)
     assert len(calls) == 2
@@ -233,7 +233,7 @@ def test_export_docx_fails_loud_after_retry(
     _patch_export_seams(monkeypatch, tmp_path)
     calls: list[list[str]] = []
     fake = _fake_run_writing_output_flag([b"lixo 1", b"lixo 2"], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
     with pytest.raises(CorruptDocxError):
         export_mod.export(page=page, to="docx", project_root=root)
     assert len(calls) == 2
@@ -244,7 +244,7 @@ def test_export_docx_happy_path_single_run(tmp_path: Path, monkeypatch: pytest.M
     _patch_export_seams(monkeypatch, tmp_path)
     calls: list[list[str]] = []
     fake = _fake_run_writing_output_flag([_good_docx_bytes(tmp_path)], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
     result = export_mod.export(page=page, to="docx", project_root=root)
     assert result.suffix == ".docx"
     assert result.is_file()
@@ -258,7 +258,7 @@ def test_export_html_does_not_validate_docx(
     _patch_export_seams(monkeypatch, tmp_path)
     calls: list[list[str]] = []
     fake = _fake_run_writing_output_flag([b"<html>ok</html>"], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
     result = export_mod.export(page=page, to="html", project_root=root)
     assert result.suffix == ".html"
     assert len(calls) == 1  # sem retry, sem validação de zip
@@ -273,7 +273,7 @@ def test_compose_docx_goes_through_validation(
     _patch_export_seams(monkeypatch, tmp_path)
     calls: list[list[str]] = []
     fake = _fake_run_writing_output_flag([b"lixo 1", b"lixo 2"], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
     with pytest.raises(CorruptDocxError):
         export_mod.compose(index=index, to="docx", project_root=root)
     assert len(calls) == 2
@@ -551,7 +551,7 @@ def test_export_docx_emits_review_sidecars(tmp_path: Path, monkeypatch: pytest.M
     fake = _fake_run_writing_output_flag(
         [_docx_bytes_for_export_wiring(tmp_path, [payload])], calls
     )
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
 
     result = export_mod.export(page=page, to="docx", project_root=root)
 
@@ -580,7 +580,7 @@ def test_export_docx_wiring_mismatch_hard_fails(
         [_docx_bytes_for_export_wiring(tmp_path, [])],
         calls,  # 0 campos no docx
     )
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
 
     with pytest.raises(export_mod.CiteMapMismatchError):
         export_mod.export(page=page, to="docx", project_root=root)
@@ -706,7 +706,7 @@ def test_export_falha_alto_quando_figura_falta(
             stderr="[WARNING] Could not fetch resource figures/ausente.png\n",
         )
 
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake_run)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake_run)
 
     with pytest.raises(export_mod.MissingResourceError) as exc:
         export_mod.export(page, to="html", project_root=root)
@@ -728,7 +728,7 @@ def test_export_html_usa_resource_path_do_diretorio_da_pagina(
     _patch_export_seams(monkeypatch, tmp_path)
     calls: list[list[str]] = []
     fake = _fake_run_writing_output_flag([b"<html>ok</html>"], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
 
     result = export_mod.export(page, to="html", project_root=root)
 
@@ -769,7 +769,7 @@ def test_export_sobrescreve_com_force(tmp_path: Path, monkeypatch: pytest.Monkey
     out.write_bytes(b"conteudo antigo")
     calls: list[list[str]] = []
     fake = _fake_run_writing_output_flag([_docx_bytes_for_export_wiring(tmp_path, [])], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
 
     result = export_mod.export(page, to="docx", out=out, project_root=root, force=True)
 
@@ -786,7 +786,7 @@ def test_zettlr_export_entry_overwrites_on_second_run(
     nunca o docx do coautor com tracked changes. Prova ponta a ponta (export
     real, seams externos mockados) que reexportar o MESMO arquivo pelo
     entrypoint do Zettlr sobrescreve sem levantar ``OutputExistsError``."""
-    from prumo_assist.domains.write.cli import zettlr_export_entry
+    from par.domains.write.cli import zettlr_export_entry
 
     root, page = _fake_project(tmp_path)
     (root / ".claude").mkdir(parents=True, exist_ok=True)
@@ -795,7 +795,7 @@ def test_zettlr_export_entry_overwrites_on_second_run(
     calls: list[list[str]] = []
     payload = _docx_bytes_for_export_wiring(tmp_path, [])
     fake = _fake_run_writing_output_flag([payload, payload], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
     monkeypatch.setattr("sys.argv", ["prumo-zettlr-export", str(page)])
 
     zettlr_export_entry()  # 1a exportação: cria o docx
@@ -837,7 +837,7 @@ def test_compose_sobrescreve_com_force(tmp_path: Path, monkeypatch: pytest.Monke
     out.write_bytes(b"conteudo antigo")
     calls: list[list[str]] = []
     fake = _fake_run_writing_output_flag([_docx_bytes_for_export_wiring(tmp_path, [])], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
 
     result = export_mod.compose(index=index, to="docx", out=out, project_root=root, force=True)
 
@@ -879,7 +879,7 @@ def test_compose_resource_path_multiplos_diretorios_sem_duplicata(
     _patch_export_seams(monkeypatch, tmp_path)
     calls: list[list[str]] = []
     fake = _fake_run_writing_output_flag([b"<html>ok</html>"], calls)
-    monkeypatch.setattr("prumo_assist.domains.write.export.subprocess.run", fake)
+    monkeypatch.setattr("par.domains.write.export.subprocess.run", fake)
 
     export_mod.compose(index=index, to="html", project_root=root)
 

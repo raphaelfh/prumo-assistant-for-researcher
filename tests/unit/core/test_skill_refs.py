@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.core.skill_refs import (
+from par.core.skill_refs import (
     RefChange,
     legacy_installed_dirs,
     migrate_skill_names,
     rewrite_invocations,
     scan_skill_refs,
 )
-from prumo_assist.core.skills import SkillRef
+from par.core.skills import SkillRef
 
 LEGACY = {
     "paper-extract": SkillRef("paper", "extract"),
@@ -22,46 +22,42 @@ LEGACY = {
 
 
 def test_reescreve_token_prefixado_preservando_barra_e_argumentos() -> None:
-    out, n = rewrite_invocations(
-        "rode `/prumo-assist:paper-manager sync` e /prumo-assist:paper-extract @k", LEGACY
-    )
-    assert out == "rode `/prumo-assist:paper library sync` e /prumo-assist:paper extract @k"
+    out, n = rewrite_invocations("rode `/par:paper-manager sync` e /par:paper-extract @k", LEGACY)
+    assert out == "rode `/par:paper library sync` e /par:paper extract @k"
     assert n == 2
 
 
 def test_nome_mais_longo_vence() -> None:
-    out, n = rewrite_invocations("/prumo-assist:paper-extract-all --limit 5", LEGACY)
-    assert out == "/prumo-assist:paper extract --limit 5"
+    out, n = rewrite_invocations("/par:paper-extract-all --limit 5", LEGACY)
+    assert out == "/par:paper extract --limit 5"
     assert n == 1
 
 
 def test_nao_toca_valor_sem_prefixo_nem_nome_desconhecido() -> None:
-    text = "generator: wiki-query\n/prumo-assist:start\nprumo-assist:wiki-queryx\n"
+    text = "generator: wiki-query\n/par:start\npar:wiki-queryx\n"
     assert rewrite_invocations(text, LEGACY) == (text, 0)
 
 
 def test_idempotente() -> None:
-    once, _ = rewrite_invocations("/prumo-assist:wiki-query", LEGACY)
+    once, _ = rewrite_invocations("/par:wiki-query", LEGACY)
     assert rewrite_invocations(once, LEGACY) == (once, 0)
 
 
 def test_mapa_vazio_nao_faz_nada() -> None:
-    assert rewrite_invocations("/prumo-assist:wiki-query", {}) == ("/prumo-assist:wiki-query", 0)
+    assert rewrite_invocations("/par:wiki-query", {}) == ("/par:wiki-query", 0)
 
 
 def _pj(tmp_path: Path) -> Path:
     pj = tmp_path / "pj_x"
     (pj / ".claude").mkdir(parents=True)
-    (pj / "README.md").write_text("use /prumo-assist:paper-manager\n", encoding="utf-8")
-    (pj / ".claude" / "pj_config.toml").write_text(
-        "# /prumo-assist:paper-extract-all\n", encoding="utf-8"
-    )
+    (pj / "README.md").write_text("use /par:paper-manager\n", encoding="utf-8")
+    (pj / ".claude" / "pj_config.toml").write_text("# /par:paper-extract-all\n", encoding="utf-8")
     papers = pj / "docs" / "references" / "papers" / "k"
     papers.mkdir(parents=True)
-    (papers / "_extract.md").write_text("/prumo-assist:paper-extract\n", encoding="utf-8")
+    (papers / "_extract.md").write_text("/par:paper-extract\n", encoding="utf-8")
     (pj / ".venv").mkdir()
-    (pj / ".venv" / "x.md").write_text("/prumo-assist:wiki-query\n", encoding="utf-8")
-    (pj / "notes.py").write_text("# /prumo-assist:wiki-query\n", encoding="utf-8")
+    (pj / ".venv" / "x.md").write_text("/par:wiki-query\n", encoding="utf-8")
+    (pj / "notes.py").write_text("# /par:wiki-query\n", encoding="utf-8")
     return pj
 
 
@@ -78,7 +74,7 @@ def test_migrate_escreve_e_zera_o_scan(tmp_path: Path) -> None:
     pj = _pj(tmp_path)
     changes = migrate_skill_names(pj, LEGACY)
     assert [c.path for c in changes] == [".claude/pj_config.toml", "README.md"]
-    assert (pj / "README.md").read_text(encoding="utf-8") == "use /prumo-assist:paper library\n"
+    assert (pj / "README.md").read_text(encoding="utf-8") == "use /par:paper library\n"
     assert scan_skill_refs(pj, LEGACY) == []
     extract = pj / "docs" / "references" / "papers" / "k" / "_extract.md"
     assert "paper-extract" in extract.read_text(encoding="utf-8")

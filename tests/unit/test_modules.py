@@ -6,7 +6,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from prumo_assist.cli import app
+from par.cli import app
 
 runner = CliRunner()
 
@@ -29,7 +29,7 @@ def _scope(root: Path, slug: str) -> Path:
 
 
 def test_modulos_do_nucleo_existem_e_sao_descobriveis() -> None:
-    from prumo_assist.core.scaffold import discover_modules
+    from par.core.scaffold import discover_modules
 
     nomes = {m.name for m in discover_modules()}
     assert {"code", "data", "notebooks", "clinical", "ml"} <= nomes

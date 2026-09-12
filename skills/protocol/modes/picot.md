@@ -26,13 +26,13 @@ prumo:
 > **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
 >
 > 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
->    operação desta skill; roteie para `/prumo-assist:start` (instalação guiada com
+>    operação desta skill; roteie para `/par:start` (instalação guiada com
 >    consentimento) e pare aqui.
 > 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
 >    definido, compare a versão do CLI com o campo `version` de
 >    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
 >    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
->    `uv tool upgrade prumo-assist` (rode SÓ com consentimento). Sem a variável,
+>    `uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,
 >    pule este passo em silêncio.
 > 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
@@ -54,7 +54,7 @@ Skill que mantém a PICOT do projeto consistente em **três destinos**:
 - cwd é um `pj_*` com `docs/studies/<slug>/writing/protocol.md` e `docs/project_guide.md` (mesmo que vazios) e `docs/studies/<slug>/decisions/`.
 - A parte determinística (read/write TOML, render, diff, ADR) é exposta via `prumo protocol *` (detect-mode/init/adr/propagate/diff). A skill **só** cuida do agêntico (Socrático e Formalize).
 - O CLI `prumo` precisa estar no PATH (rode `prumo doctor`; se ausente:
-  `uv tool install git+https://github.com/raphaelfh/prumo-assist`).
+  `uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher`).
 
 ## Auto-detect
 
@@ -74,7 +74,7 @@ Pré-condição: `.claude/picot.toml` ausente, `docs/studies/<slug>/writing/prot
 
 Passos:
 
-1. **Reunir contexto via `wiki query`**: invocar `/prumo-assist:wiki query` (ou `Read` em `docs/_index.md`/`_log.md`) pra entender o que já existe de tema. Citações livres ok.
+1. **Reunir contexto via `wiki query`**: invocar `/par:wiki query` (ou `Read` em `docs/_index.md`/`_log.md`) pra entender o que já existe de tema. Citações livres ok.
 
 2. **Perguntar `type`** (escolha):
    - "É um estudo **clínico** (PICOT padrão: Population/Intervention/Comparison/Outcome/Time) ou **metodológico** (Contribution + Hypothesis-validity-condition)?"

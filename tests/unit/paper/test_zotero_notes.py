@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 import yaml
 
-from prumo_assist.core.note_paths import child_note_path, meta_path
-from prumo_assist.domains.paper.zotero import (
+from par.core.note_paths import child_note_path, meta_path
+from par.domains.paper.zotero import (
     ZoteroRef,
     _replace_note_block,
     compose_child_note_file,
@@ -113,12 +113,12 @@ def test_sync_notes_writes_one_file_per_child_note(tmp_path: Path) -> None:
     pj = _bootstrap_pj(tmp_path)
     children = [_sample_note()]
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
         patch(
-            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            "par.domains.paper.zotero.resolve_citekey",
             return_value=ZoteroRef("users/13049353", "PARENT01"),
         ),
-        patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=children),
+        patch("par.domains.paper.zotero.fetch_children", return_value=children),
     ):
         report = sync_notes(pj)
     out = child_note_path(pj, "smith2024", "ABCD1234", "ideias-da-introducao")
@@ -131,12 +131,12 @@ def test_sync_notes_idempotent_second_run(tmp_path: Path) -> None:
     pj = _bootstrap_pj(tmp_path)
     children = [_sample_note()]
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
         patch(
-            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            "par.domains.paper.zotero.resolve_citekey",
             return_value=ZoteroRef("users/13049353", "PARENT01"),
         ),
-        patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=children),
+        patch("par.domains.paper.zotero.fetch_children", return_value=children),
     ):
         sync_notes(pj)
         report = sync_notes(pj)
@@ -148,19 +148,19 @@ def test_sync_notes_preserves_human_text_outside_block(tmp_path: Path) -> None:
     pj = _bootstrap_pj(tmp_path)
     children = [_sample_note()]
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
         patch(
-            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            "par.domains.paper.zotero.resolve_citekey",
             return_value=ZoteroRef("users/13049353", "PARENT01"),
         ),
-        patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=children),
+        patch("par.domains.paper.zotero.fetch_children", return_value=children),
     ):
         sync_notes(pj)
         out = child_note_path(pj, "smith2024", "ABCD1234", "ideias-da-introducao")
         original = out.read_text()
         out.write_text(original + "\n## Minha anotação humana\n\ntexto meu\n")
         updated = [dict(_sample_note(), note="<h1>Ideias da Introdução</h1><p>NOVO corpo</p>")]
-        with patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=updated):
+        with patch("par.domains.paper.zotero.fetch_children", return_value=updated):
             sync_notes(pj)
     final = out.read_text()
     assert "NOVO corpo" in final
@@ -179,14 +179,14 @@ def test_sync_notes_raises_when_zotero_offline(tmp_path: Path) -> None:
 
     pj = _bootstrap_pj(tmp_path)
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=False),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=False),
         pytest.raises(ConnectionError),
     ):
         sync_notes(pj)
 
 
 def test_api_reexports_sync_notes_and_sync_all() -> None:
-    from prumo_assist.domains.paper import api
+    from par.domains.paper import api
 
     assert hasattr(api, "sync_notes")
     assert hasattr(api, "sync_all")

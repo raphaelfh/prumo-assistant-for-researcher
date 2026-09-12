@@ -1,0 +1,191 @@
+"""Gramática única de citekey (Pandoc).
+
+Uma citação Pandoc é ``@key`` (narrativa) ou ``[@key]``/``[@a; @b]``
+(bracketed). Este módulo é o ÚNICO lugar do pacote que reconhece citekeys
+em texto (spec 2026-07-22; invariante I7 do spec 2026-07-05): export,
+compose, wiki lint, paper graph, paper verify, write review e capture
+route consomem estas funções ou o ``CITEKEY_BODY`` — nunca regexes
+próprios.
+
+Dois níveis de captura:
+
+- ``iter_citekeys``/``scan_citekeys`` — amplo: qualquer ``@key`` fora
+  de code block. Para pre-fetch e relatórios (falso positivo é barato).
+- ``scan_marked_citekeys`` — conservador: só formas marcadas (dentro de
+  colchetes ``[...]``). Para lint/validação, onde um handle ``@fulano``
+  em prosa não pode virar warning espúrio.
+
+Fora da cobertura (registrado, não implementado): a forma CHAVEADA
+``@{...}`` — recomendada pelo manual do Pandoc para chave com ``://`` —
+exigiria um segundo grupo de captura, e ``CITEKEY_RE.findall`` tem contrato
+de ``list[str]`` com os consumidores de ``domains/write/review.py``.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterator
+
+# Corpo do citekey Pandoc, SEM o `@` e sem âncora — compartilhado por quem
+# precisa ancorar de outro jeito (ex.: `domains/capture/route.py`, que casa
+# um token inteiro). Manter ÚNICO: um segundo reconhecedor divergente é
+# exatamente o que o Princípio I7 proíbe.
+#
+# Âncora inicial `\w` (Unicode-aware, coerente com o `\w` do resto): o
+# Pandoc aceita citekey iniciada por letra não-ASCII — `@Ünal2024`,
+# `@Иванов2020` — e a versão ASCII-only criava assimetria silenciosa
+# (`@unÜal2024` passava, `@Ünal2024` sumia). Pontuação interna
+# `:.#$%&-+?<>~/` precisa ser seguida de word char, para não engolir o
+# `.` final de `[@key].`.
+CITEKEY_BODY = r"\w(?:\w|[:.#$%&+\-?<>~/]\w)*"
+
+# Lookbehind: barra e-mail (`foo@bar`) exigindo que o caractere anterior não
+# seja letra/dígito UNICODE. `_` é PERMITIDO antes de propósito —
+# `_@lima2018 mostrou_` é ênfase Markdown com citação dentro, ASCII puro e
+# caminho default, e o `(?<![@\w])` original a perdia porque `_` é word char.
+# `[^\W_]` é exatamente "word char menos `_`": liberar `_` sem liberar letra
+# acentuada. Uma versão ASCII-only (`(?<![@0-9A-Za-z])`) reabria o furo de
+# e-mail com local-part não-ASCII — `josé@usp.br` virava o citekey fantasma
+# `usp.br` enquanto `joao@usp.br` não virava nada.
+CITEKEY_RE = re.compile(r"(?<!@)(?<![^\W_])@(" + CITEKEY_BODY + r")")
+
+# Um span entre colchetes sem colchetes internos. Cobre ``[@key]``,
+# ``[@a; @b, p. 3]`` e também o miolo de ``[[@key]]`` (o span interno).
+_BRACKET_SPAN_RE = re.compile(r"\[[^\[\]]*\]")
+
+# Código inline Markdown: uma ou mais crases, fechadas pela MESMA quantidade.
+# ``(?!\1)`` impede que a corrida pare numa crase de comprimento diferente,
+# então ```` ``[@k]`` ```` fecha só no par final.
+_INLINE_CODE_RE = re.compile(r"(`+)(?:(?!\1)[\s\S])*?\1")
+
+
+def _mask_inline_code(line: str) -> str:
+    """Substitui spans de crase por ``x``, PRESERVANDO o comprimento.
+
+    Comprimento preservado porque o chamador fatia a linha pelos offsets de
+    :func:`iter_marked_citation_spans`: mascarar encurtando desalinharia o
+    span do texto. ``x`` é seguro como preenchimento — não é ``@`` nem
+    colchete, então o trecho mascarado não pode formar citação nova.
+    """
+    return _INLINE_CODE_RE.sub(lambda m: "x" * len(m.group(0)), line)
+
+
+def body_lines(markdown_text: str) -> Iterator[str]:
+    """Linhas fora de fenced code blocks."""
+    in_code_block = False
+    for line in markdown_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+        yield line
+
+
+def iter_citekeys(markdown_text: str) -> Iterator[str]:
+    """Citekeys em ordem de 1ª ocorrência, sem repetição (captura ampla)."""
+    seen: set[str] = set()
+    for line in body_lines(markdown_text):
+        for match in CITEKEY_RE.finditer(line):
+            key = match.group(1)
+            if key not in seen:
+                seen.add(key)
+                yield key
+
+
+def scan_citekeys(markdown_text: str) -> list[str]:
+    """Extrai citekeys ``[@key]`` / ``@key`` do markdown, ordenadas.
+
+    Não tenta substituir o parser do Pandoc — só precisa achar TODAS as
+    chaves para pre-fetch/relatório. False positives (ex. nomes de
+    variáveis fora de code block) só geram queries extras sem-resultado.
+    """
+    return sorted(iter_citekeys(markdown_text))
+
+
+def iter_marked_citation_spans(text: str) -> Iterator[tuple[int, int]]:
+    """Spans ``(start, end)`` dos GRUPOS de citação marcada em ``text``, em ordem.
+
+    Um span por bloco ``[...]`` sem colchetes internos que contenha ao menos
+    um citekey — ``[@a]`` e ``[@a; @b, p. 3]`` cada um conta como UM span.
+    É o nível-span da mesma gramática de :func:`scan_marked_citekeys`; NÃO
+    filtra code blocks — responsabilidade do chamador (linha a linha via
+    :func:`body_lines`, ou por span-map no export).
+    """
+    for match in _BRACKET_SPAN_RE.finditer(text):
+        if CITEKEY_RE.search(match.group(0)):
+            yield match.span()
+
+
+def iter_narrative_citation_spans(
+    text: str, *, marked: list[tuple[int, int]] | None = None
+) -> Iterator[tuple[int, int]]:
+    """Spans ``(start, end)`` das citações NARRATIVAS (``@key`` solta) de ``text``.
+
+    Complementa :func:`iter_marked_citation_spans`: devolve só os matches que
+    NÃO estão dentro de um grupo marcado. O span começa no ``@`` (span do
+    match inteiro, nunca ``span(1)``) — quem protege citação como átomo
+    precisa do sigilo dentro do intervalo.
+
+    ``marked`` evita a varredura redundante quando o chamador já a computou
+    (ver :func:`iter_citation_spans`); omitido, é calculado aqui.
+
+    Captura AMPLA por construção (``CITEKEY_RE``): ``@fulano`` em prosa entra.
+    Consumidor que não tolere falso positivo deve filtrar (ver docstring do
+    módulo); num guard de hard-fail o custo do falso positivo é trabalho
+    manual, o do falso negativo é edição silenciosa de citação.
+    """
+    if marked is None:
+        marked = list(iter_marked_citation_spans(text))
+    for match in CITEKEY_RE.finditer(text):
+        start, end = match.span()
+        if any(ms <= start and end <= me for ms, me in marked):
+            continue
+        yield start, end
+
+
+def iter_citation_spans(text: str) -> Iterator[tuple[int, int]]:
+    """Spans de TODA citação de ``text``: marcada e narrativa, em uma varredura.
+
+    União de :func:`iter_marked_citation_spans` e
+    :func:`iter_narrative_citation_spans` — a definição de "átomo de citação"
+    na gramática do repo. Mora aqui, e não no consumidor, porque compor as
+    duas fontes na mão já produziu bug: o fix ``813d230`` uniu só as formas
+    entre colchetes e esqueceu a narrativa, deixando a MESMA edição ser
+    recusada em ``[@k]`` e aplicada em ``@k``. Quem precisa de "isto é uma
+    citação, não encoste" chama esta função e não redescobre a composição.
+
+    ``iter_marked_citation_spans`` roda UMA vez: o resultado é reusado como
+    filtro da parte narrativa.
+    """
+    marked = list(iter_marked_citation_spans(text))
+    yield from marked
+    yield from iter_narrative_citation_spans(text, marked=marked)
+
+
+def scan_marked_citekeys(markdown_text: str) -> list[str]:
+    """Citekeys em formas MARCADAS, ordenadas: dentro de colchetes
+    ``[@key]``/``[@a; @b, p. 3]``.
+
+    Narrativa solta (``@key`` fora de colchete) fica de fora de
+    propósito — ver docstring do módulo.
+
+    Código INLINE (entre crases) é mascarado antes da varredura, além do
+    bloco cercado que ``body_lines`` já remove. Sem isso, toda nota que
+    DOCUMENTA o formato de citação — escrevendo ``[@chave]`` como exemplo
+    literal — gerava ``broken_citekey`` falso no lint, e o autor era
+    empurrado a adaptar o texto à limitação do parser. Mesma família do
+    ``mailto:`` em :func:`~par.domains.wiki.lint._is_external_link`.
+
+    A máscara mora AQUI e não em ``body_lines``: a captura ampla
+    (``iter_citekeys``) declara falso positivo barato e usa as mesmas
+    linhas — mascarar lá mudaria contrato alheio sem pedido.
+    """
+    keys: set[str] = set()
+    for raw in body_lines(markdown_text):
+        line = _mask_inline_code(raw)
+        for start, end in iter_marked_citation_spans(line):
+            for match in CITEKEY_RE.finditer(line[start:end]):
+                keys.add(match.group(1))
+    return sorted(keys)

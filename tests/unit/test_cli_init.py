@@ -8,8 +8,8 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from prumo_assist.cli import app
-from prumo_assist.core.paths import resolve_resource
+from par.cli import app
+from par.core.paths import resolve_resource
 
 runner = CliRunner()
 
@@ -174,7 +174,7 @@ def test_version_flag() -> None:
 def test_doctor_runs_with_guideline_check(tmp_path) -> None:  # type: ignore[no-untyped-def]
     from typer.testing import CliRunner
 
-    from prumo_assist.cli import app
+    from par.cli import app
 
     for d in (".claude", "docs", "references"):
         (tmp_path / d).mkdir()

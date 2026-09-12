@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.domains.paper.find import build_index, fuzzy_search
+from par.domains.paper.find import build_index, fuzzy_search
 
 _BIBLATEX = (
     "@article{audisio2025total,\n"

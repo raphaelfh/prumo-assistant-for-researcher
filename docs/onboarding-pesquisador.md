@@ -1,11 +1,11 @@
 ---
-title: Trilha do pesquisador — prumo-assist sem terminal
+title: Trilha do pesquisador — PAR sem terminal
 tags: [onboarding, pesquisador, golden-path, desktop, cowork]
 ---
 
 # Trilha do pesquisador (Desktop/Cowork, sem terminal)
 
-Este guia é para quem quer usar o prumo-assist sem instalar nada no terminal —
+Este guia é para quem quer usar o PAR sem instalar nada no terminal —
 só conversando com o Claude, no Claude Desktop ou no Cowork. Se você programa e
 prefere o Claude Code, veja a trilha dev no [README do projeto](../README.md);
 este documento e aquela seção se referenciam mutuamente.
@@ -24,14 +24,14 @@ No menu de plugins do Claude Desktop ou do Cowork, procure **"Add from a
 repository"** e informe:
 
 ```
-raphaelfh/prumo-assist
+raphaelfh/prumo-assistant-for-researcher
 ```
 
 (ou a URL completa do repositório, se preferir). O catálogo vai mostrar o nome
-do plugin (`prumo-assist`), a versão publicada no momento — ela muda com as
+do plugin (`PAR`), a versão publicada no momento — ela muda com as
 releases, não estranhe se for diferente do que alguém te contou — e as skills
 listadas no catálogo. Depois de instalado, as skills aparecem com o prefixo
-`/prumo-assist:...`.
+`/par:...`.
 
 ## 2. Seu primeiro resultado, em poucos minutos
 
@@ -39,10 +39,10 @@ Cole um trecho de um draft seu (paper, capítulo, projeto de pesquisa) na
 conversa e peça:
 
 ```
-/prumo-assist:review critique
+/par:review critique
 ```
 
-Isso já foi testado na prática: numa sessão real, o `/prumo-assist:review critique`
+Isso já foi testado na prática: numa sessão real, o `/par:review critique`
 rodou o fluxo completo sem precisar de CLI, Zotero ou busca semântica, e pegou
 todos os problemas plantados de propósito num draft de teste (claims sem
 evidência, superlativos, contradição com a própria fonte citada) (no spike da
@@ -59,15 +59,15 @@ Skills que dependem de bibliografia real (Zotero), de um projeto no disco, ou
 do CLI `prumo` — por exemplo, gerar um draft de paper a partir do seu protocolo
 — vão recusar rodar se essa peça estiver faltando (o contrato de preflight,
 ADR-0019, existe exatamente para isso: nunca simular o que não pode ser feito
-de verdade) e vão te apontar para `/prumo-assist:start`.
+de verdade) e vão te apontar para `/par:start`.
 
-O `/prumo-assist:start` é o instalador guiado: explica o que cada passo faz,
+O `/par:start` é o instalador guiado: explica o que cada passo faz,
 pede seu "sim" antes de rodar, e só segue adiante se o passo anterior
 funcionou. Nenhum comando roda sem sua permissão. Os passos que ele oferece,
 nesta ordem:
 
 - **uv** (gerenciador de pacotes Python): `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- **CLI do prumo**: `uv tool install git+https://github.com/raphaelfh/prumo-assist.git`
+- **CLI do prumo**: `uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher.git`
 - **Diagnóstico**: `prumo doctor` — confere se o Zotero está aberto e acessível
 - **qmd (opcional — busca semântica)**: `bun install -g @tobilu/qmd`
 - **Seu projeto**: `prumo init pj_<nome>`, na pasta que você indicar
@@ -202,7 +202,7 @@ experimentando. Ela documenta o que medir ao rodar o piloto com 1 colega real
 
 - **Cronômetro:** do momento em que você manda o link do marketplace até o
   colega ter um primeiro output real (por exemplo, o resultado de um
-  `/prumo-assist:review critique`). Meta: **≤15 minutos**.
+  `/par:review critique`). Meta: **≤15 minutos**.
 - **Onde travou:** qual passo gerou dúvida, qual mensagem confundiu, o que a
   pessoa tentou clicar e não achou.
 - **Consentimento na UI:** capture prints de como o pedido de permissão

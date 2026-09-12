@@ -1,6 +1,6 @@
 # Log do projeto — pj_<NOME>
 
-Registro cronológico append-only. As skills `/prumo-assist:wiki ingest`, `/prumo-assist:wiki query` e `/prumo-assist:wiki lint` adicionam entradas automaticamente. Decisões relevantes também entram aqui (linkadas em `docs/studies/<slug>/decisions/`).
+Registro cronológico append-only. As skills `/par:wiki ingest`, `/par:wiki query` e `/par:wiki lint` adicionam entradas automaticamente. Decisões relevantes também entram aqui (linkadas em `docs/studies/<slug>/decisions/`).
 
 **Formato fixo:**
 

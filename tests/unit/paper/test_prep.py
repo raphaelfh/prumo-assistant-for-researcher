@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist import ConfigError
-from prumo_assist.domains.paper.prep import ExtractPrep, extract_prep
+from par import ConfigError
+from par.domains.paper.prep import ExtractPrep, extract_prep
 
 
 def _bootstrap(tmp_path: Path, citekey: str = "smith2020") -> Path:

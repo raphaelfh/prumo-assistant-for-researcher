@@ -39,7 +39,7 @@ jobs:
         run: uv run mypy
 
       - name: Pytest
-        run: uv run pytest --cov=prumo_assist --cov-report=term-missing
+        run: uv run pytest --cov=par --cov-report=term-missing
 
       - name: Índices gerados em dia (constitution VII)
         run: uv run python .github/scripts/gen_indexes.py --check

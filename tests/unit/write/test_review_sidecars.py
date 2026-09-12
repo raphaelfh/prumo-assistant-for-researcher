@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import pytest
 
-from prumo_assist.domains.write import review
-from prumo_assist.domains.write.schemas.v1 import (
+from par.domains.write import review
+from par.domains.write.schemas.v1 import (
     ReviewComment,
     ReviewCommentsFile,
     ReviewEvent,

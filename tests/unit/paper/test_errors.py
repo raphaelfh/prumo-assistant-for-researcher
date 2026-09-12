@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from prumo_assist import PrumoError
-from prumo_assist.domains.paper import connect, verify
-from prumo_assist.domains.paper.errors import PaperError
+from par import PrumoError
+from par.domains.paper import connect, verify
+from par.domains.paper.errors import PaperError
 
 _PAPER_LEAVES = (
     connect.ZoteroOfflineError,

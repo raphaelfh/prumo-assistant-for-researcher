@@ -8,8 +8,8 @@ from urllib.parse import unquote
 
 from typer.testing import CliRunner
 
-from prumo_assist.cli import app
-from prumo_assist.core.paths import resolve_resource
+from par.cli import app
+from par.core.paths import resolve_resource
 
 runner = CliRunner()
 
@@ -116,7 +116,7 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
     # pelas descriptions das skills.
     claude = (target / "CLAUDE.md").read_text()
     assert "Início rápido" not in claude
-    assert "/prumo-assist:paper library" in (target / "README.md").read_text()
+    assert "/par:paper library" in (target / "README.md").read_text()
     assert "PyTorch" not in claude and "timm" not in claude
 
     # add reconstrói
@@ -127,9 +127,9 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
 
 
 def test_scaffold_nao_carrega_invocacao_antiga() -> None:
-    from prumo_assist.core.paths import resolve_resource
-    from prumo_assist.core.skill_refs import scan_skill_refs
-    from prumo_assist.core.skills import load_skill_registry
+    from par.core.paths import resolve_resource
+    from par.core.skill_refs import scan_skill_refs
+    from par.core.skills import load_skill_registry
 
     registry, _ = load_skill_registry(resolve_resource("skills"))
     for base in ("pj_base", "modules"):

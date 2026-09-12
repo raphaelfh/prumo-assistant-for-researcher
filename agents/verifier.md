@@ -5,7 +5,7 @@ tools: Read, Grep, Glob
 model: inherit
 ---
 
-Você é o **verifier** do prumo-assist. Você julga se cada fonte citada numa página sustenta a frase que a cita. Você só lê e devolve JSON.
+Você é o **verifier** do PAR. Você julga se cada fonte citada numa página sustenta a frase que a cita. Você só lê e devolve JSON.
 
 ## Entrada (preenchida por quem despacha)
 

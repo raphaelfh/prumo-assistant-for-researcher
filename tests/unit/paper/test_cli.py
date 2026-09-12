@@ -9,8 +9,8 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from prumo_assist.cli import app
-from prumo_assist.domains.paper import connect
+from par.cli import app
+from par.domains.paper import connect
 
 runner = CliRunner()
 
@@ -82,7 +82,7 @@ def _last_json(stdout: str) -> dict[str, object]:
 def test_paper_sync_notes_cli_writes_files(tmp_path: Path) -> None:
     from unittest.mock import patch
 
-    from prumo_assist.domains.paper.zotero import ZoteroRef
+    from par.domains.paper.zotero import ZoteroRef
 
     pj = tmp_path / "pj_x"
     refs = pj / "docs" / "references"
@@ -99,12 +99,12 @@ def test_paper_sync_notes_cli_writes_files(tmp_path: Path) -> None:
         "tags": [],
     }
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=True),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
         patch(
-            "prumo_assist.domains.paper.zotero.resolve_citekey",
+            "par.domains.paper.zotero.resolve_citekey",
             return_value=ZoteroRef("users/13049353", "P1"),
         ),
-        patch("prumo_assist.domains.paper.zotero.fetch_children", return_value=[note]),
+        patch("par.domains.paper.zotero.fetch_children", return_value=[note]),
     ):
         result = runner.invoke(app, ["paper", "sync-notes", str(pj), "--json"])
     assert result.exit_code == 0, result.output
@@ -190,7 +190,7 @@ def test_paper_sync_all_cli_runs_offline_sync(tmp_path: Path) -> None:
     (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
 
     with (
-        patch("prumo_assist.domains.paper.zotero.check_zotero_running", return_value=False),
+        patch("par.domains.paper.zotero.check_zotero_running", return_value=False),
     ):
         result = runner.invoke(app, ["paper", "sync-all", str(pj), "--json"])
     # sync (offline) succeeds; annotations/notes skipped with warnings -> exit 0
@@ -223,7 +223,7 @@ def test_verify_refs_ok_exit_zero(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     def fake(*args: Any, **kwargs: Any) -> dict[str, Any]:
         return report
 
-    monkeypatch.setattr("prumo_assist.domains.paper.verify.verify_refs", fake)
+    monkeypatch.setattr("par.domains.paper.verify.verify_refs", fake)
     result = runner.invoke(app, ["paper", "verify-refs", str(tmp_path)])
     assert result.exit_code == 0, result.output
     assert "verificada" in result.output
@@ -247,7 +247,7 @@ def test_verify_refs_erro_exit_um(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     def fake(*args: Any, **kwargs: Any) -> dict[str, Any]:
         return report
 
-    monkeypatch.setattr("prumo_assist.domains.paper.verify.verify_refs", fake)
+    monkeypatch.setattr("par.domains.paper.verify.verify_refs", fake)
     result = runner.invoke(app, ["paper", "verify-refs", str(tmp_path)])
     assert result.exit_code == 1
     assert "a1" in result.output and "retracted" in result.output
@@ -267,7 +267,7 @@ def test_verify_refs_repassa_flags(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         captured.update(pj=pj_path, page=page, deep=deep, refresh=refresh)
         return _fake_report(pj_path, scope=[], checked=0, deep=deep)
 
-    monkeypatch.setattr("prumo_assist.domains.paper.verify.verify_refs", fake)
+    monkeypatch.setattr("par.domains.paper.verify.verify_refs", fake)
     pagina = tmp_path / "p.md"
     pagina.write_text("x", encoding="utf-8")
     result = runner.invoke(
@@ -285,14 +285,14 @@ def test_verify_refs_bib_ausente_mensagem_limpa(
     def fake(*args: Any, **kwargs: Any) -> dict[str, Any]:
         raise FileNotFoundError("_references.bib não existe — Better BibTeX export?")
 
-    monkeypatch.setattr("prumo_assist.domains.paper.verify.verify_refs", fake)
+    monkeypatch.setattr("par.domains.paper.verify.verify_refs", fake)
     result = runner.invoke(app, ["paper", "verify-refs", str(tmp_path)])
     assert result.exit_code == 1
     assert "Better BibTeX" in result.output
 
 
 def test_paper_connect_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from prumo_assist.domains.paper.connect import CollectionRef, ConnectResult
+    from par.domains.paper.connect import CollectionRef, ConnectResult
 
     result_obj = ConnectResult(
         collection=CollectionRef(
@@ -308,7 +308,7 @@ def test_paper_connect_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     def fake(*args: Any, **kwargs: Any) -> ConnectResult:
         return result_obj
 
-    monkeypatch.setattr("prumo_assist.domains.paper.connect.connect_collection", fake)
+    monkeypatch.setattr("par.domains.paper.connect.connect_collection", fake)
     result = runner.invoke(app, ["paper", "connect", "Pesquisa", "--path", str(tmp_path)])
     assert result.exit_code == 0, result.output
     assert "Pesquisa" in result.output and "conectada" in result.output
@@ -317,7 +317,7 @@ def test_paper_connect_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 def test_paper_connect_export_pendente_avisa(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from prumo_assist.domains.paper.connect import CollectionRef, ConnectResult
+    from par.domains.paper.connect import CollectionRef, ConnectResult
 
     result_obj = ConnectResult(
         collection=CollectionRef(
@@ -330,7 +330,7 @@ def test_paper_connect_export_pendente_avisa(
     def fake(*args: Any, **kwargs: Any) -> ConnectResult:
         return result_obj
 
-    monkeypatch.setattr("prumo_assist.domains.paper.connect.connect_collection", fake)
+    monkeypatch.setattr("par.domains.paper.connect.connect_collection", fake)
     result = runner.invoke(app, ["paper", "connect", "G", "--path", str(tmp_path)])
     assert result.exit_code == 0
     assert "instantes" in result.output  # aviso honesto de export agendado
@@ -379,7 +379,7 @@ def test_paper_connect_error_contract(
     def fake(*args: Any, **kwargs: Any) -> Any:
         raise exception_instance
 
-    monkeypatch.setattr("prumo_assist.domains.paper.connect.connect_collection", fake)
+    monkeypatch.setattr("par.domains.paper.connect.connect_collection", fake)
     result = runner.invoke(app, ["paper", "connect", "X", "--path", str(tmp_path)])
     assert result.exit_code == expected_exit, result.output
     assert expected_substring in result.output
@@ -412,7 +412,7 @@ def test_paper_sync_pdfs_distinguishes_not_downloaded_from_no_attachment(
 
 def _capture_connect(monkeypatch: pytest.MonkeyPatch, *, created: bool) -> dict[str, Any]:
     """Substitui o motor por um espião e devolve o dict de kwargs capturados."""
-    from prumo_assist.domains.paper.connect import CollectionRef, ConnectResult
+    from par.domains.paper.connect import CollectionRef, ConnectResult
 
     seen: dict[str, Any] = {}
 
@@ -421,7 +421,7 @@ def _capture_connect(monkeypatch: pytest.MonkeyPatch, *, created: bool) -> dict[
         seen.update(kwargs)
         confirm = kwargs.get("confirm")
         if confirm is not None:
-            from prumo_assist.domains.paper.connect import ConnectPlan, SegmentPlan
+            from par.domains.paper.connect import ConnectPlan, SegmentPlan
 
             plan = ConnectPlan(
                 collection=CollectionRef(
@@ -436,7 +436,7 @@ def _capture_connect(monkeypatch: pytest.MonkeyPatch, *, created: bool) -> dict[
             seen["confirm_result"] = confirm(plan)
             if not seen["confirm_result"]:
                 # Espelha o contrato do motor: confirm negado NÃO muta e levanta.
-                from prumo_assist.domains.paper.connect import CreationDeclinedError
+                from par.domains.paper.connect import CreationDeclinedError
 
                 raise CreationDeclinedError("criação cancelada — NADA foi criado.")
         return ConnectResult(
@@ -451,7 +451,7 @@ def _capture_connect(monkeypatch: pytest.MonkeyPatch, *, created: bool) -> dict[
             created=created,
         )
 
-    monkeypatch.setattr("prumo_assist.domains.paper.connect.connect_collection", fake)
+    monkeypatch.setattr("par.domains.paper.connect.connect_collection", fake)
     return seen
 
 

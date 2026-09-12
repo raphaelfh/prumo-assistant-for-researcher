@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prumo_assist.domains.wiki.stats import stats
+from par.domains.wiki.stats import stats
 
 
 def _project(root: Path) -> Path:

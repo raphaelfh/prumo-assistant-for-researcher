@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from prumo_assist.core.bib import BibEntry
-from prumo_assist.domains.paper.sync import (
+from par.core.bib import BibEntry
+from par.domains.paper.sync import (
     _parse_authors,
     bib_entry_to_metadata,
     merge_nota_yaml,
