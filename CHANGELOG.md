@@ -7,6 +7,12 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.70.2] - 2026-09-13
+
+### Corrigido
+
+- **Quem instalou antes do rename migra sozinho.** O `marketplace.json` ganha `renames` (`prumo-assist` → `par`), e o Claude Code (v2.1.193+) passa a carregar o plugin com o nome novo em vez de acusar `plugin-not-found`; como a fonte é remota, basta um `/plugin install par@prumo-assistant-for-researcher`. O schema de manifests passa a descrever o campo. Instalações registradas no marketplace antigo `prumo-assist` continuam precisando remover e readicionar `raphaelfh/prumo-assistant-for-researcher` (ADR-0034).
+
 ## [0.70.1] - 2026-09-13
 
 ### Adicionado
@@ -1381,7 +1387,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.1...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.2...HEAD
+[0.70.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.1...v0.70.2
 [0.70.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.0...v0.70.1
 [0.70.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.69.1...v0.70.0
 [0.69.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.69.0...v0.69.1
