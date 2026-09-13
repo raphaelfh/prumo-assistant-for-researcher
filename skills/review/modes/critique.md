@@ -4,12 +4,12 @@ description: "Simula revisão crítica de draft acadêmico (paper, capítulo, gr
 argument-hint: "<draft-path> [--critical-only] [--section NAME] [--venue NEJM|Lancet|JAMA|Nature-Medicine|Radiology|MICCAI|NeurIPS]"
 allowed-tools: Read Glob Grep Bash(prumo validate *) Agent
 prumo:
-  version: 1.4.0
+  version: 1.5.0
   guidelines_reviewed: "2026-05-30"
   schema: PeerReviewReport/v1
   determinism: agentic
   agent_compat: [claude-code]
-  cost_estimate: ~5-15k tokens (o dobro com advogado do diabo; depende do tamanho do draft)
+  cost_estimate: ~5-15k tokens, +~1-3k por fonte conferida no texto completo (o dobro com advogado do diabo; depende do tamanho do draft)
   inputs:
     draft_path: required
     critical_only: optional
@@ -90,7 +90,9 @@ dizer; não leia o draft inteiro no thread principal antes de despachar.
 Despache o `reviewer` (tool `Agent`, `subagent_type: "reviewer"`; se o plugin registrar com prefixo, `par:reviewer`). Se nenhum dos dois tipos existir nesta sessão, leia o prompt canônico `agents/reviewer.md` (em `$CLAUDE_PLUGIN_ROOT/agents/` ou `.claude/agents/`) e despache `subagent_type: "general-purpose"` com o corpo do arquivo como prompt.
 Preencha só: `draft_path` (absoluto), `guidelines_path` (absoluto de
 [`../references/reporting-guidelines.md`](../references/reporting-guidelines.md)),
-`draft_genre` (passo 1) e, se pedidos, `section`, `venue`, `critical_only`.
+`draft_genre` (passo 1), `references_dir` (absoluto do `docs/references/` do `pj_*`
+que contém o draft, se existir; é por ele que o reviewer confere as fontes
+citadas) e, se pedidos, `section`, `venue`, `critical_only`.
 
 Só se o pesquisador pedir advogado do diabo, dureza ou revisão antes de
 submeter (e sem `--section`), despache em paralelo um segundo `reviewer` com
@@ -112,7 +114,9 @@ instalado é mais antigo que o plugin) — confira à mão (este modo roda sem o
 e `executive_summary` não vazios; `recommendation` ∈ `accept|minor|major|reject`;
 `draft_genre` e `mental_model_applied` nos valores de `agents/reviewer.md`; toda
 fraqueza com `section`, `point` e `fix`; todo `quote` com até 25 palavras e achado
-literalmente no draft (Grep). Falhou → mesma regra de uma devolução ao
+literalmente no draft (Grep); em `citation_checks`, `citekey` presente no draft como
+`@citekey`, `partial|contradicts|not_found` só com `evidence_level` `abstract` ou
+`fulltext` e `source_quote`, `no_source` só com `evidence_level: none`. Falhou → mesma regra de uma devolução ao
 reviewer. Se foi subcomando ausente, diga ao pesquisador UMA vez que
 `uv tool upgrade prumo-assistant-for-researcher` traz a validação e rode SÓ com consentimento; a
 revisão não espera por isso.
@@ -131,9 +135,12 @@ Imprima uma versão markdown legível do JSON validado, nesta ordem:
    (quando houver) e o fix.
 4. **Fraquezas menores**, idem.
 5. **Claims sem evidência** (seção e `quote`).
-6. **Sugestões por seção**.
-7. **Mental model aplicado**.
-8. **Fontes lidas pelo reviewer** (`sources_read`), uma vez, se não vazio.
+6. **Citações conferidas** (`citation_checks`), se não vazio: tabela citekey |
+   veredito | nível (`extract`/`abstract`/`fulltext`) | trecho da fonte |
+   justificativa, com `contradicts` e `partial` primeiro.
+7. **Sugestões por seção**.
+8. **Mental model aplicado**.
+9. **Fontes lidas pelo reviewer** (`sources_read`), uma vez, se não vazio.
 
 ## O que NÃO fazer
 
@@ -153,6 +160,9 @@ Imprima uma versão markdown legível do JSON validado, nesta ordem:
   Lancet, JAMA, Nature Medicine, Radiology, MICCAI, NeurIPS).
 
 ## Pós-review
+
+Se algum item de `citation_checks` saiu `partial`, `contradicts` ou `no_source`,
+sugira `/par:paper support --page <draft>` para o veredito frase a frase com o PDF.
 
 Ofereça ao usuário arquivar o relatório como finding (`type: finding`) em
 `docs/studies/<slug>/notes/_peer_review_<draft-stem>_<YYYY-MM-DD>.md`

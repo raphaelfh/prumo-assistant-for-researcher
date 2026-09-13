@@ -7,6 +7,10 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **`review critique` confere o que as fontes citadas dizem.** Com o draft num `pj_*`, o `reviewer` escolhe até 8 citações que sustentam tese, causalidade ou números e sobe uma escada só enquanto houver dúvida: `_extract.md`, depois o abstract do `.bib`, depois o PDF (sem extract, começa pelo abstract). O extract libera, nunca acusa: `partial`, `contradicts` e `not_found` exigem abstract ou texto completo e trecho literal da fonte. O resultado sai no novo campo opcional `citation_checks` de `PeerReviewReport/v1` (forward-only, Princípio IV), e `prumo validate` confere o trecho e a presença de `[@citekey]` no draft (Princípio II). No A/B de 2026-09-12 com o ARS, três citações que não diziam o que o draft atribuía a elas tinham passado despercebidas.
+
 ### Alterado
 
 - O plugin ganha o título "Prumo Assistant for Researcher" (`displayName` em `plugin.json` e

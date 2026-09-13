@@ -270,6 +270,58 @@ def test_sample_report_do_plugin_valida_contra_o_contrato() -> None:
     assert report.critical_weaknesses and all(w.fix for w in report.critical_weaknesses)
 
 
+def _citation(**over: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "citekey": "k",
+        "section": "Intro",
+        "verdict": "supports",
+        "evidence_level": "extract",
+        "justification": "j",
+    }
+    return {**base, **over}
+
+
+def test_citation_check_supports_no_extract_valida_sem_source_quote() -> None:
+    from par.domains.write.schemas.v1 import CitationCheck
+
+    assert CitationCheck.model_validate(_citation()).source_quote is None
+
+
+def test_citation_check_recusa_acusacao_so_com_extract() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from par.domains.write.schemas.v1 import CitationCheck
+
+    for verdict in ("partial", "contradicts", "not_found"):
+        with pytest.raises(ValidationError, match="abstract ou fulltext"):
+            CitationCheck.model_validate(_citation(verdict=verdict, source_quote="x"))
+
+
+def test_citation_check_fonte_primaria_exige_source_quote() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from par.domains.write.schemas.v1 import CitationCheck
+
+    with pytest.raises(ValidationError, match="source_quote"):
+        CitationCheck.model_validate(_citation(verdict="contradicts", evidence_level="fulltext"))
+    ok = _citation(verdict="not_found", evidence_level="abstract")
+    assert CitationCheck.model_validate(ok).verdict == "not_found"
+
+
+def test_citation_check_no_source_exige_evidence_level_none() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from par.domains.write.schemas.v1 import CitationCheck
+
+    with pytest.raises(ValidationError, match="none"):
+        CitationCheck.model_validate(_citation(verdict="no_source"))
+    ok = _citation(verdict="no_source", evidence_level="none")
+    assert CitationCheck.model_validate(ok).evidence_level == "none"
+
+
 def test_peer_review_report_recusa_recomendacao_fora_da_lista() -> None:
     import pytest
     from pydantic import ValidationError

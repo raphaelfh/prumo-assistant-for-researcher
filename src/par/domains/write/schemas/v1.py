@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from par.domains.protocol.schemas.v1 import PicotSpec
 
@@ -258,6 +258,40 @@ class SectionSuggestion(BaseModel):
     suggestion: str = Field(..., min_length=1)
 
 
+_ACCUSATIONS = frozenset({"partial", "contradicts", "not_found"})
+
+
+class CitationCheck(BaseModel):
+    """Triagem de uma fonte citada pelo draft (spec citation-grounding).
+
+    O extract é resumo de LLM: libera (``supports``), nunca acusa. Acusação exige
+    abstract ou texto completo e trecho literal da fonte.
+    """
+
+    citekey: str = Field(..., min_length=1)
+    section: str = Field(..., min_length=1)
+    quote: str | None = Field(
+        default=None, description="Trecho literal do draft (≤25 palavras); conferido no validate."
+    )
+    verdict: Literal["supports", "partial", "contradicts", "not_found", "no_source"]
+    evidence_level: Literal["extract", "abstract", "fulltext", "none"]
+    source_quote: str | None = Field(default=None, description="Trecho literal da fonte lida.")
+    justification: str = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def _evidencia_coerente(self) -> CitationCheck:
+        if (self.verdict == "no_source") != (self.evidence_level == "none"):
+            raise ValueError("verdict no_source exige evidence_level none, e vice-versa")
+        if self.verdict in _ACCUSATIONS and self.evidence_level not in ("abstract", "fulltext"):
+            raise ValueError(
+                f"verdict {self.verdict} exige evidence_level abstract ou fulltext "
+                "(o extract só libera; releia a fonte primária)"
+            )
+        if self.verdict in ("partial", "contradicts") and not self.source_quote:
+            raise ValueError(f"verdict {self.verdict} exige source_quote literal da fonte")
+        return self
+
+
 class PeerReviewReport(BaseModel):
     """Relatório estruturado do ``reviewer`` (antes só descrito em prosa na skill)."""
 
@@ -273,6 +307,9 @@ class PeerReviewReport(BaseModel):
     claims_without_evidence: list[UnsupportedClaim] = Field(default_factory=list)
     suggestions_by_section: list[SectionSuggestion] = Field(default_factory=list)
     mental_model_applied: MentalModel
+    citation_checks: list[CitationCheck] = Field(
+        default_factory=list, description="Fontes citadas conferidas pela escada de evidência."
+    )
     sources_read: list[str] = Field(
         default_factory=list, description="Arquivos lidos além do draft e do guideline."
     )
