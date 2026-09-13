@@ -74,7 +74,30 @@
     }
   ],
   "mental_model_applied": "TRIPOD+AI",
+  "citation_checks": [
+    {
+      "citekey": "smith2025review",
+      "section": "Introduction",
+      "quote": "fusão combinado supera modelos de comparação em oncologia",
+      "verdict": "partial",
+      "evidence_level": "fulltext",
+      "source_quote": "combinado models outperformed comparador baselines in 4 of 7 tasks",
+      "justification": "A fonte mostra ganho em 4 de 7 tarefas; o draft generaliza para todas."
+    },
+    {
+      "citekey": "lee2023cohort",
+      "section": "Methods § Model architecture",
+      "quote": "late fusion como na arquitetura de referência",
+      "verdict": "supports",
+      "evidence_level": "extract",
+      "source_quote": null,
+      "justification": "O extract descreve late fusion com o mesmo desenho, com locator na p.4."
+    }
+  ],
   "sources_read": [
-    "docs/studies/principal/protocol.md"
+    "docs/studies/principal/protocol.md",
+    "docs/references/papers/smith2025review/_extract.md",
+    "docs/references/pdfs/smith2025review.pdf",
+    "docs/references/papers/lee2023cohort/_extract.md"
   ]
 }
