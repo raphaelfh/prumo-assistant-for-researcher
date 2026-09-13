@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.70.0] - 2026-09-12
+
 ### Alterado
 
 - **Obsidian sai do produto.** O normalizador `core/obsidian` vira `core/markdown` (mesmo comportamento: wikilink, embed, callout e block ID continuam convertidos para Pandoc); documentação, modo `paper library` e keywords do plugin deixam de citar o Obsidian; a constitution passa a 1.2.2, com o Zettlr como front do wiki na stack do projeto-cliente (Princípio VIII). Pastas `.obsidian/` em projetos existentes não são tocadas.
@@ -45,7 +47,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - **Templates de escrita** moram em `skills/<skill>/templates/<modo>.md`, e o `compose` acha
   template e trava de idioma pelo modo que declara `prumo.write_kind`.
 - **Disclosure canoniza a proveniência.** `generator: wiki-query` (legado) e `wiki/query`
-  (novo) agregam na mesma ferramenta `prumo-assist:wiki query`; nada já gravado é reescrito
+  (novo) agregam na mesma ferramenta `par:wiki query`; nada já gravado é reescrito
   (Princípio IV). Findings novos gravam `generator: wiki/query`.
 
 ### Adicionado
@@ -73,8 +75,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   escopo sem draft → eventos ambíguos de revisão. `--json` sai versionado
   (`ProjectStatus/v1`) e o `start` usa esse payload para sugerir o próximo passo. Não grava
   estado novo (mesma lógica da ADR-0029) e não consulta o Zotero, que é assunto do `doctor`.
-- **`prumo update` reescreve invocações antigas** (`prumo-assist:<antigo>` → `prumo-assist:<skill>
-  <modo>`) em `.md` e `.toml` do projeto, com `--dry-run` listando cada arquivo. O acervo
+- **`prumo update` reescreve invocações antigas** (`prumo-assist:<antigo>` ou `par:<antigo>` →
+  `par:<skill> <modo>`) em `.md` e `.toml` do projeto, com `--dry-run` listando cada arquivo. O acervo
   gerado em `docs/references/papers/` fica de fora.
 - **`doctor` aponta `[skill_obsoleta]`** quando sobra invocação antiga ou
   `.claude/skills/<antigo>/` de um `init` anterior (não apagado: pode ter customização).
@@ -88,8 +90,12 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   Com o CLI global antigo (0.67.2), `prumo --version` respondia e `prumo validate` falhava
   com `No such command`, e os modos não diziam o que fazer. Agora eles checam os campos e
   enumerações do contrato à mão (critique e support) ou seguem sem `next` (start), e
-  oferecem uma vez `uv tool upgrade prumo-assist`, com consentimento. O preflight gerado
-  da ADR-0019 não muda.
+  oferecem uma vez `uv tool upgrade prumo-assistant-for-researcher`, com consentimento. O
+  preflight gerado da ADR-0019 não muda.
+- **`prumo update` e `doctor [skill_obsoleta]` voltam a achar invocações de projetos antigos.**
+  O rename para PAR trocou o padrão para `par:<antigo>`, prefixo que nenhum projeto gravou;
+  `prumo-assist:<antigo>` passava sem migrar e sem aviso. Agora os dois prefixos casam
+  (Princípio IV; ADR-0034).
 - **Installer copiava só o `SKILL.md`.** `references/` e `examples/` do `peer-review` nunca
   chegavam ao `.claude/skills/` do projeto; agora a árvore da skill vai inteira.
 - **Toda entrada de finding no `_log.md` caía em `broken_log_prefix`.** `archive_as_finding`
@@ -1361,7 +1367,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.69.1...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.0...HEAD
+[0.70.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.69.1...v0.70.0
 [0.69.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.69.0...v0.69.1
 [0.69.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.68.1...v0.69.0
 [0.68.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.68.0...v0.68.1
