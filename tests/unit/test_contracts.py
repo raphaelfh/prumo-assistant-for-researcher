@@ -128,13 +128,62 @@ def test_sample_report_do_plugin_valida_com_o_draft_presente(
     sample = json.loads(sample_path.read_text(encoding="utf-8"))
     quotes = [
         item["quote"]
-        for field in ("critical_weaknesses", "minor_weaknesses", "claims_without_evidence")
+        for field in (
+            "critical_weaknesses",
+            "minor_weaknesses",
+            "claims_without_evidence",
+            "citation_checks",
+        )
         for item in sample[field]
         if item.get("quote")
     ]
-    assert quotes and sample["sources_read"]
+    keys = [f"[@{c['citekey']}]" for c in sample["citation_checks"]]
+    assert quotes and sample["sources_read"] and keys
     monkeypatch.chdir(tmp_path)
     target = tmp_path / sample["draft_path"]
     target.parent.mkdir(parents=True)
-    target.write_text("\n\n".join(quotes), encoding="utf-8")
+    target.write_text("\n\n".join(quotes + keys), encoding="utf-8")
     assert validate_contract("PeerReviewReport/v1", sample)["recommendation"] == "major"
+
+
+# ---------------------------------------------------------------------------
+# citation_checks — citekey e quote conferidos contra o draft (spec citation-grounding)
+# ---------------------------------------------------------------------------
+
+_CITED = "A prescrição subiu com a idade materna [@hwang2024accelerating].\n"
+
+
+def _check(**over: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "citekey": "hwang2024accelerating",
+        "section": "Introduction",
+        "quote": "A prescrição subiu com a idade materna",
+        "verdict": "contradicts",
+        "evidence_level": "fulltext",
+        "source_quote": "did not correlate with the maternal age",
+        "justification": "a fonte diz o contrário",
+    }
+    return {**base, **over}
+
+
+def _with_checks(tmp_path: Path, *checks: dict[str, object]) -> dict[str, object]:
+    path = tmp_path / "cited.md"
+    path.write_text(_CITED, encoding="utf-8")
+    return {**_report(str(path)), "citation_checks": list(checks)}
+
+
+def test_citation_check_com_quote_literal_e_citekey_no_draft_valida(tmp_path: Path) -> None:
+    out = validate_contract("PeerReviewReport/v1", _with_checks(tmp_path, _check()))
+    assert out["citation_checks"][0]["verdict"] == "contradicts"
+
+
+def test_citekey_ausente_do_draft_falha_nomeando_item_e_chave(tmp_path: Path) -> None:
+    payload = _with_checks(tmp_path, _check(), _check(citekey="palmsten2015most", quote=None))
+    with pytest.raises(PrumoError, match=r"citation_checks\.1.*palmsten2015most"):
+        validate_contract("PeerReviewReport/v1", payload)
+
+
+def test_quote_de_citation_check_parafraseado_falha(tmp_path: Path) -> None:
+    payload = _with_checks(tmp_path, _check(quote="a prescrição cresceu"))
+    with pytest.raises(PrumoError, match=r"citation_checks\.0.*não é literal"):
+        validate_contract("PeerReviewReport/v1", payload)

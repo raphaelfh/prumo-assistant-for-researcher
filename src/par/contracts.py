@@ -65,18 +65,24 @@ def _normalize(text: str) -> str:
 
 
 def _check_quotes(report: PeerReviewReport) -> None:
-    """Confere cada ``quote`` contra o texto de ``draft_path`` (Princípio II).
+    """Confere cada ``quote`` e cada ``citekey`` contra o texto de ``draft_path`` (Princípio II).
 
-    Regras: no máximo ``_QUOTE_MAX_WORDS`` palavras e substring literal do draft,
-    com espaços normalizados. Sem nenhum ``quote``, o draft nem é lido.
+    Regras: ``quote`` com no máximo ``_QUOTE_MAX_WORDS`` palavras e substring literal
+    do draft, com espaços normalizados; ``citekey`` de ``citation_checks`` presente
+    no draft como ``@citekey``. Sem ``quote`` nem ``citation_checks``, o draft nem é lido.
     """
     items: list[tuple[str, str, str]] = [
         (f"{field}.{i}", item.section, item.quote)
-        for field in ("critical_weaknesses", "minor_weaknesses", "claims_without_evidence")
+        for field in (
+            "critical_weaknesses",
+            "minor_weaknesses",
+            "claims_without_evidence",
+            "citation_checks",
+        )
         for i, item in enumerate(getattr(report, field))
         if item.quote is not None
     ]
-    if not items:
+    if not items and not report.citation_checks:
         return
     fix = "Corrija e valide de novo com `prumo validate PeerReviewReport/v1`."
     path = Path(report.draft_path).expanduser()
@@ -94,5 +100,11 @@ def _check_quotes(report: PeerReviewReport) -> None:
             erros.append(f"{loc} (seção '{section}'): quote passa de {_QUOTE_MAX_WORDS} palavras")
         elif norm not in draft:
             erros.append(f"{loc} (seção '{section}'): quote não é literal do draft: \"{quote}\"")
+    for i, check in enumerate(report.citation_checks):
+        if f"@{check.citekey}" not in draft:
+            erros.append(
+                f"citation_checks.{i}: citekey '{check.citekey}' não aparece no draft como "
+                f"[@{check.citekey}]"
+            )
     if erros:
         raise PrumoError(f"quotes inválidos em PeerReviewReport/v1: {'; '.join(erros)}. {fix}")
