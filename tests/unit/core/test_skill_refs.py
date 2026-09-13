@@ -27,6 +27,14 @@ def test_reescreve_token_prefixado_preservando_barra_e_argumentos() -> None:
     assert n == 2
 
 
+def test_reescreve_prefixo_anterior_ao_par() -> None:
+    """Projeto criado antes da ADR-0034 grava ``prumo-assist:<antigo>``; nunca ``par:<antigo>``."""
+    out, n = rewrite_invocations("/prumo-assist:paper-manager e prumo-assist:wiki-query", LEGACY)
+    assert out == "/par:paper library e par:wiki query"
+    assert n == 2
+    assert rewrite_invocations("/prumo-assist:start", LEGACY) == ("/prumo-assist:start", 0)
+
+
 def test_nome_mais_longo_vence() -> None:
     out, n = rewrite_invocations("/par:paper-extract-all --limit 5", LEGACY)
     assert out == "/par:paper extract --limit 5"
@@ -50,7 +58,7 @@ def test_mapa_vazio_nao_faz_nada() -> None:
 def _pj(tmp_path: Path) -> Path:
     pj = tmp_path / "pj_x"
     (pj / ".claude").mkdir(parents=True)
-    (pj / "README.md").write_text("use /par:paper-manager\n", encoding="utf-8")
+    (pj / "README.md").write_text("use /prumo-assist:paper-manager\n", encoding="utf-8")
     (pj / ".claude" / "pj_config.toml").write_text("# /par:paper-extract-all\n", encoding="utf-8")
     papers = pj / "docs" / "references" / "papers" / "k"
     papers.mkdir(parents=True)

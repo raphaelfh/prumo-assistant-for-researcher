@@ -1,7 +1,7 @@
 """Reescrita de invocações de skills antigas (spec 2026-09-12, D6).
 
-Só o TOKEN de invocação muda — ``par:<antigo>`` vira
-``par:<skill> <modo>``. Valor sem o prefixo (``generator: wiki-query``)
+Só o TOKEN de invocação muda — ``par:<antigo>`` ou ``prumo-assist:<antigo>``
+(projeto anterior à ADR-0034) vira ``par:<skill> <modo>``. Valor sem o prefixo (``generator: wiki-query``)
 é dado de proveniência e fica como está (Princípio IV). O acervo gerado em
 ``docs/references/papers/`` também fica: é saída de máquina, não instrução.
 """
@@ -42,11 +42,11 @@ def _pattern(legacy: Mapping[str, SkillRef]) -> re.Pattern[str] | None:
     # Mais longo primeiro: ``paper-extract-all`` não pode casar como ``paper-extract``.
     names = sorted(legacy, key=len, reverse=True)
     alternation = "|".join(re.escape(n) for n in names)
-    return re.compile(rf"(?<![\w-])par:({alternation})(?![\w-])")
+    return re.compile(rf"(?<![\w-])(?:prumo-assist|par):({alternation})(?![\w-])")
 
 
 def rewrite_invocations(text: str, legacy: Mapping[str, SkillRef]) -> tuple[str, int]:
-    """Troca cada ``par:<antigo>`` pela invocação nova. Devolve (texto, trocas)."""
+    """Troca cada ``par:<antigo>``/``prumo-assist:<antigo>`` pela invocação nova. Devolve (texto, trocas)."""
     pattern = _pattern(legacy)
     if pattern is None:
         return text, 0
