@@ -121,13 +121,27 @@ def test_archive_yaml_includes_tags(tmp_path: Path) -> None:
 def test_archive_idempotent_overwrite(tmp_path: Path) -> None:
     root = _project(tmp_path)
     scope = _scope(root, "a")
-    archive_as_finding(scope=scope, slug="x", title="T1", body="B1", sources=[], date="2026-05-03")
-    archive_as_finding(scope=scope, slug="x", title="T2", body="B2", sources=[], date="2026-05-03")
-    out = scope / "notes" / "x.md"
-    text = out.read_text()
-    assert "T2" in text
-    assert "B2" in text
-    assert "T1" not in text
+    archive_as_finding(
+        scope=scope,
+        slug="x",
+        title="titulo-antigo",
+        body="corpo-antigo",
+        sources=[],
+        date="2026-05-03",
+    )
+    archive_as_finding(
+        scope=scope,
+        slug="x",
+        title="titulo-novo",
+        body="corpo-novo",
+        sources=[],
+        date="2026-05-03",
+    )
+    text = (scope / "notes" / "x.md").read_text()
+    assert "titulo-novo" in text
+    assert "corpo-novo" in text
+    assert "titulo-antigo" not in text
+    assert "corpo-antigo" not in text
 
 
 def test_archive_raises_when_scope_sem_pj_root(tmp_path: Path) -> None:
