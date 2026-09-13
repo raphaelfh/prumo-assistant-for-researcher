@@ -24,6 +24,14 @@
         "url": { "type": "string", "format": "uri" }
       }
     },
+    "renames": {
+      "type": "object",
+      "description": "Nome antigo do plugin → nome atual (ou null se removido). Append-only: migra instalações existentes.",
+      "additionalProperties": {
+        "type": ["string", "null"],
+        "pattern": "^[a-z0-9][a-z0-9-]*$"
+      }
+    },
     "plugins": {
       "type": "array",
       "minItems": 1,
