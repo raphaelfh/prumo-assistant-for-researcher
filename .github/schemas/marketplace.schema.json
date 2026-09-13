@@ -10,6 +10,11 @@
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]*$"
     },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Descrição do marketplace; sem ela o `claude plugin validate` emite aviso."
+    },
     "owner": {
       "type": "object",
       "required": ["name"],
@@ -30,6 +35,11 @@
           "name": {
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Título legível no card do Desktop; tem precedência sobre o displayName de plugin.json."
           },
           "source": {
             "type": "string",

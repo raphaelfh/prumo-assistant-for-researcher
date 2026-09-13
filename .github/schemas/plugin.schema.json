@@ -11,6 +11,11 @@
       "pattern": "^[a-z0-9][a-z0-9-]*$",
       "description": "Slug kebab-case; identifica o plugin no marketplace."
     },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Título legível no card do Desktop e no /plugin. Não entra no namespace das skills (esse é o `name`)."
+    },
     "description": {
       "type": "string",
       "minLength": 1
