@@ -2,7 +2,7 @@
   "name": "par",
   "displayName": "Prumo Assistant for Researcher",
   "description": "Do Zotero ao manuscrito na pesquisa clínica, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (PICOT, plano de análise, CEP), rascunhos IMRaD e revisão crítica.",
-  "version": "0.70.0",
+  "version": "0.70.1",
   "author": {
     "name": "Raphael Federicci",
     "email": "rfh.federicci@gmail.com",

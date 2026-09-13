@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.70.1] - 2026-09-13
+
 ### Adicionado
 
 - **`review critique` confere o que as fontes citadas dizem.** Com o draft num `pj_*`, o `reviewer` escolhe até 8 citações que sustentam tese, causalidade ou números e sobe uma escada só enquanto houver dúvida: `_extract.md`, depois o abstract do `.bib`, depois o PDF (sem extract, começa pelo abstract). O extract libera, nunca acusa: `partial`, `contradicts` e `not_found` exigem abstract ou texto completo e trecho literal da fonte. O resultado sai no novo campo opcional `citation_checks` de `PeerReviewReport/v1` (forward-only, Princípio IV), e `prumo validate` confere o trecho e a presença de `[@citekey]` no draft (Princípio II). No A/B de 2026-09-12 com o ARS, três citações que não diziam o que o draft atribuía a elas tinham passado despercebidas.
@@ -1379,7 +1381,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.1...HEAD
+[0.70.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.0...v0.70.1
 [0.70.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.69.1...v0.70.0
 [0.69.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.69.0...v0.69.1
 [0.69.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.68.1...v0.69.0

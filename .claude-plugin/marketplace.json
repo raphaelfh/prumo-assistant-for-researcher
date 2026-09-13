@@ -12,7 +12,7 @@
       "displayName": "Prumo Assistant for Researcher",
       "source": "./",
       "description": "Do Zotero ao manuscrito na pesquisa clínica, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (PICOT, plano de análise, CEP), rascunhos IMRaD e revisão crítica.",
-      "version": "0.70.0",
+      "version": "0.70.1",
       "homepage": "https://github.com/raphaelfh/prumo-assistant-for-researcher",
       "license": "MIT",
       "keywords": [
