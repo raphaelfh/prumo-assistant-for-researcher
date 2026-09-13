@@ -7,6 +7,14 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Alterado
+
+- O plugin ganha o título "Prumo Assistant for Researcher" (`displayName` em `plugin.json` e
+  `marketplace.json`), e o card do Desktop e o `/plugin` deixam de mostrar só "Par". O namespace
+  das skills continua `par` (`/par:start`), conforme ADR-0034. A descrição passa a cobrir os cinco
+  domínios, protocolo incluído, e o marketplace ganha descrição própria. O validador de manifests
+  exige o mesmo `displayName` nos dois arquivos.
+
 ## [0.70.0] - 2026-09-12
 
 ### Alterado

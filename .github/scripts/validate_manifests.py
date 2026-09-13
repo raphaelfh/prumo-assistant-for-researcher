@@ -10,6 +10,8 @@ Falha (exit 1) se qualquer manifest for inválido. Pensado para rodar:
 
 Também valida coerência cruzada:
 - plugin.version == marketplace.plugins[<self>].version
+- plugin.displayName == marketplace.plugins[<self>].displayName (o do marketplace
+  vence no card do Desktop; divergir mostraria títulos diferentes por superfície)
 - plugin.name aparece em marketplace.plugins
 """
 
@@ -62,6 +64,11 @@ def cross_check(plugin: dict, marketplace: dict) -> list[str]:
     if entry_version and entry_version != plugin_version:
         issues.append(
             f"  • versão divergente: plugin.json={plugin_version} ≠ marketplace={entry_version}"
+        )
+    if entry.get("displayName") != plugin.get("displayName"):
+        issues.append(
+            f"  • displayName divergente: plugin.json={plugin.get('displayName')!r}"
+            f" ≠ marketplace={entry.get('displayName')!r}"
         )
     return issues
 
