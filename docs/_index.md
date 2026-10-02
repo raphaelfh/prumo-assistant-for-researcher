@@ -75,6 +75,8 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-09-12-recalculo-estatisticas-lint-design]] · approved
 - [[superpowers/specs/2026-09-12-safe-outputs-design]] · accepted
 - [[superpowers/specs/2026-09-12-superficie-de-skills-design]] · approved
+- [[superpowers/specs/2026-10-02-plugin-distribuicao-unica-design]] · draft
+- [[superpowers/specs/2026-10-02-ponte-zotero-minima-design]] · draft
 
 **Plans ativos:**
 
