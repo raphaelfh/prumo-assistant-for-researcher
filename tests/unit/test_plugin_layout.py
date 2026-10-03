@@ -75,3 +75,31 @@ def test_settings_do_template_liga_o_auto_update() -> None:
         },
         "enabledPlugins": {"par@prumo-assistant-for-researcher": True},
     }
+
+
+def test_ci_tem_job_launcher_smoke() -> None:
+    """O CI roda o lançador de verdade (uv real, rede) nas três plataformas (spec §CI)."""
+    import yaml
+
+    ci = yaml.safe_load((REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
+    job = ci["jobs"]["launcher-smoke"]
+    assert job["strategy"]["fail-fast"] is False
+    assert job["strategy"]["matrix"]["os"] == ["ubuntu-latest", "macos-latest", "macos-15-intel"]
+    runs = "\n".join(str(s.get("run", "")) for s in job["steps"])
+    for needle in (
+        "PRUMO_CACHE_DIR=$RUNNER_TEMP/pc",
+        "shellcheck -s sh shims/prumo hooks/session-start.sh",
+        "git archive --format=tar HEAD",
+        'chmod -R a-w "$ROOT"',
+        'sh "$ROOT/shims/prumo" --version',
+        "bash --posix",
+        "/bin/dash",
+        "UV_OFFLINE=1",
+        '"mcp", "serve"',
+        "serverInfo",
+        "init pj_smoke --yes",
+        "test ! -e pj_smoke/.claude/skills",
+        "CLAUDE_ENV_FILE=",
+        "command -v prumo",
+    ):
+        assert needle in runs, needle
