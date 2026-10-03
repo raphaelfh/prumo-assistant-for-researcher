@@ -283,8 +283,8 @@ def _pj_with_root(tmp_path: Path) -> tuple[Path, Path]:
 def _stub_pandoc_seams(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Mocka só os seams externos (binário, CSL, subprocess) — a guarda de
     sobrescrita e o resto de `export()`/`compose()` rodam de verdade.
-    `--to html` evita a checagem de BBT (só exigida para docx) e a
-    validação estrutural do zip docx, mantendo o teste focado na guarda."""
+    `--to html` evita a validação estrutural do zip docx, mantendo o teste
+    focado na guarda."""
     csl = tmp_path / "apa.csl"
     csl.write_text("<style/>")
     monkeypatch.setattr(export, "_check_pandoc", lambda: "pandoc")
@@ -328,13 +328,11 @@ def test_write_export_html_omits_first_use_note(
     [
         ("export", export.CorruptDocxError),
         ("compose", export.CorruptDocxError),
-        ("export", export.ZoteroNotRunningError),
         ("compose", export.MissingBibliographyPlaceholderError),
     ],
     ids=[
         "export-corrupt-docx",
         "compose-corrupt-docx",
-        "export-zotero-down",
         "compose-missing-refs-placeholder",
     ],
 )
