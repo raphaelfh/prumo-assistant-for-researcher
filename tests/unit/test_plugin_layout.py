@@ -12,10 +12,17 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 
 
-def test_mcp_json_nao_declara_qmd() -> None:
-    """O qmd é CLI opcional; o plugin não distribui servidor MCP de terceiro (A9)."""
-    servers = json.loads((REPO / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]
-    assert "qmd" not in servers
+def test_mcp_json_eh_so_o_prumo_pelo_lancador() -> None:
+    """Só o servidor `prumo`, via `/bin/sh` no lançador do plugin; sem qmd (A5, A9)."""
+    data = json.loads((REPO / ".mcp.json").read_text(encoding="utf-8"))
+    assert data == {
+        "mcpServers": {
+            "prumo": {
+                "command": "/bin/sh",
+                "args": ["${CLAUDE_PLUGIN_ROOT}/shims/prumo", "mcp", "serve"],
+            }
+        }
+    }
 
 
 def test_shims_so_tem_prumo() -> None:
