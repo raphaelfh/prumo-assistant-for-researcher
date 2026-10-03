@@ -10,7 +10,6 @@ Usa **stdlib apenas** pra não acrescentar dependência (``urllib`` cobre HTTP).
 from __future__ import annotations
 
 import json
-import os
 import re
 import urllib.error
 import urllib.request
@@ -22,25 +21,19 @@ from typing import Any
 
 from par.core import pj_layout
 from par.core.bib import parse_bib
-from par.core.deps import zotero_local_api_up
+from par.core.deps import bbt_rpc_url, zotero_base, zotero_local_api_up
 from par.core.note_paths import annotations_path, meta_path
 from par.domains.paper.errors import ZoteroApiError
 
-_DEFAULT_ZOTERO_BASE = "http://127.0.0.1:23119"
-
 
 def _zotero_base() -> str:
-    """Base URL da API local do Zotero. Override via ``PRUMO_ZOTERO_BASE``.
-
-    Default ``http://127.0.0.1:23119`` — unifica com os filtros Lua e evita
-    surpresas de resolução IPv6 (``::1``) que ``localhost`` às vezes traz.
-    """
-    return os.environ.get("PRUMO_ZOTERO_BASE", _DEFAULT_ZOTERO_BASE)
+    """Base URL do Zotero local; delega a ``core.deps.zotero_base`` (override por env, ADR-0007)."""
+    return zotero_base()
 
 
 def _bbt_rpc() -> str:
-    """Endpoint JSON-RPC do Better BibTeX."""
-    return f"{_zotero_base()}/better-bibtex/json-rpc"
+    """Endpoint JSON-RPC do Better BibTeX; delega a ``core.deps.bbt_rpc_url`` (ADR-0037)."""
+    return bbt_rpc_url()
 
 
 def _zotero_api() -> str:

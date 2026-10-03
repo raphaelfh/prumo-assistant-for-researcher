@@ -6,6 +6,8 @@ prumo orquestra ferramentas que vivem fora do pacote Python:
   os modos ``wiki query``, ``wiki ingest`` e ``wiki study`` consomem. Binário no PATH.
 - **Zotero + Better BibTeX** — fonte de bibliografia/anotações. Expõe API local
   HTTP em ``127.0.0.1:23119`` quando o app está aberto.
+- **Pandoc** — ``write export``/``write compose``; o do PATH ou o que vem dentro
+  do Zettlr.app, com o piso 3.8.2 (ADR-0037).
 
 Este módulo é puramente declarativo: retorna ``DepStatus`` por dependência.
 Quem decide o que fazer (warning, erro, JSON) é o ``doctor``. Centralizar aqui
@@ -18,12 +20,16 @@ import http.client
 import os
 import re
 import shutil
+import subprocess
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import urlparse
 
 _DEFAULT_ZOTERO_BASE = "http://127.0.0.1:23119"
+_ZETTLR_PANDOC = Path("/Applications/Zettlr.app/Contents/Resources/pandoc")
+_PANDOC_FLOOR = (3, 8, 2)
 
 
 @dataclass
@@ -53,6 +59,45 @@ def _binary_on_path(name: str) -> str | None:
     return shutil.which(name)
 
 
+def zotero_base() -> str:
+    """Base HTTP do Zotero local (connector + Better BibTeX). Override: ``PRUMO_ZOTERO_BASE`` (ADR-0007)."""
+    return os.environ.get("PRUMO_ZOTERO_BASE", _DEFAULT_ZOTERO_BASE)
+
+
+def bbt_rpc_url() -> str:
+    """Endpoint JSON-RPC do Better BibTeX — único no pacote (ADR-0037)."""
+    return f"{zotero_base()}/better-bibtex/json-rpc"
+
+
+def in_claude_sandbox() -> bool:
+    """``True`` dentro do sandbox do Bash do Claude Code, que não alcança o Zotero do host."""
+    return os.environ.get("SANDBOX_RUNTIME") == "1"
+
+
+def pandoc_path() -> str | None:
+    """pandoc do PATH; senão o que vem dentro do Zettlr.app (macOS). Seam: ``_binary_on_path``/``_ZETTLR_PANDOC``."""
+    found = _binary_on_path("pandoc")
+    if found:
+        return found
+    if _ZETTLR_PANDOC.is_file() and os.access(_ZETTLR_PANDOC, os.X_OK):
+        return str(_ZETTLR_PANDOC)
+    return None
+
+
+def _pandoc_version(path: str, timeout: float = 5.0) -> str | None:
+    """``"3.10.1"`` a partir da 1ª linha de ``pandoc --version``; ``None`` se falhar. Seam testável."""
+    try:
+        proc = subprocess.run(
+            [path, "--version"], capture_output=True, text=True, timeout=timeout, check=False
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    lines = (proc.stdout or "").splitlines()
+    first_line = lines[0] if lines else ""
+    m = re.match(r"pandoc(?:\.exe)?\s+(\d+(?:\.\d+)*)", first_line)
+    return m.group(1) if m else None
+
+
 def _zotero_api_root(timeout: float = 2.0) -> int | None:
     """Status HTTP de ``GET {base}/api/``, ou ``None`` se nada respondeu.
 
@@ -65,9 +110,8 @@ def _zotero_api_root(timeout: float = 2.0) -> int | None:
     Sondar a porta crua ou ``/connector/ping`` não distingue os dois casos: o
     connector server sobe junto com o app, independentemente da API local.
     """
-    base = os.environ.get("PRUMO_ZOTERO_BASE", _DEFAULT_ZOTERO_BASE)
     try:
-        with urllib.request.urlopen(f"{base}/api/", timeout=timeout) as resp:
+        with urllib.request.urlopen(f"{zotero_base()}/api/", timeout=timeout) as resp:
             return int(resp.status)
     except urllib.error.HTTPError as exc:
         return int(exc.code)
@@ -77,8 +121,7 @@ def _zotero_api_root(timeout: float = 2.0) -> int | None:
 
 def _zotero_host_port() -> tuple[str, int]:
     """Host/porta da API local do Zotero, honrando ``PRUMO_ZOTERO_BASE``."""
-    base = os.environ.get("PRUMO_ZOTERO_BASE", _DEFAULT_ZOTERO_BASE)
-    parsed = urlparse(base)
+    parsed = urlparse(zotero_base())
     return parsed.hostname or "127.0.0.1", parsed.port or 23119
 
 
@@ -118,6 +161,56 @@ def _zotero_major(version: str | None) -> int | None:
         return None
     m = re.match(r"(\d+)", version)
     return int(m.group(1)) if m else None
+
+
+_PANDOC_ABSENT_DETAIL = "pandoc não encontrado (nem no PATH nem no Zettlr.app)"
+_PANDOC_ABSENT_HINT = (
+    "Instale o pandoc 3.8.2 ou mais novo. macOS: `brew install pandoc` (ou instale o "
+    "Zettlr, que já traz um). Linux: pacote oficial em https://github.com/jgm/pandoc/releases "
+    "(o do apt costuma ser antigo). Depois rode: prumo doctor"
+)
+_PANDOC_OLD_HINT = (
+    "O pandoc {v} é anterior a 3.8.2: tabelas numeradas (`{{#tbl:…}}`) falham no export. "
+    "Atualize (macOS: `brew upgrade pandoc`; Linux: pacote oficial em "
+    "https://github.com/jgm/pandoc/releases) e rode: prumo doctor"
+)
+
+
+def _pandoc_status() -> DepStatus:
+    """Linha ``pandoc`` do doctor: presença e piso 3.8.2 (ADR-0037).
+
+    Versão não detectada conta como presente — o mesmo fail-safe da linha
+    ``zotero``. O export não checa versão; quem avisa é o doctor.
+    """
+    required_by = ["write export", "write compose"]
+    path = pandoc_path()
+    if not path:
+        return DepStatus(
+            name="pandoc",
+            present=False,
+            required_by=required_by,
+            detail=_PANDOC_ABSENT_DETAIL,
+            hint=_PANDOC_ABSENT_HINT,
+        )
+    where = "do Zettlr.app" if path == str(_ZETTLR_PANDOC) else f"em {path}"
+    version = _pandoc_version(path)
+    if version is None:
+        return DepStatus(
+            name="pandoc",
+            present=True,
+            required_by=required_by,
+            detail=f"pandoc {where} (versão não detectada)",
+            hint="",
+        )
+    below_floor = tuple(int(p) for p in re.findall(r"\d+", version)) < _PANDOC_FLOOR
+    return DepStatus(
+        name="pandoc",
+        present=not below_floor,
+        required_by=required_by,
+        detail=f"pandoc {version} {where}",
+        hint=_PANDOC_OLD_HINT.format(v=version) if below_floor else "",
+        version=version,
+    )
 
 
 def check_external_deps() -> list[DepStatus]:
@@ -191,5 +284,7 @@ def check_external_deps() -> list[DepStatus]:
             version=version,
         )
     )
+
+    statuses.append(_pandoc_status())
 
     return statuses
