@@ -18,9 +18,12 @@ Plugin Claude Code + CLI Python (`prumo`) de pesquisa clínica: bibliografia (Zo
 
 - `templates/pj_base/CLAUDE.md` é PRODUTO (scaffolding de projetos `pj_*`), não orientação deste repo.
 - `skills/` e `templates/` são force-included no wheel (pyproject) e resolvidos por `src/par/core/paths.py` — mover qualquer um exige atualizar os dois lados juntos.
-- Plugin root = raiz do repo (`.claude-plugin/marketplace.json` usa `source: "./"`) — não mover `skills/`, `.mcp.json`, `.claude-plugin/`.
-- `.mcp.json` é, ao mesmo tempo, config MCP deste projeto E config MCP distribuída aos consumidores do plugin.
-- Índices têm blocos gerados (README, `skills/start/SKILL.md`, `docs/_index.md`, `docs/adr/_index.md`): edite a fonte e rode o gerador — nunca o bloco à mão.
+- Plugin root = raiz do repo (`.claude-plugin/marketplace.json` usa `source: "./"`) — não mover `skills/`, `.mcp.json`, `.claude-plugin/`, `shims/`, `hooks/`.
+- `.mcp.json` é só do plugin (o dev do repo o rejeita como servidor de projeto em `.claude/settings.json` e carrega o plugin com `claude --plugin-dir .`).
+- Índices têm blocos gerados (README, `skills/start/SKILL.md`, `docs/_index.md`, `docs/adr/_index.md`, o bloco `prumo:runtime` das 5 portas, do `start` e de `agents/reader.md`): edite a fonte e rode o gerador — nunca o bloco à mão.
+- `shims/` contém só `prumo` (100755); nunca crie `bin/` na raiz — chat e Cowork recusam o plugin inteiro.
+- o venv do lançador é chaveado pelo conteúdo de `uv.lock` + `shims/prumo`: mudar qualquer um faz cada pesquisadora baixar o ambiente de novo (cerca de 60 MB, uma vez) — diga isso no CHANGELOG.
+- o canal da conta (Customize → Plugins) copia a árvore git inteira: limite de 5.000 arquivos e 200 MB.
 
 ## Comandos
 
