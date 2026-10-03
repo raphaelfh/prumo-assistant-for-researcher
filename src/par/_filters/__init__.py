@@ -1,9 +1,8 @@
-"""Pandoc Lua filters vendored com o pacote.
+"""Filtros Lua do Pandoc vendorados com o pacote.
 
-- ``zotero.lua`` — filtro oficial do Better BibTeX que converte citações
-  Pandoc (``[@citekey]``) em campos vivos do Word/LibreOffice editáveis
-  pelo plugin do Zotero. Origem:
-  https://retorque.re/zotero-better-bibtex/exporting/pandoc/
-
-  Atualizar: ``curl -L https://raw.githubusercontent.com/retorquere/zotero-better-bibtex/master/site/content/exporting/zotero.lua -o zotero.lua``
+- ``crossref.lua`` — numeração de figuras e tabelas e resolução de
+  ``@fig:x``/``@tbl:x`` (ADR-0035).
+- ``zotero_live_docx.lua`` — campos vivos do Zotero no docx: citações e
+  bibliografia já formatadas pelo citeproc, embrulhadas em campos do Word
+  (ADR-0037).
 """
