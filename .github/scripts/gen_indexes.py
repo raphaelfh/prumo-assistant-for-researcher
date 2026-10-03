@@ -93,15 +93,23 @@ def render_modes_table(skill: SkillManifest) -> str:
     return "\n".join(lines)
 
 
+# Regra exata (não curinga): pré-aprova só o item 1 do preflight `cli`.
+_PF_VERSION_RULE = "Bash(prumo --version)"
+
+
 def derived_frontmatter(skill: SkillManifest) -> dict[str, str]:
     """Chaves do frontmatter de uma skill com modos, derivadas dos modos (Princípio VII).
 
-    ``when_to_use`` sai das frases; ``allowed-tools`` é a união ordenada dos modos;
-    ``argument-hint`` lista os modos. Cada valor já vem serializado como YAML.
+    ``when_to_use`` sai das frases; ``allowed-tools`` é a união ordenada dos modos,
+    mais ``Bash(prumo --version)`` quando algum modo exige ``cli`` (o preflight manda
+    rodar esse comando primeiro); ``argument-hint`` lista os modos. Cada valor já vem
+    serializado como YAML.
     """
     tools: list[str] = []
     for mode in skill.modes:
         tools.extend(tool for tool in mode.allowed_tools if tool not in tools)
+    if any("cli" in m.requires for m in skill.modes) and _PF_VERSION_RULE not in tools:
+        tools.append(_PF_VERSION_RULE)
     names = [m.name for m in skill.modes]
     when = ["when_to_use: |", f"  Modos: {', '.join(names)}. Frases típicas:"]
     for mode in skill.modes:

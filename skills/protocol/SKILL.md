@@ -7,7 +7,7 @@ when_to_use: |
   - picot: "fecha a PICOT"; "formaliza a pergunta de pesquisa"; "a PICOT mudou"
   - sap: "gera o plano de análise estatística"; "justifica o tamanho amostral"; "planeja as análises de sensibilidade"
 argument-hint: "[cep|picot|sap] [argumentos do modo]"
-allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *) Bash(prumo protocol *)
+allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *) Bash(prumo protocol *) Bash(prumo --version)
 prumo:
   version: 2.0.0
   agent_compat: [claude-code]
