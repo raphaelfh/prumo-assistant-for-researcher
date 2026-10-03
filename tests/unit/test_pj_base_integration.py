@@ -55,9 +55,6 @@ def test_projeto_novo_nao_nasce_com_link_morto(tmp_path: Path) -> None:
 
     quebrados: list[str] = []
     for md in target.rglob("*.md"):
-        # `.claude/skills/` vem do plugin, não do template — escopo alheio.
-        if ".claude/skills" in md.relative_to(target).as_posix():
-            continue
         for alvo in _MD_LINK_RE.findall(md.read_text(encoding="utf-8")):
             if alvo.startswith(("http://", "https://", "mailto:", "#")):
                 continue

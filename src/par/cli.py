@@ -32,7 +32,6 @@ from rich.panel import Panel
 from rich.text import Text
 
 from par import (
-    IntegrationError,
     ManifestError,
     PrumoError,
     __version__,
@@ -76,7 +75,6 @@ from par.domains.protocol.cli import protocol_app
 from par.domains.wiki.cli import wiki_app
 from par.domains.write.cli import write_app
 from par.domains.write.zettlr import profile_issues as zettlr_profile_issues
-from par.integrations import REGISTRY as INTEGRATIONS
 from par.status import project_status, render_status, status_to_dict
 
 app = typer.Typer(
@@ -227,20 +225,21 @@ def _render_next_steps(console: Console, target: Path, mode: str) -> None:
     rel = target.name
     console._rich.print()
     console._rich.print("[bold]Próximos passos:[/bold]")
-    console._rich.print(f"  [cyan]cd {rel}[/cyan]")
+    console._rich.print(
+        f"  Abra uma sessão nova do Claude Code dentro de [cyan]{rel}[/cyan] "
+        f"(no app: aba Code → escolher a pasta; no terminal: [cyan]cd {rel} && claude[/cyan]) "
+        "e peça [cyan]/par:start[/cyan]"
+    )
     if mode == MODE_NEW:
         console._rich.print(
             "  Edite [cyan]docs/project_guide.md[/cyan] — objetivo, hipótese, escopo do wiki"
         )
         console._rich.print("  Ative módulos opcionais (clínico, ML): [cyan]prumo add[/cyan]")
-        console._rich.print("  No Claude Code, comece por: [cyan]/par:start[/cyan]")
     elif mode == MODE_MERGE:
         console._rich.print(
             "  Revise as diferenças no [cyan]git status[/cyan] — arquivos existentes foram preservados."
         )
-        console._rich.print(
-            "  Ative módulos com [cyan]prumo add[/cyan]; no Claude Code: [cyan]/par:start[/cyan]."
-        )
+        console._rich.print("  Ative módulos com [cyan]prumo add[/cyan].")
     else:  # MODE_FORCE
         console._rich.print(
             "  [yellow]Conteúdo anterior foi substituído.[/yellow] Confira [cyan]git status[/cyan]."
@@ -253,7 +252,6 @@ class WizardAnswers:
 
     target: Path
     mode: str
-    integrations: list[str]
     modules: list[str]
     init_git: bool
     scope_slug: str
@@ -298,28 +296,6 @@ def _wizard(console: Console, default_target: str | None = None) -> WizardAnswer
     else:
         mode = MODE_NEW
 
-    # 3. Integrações (multi-select simplificado)
-    available = list(INTEGRATIONS.keys())
-    console._rich.print()
-    if len(available) <= 1:
-        integrations = available
-    else:
-        console._rich.print("[bold]Integrações disponíveis:[/bold]")
-        for i, key in enumerate(available, 1):
-            console._rich.print(f"  [cyan]{i})[/cyan] {key}")
-        raw = typer.prompt(
-            "Quais instalar? (números separados por vírgula, ou 'all')",
-            default="1" if len(available) >= 1 else "",
-        )
-        if raw.strip().lower() == "all":
-            integrations = available
-        else:
-            try:
-                idxs = [int(x.strip()) - 1 for x in raw.split(",") if x.strip()]
-                integrations = [available[i] for i in idxs if 0 <= i < len(available)]
-            except ValueError:
-                integrations = ["claude_code"] if "claude_code" in available else available[:1]
-
     # Módulos opcionais (à la carte, todos desmarcados).
     _modules = discover_modules()
     selected_modules: list[str] = []
@@ -347,7 +323,6 @@ def _wizard(console: Console, default_target: str | None = None) -> WizardAnswer
     return WizardAnswers(
         target=target,
         mode=mode,
-        integrations=integrations,
         modules=selected_modules,
         init_git=init_git,
         scope_slug=scope_slug,
@@ -378,14 +353,6 @@ def init_command(
         str | None,
         typer.Argument(
             help="Nome do diretório do pj_* a criar. Omita para wizard interativo.",
-        ),
-    ] = None,
-    integration: Annotated[
-        list[str] | None,
-        typer.Option(
-            "--integration",
-            "-i",
-            help="Adapter de agent-host a configurar. Pode repetir. Default: claude_code.",
         ),
     ] = None,
     with_modules: Annotated[
@@ -430,7 +397,7 @@ def init_command(
         ),
     ] = True,
 ) -> None:
-    """Cria um novo projeto ``pj_*`` a partir do template e instala skills.
+    """Cria um novo projeto ``pj_*`` a partir do template.
 
     Modos:
 
@@ -458,7 +425,6 @@ def init_command(
             raise typer.Exit(code=130) from None  # 130 = SIGINT convention
         target = answers.target
         mode = answers.mode
-        integration_list = list(answers.integrations)
         init_git_flag = answers.init_git
         scope_slug = answers.scope_slug
     else:
@@ -466,7 +432,6 @@ def init_command(
             console.error("Informe o nome do projeto ou rode em terminal interativo (TTY).")
             raise typer.Exit(code=2)
         target, _ = _validate_project_name(project)
-        integration_list = integration or ["claude_code"]
         init_git_flag = init_git
         # Sem wizard, ninguém escolhe slug — o template já nasce com
         # `docs/studies/principal/` (default da decisão de layout por escopo).
@@ -517,35 +482,6 @@ def init_command(
         if mode == MODE_NEW and init_git_flag:
             git_initialized = _init_git_repo(target)
 
-        # Instala skills via integrations escolhidas (modo tolerante).
-        skills_dir = _resolve_skills_dir()
-        registry = None
-        if skills_dir is not None:
-            registry, skill_warnings = load_skill_registry(skills_dir, strict=False)
-            for w in skill_warnings:
-                console.warn(f"skill ignorada: {w}")
-
-        installed_summary: list[dict[str, object]] = []
-        for key in integration_list:
-            cls = INTEGRATIONS.get(key)
-            if cls is None:
-                console.warn(f"Integration '{key}' desconhecida; ignorada.")
-                continue
-            adapter = cls()
-            if registry is not None:
-                report = adapter.install(target, registry)
-                installed_summary.append(
-                    {
-                        "integration": report.integration,
-                        "installed": report.installed,
-                        "skipped": [{"skill": s, "reason": r} for s, r in report.skipped],
-                    }
-                )
-            else:
-                installed_summary.append(
-                    {"integration": adapter.name, "installed": [], "skipped": []}
-                )
-
         # Módulos a ativar (wizard no modo interativo; --with no modo direto).
         if interactive:
             module_names = list(answers.modules)
@@ -590,7 +526,6 @@ def init_command(
             "files_copied": len(copied),
             "files_skipped": len(skipped),
             "git_initialized": git_initialized,
-            "integrations": installed_summary,
             "modules_applied": modules_applied,
             "zettlr_profile": zettlr_profile,
             "version": __version__,
@@ -625,7 +560,7 @@ def doctor_command(
     ] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
 ) -> None:
-    """Health-check do projeto: estrutura, skills instaladas, integrations OK?
+    """Health-check do projeto: estrutura, cópias antigas do PAR e dependências externas.
 
     Também reporta dependências externas (qmd, Zotero). Dependência externa
     ausente é informativa — não muda o exit code; só problemas estruturais
@@ -679,10 +614,6 @@ def doctor_command(
 
     # Confidencialidade: dado bruto e trace de LLM fora do git (safe_outputs).
     issues.extend(safe_outputs_issues(target))
-
-    for adapter_cls in INTEGRATIONS.values():
-        adapter = adapter_cls()
-        issues.extend(adapter.doctor(target))
 
     # Perfil de export do Zettlr (se existir) aponta pra arquivos vivos?
     issues.extend(zettlr_profile_issues(target))
@@ -1172,14 +1103,5 @@ def mcp_serve_command() -> None:
         mcp_server.run_stdio()
 
 
-def _entry() -> None:
-    """Entry point usado pelo ``project.scripts``."""
-    try:
-        app()
-    except IntegrationError as e:
-        print(f"prumo: integration error: {e}", file=sys.stderr)
-        sys.exit(1)
-
-
 if __name__ == "__main__":
-    _entry()
+    app()
