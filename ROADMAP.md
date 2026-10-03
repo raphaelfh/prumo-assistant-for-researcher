@@ -87,3 +87,9 @@
 - **Sem MkDocs publicado.** Documentação vive no repo em Markdown. Site só quando `prumo --version` justificar (volume de usuários externos).
 - **Sem `unknown_type` no wiki lint.** O lint cobra a presença do frontmatter, não o valor de `type:` — um typo (`type: decisions`) passa em silêncio. Os cinco tipos válidos estão nomeados ([ADR-0025](docs/adr/adr-0025-tipo-de-pagina-no-frontmatter.md), [ADR-0030](docs/adr/adr-0030-tipo-decision.md)). Trigger: um typo que cause dano observável — página que some de um relatório ou de um índice por causa do valor errado.
 - **Produto continua gerando `decisions/`** (agora `docs/studies/<slug>/decisions/`, por escopo — [ADR-0022](docs/adr/adr-0022-layout-por-escopo.md)) nos `pj_*` enquanto o repo usa `docs/adr/` — divergência de nome mantida deliberadamente ([ADR-0001](docs/adr/adr-0001-adr-log-em-docs-adr.md)).
+- **Ingest tolerante aos botões do Zotero.** O ingest recusa docx cujos campos o Zotero reescreveu
+  (ADR-0037). Trigger: a primeira rodada real de revisão que falhar por isso.
+- **Versão do Better BibTeX no doctor.** O piso 9.0.65 vive só em documentação e mensagens. Trigger:
+  a primeira falha real de export ou de `connect` atribuída a um BBT antigo.
+- **`prumo paper connect --replace`.** O BBT aceita `replace=true` no `autoexport.add`. Trigger: o
+  primeiro pedido real de trocar a coleção de um projeto.

@@ -111,6 +111,8 @@ Sentido único: `.md` (fonte, git) → `.bib` (BBT "keep updated") → artefatos
 | Concorrência humano×agente | Reload automático do Zettlr + git; sem lock novo. |
 | Pandoc embutido do Zettlr < 3.0 | O filtro exige `pandoc.json` (Pandoc ≥ 3.0); guia fixa versão mínima do Zettlr. Doctor não introspecta o Pandoc do Zettlr — limitação aceita. |
 
+> As linhas 'Zotero/BBT fechado — caminho canônico' (l.107) e 'Pandoc embutido do Zettlr < 3.0' (l.112) foram substituídas pela ADR-0037: o export degrada com aviso, e o piso do pandoc é 3.8.2.
+
 ## Testes
 
 Padrão do repo: `tests/unit/<domínio>/`, deps externas mockadas nos seams, TDD.
