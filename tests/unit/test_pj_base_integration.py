@@ -134,3 +134,20 @@ def test_scaffold_nao_carrega_invocacao_antiga() -> None:
     for base in ("pj_base", "modules"):
         raiz = resolve_resource("templates") / base
         assert scan_skill_refs(raiz, registry.legacy_map()) == [], base
+
+
+#: Trecho entre crases (inline code) — placeholder ali dentro renderiza.
+_INLINE_CODE_RE = re.compile(r"`[^`]*`")
+#: Placeholder `<palavra>` solto: o renderizador Markdown o lê como tag HTML
+#: desconhecida e o apaga (GitHub, preview do Zettlr).
+_BARE_PLACEHOLDER_RE = re.compile(r"<[a-zà-ú_.-]+>")
+
+
+def test_project_guide_nao_tem_placeholder_solto() -> None:
+    guide = resolve_resource("templates") / "pj_base" / "docs" / "project_guide.md"
+    soltos = [
+        (n, m.group(0))
+        for n, line in enumerate(guide.read_text(encoding="utf-8").splitlines(), 1)
+        for m in _BARE_PLACEHOLDER_RE.finditer(_INLINE_CODE_RE.sub("", line))
+    ]
+    assert soltos == [], f"placeholder fora de crases some no render: {soltos}"
