@@ -1,0 +1,117 @@
+#!/bin/sh
+# prumo: lançador do CLI do PAR (ADR-0038). Roda o código DESTA raiz do plugin
+# num venv que o uv monta a partir do uv.lock. Nada é instalado no sistema.
+#
+# Caminho quente: dois testes de arquivo e exec do Python.
+# Caminho frio (1ª vez de cada uv.lock ou deste arquivo): `uv sync` em
+#   ~/.cache/prumo/venv-<python>-<cksum(uv.lock + este arquivo)>.
+# A chave é o CONTEÚDO, não a versão nem a raiz. Update que não mexe no uv.lock
+# reusa o venv sem esperar, e uma raiz atualizada no lugar (@synced,
+# --plugin-dir) nunca ressincroniza um venv que outra sessão está usando.
+# O cache é fixo de propósito: o MCP aberto pelo app só herda o PATH do perfil
+# do shell, e um cache configurável separaria o venv do MCP do venv do Bash.
+# PRUMO_CACHE_DIR e PRUMO_UV existem só para testes e CI. Chamar este arquivo
+# por link simbólico não é suportado (a raiz sairia errada).
+#
+# Saídas: 127 sem uv · 69 sem rede · 73 sem espaço/escrita · 77 sandbox do
+# Claude Code · 78 uv antigo ou sem permissão de baixar Python · 70 venv sem
+# Python · 71 Windows ou WSL · 1 plugin incompleto. Toda mensagem começa com
+# "PAR:" e traz o comando de correção.
+
+_py=3.12   # Python do venv, o mesmo da matriz do CI. Mudar aqui muda o hash e cria venv novo.
+_days=30   # o caminho frio apaga venvs sem uso há mais de N dias
+
+_die() {
+  _c=$1; shift
+  printf 'PAR: %s\n' "$1" >&2; shift
+  [ $# -eq 0 ] || printf '  %s\n' "$@" >&2
+  exit "$_c"
+}
+
+case $0 in */*) _d=${0%/*} ;; *) _d=. ;; esac
+_root=$(CDPATH='' cd -- "$_d/.." 2>/dev/null && pwd -P) || _root=
+[ -f "$_root/uv.lock" ] && [ -f "$_root/src/par/cli.py" ] ||
+  _die 1 "instalação do plugin incompleta${_root:+ em $_root} (ou o lançador foi chamado por um link simbólico, o que não é suportado)." \
+    "Reinstale o plugin (no app: + → Plugins → Gerenciar plugins; no terminal: /plugin uninstall par e /plugin install par@prumo-assistant-for-researcher) e abra uma sessão nova."
+
+# Anexado (não prefixado): o MCP aberto pelo app de janela também acha uv, pandoc e typst.
+PATH="$PATH:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin"; export PATH
+_cache=${PRUMO_CACHE_DIR:-$HOME/.cache/prumo}
+_key=$(cat "$_root/uv.lock" "$_root/shims/prumo" | cksum)
+_venv=$_cache/venv-$_py-${_key%% *}
+
+_windows() {
+  _die 71 "ainda não funciona no Windows nem no WSL (o PAR só é testado em macOS e Linux)." \
+    "Por enquanto, use /par:review critique colando trechos do seu texto."
+}
+
+_sync() { # "$@": VAR=valor extras, só para esta chamada do uv
+  _err=$(env "$@" UV_PROJECT_ENVIRONMENT="$_venv" UV_PYTHON="$_py" UV_PYTHON_PREFERENCE=only-managed \
+    "$_uv" sync --project "$_root" --frozen --no-install-project --compile-bytecode --quiet 2>&1 >/dev/null)
+}
+
+_sandbox() {
+  _die 77 "o sandbox do Claude Code bloqueou a preparação do PAR (só acontece na 1ª vez de cada versão)." \
+    "Repita este comando fora do sandbox (o Claude pede sua permissão) ou abra uma sessão nova: o servidor do PAR prepara tudo ao iniciar, fora do sandbox." \
+    "Detalhe: $_t"
+}
+
+_fail() {
+  _t=$(printf '%s\n' "$1" | awk 'NF { if (f == "") f = $0; l = $0 } END { print f; if (l != f) print "  ... " l }')
+  case $1 in
+    *"to parse"*uv.lock* | *"uv version"*)
+      _die 78 "o seu uv é antigo demais para esta versão do PAR." \
+        "Atualize e repita: uv self update (ou brew upgrade uv, se ele veio do Homebrew)" \
+        "Detalhe: $_t" ;;
+    *"downloads are set to"*)
+      _die 78 "a configuração do seu uv não deixa baixar o Python $_py que o PAR usa." \
+        "Instale-o uma vez e repita: uv python install $_py && prumo --version (se o uv recusar, troque python-downloads de \"never\" para \"manual\" no seu uv.toml)" \
+        "Detalhe: $_t" ;;
+  esac
+  # O Claude Code marca os comandos que roda dentro do sandbox (macOS e Linux).
+  [ "${SANDBOX_RUNTIME:-}" != 1 ] || _sandbox
+  case $1 in
+    *"Operation not permitted"* | *dynamic_store*) _sandbox ;;
+    *"No space left"* | *"Disk quota"* | *"ermission denied"* | *"Read-only file system"*)
+      _die 73 "não consegui gravar em $_cache (disco cheio ou pasta sem permissão)." \
+        "Libere espaço ou corrija o dono da pasta (sudo chown -R \"\$USER\" ~/.cache) e rode: prumo --version" \
+        "Detalhe: $_t" ;;
+    *)
+      _die 69 "preparar esta versão do PAR precisa de internet uma única vez (cerca de 60 MB)." \
+        "Conecte-se e rode: prumo --version" \
+        "Em rede de hospital ou universidade, peça liberação de pypi.org, files.pythonhosted.org, releases.astral.sh, github.com e dos domínios de download do GitHub (objects.githubusercontent.com, release-assets.githubusercontent.com)." \
+        "Detalhe: $_t" ;;
+  esac
+}
+
+_prepare() {
+  [ "${OS:-}" != Windows_NT ] || _windows
+  case $(uname -s 2>/dev/null) in MINGW* | MSYS* | CYGWIN*) _windows ;; esac
+  # O WSL se apresenta como Linux; as variáveis e o kernel dele o denunciam.
+  [ -z "${WSL_DISTRO_NAME:-}${WSL_INTEROP:-}" ] || _windows
+  case $(cat /proc/sys/kernel/osrelease 2>/dev/null) in *[Mm]icrosoft*) _windows ;; esac
+  _uv=${PRUMO_UV:-$(command -v uv 2>/dev/null)}
+  [ -x "$_uv" ] || _die 127 "falta o uv (instalação única)." \
+    "Peça /par:start ou rode: curl -LsSf https://astral.sh/uv/install.sh | sh"
+  _err=$(mkdir -p "$_cache" 2>&1) || _fail "$_err"
+  # Rede com inspeção de HTTPS (comum em hospital): 2ª tentativa com os certificados
+  # do sistema. UV_NATIVE_TLS vale em todo uv suportado; UV_SYSTEM_CERTS, só no 0.11+.
+  _sync || { case $_err in *ertificate* | *UnknownIssuer*) _sync UV_NATIVE_TLS=1 UV_SYSTEM_CERTS=1 ;; *) false ;; esac; } ||
+    _fail "$_err"
+  [ -x "$_venv/bin/python" ] || _die 70 "o ambiente $_venv ficou sem Python executável." \
+    "Apague a pasta e repita: rm -rf \"$_venv\" && prumo --version"
+  { true >"$_venv/.prumo-ok"; } 2>/dev/null
+  touch -c "$_venv" 2>/dev/null
+  find "$_cache" -maxdepth 1 -type d -name 'venv-*' -mtime +"$_days" -exec rm -rf {} + 2>/dev/null
+  return 0
+}
+
+if [ -f "$_venv/.prumo-ok" ] && [ -x "$_venv/bin/python" ]; then
+  touch -c "$_venv" 2>/dev/null # marca uso, para a poda nunca levar o venv de uma sessão viva
+else
+  _prepare
+fi
+
+# -I: ignora cwd, PYTHON* e site do usuário (um yaml.py no projeto não sequestra o CLI);
+# -B: não grava bytecode na raiz do plugin. As dependências já vêm compiladas do sync.
+exec "$_venv/bin/python" -I -B -c 'import sys; sys.path.insert(0, sys.argv.pop(1)); from par.cli import app; app(prog_name="prumo")' "$_root/src" "$@"
