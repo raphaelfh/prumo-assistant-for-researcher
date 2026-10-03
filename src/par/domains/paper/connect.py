@@ -30,16 +30,18 @@ new-collection``. E não há desfazer: o BBT desta versão não expõe
 e a API local do Zotero recusa ``DELETE`` de coleção (``501``) — remover é
 manual, na UI do Zotero.
 
-O seam de transporte é o mesmo de ``zotero.py`` (JSON-RPC do BBT, sem
-autenticação), mas redefinido localmente como wrapper fino: assim
-``monkeypatch.setattr("par.domains.paper.connect._http_post_json", ...)``
-intercepta as chamadas deste módulo sem afetar ``zotero.py``.
+O seam de transporte é ``_http_post_json`` (JSON-RPC do BBT em
+``core.deps.bbt_rpc_url()``, sem autenticação, ``urllib`` da stdlib —
+ADR-0007); os testes fazem
+``monkeypatch.setattr("par.domains.paper.connect._http_post_json", ...)``.
 """
 
 from __future__ import annotations
 
 import difflib
+import json
 import time
+import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,7 +49,7 @@ from typing import Any
 
 from par.core import pj_layout
 from par.core.bib import parse_bib
-from par.domains.paper import zotero
+from par.core.deps import bbt_rpc_url, in_claude_sandbox, zotero_base
 from par.domains.paper.errors import PaperError
 
 BETTER_BIBLATEX_GUID = "f895aa0d-f28e-47fe-b247-2ea77c6ed583"
@@ -62,20 +64,50 @@ PERSONAL_LIBRARY_ID = 1
 # (`monkeypatch.setattr(".../connect._sleep", lambda _s: None)`).
 _sleep = time.sleep
 
-_OFFLINE_MSG = (
-    "Zotero não respondeu em 127.0.0.1:23119 — abra o Zotero (com Better BibTeX "
-    "instalado) e rode de novo."
+#: Dica de ``exported=False`` (E17, Spec B §Erros): o BBT agendou o export,
+#: mas o ``.bib`` ainda não apareceu dentro do poll.
+EXPORT_PENDING_HINT = (
+    "O Better BibTeX ainda não gravou o .bib (pode levar alguns segundos). Se ele não "
+    "aparecer, atualize o Better BibTeX para 9.0.65 ou mais novo (Tools → Plugins; as "
+    "versões anteriores não exportam itens novos com a janela do Zotero fechada), "
+    "confira em Settings → Better BibTeX → Automatic export e rode: prumo paper sync"
 )
 
 
-def _http_post_json(url: str, payload: dict[str, Any], timeout: float = 10.0) -> object:
-    """Wrapper fino sobre o seam de ``zotero.py`` — é o seam local deste módulo.
+def _offline_msg() -> str:
+    """Mensagem de Zotero inalcançável (E15), pela causa real.
 
-    Existe só pra dar um alvo de monkeypatch estável
-    (``par.domains.paper.connect._http_post_json``) sem duplicar a
-    lógica HTTP, que continua vivendo em ``zotero._http_post_json``.
+    Dentro do sandbox do Bash do Claude Code o Zotero do host nunca responde,
+    esteja aberto ou não: a mensagem ensina a sair do sandbox em vez de mandar
+    abrir um Zotero que provavelmente já está aberto.
     """
-    return zotero._http_post_json(url, payload, timeout)
+    base = zotero_base()
+    if in_claude_sandbox():
+        return (
+            f"O sandbox do Claude Code não deixa o `prumo paper connect` falar com o "
+            f"Zotero em {base}. Peça para repetir o comando fora do sandbox (o Claude "
+            f"pede permissão). Para o `prumo` rodar sempre fora do sandbox, acrescente "
+            f'`"prumo *"` em `sandbox.excludedCommands` no `~/.claude/settings.json`.'
+        )
+    return (
+        f"O Zotero não respondeu em {base}. Abra o Zotero (com o Better BibTeX), "
+        f"confira com `prumo doctor` e repita o comando."
+    )
+
+
+def _http_post_json(url: str, payload: dict[str, Any], timeout: float = 10.0) -> object:
+    """POST JSON-RPC no Better BibTeX; devolve o JSON decodificado.
+
+    Seam de transporte deste módulo: os testes fazem monkeypatch de
+    ``par.domains.paper.connect._http_post_json``."""
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 
 
 def _rpc(method: str, params: list[Any]) -> dict[str, Any]:
@@ -88,11 +120,11 @@ def _rpc(method: str, params: list[Any]) -> dict[str, Any]:
     """
     payload: dict[str, Any] = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
     try:
-        resp = _http_post_json(zotero._bbt_rpc(), payload)
+        resp = _http_post_json(bbt_rpc_url(), payload)
     except OSError as exc:
-        raise ZoteroOfflineError(_OFFLINE_MSG) from exc
+        raise ZoteroOfflineError(_offline_msg()) from exc
     if not isinstance(resp, dict):
-        raise ZoteroOfflineError(_OFFLINE_MSG)
+        raise ZoteroOfflineError(_offline_msg())
     return resp
 
 
@@ -169,7 +201,7 @@ class AmbiguousCollectionError(PaperError):
 
 
 class AlreadyConnectedError(PaperError):
-    """O bib do projeto já tem entradas reais — reconectar é perigoso."""
+    """O bib do projeto já tem entradas reais — conectar poderia sobrescrevê-lo."""
 
 
 class UnsupportedCollectionNameError(PaperError):
@@ -523,7 +555,8 @@ def connect_collection(
     """Liga ``references/_references.bib`` a uma coleção do Zotero via BBT.
 
     Guarda 1: se o bib já tem entradas reais, recusa (``AlreadyConnectedError``)
-    — reconectar às cegas duplicaria o autoexport já configurado. É local:
+    — conectar poderia sobrescrever, com a coleção, um ``.bib`` que já tem
+    entradas. É local:
     nem ``user.groups`` chega a ser chamado.
 
     Guarda 2 (a que importa pro risco de coleção-fantasma): ``plan_connection``
@@ -540,9 +573,9 @@ def connect_collection(
     """
     if not bib_is_placeholder(pj_path):
         raise AlreadyConnectedError(
-            "docs/references/_references.bib já tem entradas reais — reconectar às cegas "
-            "duplicaria o export automático. Confira no Zotero: Preferences → Better "
-            "BibTeX → Automatic export."
+            "docs/references/_references.bib já tem entradas: conectar agora poderia "
+            "sobrescrevê-lo com a coleção. Se ele já vem do Better BibTeX (confira no "
+            "Zotero: Settings → Better BibTeX → Automatic export), rode: prumo paper sync"
         )
 
     plan = plan_connection(name, library=library, create=create)

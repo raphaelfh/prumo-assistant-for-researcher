@@ -260,10 +260,7 @@ def connect_command(
                 "Preferences → Better BibTeX → Automatic export — não há undo pelo CLI."
             )
         if not r.exported:
-            console.info(
-                "export agendado no BBT — o arquivo aparece em instantes; confira com "
-                "`prumo paper sync` em seguida."
-            )
+            console.info(connect.EXPORT_PENDING_HINT)
         console.emit(
             {
                 "library": r.collection.library,
