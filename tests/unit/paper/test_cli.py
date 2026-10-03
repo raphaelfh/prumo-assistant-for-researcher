@@ -15,6 +15,11 @@ from par.domains.paper import connect
 runner = CliRunner()
 
 
+def _norm(text: str) -> str:
+    """Normaliza espaços: o Rich quebra mensagens longas em 80 colunas fora de TTY."""
+    return " ".join(text.split())
+
+
 def _bootstrap_project(tmp_path: Path, bib_text: str) -> Path:
     pj = tmp_path / "pj_demo"
     refs = pj / "docs" / "references"
@@ -341,7 +346,9 @@ def test_paper_connect_export_pendente_avisa(
     monkeypatch.setattr("par.domains.paper.connect.connect_collection", fake)
     result = runner.invoke(app, ["paper", "connect", "G", "--path", str(tmp_path)])
     assert result.exit_code == 0
-    assert "instantes" in result.output  # aviso honesto de export agendado
+    assert _norm(connect.EXPORT_PENDING_HINT) in _norm(result.output)
+    assert "9.0.65" in connect.EXPORT_PENDING_HINT
+    assert "prumo paper sync" in connect.EXPORT_PENDING_HINT
 
 
 @pytest.mark.parametrize(
