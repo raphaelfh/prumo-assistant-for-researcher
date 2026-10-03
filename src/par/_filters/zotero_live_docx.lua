@@ -20,7 +20,7 @@ Por que existe:
   "Document Preferences" no primeiro Refresh.
 
 Pré-requisitos:
-- Pandoc 3.0+ (para `pandoc.json`).
+- Pandoc ≥ 3.8.2: piso único do export (o `crossref.lua` precisa da extensão `table_attributes`).
 - O comando do pandoc precisa ter `--citeproc --bibliography=refs.bib
   --csl=<style>.csl` ANTES de `--lua-filter=zotero_live_docx.lua`.
 - `meta.zotero_lookup_file` aponta para JSON `{citekey: {itemID, uri,
@@ -96,7 +96,13 @@ local function build_csl_citation(cite)
     -- o id numérico do Zotero viaja em zoteroItemID.
     local item = { id = key }
     if lookup.itemID then item.zoteroItemID = lookup.itemID end
-    if lookup.uri then item.uris = { lookup.uri } end
+    -- `uris` SEMPRE presente e SEMPRE array JSON (ADR-0037). Sem ele, o
+    -- Refresh do plugin do Zotero no Word lança TypeError em
+    -- Citation.loadItemData (ramo de item embutido de integration.js).
+    -- `json.decode('[]')` sai `[]` em todo pandoc suportado; `pandoc.List`
+    -- vazio sai `{}` antes do pandoc 3.2.1, e uma tabela Lua vazia crua
+    -- sai `{}` sempre.
+    item.uris = lookup.uri and { lookup.uri } or json.decode('[]')
     if lookup.fingerprint then item.prumoFingerprint = lookup.fingerprint end
     if references_by_key[key] then
       item.itemData = references_by_key[key]
@@ -115,8 +121,8 @@ local function build_csl_citation(cite)
   -- I2b (spec da ponte): prumoOcc é um contador PRÓPRIO do prumo, distinto
   -- de citationID (que o plugin Word/Zotero pode reescrever no Refresh) —
   -- o citemap usa esse contador pra parear ocorrências 1:1 com o texto
-  -- normalizado; melhor-esforço (se o Refresh descartar chaves custom, a
-  -- conservação degrada pro multiconjunto de citekeys, sem quebrar).
+  -- normalizado; o Zotero descarta `prumoOcc` no Refresh e no Add/Edit
+  -- Citation; o ingest recusa esse docx com mensagem própria (ADR-0037).
   occ_counter = occ_counter + 1
   return {
     citationID = next_citation_id(),

@@ -38,6 +38,9 @@ jobs:
       - name: Mypy strict
         run: uv run mypy
 
+      - name: Pandoc 3.8.2 (piso do export)
+        run: curl -fsSLo "$RUNNER_TEMP/pandoc.deb" https://github.com/jgm/pandoc/releases/download/3.8.2/pandoc-3.8.2-1-amd64.deb && sudo dpkg -i "$RUNNER_TEMP/pandoc.deb" && pandoc --version | head -1
+
       - name: Pytest
         run: uv run pytest --cov=par --cov-report=term-missing
 

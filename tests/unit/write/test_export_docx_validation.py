@@ -3,10 +3,10 @@
 Fixtures construídas com zipfile em tmp_path — nenhum pandoc/Zotero real.
 ``subprocess.run`` é sempre mockado (seam ``_patch_export_seams`` +
 ``_fake_run_writing_output_flag``/``fake_run`` locais), inclusive na seção
-"Task 8": o CI (``ubuntu-latest``) não tem pandoc instalado, então nenhum
-teste deste arquivo pode depender do binário real (regra de
-``.claude/rules/code.md`` — dependências externas são sempre mockadas nos
-seams).
+"Task 8": nenhum teste deste arquivo depende do binário real (o pipeline
+real fica em ``test_export_crossref.py`` e ``test_export_zotero_link.py``)
+(regra de ``.claude/rules/code.md`` — dependências externas são sempre
+mockadas nos seams).
 """
 
 from __future__ import annotations

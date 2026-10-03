@@ -147,20 +147,6 @@ def _check_typst() -> str:
     return typst
 
 
-def _zotero_lua_filter() -> Path:
-    """Caminho absoluto do filtro ``zotero.lua`` (Better BibTeX) — pipeline legado."""
-    ref = resources.files("par._filters").joinpath("zotero.lua")
-    with resources.as_file(ref) as p:
-        return Path(p)
-
-
-def _zotero_bibliography_docx_filter() -> Path:
-    """Companheiro do ``zotero.lua`` — pipeline legado."""
-    ref = resources.files("par._filters").joinpath("zotero_bibliography_docx.lua")
-    with resources.as_file(ref) as p:
-        return Path(p)
-
-
 def _zotero_live_docx_filter() -> Path:
     """Filtro novo: embrulha cites já renderizadas por --citeproc em
     campos Zotero do Word, com display formatado + ZOTERO_PREF_1/2."""

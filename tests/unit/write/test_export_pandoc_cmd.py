@@ -2,8 +2,8 @@
 
 Cobre:
 
-- Roteamento por formato em ``_build_pandoc_cmd`` (docx → filtros Lua do
-  Zotero; html/typst → ``--citeproc`` com CSL local).
+- Roteamento por formato em ``_build_pandoc_cmd`` (docx → ``crossref.lua`` +
+  citeproc + ``zotero_live_docx.lua``; html/typst → ``--citeproc`` com CSL local).
 - Resolução dos filtros vendored.
 - Guarda de citekey ausente (``_assert_no_citeproc_missing``) e checagens
   pós-build do docx.
@@ -26,25 +26,10 @@ from par.domains.write.export import (
     _build_pandoc_cmd,
     _docx_texts,
     _docx_zotero_field_counts,
-    _zotero_bibliography_docx_filter,
     _zotero_live_docx_filter,
-    _zotero_lua_filter,
 )
 
 # ---------- filter resolution ----------
-
-
-def test_zotero_lua_filter_resolves_to_real_file() -> None:
-    p = _zotero_lua_filter()
-    assert p.is_file()
-    assert p.name == "zotero.lua"
-    assert p.stat().st_size > 10_000  # filtro tem ~54 KB
-
-
-def test_zotero_bibliography_docx_filter_resolves_to_real_file() -> None:
-    p = _zotero_bibliography_docx_filter()
-    assert p.is_file()
-    assert p.name == "zotero_bibliography_docx.lua"
 
 
 def test_zotero_live_docx_filter_resolves_to_real_file() -> None:
@@ -88,15 +73,6 @@ def test_docx_uses_citeproc_plus_live_filter() -> None:
     assert any(a.startswith("--lua-filter=") and a.endswith("zotero_live_docx.lua") for a in cmd)
     assert "--to=docx" in cmd
     assert "--standalone" in cmd
-
-
-def test_docx_does_not_chain_legacy_bbt_filters() -> None:
-    """O pipeline novo substitui completamente os filtros BBT — eles
-    seguem disponíveis no pacote como utilitários mas não são usados."""
-    cmd = _cmd("docx")
-    joined = " ".join(cmd)
-    assert "/zotero.lua" not in joined
-    assert "/zotero_bibliography_docx.lua" not in joined
 
 
 def test_docx_propagates_style_via_metadata() -> None:
