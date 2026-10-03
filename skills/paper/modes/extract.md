@@ -2,7 +2,7 @@
 name: extract
 description: "Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em docs/references/papers/<citekey>/_extract.md. Pressupõe /par:paper library sync executado + symlinks via prumo paper sync-pdfs."
 argument-hint: "[citekey] | --all [--limit N] [--stale-only]"
-allowed-tools: Read Write Edit Glob Grep Bash(prumo paper *) Bash(cat *) Agent
+allowed-tools: Read Write Edit Glob Grep Bash(prumo paper extract-prep *) Bash(prumo paper extract *) Bash(prumo paper sync-pdfs *) Bash(cat *) Agent
 prumo:
   version: 1.0.0
   schema: PaperCallout/v1
