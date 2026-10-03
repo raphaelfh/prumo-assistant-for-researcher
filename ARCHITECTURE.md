@@ -26,12 +26,12 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
 │ verify-refs  │ │              │ │            │ │              │ │              │
 │ set-primary  │ │              │ │            │ │              │ │ list-styles  │
 │ sync-pdfs    │ │              │ │            │ │              │ │ extract-     │
-│ sync-        │ │              │ │            │ │              │ │   comments   │
-│  annotations │ │              │ │            │ │              │ │ disclosure   │
-│ sync-notes   │ │              │ │            │ │              │ │ list-        │
-│ sync-all     │ │              │ │            │ │              │ │   templates  │
-│ migrate-     │ │              │ │            │ │              │ │zettlr-profile│
-│  layout      │ │              │ │            │ │              │ │              │
+│ migrate-     │ │              │ │            │ │              │ │   comments   │
+│  layout      │ │              │ │            │ │              │ │ disclosure   │
+│              │ │              │ │            │ │              │ │ list-        │
+│              │ │              │ │            │ │              │ │   templates  │
+│              │ │              │ │            │ │              │ │zettlr-profile│
+│              │ │              │ │            │ │              │ │              │
 └──────┬───────┘ └──────┬───────┘ └─────┬──────┘ └──────┬───────┘ └──────┬───────┘
        └────────────────┴───────────────┼────────────────┴────────────────┘
                                  ┌──────▼──────┐
@@ -135,5 +135,5 @@ _meta.md ganha extracted_* (staleness por hash) e o bloco `_meta` de proveniênc
 - **Integration** — adapter do formato canônico pro layout de um agent-host.
 - **`pj_*`** — projeto de pesquisa do usuário; vault Zettlr + `.claude/` scaffoldado por `prumo init`.
 - **Determinismo** — `agentic` | `deterministic` | `hybrid` (frontmatter `prumo.determinism`).
-- **Layout α** — `docs/references/papers/<citekey>/` com `_meta/_extract/_annotations/note__*` (ADR-0008).
+- **Layout α** — `docs/references/papers/<citekey>/` com `_meta` e `_extract` (ADR-0008); `_annotations` e `note__*` como legado legível (ADR-0037).
 - **Bloco delimitado** — região machine-owned `<!-- x:begin -->…<!-- x:end -->` (ADR-0009).
