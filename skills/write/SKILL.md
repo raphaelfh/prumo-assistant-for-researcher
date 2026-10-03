@@ -8,7 +8,7 @@ when_to_use: |
   - section: "escreve essa seção"; "expande este parágrafo"
   - style: "aplica as convenções de escrita científica"; "tira os travessões"; "passa pro inglês americano"
 argument-hint: "[disclosure|manuscript|section|style] [argumentos do modo]"
-allowed-tools: Read Bash(prumo write disclosure *) Write Edit Glob Grep Bash(prumo write *) Bash(cat *) Bash(git *) Bash(rg *)
+allowed-tools: Read Bash(prumo write disclosure *) Write Edit Glob Grep Bash(prumo write *) Bash(cat *) Bash(git *) Bash(rg *) Bash(prumo --version)
 prumo:
   version: 2.0.0
   agent_compat: [claude-code]

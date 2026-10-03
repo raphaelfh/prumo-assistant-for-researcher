@@ -302,6 +302,20 @@ def test_pf_qmd_checa_o_cli(gen: ModuleType, registry: Any) -> None:
     assert "/par:start" in gen.render_preflight(_mode(registry, "wiki", "query"))
 
 
+def test_frontmatter_derivado_libera_prumo_version_com_modo_cli(
+    gen: ModuleType, registry: Any
+) -> None:
+    """O preflight `cli` manda rodar `prumo --version`: a porta pré-aprova o comando exato."""
+    for name in registry.names():
+        skill = registry.get(name)
+        if not skill.modes:
+            continue
+        rendered = gen.derived_frontmatter(skill)["allowed-tools"]
+        tools = _TOOL_TOKEN_RE.findall(rendered.removeprefix("allowed-tools: "))
+        tem_cli = any("cli" in m.requires for m in skill.modes)
+        assert ("Bash(prumo --version)" in tools) == tem_cli, name
+
+
 @pytest.mark.parametrize("const", ["_PF_CLI", "_PF_INIT", "_PF_QMD", "_PF_ZOTERO"])
 def test_preflight_nao_quebra_linha_dentro_de_crases(gen: ModuleType, const: str) -> None:
     for line in getattr(gen, const).split("\n"):

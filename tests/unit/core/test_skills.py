@@ -535,3 +535,15 @@ def test_nenhuma_regra_casa_comando_que_muda_estado_fora_do_fluxo(command: str) 
 
 def test_paper_connect_fora_de_todo_frontmatter() -> None:
     assert [tok for tok in _all_allowed_tools() if "paper_connect" in tok] == []
+
+
+def test_porta_com_modo_cli_libera_prumo_version() -> None:
+    """O preflight `cli` manda rodar `prumo --version` primeiro: a porta pré-aprova (D5)."""
+    reg, _ = load_skill_registry(_REPO_SKILLS, strict=True)
+    offenders = [
+        n
+        for n in reg.names()
+        if any("cli" in m.requires for m in (reg.get(n), *reg.skills[n].modes))
+        and not any(_bash_rule_matches(t, "prumo --version") for t in reg.get(n).allowed_tools)
+    ]
+    assert offenders == []
