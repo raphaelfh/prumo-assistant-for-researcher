@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from par.core import note_paths
 from par.core.note_paths import (
     annotations_path,
-    child_note_path,
     extract_path,
     meta_path,
     note_dir,
@@ -34,17 +34,9 @@ def test_annotations_path(tmp_path: Path) -> None:
     assert out == tmp_path / "docs" / "references" / "papers" / "smith2024" / "_annotations.md"
 
 
-def test_child_note_path_with_itemkey_and_slug(tmp_path: Path) -> None:
-    out = child_note_path(tmp_path, "smith2024", "ABCD1234", "ideias-da-introducao")
-    assert (
-        out
-        == tmp_path
-        / "docs"
-        / "references"
-        / "papers"
-        / "smith2024"
-        / "note__ABCD1234__ideias-da-introducao.md"
-    )
+def test_child_note_path_aposentado() -> None:
+    """B9/ADR-0037: notas-filhas do Zotero saíram do PAR; o helper de path saiu junto."""
+    assert not hasattr(note_paths, "child_note_path")
 
 
 def test_slugify_converts_to_kebab() -> None:
