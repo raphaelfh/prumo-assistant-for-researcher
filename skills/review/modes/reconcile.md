@@ -2,7 +2,7 @@
 name: reconcile
 description: "Reconcilia eventos ambíguos do round-trip de revisão (unanchored/ambiguous/non-identity) propondo marcas CriticMarkup pendentes no worklist via prumo — o humano decide com `prumo write review apply`. NUNCA propõe/move/cunha citação (I1/I3b: eventos de citação são decisão humana)."
 argument-hint: "--page <page.md>"
-allowed-tools: Read Glob Grep Bash(prumo write review events *) Bash(prumo doctor *) mcp__prumo__review_status mcp__prumo__review_events mcp__prumo__review_worklist mcp__prumo__propose_prose_edit
+allowed-tools: Read Glob Grep Bash(prumo write review events *) Bash(prumo doctor *) mcp__plugin_par_prumo__review_status mcp__plugin_par_prumo__review_events mcp__plugin_par_prumo__review_worklist mcp__plugin_par_prumo__propose_prose_edit
 prumo:
   version: 1.0.0
   determinism: hybrid
@@ -215,7 +215,7 @@ qualquer coisa. Trate cada recusa como esperada, não como bug a contornar:
 - **`events.yaml`/`review.md` ausentes** → o ciclo de revisão ainda não foi
   iniciado para essa página; rode `prumo write review ingest <reviewed.docx>
   --page <page>` primeiro.
-- **Ferramentas `mcp__prumo__*` não aparecem disponíveis** → o
+- **Ferramentas `mcp__plugin_par_prumo__*` não aparecem disponíveis** → o
   servidor precisa estar registrado em `.mcp.json` (roda via `prumo mcp
   serve`) e conectado nesta sessão; sem ele, use o fallback CLI do Passo 1 e
   a orientação em prosa do Passo 2 (item 5).

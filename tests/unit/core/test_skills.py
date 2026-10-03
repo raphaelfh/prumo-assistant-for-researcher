@@ -436,6 +436,16 @@ def test_stale_guideline_warnings_olha_os_modos(tmp_path: Path) -> None:
 _REPO_SKILLS = Path(__file__).resolve().parents[3] / "skills"
 
 
+def test_skills_use_plugin_mcp_prefix() -> None:
+    """O servidor do plugin aparece como `mcp__plugin_par_prumo__*` (ADR-0037, B8)."""
+    offenders = [
+        str(p.relative_to(_REPO_SKILLS))
+        for p in sorted(_REPO_SKILLS.rglob("*.md"))
+        if "mcp__prumo__" in p.read_text(encoding="utf-8")
+    ]
+    assert offenders == []
+
+
 def _bodies_calling(subcommand: str) -> dict[str, str]:
     """Corpo (sem frontmatter) de cada skill/modo real que manda rodar ``subcommand``."""
     reg, _ = load_skill_registry(_REPO_SKILLS, strict=True)
