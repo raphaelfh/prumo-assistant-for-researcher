@@ -155,6 +155,8 @@ Atualizar rodapé: `**Última atualização:** YYYY-MM-DD`.
 
 O agente roda `qmd embed` pelo Bash (na 1ª vez, `prumo wiki index`).
 
+Para o `prumo wiki index`, use `prumo`; se ele não existir nesta sessão, use a forma `sh` do bloco PAR da porta. Se a saída trouxer uma linha `PAR:`, repasse-a e siga sem este passo.
+
 ### 9. Resumo final ao usuário
 
 ```

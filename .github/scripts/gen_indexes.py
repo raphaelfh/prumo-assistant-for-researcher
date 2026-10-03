@@ -6,6 +6,8 @@ Fontes (constitution, princípio VII):
 - docs/superpowers/{specs,plans,plans/archive}/*.md (frontmatter) → docs/_index.md
 - docs/adr/adr-*.md → docs/adr/_index.md
 - .github/scripts/prose_conventions.md → bloco `prumo:prose` das skills de prosa (ADR-0021)
+- src/par/_version.py → bloco prumo:runtime das 5 portas com modos, do `start` e de
+  `agents/reader.md` (este gerador é o único escritor do bloco; ADR-0038)
 
 Uso:
     uv run python .github/scripts/gen_indexes.py          # reescreve os blocos
@@ -22,6 +24,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
+from par._version import __version__  # noqa: E402
 from par.core.skills import SkillManifest, SkillRegistry, load_skill_registry  # noqa: E402
 
 _FRONT_RE = re.compile(r"\A---\n(.*?)\n---", re.DOTALL)
@@ -200,11 +203,31 @@ _PREFLIGHT_HEADER = (
     "> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**\n>"
 )
 
-_PF_CLI = (
-    "**CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA\n"
-    "operação desta skill; roteie para `/par:start` (instalação guiada com\n"
-    "consentimento) e pare aqui."
-)
+# Superfície e versão (A7). Reconhece a falta do uv pela linha `PAR: falta o uv`,
+# nunca pelo exit 127 (ambíguo entre shells).
+_PF_CLI = """\
+**Superfície e CLI:** este modo precisa do app Claude na aba Code (Mac) ou do Claude Code
+no terminal (Mac ou Linux). Se esta conversa for uma tarefa do Cowork, um chat, uma sessão
+SSH ou rodar no Windows ou no WSL, diga em uma frase que este modo não é suportado aqui e
+que a pessoa deve abrir o app Claude na aba Code (Mac) ou o Claude Code no terminal (Mac ou
+Linux), e pare. Senão, rode `prumo --version`; o esperado é
+`prumo <versão do bloco PAR da porta>`.
+(a) `prumo` não existe: rode a forma `sh … --version` do bloco PAR e aplique (b)–(d) à
+saída dela; avise uma vez que cada comando vai pedir permissão. Só se a saída não trouxer
+nem a versão nem uma linha `PAR:`, diga "abra uma sessão nova" e pare.
+(b) Outra versão: rode `command -v prumo`. Caminho terminado em `/shims/prumo`: é outra
+versão do plugin; diga "este `prumo` é de outra versão do plugin — abra uma sessão nova".
+Qualquer outro caminho (por exemplo `~/.local/bin/prumo`): é o CLI antigo, instalado à
+parte; ofereça UMA vez, com consentimento, `uv tool uninstall prumo-assistant-for-researcher`
+(se a pessoa usa o Zettlr, antes peça "regenera o perfil do Zettlr" e a reimportação do
+perfil, que ainda aponta para dentro desse CLI). Nos dois casos, use a forma `sh …` nesta
+sessão.
+(c) A saída contém `PAR: falta o uv`: roteie para `/par:start` (que instala o uv com
+consentimento) e pare.
+(d) Qualquer outra linha que comece com `PAR:`: repasse-a (ela traz o comando de correção).
+Se for a do sandbox (saída 77), ofereça repetir o mesmo comando fora do sandbox, pedindo
+permissão; nos outros casos, pare.
+Nunca simule a operação."""
 
 _PF_INIT = (
     "**Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,\n"
@@ -387,12 +410,41 @@ def render_skill_blocks(manifest: SkillManifest) -> list[tuple[str, str, str]]:
     ]
 
 
+def render_runtime() -> str:
+    """Bloco ``prumo:runtime``: versão esperada, raiz do plugin, forma `sh` e pasta dos agents.
+
+    Lê o ``__version__`` global do módulo na hora da chamada. O ``${CLAUDE_PLUGIN_ROOT}``
+    (com chaves) é substituído ao carregar o SKILL.md e o corpo do agent.
+    """
+    return (
+        f"**PAR {__version__}** · raiz do plugin: `${{CLAUDE_PLUGIN_ROOT}}`\n"
+        "- CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela "
+        'organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas '
+        "cada comando pede permissão.\n"
+        "- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`."
+    )
+
+
+# Alvos do bloco runtime: as portas com modos, o `start` e o único agent com Bash.
+_RUNTIME_TARGETS = (
+    "skills/paper/SKILL.md",
+    "skills/protocol/SKILL.md",
+    "skills/review/SKILL.md",
+    "skills/wiki/SKILL.md",
+    "skills/write/SKILL.md",
+    "skills/start/SKILL.md",
+    "agents/reader.md",
+)
+
+
 def _targets(registry: SkillRegistry) -> list[tuple[Path, str, str]]:
+    runtime = render_runtime()
     return [
         (REPO / "README.md", "skills-table", render_skills_table(registry)),
         (REPO / "skills" / "start" / "SKILL.md", "skills-catalog", render_skills_catalog(registry)),
         (REPO / "docs" / "_index.md", "kb-index", render_kb_index()),
         (REPO / "docs" / "adr" / "_index.md", "adr-index", render_adr_index()),
+        *((REPO / rel, "runtime", runtime) for rel in _RUNTIME_TARGETS),
     ]
 
 

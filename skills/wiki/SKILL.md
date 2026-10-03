@@ -16,6 +16,12 @@ prumo:
 
 # wiki — wiki do projeto
 
+<!-- prumo:runtime:begin -->
+**PAR 0.70.2** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}`
+- CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas cada comando pede permissão.
+- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`.
+<!-- prumo:runtime:end -->
+
 Escolha o modo antes de agir:
 
 1. **Argumento explícito vence.** `/par:wiki query o que a literatura diz sobre X` → modo `query`.
