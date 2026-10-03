@@ -183,7 +183,7 @@ def test_profile_issues_filtro_fora_do_projeto(tmp_path: Path) -> None:
     _write_profile(pj, str(fora))
     assert profile_issues(pj) == [
         f"Perfil Zettlr aponta filtro fora do projeto: {fora}. "
-        "Regenere: `prumo write zettlr-profile`"
+        "Regenere: `prumo write zettlr-profile`."
     ]
 
 
@@ -192,7 +192,7 @@ def test_profile_issues_copia_divergente(tmp_path: Path) -> None:
     (tmp_path / FILTER_RELPATH).write_text("-- alterado", encoding="utf-8")
     assert profile_issues(tmp_path) == [
         "A cópia do filtro em docs/templates/zotero_live_docx.lua está diferente da "
-        "desta versão do PAR. Regenere: `prumo write zettlr-profile`"
+        "desta versão do PAR. Regenere: `prumo write zettlr-profile`."
     ]
 
 

@@ -158,11 +158,11 @@ def _filter_issue(pj_path: Path, f: str) -> str | None:
     if path.resolve() != (pj_path / FILTER_RELPATH).resolve():
         return (
             f"Perfil Zettlr aponta filtro fora do projeto: {f}. "
-            "Regenere: `prumo write zettlr-profile`"
+            "Regenere: `prumo write zettlr-profile`."
         )
     if path.read_bytes() != _zotero_live_docx_filter().read_bytes():
         return (
             f"A cópia do filtro em {FILTER_RELPATH.as_posix()} está diferente da desta "
-            "versão do PAR. Regenere: `prumo write zettlr-profile`"
+            "versão do PAR. Regenere: `prumo write zettlr-profile`."
         )
     return None
