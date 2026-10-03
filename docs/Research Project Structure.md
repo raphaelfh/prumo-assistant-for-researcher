@@ -70,7 +70,7 @@ pj_<nome>/
 
 `pj_x/.claude/skills/` é lugar só de **skills próprias do projeto** (opcional): capabilities que só fazem sentido nesse `pj_*` e não vale promover pro plugin (ex.: `pj_x/.claude/skills/cpu-profile-rsl-2024/`), com nome que não seja de skill do PAR. As skills do PAR vêm do plugin (`/par:<nome>`), sem cópia no projeto. Vira módulo formal só quando a primeira skill local nascer.
 
-Não é um "fluxo" paralelo no sentido de área de trabalho do pesquisador — é o mesmo fluxo do plugin, materializado dentro do projeto.
+Não é área de trabalho do pesquisador: o diretório só guarda o que é do projeto, e o fluxo do PAR continua vindo do plugin.
 
 ---
 
