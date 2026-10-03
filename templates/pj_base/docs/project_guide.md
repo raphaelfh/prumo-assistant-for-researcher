@@ -22,8 +22,8 @@ O front humano deste projeto é o [Zettlr](https://www.zettlr.com) (recente: o 4
 1. **Workspace:** File → Open Workspace → raiz deste projeto.
 2. **Preview de citação:** Settings → Display → ligar "Render citations".
 3. **Autocomplete:** digite `@` — as chaves vêm do `bibliography:` no frontmatter dos drafts (`docs/references/_references.bib`, mantido pelo Better BibTeX com "Keep updated").
-4. **Perfil docx de trabalho:** peça "gera o perfil do Zettlr" (roda `prumo write zettlr-profile`) e importe: Settings → Assets Manager → defaults files → importar `docs/templates/prumo-docx.yaml`. Produz docx estilizado com campos Zotero vivos — sem URIs de relink e sem guardas: bom para leitura/compartilhamento, NUNCA para entrega. Para entrega e coautores, peça ao Claude: "exporta o docx canônico de <arquivo>".
+4. **Perfil docx de trabalho:** peça 'gera o perfil do Zettlr' (roda `prumo write zettlr-profile`) e importe: Settings → Assets Manager → defaults files → importar `docs/templates/prumo-docx.yaml`. Produz docx estilizado com campos Zotero vivos — sem URIs de relink e sem guardas: bom para leitura/compartilhamento, NUNCA para entrega. Para entrega e coautores, peça ao Claude: 'exporta o docx canônico de `<arquivo>`'.
 5. **Convivência com agentes:** ativar o reload automático de mudanças externas ("Always load remote changes to the current file").
-6. Atualizou o PAR e o `prumo doctor` avisou do perfil? Peça "regenera o perfil do Zettlr"; não precisa reimportar.
+6. Atualizou o PAR e o `prumo doctor` avisou do perfil? Peça 'regenera o perfil do Zettlr'; não precisa reimportar.
 
 Limitações documentadas: o preview in-editor é sempre Chicago in-text (o CSL real aparece nos exports); com Zotero fechado o preview segue funcionando (lê o `.bib` estático), mas o `.bib` pode estar stale.
