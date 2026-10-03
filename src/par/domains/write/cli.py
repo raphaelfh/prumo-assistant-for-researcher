@@ -24,10 +24,11 @@ _WRITE_KINDS = ("paper", "projeto-cep", "statistics", "scientific")
 _WRITE_MODES = ("drafts", "into", "out")
 
 FIRST_USE_DOCX_NOTE = (
-    "Primeiro uso no Word: abra o arquivo com o plugin do Zotero instalado e "
-    "use Zotero → Refresh para atualizar citações e bibliografia. As "
-    "preferências do documento já vão embutidas (ZOTERO_PREF) — o diálogo "
-    "'Document Preferences' não deve abrir."
+    "Primeiro uso no Word: o docx já sai com citações e bibliografia formatadas e com as "
+    "preferências do Zotero embutidas, então não precisa de Refresh. Se ele for para "
+    "revisão com `prumo write review ingest`, peça ao coautor para não usar os botões do "
+    "Zotero (Refresh, Add/Edit Citation) nesse arquivo: o Zotero reescreve os campos de "
+    "citação e o ingest recusa o arquivo."
 )
 
 
@@ -75,6 +76,7 @@ def export_command(
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError, ValueError)) as console:
         page_resolved = page.resolve()
 
+        avisos: list[str] = []
         result = export.export(
             page=page_resolved,
             style=style,
@@ -84,11 +86,23 @@ def export_command(
             template=template.resolve() if template else None,
             reference_doc=reference_doc.resolve() if reference_doc else None,
             force=force,
+            on_warning=avisos.append,
         )
         console.success(f"exportado: {result}")
+        for aviso in avisos:
+            console.warn(aviso)
         if to == "docx":
             console.info(FIRST_USE_DOCX_NOTE)
-        console.emit({"page": str(page_resolved), "output": str(result), "format": to})
+        payload: dict[str, object] = {
+            "page": str(page_resolved),
+            "output": str(result),
+            "format": to,
+        }
+        if json_mode:
+            # Só no JSON: em modo texto o `console.warn` acima já mostrou cada
+            # aviso, e o dict não deve repeti-los (Princípio VIII).
+            payload["warnings"] = avisos
+        console.emit(payload)
 
 
 @write_app.command("compose")
@@ -119,6 +133,7 @@ def compose_command(
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError, ValueError)) as console:
         index_resolved = index.resolve()
 
+        avisos: list[str] = []
         result = export.compose(
             index=index_resolved,
             to=to,
@@ -128,11 +143,21 @@ def compose_command(
             template=template.resolve() if template else None,
             reference_doc=reference_doc.resolve() if reference_doc else None,
             force=force,
+            on_warning=avisos.append,
         )
         console.success(f"composto: {result}")
-        if to == "docx":
-            console.info(FIRST_USE_DOCX_NOTE)
-        console.emit({"index": str(index_resolved), "output": str(result), "format": to})
+        for aviso in avisos:
+            console.warn(aviso)
+        # Sem FIRST_USE_DOCX_NOTE: o compose não grava citemap e não pode ser
+        # ingerido, então a frase de revisão não se aplica (ADR-0037).
+        payload: dict[str, object] = {
+            "index": str(index_resolved),
+            "output": str(result),
+            "format": to,
+        }
+        if json_mode:
+            payload["warnings"] = avisos
+        console.emit(payload)
 
 
 @write_app.command("list-styles")
@@ -505,7 +530,7 @@ def zettlr_export_entry() -> None:
             # build/exports/ (gitignored, regenerável) — o docx do coautor com
             # tracked changes nunca mora ali, então a guarda de sobrescrita não
             # protege nada neste caminho e só quebraria o re-export de rotina.
-            result = export.export(page=page, to="docx", force=True)
+            result = export.export(page=page, to="docx", force=True, on_warning=console.warn)
             console.success(f"exportado: {result}")
     except typer.Exit as e:
         # Entrypoint fora do dispatch do Click (é um `[project.scripts]` cru,
