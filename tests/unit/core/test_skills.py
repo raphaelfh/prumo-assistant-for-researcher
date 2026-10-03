@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from pathlib import Path
 
@@ -571,3 +572,14 @@ def test_library_roteia_anotacoes_para_fora_do_par() -> None:
     assert mode is not None
     assert "o que eu anotei no Zotero sobre este paper" in mode.phrases
     assert "importa minhas anotações do Zotero" not in mode.phrases
+
+
+def test_plugin_root_sempre_com_chaves() -> None:
+    """Só `${CLAUDE_PLUGIN_ROOT}` é substituído ao carregar; a forma sem chaves fica literal."""
+    files = [*(_REPO / "skills").rglob("*.md"), *(_REPO / "agents").glob("*.md")]
+    offenders = [
+        str(p.relative_to(_REPO))
+        for p in files
+        if re.search(r"\$CLAUDE_PLUGIN_ROOT", p.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []

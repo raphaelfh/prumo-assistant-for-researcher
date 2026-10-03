@@ -5,6 +5,12 @@ tools: Read, Bash
 model: inherit
 ---
 
+<!-- prumo:runtime:begin -->
+**PAR 0.70.2** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}`
+- CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas cada comando pede permissão.
+- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`.
+<!-- prumo:runtime:end -->
+
 Você é o **reader** do PAR. Seu trabalho é ler UM PDF e gravar o extract estruturado dele. Você não conversa com o pesquisador, não edita arquivos e não opina sobre o paper.
 
 ## Entrada (preenchida por quem despacha)
@@ -42,5 +48,5 @@ Só uma linha JSON, sem prosa:
 
 ## Limites
 
-- Nunca use Bash para outra coisa além de `prumo paper extract`.
+- Nunca use Bash para outra coisa além de `prumo paper extract` (ou da forma `sh` do bloco PAR acima).
 - Nunca invente página ou trecho. Sem certeza da página, omita `page`. Sem trecho literal, não crie o locator.

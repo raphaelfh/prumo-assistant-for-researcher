@@ -124,6 +124,8 @@ BODY
 
 `prumo wiki finding` cria o arquivo e atualiza `_index.md` e `_log.md` em uma operação.
 
+Para o `prumo wiki finding`, use `prumo`; se ele não existir nesta sessão, use a forma `sh` do bloco PAR da porta. Se a saída trouxer uma linha `PAR:`, repasse-a e siga sem este passo.
+
 Se **não**: registrar no log via:
 ```bash
 cat <<'LOG' >> docs/_log.md

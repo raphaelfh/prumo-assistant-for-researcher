@@ -87,7 +87,7 @@ A revisão roda num contexto que não viu a conversa de redação — é isso qu
 torna independente. Não resuma o draft para ele nem explique o que o autor quis
 dizer; não leia o draft inteiro no thread principal antes de despachar.
 
-Despache o `reviewer` (tool `Agent`, `subagent_type: "reviewer"`; se o plugin registrar com prefixo, `par:reviewer`). Se nenhum dos dois tipos existir nesta sessão, leia o prompt canônico `agents/reviewer.md` (em `$CLAUDE_PLUGIN_ROOT/agents/` ou `.claude/agents/`) e despache `subagent_type: "general-purpose"` com o corpo do arquivo como prompt.
+Despache o `reviewer` (tool `Agent`, `subagent_type: "reviewer"`; se o plugin registrar com prefixo, `par:reviewer`). Se nenhum dos dois tipos existir nesta sessão, leia o prompt canônico `agents/reviewer.md` (na pasta da linha *Agents* do bloco PAR da porta) e despache `subagent_type: "general-purpose"` com o corpo do arquivo como prompt.
 Preencha só: `draft_path` (absoluto), `guidelines_path` (absoluto de
 [`../references/reporting-guidelines.md`](../references/reporting-guidelines.md)),
 `draft_genre` (passo 1), `references_dir` (absoluto do `docs/references/` do `pj_*`

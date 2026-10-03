@@ -48,3 +48,11 @@ def test_wheel_force_inclui_agents() -> None:
 
 def test_resolve_resource_acha_agents() -> None:
     assert (resolve_resource("agents") / "reader.md").is_file()
+
+
+def test_reader_tem_bloco_runtime() -> None:
+    text = (REPO / "agents" / "reader.md").read_text(encoding="utf-8")
+    body = text.split("---", 2)[2]
+    assert body.lstrip("\n").startswith("<!-- prumo:runtime:begin -->")
+    assert "<!-- prumo:runtime:end -->" in body
+    assert "(ou da forma `sh` do bloco PAR acima)" in text
