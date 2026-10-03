@@ -295,3 +295,81 @@ def test_poda_venvs_velhos(shell: str, root: Path, fake_uv: Path, tmp_path: Path
     assert not velho.exists()
     assert recente.exists()
     assert list(cache.glob("venv-3.12-*/.prumo-ok"))
+
+
+# --- hook SessionStart (A5) ---------------------------------------------------------
+
+HOOK = REPO / "hooks" / "session-start.sh"
+
+
+def _plugin_root(path: Path) -> Path:
+    """Raiz de plugin mínima para o hook: só `shims/prumo` executável."""
+    (path / "shims").mkdir(parents=True)
+    shim = path / "shims" / "prumo"
+    shutil.copyfile(REPO / "shims" / "prumo", shim)
+    shim.chmod(0o755)
+    return path
+
+
+def _hook(shell: str, plugin_root: Path, env_file: Path | None) -> subprocess.CompletedProcess[str]:
+    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "CLAUDE_PLUGIN_ROOT": str(plugin_root)}
+    if env_file is not None:
+        env["CLAUDE_ENV_FILE"] = str(env_file)
+    return subprocess.run(
+        [shell, str(HOOK)], env=env, capture_output=True, text=True, timeout=30, check=False
+    )
+
+
+@pytest.mark.parametrize("shell", SHELLS)
+def test_hook_idempotente(shell: str, tmp_path: Path) -> None:
+    plugin_root = _plugin_root(tmp_path / "root")
+    env_file = tmp_path / "env"
+    env_file.write_text("", encoding="utf-8")
+    for _ in range(2):
+        proc = _hook(shell, plugin_root, env_file)
+        assert proc.returncode == 0
+        assert proc.stdout == "" and proc.stderr == ""
+    assert len(env_file.read_text(encoding="utf-8").splitlines()) == 1
+
+
+@pytest.mark.parametrize("shell", SHELLS)
+def test_hook_raiz_com_aspas_dolar_e_crase(shell: str, tmp_path: Path) -> None:
+    plugin_root = _plugin_root(tmp_path / ("r'o$o" + chr(96) + "t"))
+    env_file = tmp_path / "env"
+    env_file.write_text("", encoding="utf-8")
+    assert _hook(shell, plugin_root, env_file).returncode == 0
+    want = str(plugin_root / "shims" / "prumo")
+    base = {"PATH": os.environ.get("PATH", "/usr/bin:/bin")}
+    for sh in ("bash", "/bin/sh"):
+        if sh == "bash" and shutil.which("bash") is None:
+            continue
+        got = subprocess.run(
+            [sh, "-c", '. "$1"; command -v prumo', "_", str(env_file)],
+            env=base,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert got.returncode == 0, got.stderr
+        assert got.stdout.strip() == want
+
+
+@pytest.mark.parametrize("shell", SHELLS)
+def test_hook_sem_env_file_sai_calado(shell: str, tmp_path: Path) -> None:
+    proc = _hook(shell, _plugin_root(tmp_path / "root"), None)
+    assert proc.returncode == 0
+    assert proc.stdout == "" and proc.stderr == ""
+
+
+@pytest.mark.parametrize("shell", SHELLS)
+def test_hook_env_file_so_leitura_sai_calado(shell: str, tmp_path: Path) -> None:
+    env_file = tmp_path / "env"
+    env_file.write_text("", encoding="utf-8")
+    env_file.chmod(0o444)
+    try:
+        proc = _hook(shell, _plugin_root(tmp_path / "root"), env_file)
+    finally:
+        env_file.chmod(0o644)
+    assert proc.returncode == 0
+    assert proc.stderr == ""
