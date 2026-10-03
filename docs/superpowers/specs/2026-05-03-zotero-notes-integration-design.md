@@ -1,11 +1,14 @@
 ---
 title: Integração de Notas Zotero ↔ Repo (B1 + qmd)
 date: 2026-05-03
-status: approved
+status: superseded
+superseded-by: "[[2026-10-02-ponte-zotero-minima-design]]"
 tags: [zotero, notes, retrieval, architecture, knowledge-base]
 ---
 
 # Integração de Notas Zotero ↔ Repo
+
+> Aposentado pela ADR-0037 (0.71.0): `sync-notes` e as notas-filhas saem do PAR.
 
 ## Resumo executivo
 

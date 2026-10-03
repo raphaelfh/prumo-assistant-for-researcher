@@ -151,3 +151,24 @@ def test_project_guide_nao_tem_placeholder_solto() -> None:
         for m in _BARE_PLACEHOLDER_RE.finditer(_INLINE_CODE_RE.sub("", line))
     ]
     assert soltos == [], f"placeholder fora de crases some no render: {soltos}"
+
+
+def test_bib_do_template_segue_placeholder_e_aponta_o_connect(tmp_path: Path) -> None:
+    """O `.bib` do scaffold continua placeholder e manda para o `connect` (0.71.0)."""
+    from par.core import pj_layout
+    from par.domains.paper import connect
+
+    target = tmp_path / "pj_bib"
+    assert runner.invoke(app, ["init", str(target), "--json"]).exit_code == 0
+    assert connect.bib_is_placeholder(target) is True
+    texto = pj_layout.bib_path(target).read_text(encoding="utf-8")
+    assert texto.splitlines()[0] == "% Bibliografia do projeto — formato Better BibTeX (BBT)."
+    assert "9.0.65" in texto
+    assert "prumo paper connect" in texto
+    assert "Keep updated" not in texto
+    assert "Zotero 7" not in texto
+
+
+def test_project_guide_do_template_nao_manda_keep_updated() -> None:
+    guide = resolve_resource("templates") / "pj_base" / "docs" / "project_guide.md"
+    assert "Keep updated" not in guide.read_text(encoding="utf-8")

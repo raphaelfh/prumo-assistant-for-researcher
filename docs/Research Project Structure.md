@@ -58,7 +58,7 @@ pj_<nome>/
 | `docs/_index.md` | Catálogo do wiki — uma linha por página existente | Modo `wiki ingest` |
 | `docs/_log.md` | Diário append-only de eventos (ingest, decisão, query) | Modo `wiki ingest` + manual |
 | `docs/references/_references.bib` | Acervo bibliográfico — fonte única é o Zotero, BBT auto-export | Zotero + BBT |
-| `docs/references/papers/<key>/` | Pasta por paper, com `_meta.md` (callout estruturado: PICOT, método, …), `_extract.md`, `_annotations.md` | Modos `paper library`, `paper extract` |
+| `docs/references/papers/<key>/` | Pasta por paper, com `_meta.md` (callout estruturado: PICOT, método, …) e `_extract.md` (`_annotations.md`: legado, se existir) | Modos `paper library`, `paper extract` |
 | `docs/studies/<slug>/notes/` | Prosa humana do escopo, inclusive findings (nota com `type: finding` — ADR-0023) | Pesquisador + modos `wiki query`/`wiki study`/`paper extract` |
 | `docs/studies/<slug>/writing/` | O produto do escopo — drafts (`bibliography:` sempre `../../../references/_references.bib`) | Pesquisador + família `write-*` |
 | `docs/studies/<slug>/decisions/` | ADRs do escopo (`adr-NNNN-*.md`); imutável após aceito | Pesquisador |
