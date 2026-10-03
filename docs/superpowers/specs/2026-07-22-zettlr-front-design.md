@@ -82,6 +82,8 @@ Projetos legados: intocados. `normalize_markdown` (`core/obsidian.py`) continua 
 - `write export` já aceita o path posicional (assinatura atual). Garantir entrypoint invocável pelo campo de comando do Zettlr; se o campo não aceitar argumentos, ship de console-script fino (ex. `prumo-zettlr-export`) — verificação empírica no plano.
 - `prumo doctor` ganha check: perfil gerado existe e o caminho do filtro dentro dele resolve; mensagem de erro embute o fix (`prumo write zettlr-profile`).
 
+> O custom command (`prumo-zettlr-export`) desta seção, da decisão 4 e do fluxo de exports foi substituído pela ADR-0038: o docx canônico é pedido ao Claude, e o perfil do Zettlr usa uma cópia do filtro no projeto.
+
 ### 5. Docs, roadmap e release
 
 - **Política de versão emendada (pré-1.0, "fricção mínima"):** enquanto `0.x`, PATCH cobre tudo que é releasável — inclusive subcomando/skill novo; MINOR fica reservado a breaking ("⚠ Breaking") ou fechamento de fase/marco do ROADMAP. Semântica: MINOR = "leia o changelog antes de atualizar"; PATCH = "atualize sem medo".

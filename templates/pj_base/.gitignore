@@ -42,3 +42,6 @@ mlruns/
 
 # Lixo de editor de texto (lock do Word)
 ~$*
+
+# perfil do Zettlr: caminhos absolutos desta máquina; regenere com `prumo write zettlr-profile`
+docs/templates/prumo-docx.yaml

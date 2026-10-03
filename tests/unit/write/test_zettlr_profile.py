@@ -9,7 +9,12 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from par.domains.write.zettlr import PROFILE_RELPATH, generate_profile, profile_issues
+from par.domains.write.zettlr import (
+    FILTER_RELPATH,
+    PROFILE_RELPATH,
+    generate_profile,
+    profile_issues,
+)
 
 
 def _pj(tmp_path: Path) -> Path:
@@ -114,3 +119,91 @@ def test_profile_issues_flags_non_mapping_yaml(tmp_path: Path) -> None:
     issues = profile_issues(tmp_path)
     assert issues
     assert "prumo write zettlr-profile" in issues[0]
+
+
+_GITIGNORE_LINE = "docs/templates/prumo-docx.yaml"
+_GITIGNORE_COMMENT = (
+    "# perfil do Zettlr: caminhos absolutos desta máquina; "
+    "regenere com `prumo write zettlr-profile`"
+)
+
+
+def _assert_one_gitignore_line(pj: Path) -> None:
+    lines = (pj / ".gitignore").read_text(encoding="utf-8").splitlines()
+    assert [ln.strip() for ln in lines].count(_GITIGNORE_LINE) == 1
+    idx = [ln.strip() for ln in lines].index(_GITIGNORE_LINE)
+    assert lines[idx - 1] == _GITIGNORE_COMMENT
+
+
+def test_perfil_copia_o_filtro_para_o_projeto(tmp_path: Path) -> None:
+    from par.domains.write.export import _zotero_live_docx_filter
+
+    data = _gen(tmp_path)
+    copia = tmp_path / FILTER_RELPATH
+    assert copia == tmp_path / "docs" / "templates" / "zotero_live_docx.lua"
+    assert copia.read_bytes() == _zotero_live_docx_filter().read_bytes()
+    assert data["filters"] == ["citeproc", str((tmp_path / FILTER_RELPATH).resolve())]
+
+
+def test_perfil_cria_gitignore_com_a_linha(tmp_path: Path) -> None:
+    assert not (tmp_path / ".gitignore").exists()
+    _gen(tmp_path)
+    _assert_one_gitignore_line(tmp_path)
+
+
+def test_perfil_acrescenta_linha_ao_gitignore_existente(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text(".venv/\n.prumo/", encoding="utf-8")
+    _gen(tmp_path)
+    lines = (tmp_path / ".gitignore").read_text(encoding="utf-8").splitlines()
+    assert lines[:2] == [".venv/", ".prumo/"]
+    _assert_one_gitignore_line(tmp_path)
+
+
+def test_perfil_rodado_duas_vezes_deixa_uma_linha(tmp_path: Path) -> None:
+    _gen(tmp_path)
+    _gen(tmp_path)
+    _assert_one_gitignore_line(tmp_path)
+
+
+def _write_profile(pj: Path, filtro: str) -> None:
+    p = pj / PROFILE_RELPATH
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(
+        yaml.safe_dump({"reader": "markdown", "writer": "docx", "filters": ["citeproc", filtro]}),
+        encoding="utf-8",
+    )
+
+
+def test_profile_issues_filtro_fora_do_projeto(tmp_path: Path) -> None:
+    pj = tmp_path / "pj"
+    pj.mkdir()
+    fora = tmp_path / "outro" / "zotero_live_docx.lua"
+    fora.parent.mkdir()
+    fora.write_text("-- lua", encoding="utf-8")
+    _write_profile(pj, str(fora))
+    assert profile_issues(pj) == [
+        f"Perfil Zettlr aponta filtro fora do projeto: {fora}. "
+        "Regenere: `prumo write zettlr-profile`"
+    ]
+
+
+def test_profile_issues_copia_divergente(tmp_path: Path) -> None:
+    _gen(tmp_path)
+    (tmp_path / FILTER_RELPATH).write_text("-- alterado", encoding="utf-8")
+    assert profile_issues(tmp_path) == [
+        "A cópia do filtro em docs/templates/zotero_live_docx.lua está diferente da "
+        "desta versão do PAR. Regenere: `prumo write zettlr-profile`"
+    ]
+
+
+def test_profile_issues_filtro_inexistente(tmp_path: Path) -> None:
+    _write_profile(tmp_path, "/caminho/que/nao/existe.lua")
+    assert profile_issues(tmp_path) == [
+        "Perfil Zettlr aponta filtro inexistente: /caminho/que/nao/existe.lua. "
+        "Regenere: `prumo write zettlr-profile`."
+    ]
+
+
+def test_perfil_recem_gerado_nao_tem_issue(tmp_path: Path) -> None:
+    _gen(tmp_path)
+    assert profile_issues(tmp_path) == []
