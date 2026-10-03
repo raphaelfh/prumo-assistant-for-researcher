@@ -309,4 +309,4 @@ Após o passe, reportar ao usuário:
 - O **contrato de prosa** estampado no topo desta skill vem de `.github/scripts/prose_conventions.md` e é machine-owned: edite a fonte e rode `uv run python .github/scripts/gen_indexes.py`. O detalhamento C1–C8 vive aqui e deve ser mantido coerente com aquele resumo (ADR-0021).
 - As listas lexicais de C4, C5 e C8 vivem aqui e não em arquivo externo. Adicionar termos quando recorrentes em revisões.
 - A tabela de preservação em C3 deve ser mantida em sincronia com o normalizador de export. Se o normalizador mudar (e.g. passar a aceitar `[@a, @b]` como multi-cite), atualizar C2 conforme.
-- Em projetos `pj_*` que usam o template do PAR, considerar copiar a skill `write` para `.claude/skills/write/` se o usuário quiser uma variante customizada por projeto (por exemplo, manter superlativos específicos da área).
+- Em projetos `pj_*` que usam o template do PAR, considerar copiar a skill `write` para `.claude/skills/<um-nome-seu>/` — um nome do PAR seria tirado pelo `prumo update` — se o usuário quiser uma variante customizada por projeto (por exemplo, manter superlativos específicos da área).

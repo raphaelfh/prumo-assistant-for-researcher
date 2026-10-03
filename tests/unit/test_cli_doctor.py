@@ -207,20 +207,66 @@ def test_doctor_nao_opina_sobre_projeto_sem_o_modulo_code(tmp_path: Path) -> Non
     assert not any("sys_path_hack" in i for i in payload["issues"])
 
 
-def test_doctor_aponta_invocacao_antiga_e_skill_instalada_velha(tmp_path: Path) -> None:
-    pj = _project(tmp_path)
-    (pj / "README.md").write_text("/par:peer-review\n", encoding="utf-8")
-    (pj / ".claude" / "skills" / "peer-review").mkdir(parents=True)
-    (pj / ".claude" / "skills" / "peer-review" / "SKILL.md").write_text("x", encoding="utf-8")
-
+def _obsoletas(pj: Path) -> list[str]:
     with patch("par.cli.check_external_deps", return_value=[]):
         res = runner.invoke(app, ["doctor", str(pj), "--json"])
+    issues: list[str] = json.loads(res.stdout)["issues"]
+    return [i for i in issues if i.startswith("[skill_obsoleta]")]
 
-    issues = json.loads(res.stdout)["issues"]
-    obsoleta = [i for i in issues if i.startswith("[skill_obsoleta]")]
-    assert len(obsoleta) == 1, issues
-    assert "README.md" in obsoleta[0] and "prumo update" in obsoleta[0]
-    assert ".claude/skills/peer-review" in obsoleta[0]
+
+def _copia_paper(pj: Path, body: str) -> None:
+    d = pj / ".claude" / "skills" / "paper"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "SKILL.md").write_text(body, encoding="utf-8")
+
+
+def test_doctor_aponta_copias_e_invocacao_numa_issue_so(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    _copia_paper(pj, "/par:peer-review\n")
+    (pj / ".claude" / "agents").mkdir(parents=True)
+    (pj / ".claude" / "agents" / "reviewer.md").write_text("x", encoding="utf-8")
+    (pj / ".claude" / "skills" / "minha-skill").mkdir(parents=True)
+    (pj / "README.md").write_text("/par:peer-review\n", encoding="utf-8")
+
+    obsoleta = _obsoletas(pj)
+
+    assert len(obsoleta) == 1, obsoleta
+    msg = obsoleta[0]
+    for trecho in (
+        ".claude/skills/paper",
+        ".claude/agents/reviewer.md",
+        "README.md",
+        "prumo update",
+        ".prumo/legacy-copies/",
+    ):
+        assert trecho in msg, msg
+    assert "minha-skill" not in msg
+    depois = msg.split("invocações antigas em", 1)[1]
+    assert ".claude/skills/paper/SKILL.md" not in depois
+
+
+def test_doctor_ignora_invocacao_dentro_das_copias(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    _copia_paper(pj, "/par:peer-review\n")
+
+    obsoleta = _obsoletas(pj)
+
+    assert len(obsoleta) == 1, obsoleta
+    assert ".claude/skills/paper" in obsoleta[0]
+    assert "invocações antigas em" not in obsoleta[0]
+
+
+def test_doctor_so_invocacao_antiga_mantem_o_texto(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    (pj / "README.md").write_text("/par:peer-review\n", encoding="utf-8")
+
+    obsoleta = _obsoletas(pj)
+
+    assert obsoleta == [
+        "[skill_obsoleta] o PAR agora tem 5 skills com modos "
+        "(paper, wiki, protocol, write, review): invocações antigas em README.md. "
+        "Rode `prumo update` para reescrever as invocações."
+    ]
 
 
 def test_doctor_sem_sobras_nao_emite_skill_obsoleta(tmp_path: Path) -> None:
