@@ -4,12 +4,27 @@ from __future__ import annotations
 
 import email.message
 import http.client
+import subprocess
 import urllib.error
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from par.core.deps import DepStatus, check_external_deps, zotero_local_api_up
+from par.core import deps
+from par.core.deps import (
+    DepStatus,
+    bbt_rpc_url,
+    check_external_deps,
+    in_claude_sandbox,
+    pandoc_path,
+    zotero_base,
+    zotero_local_api_up,
+)
+
+# A função real, guardada na coleta: a fixture `autouse` `_no_real_pandoc`
+# (`tests/unit/conftest.py`) troca `deps._pandoc_version` em todo teste.
+_REAL_PANDOC_VERSION = deps._pandoc_version
 
 
 def test_qmd_present_when_on_path() -> None:
@@ -258,3 +273,205 @@ def test_doctor_flags_zotero_absent_when_local_api_is_disabled() -> None:
 
     assert zotero.present is False
     assert "Allow other applications" in zotero.hint
+
+
+# ---------------------------------------------------------------------------
+# Base URL única do Zotero e sandbox do Claude Code (ADR-0037, B6 e B1)
+# ---------------------------------------------------------------------------
+
+
+def test_zotero_base_default_is_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PRUMO_ZOTERO_BASE", raising=False)
+    assert zotero_base() == "http://127.0.0.1:23119"
+
+
+def test_zotero_base_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://localhost:9999")
+    assert zotero_base() == "http://localhost:9999"
+
+
+def test_bbt_rpc_url_follows_base(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://example.test:1234")
+    assert bbt_rpc_url() == "http://example.test:1234/better-bibtex/json-rpc"
+
+
+def test_in_claude_sandbox_true_with_runtime_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SANDBOX_RUNTIME", "1")
+    assert in_claude_sandbox() is True
+
+
+def test_in_claude_sandbox_false_without_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SANDBOX_RUNTIME", raising=False)
+    assert in_claude_sandbox() is False
+
+
+@pytest.mark.parametrize("value", ["0", "true"])
+def test_in_claude_sandbox_false_with_other_value(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("SANDBOX_RUNTIME", value)
+    assert in_claude_sandbox() is False
+
+
+# ---------------------------------------------------------------------------
+# Resolução do pandoc: PATH, senão o do Zettlr.app (ADR-0037, B7)
+# ---------------------------------------------------------------------------
+
+
+def _fake_zettlr_pandoc(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mode: int) -> Path:
+    """Arquivo em ``tmp_path`` no papel do pandoc do Zettlr.app, com o modo dado."""
+    fake = tmp_path / "Zettlr.app" / "Contents" / "Resources" / "pandoc"
+    fake.parent.mkdir(parents=True)
+    fake.write_text("#!/bin/sh\n", encoding="utf-8")
+    fake.chmod(mode)
+    monkeypatch.setattr("par.core.deps._ZETTLR_PANDOC", fake)
+    return fake
+
+
+def test_pandoc_path_prefers_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _fake_zettlr_pandoc(monkeypatch, tmp_path, 0o755)
+    monkeypatch.setattr("par.core.deps._binary_on_path", lambda name: "/opt/bin/pandoc")
+    assert pandoc_path() == "/opt/bin/pandoc"
+
+
+def test_pandoc_path_falls_back_to_zettlr(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    fake = _fake_zettlr_pandoc(monkeypatch, tmp_path, 0o755)
+    monkeypatch.setattr("par.core.deps._binary_on_path", lambda name: None)
+    assert pandoc_path() == str(fake)
+
+
+def test_pandoc_path_none_without_any(monkeypatch: pytest.MonkeyPatch) -> None:
+    # `_ZETTLR_PANDOC` fica no caminho inexistente da fixture do conftest.
+    monkeypatch.setattr("par.core.deps._binary_on_path", lambda name: None)
+    assert pandoc_path() is None
+
+
+def test_pandoc_path_ignores_non_executable_zettlr(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _fake_zettlr_pandoc(monkeypatch, tmp_path, 0o644)
+    monkeypatch.setattr("par.core.deps._binary_on_path", lambda name: None)
+    assert pandoc_path() is None
+
+
+# ---------------------------------------------------------------------------
+# Linha `pandoc` do doctor: piso 3.8.2, fail-safe sem versão (E8 e E9)
+# ---------------------------------------------------------------------------
+
+
+def _pandoc_line(monkeypatch: pytest.MonkeyPatch, version: str | None) -> DepStatus:
+    monkeypatch.setattr("par.core.deps._pandoc_version", lambda path, timeout=5.0: version)
+    with (
+        patch("par.core.deps._binary_on_path", return_value="/opt/bin/pandoc"),
+        patch("par.core.deps._zotero_api_root", return_value=None),
+    ):
+        return _by_name(check_external_deps(), "pandoc")
+
+
+def test_pandoc_line_present_with_3_10_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    line = _pandoc_line(monkeypatch, "3.10.1")
+    assert line.present is True
+    assert line.version == "3.10.1"
+    assert line.detail == "pandoc 3.10.1 em /opt/bin/pandoc"
+    assert line.required_by == ["write export", "write compose"]
+
+
+def test_pandoc_line_is_last(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("par.core.deps._pandoc_version", lambda path, timeout=5.0: "3.10.1")
+    with (
+        patch("par.core.deps._binary_on_path", return_value="/opt/bin/pandoc"),
+        patch("par.core.deps._zotero_api_root", return_value=None),
+    ):
+        names = [s.name for s in check_external_deps()]
+    assert names == ["qmd", "zotero", "pandoc"]
+
+
+def test_pandoc_line_rejects_3_1_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    line = _pandoc_line(monkeypatch, "3.1.2")
+    assert line.present is False
+    assert line.version == "3.1.2"
+    assert line.detail == "pandoc 3.1.2 em /opt/bin/pandoc"
+    assert "3.8.2" in line.hint
+    assert "brew upgrade pandoc" in line.hint
+    assert "prumo doctor" in line.hint
+    assert "{#tbl:…}" in line.hint
+
+
+def test_pandoc_line_accepts_floor_3_8_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    line = _pandoc_line(monkeypatch, "3.8.2")
+    assert line.present is True
+    assert line.hint == ""
+
+
+def test_pandoc_line_fail_safe_without_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    line = _pandoc_line(monkeypatch, None)
+    assert line.present is True
+    assert line.version is None
+    assert "versão não detectada" in line.detail
+
+
+def test_pandoc_line_absent_hint(monkeypatch: pytest.MonkeyPatch) -> None:
+    # `_ZETTLR_PANDOC` fica no caminho inexistente da fixture do conftest.
+    with (
+        patch("par.core.deps._binary_on_path", return_value=None),
+        patch("par.core.deps._zotero_api_root", return_value=None),
+    ):
+        line = _by_name(check_external_deps(), "pandoc")
+    assert line.present is False
+    assert line.version is None
+    assert line.detail == "pandoc não encontrado (nem no PATH nem no Zettlr.app)"
+    assert "brew install pandoc" in line.hint
+    assert "github.com/jgm/pandoc/releases" in line.hint
+    assert "3.8.2" in line.hint
+
+
+def test_pandoc_line_names_zettlr(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _fake_zettlr_pandoc(monkeypatch, tmp_path, 0o755)
+    monkeypatch.setattr("par.core.deps._pandoc_version", lambda path, timeout=5.0: "3.10.1")
+    with (
+        patch("par.core.deps._binary_on_path", return_value=None),
+        patch("par.core.deps._zotero_api_root", return_value=None),
+    ):
+        line = _by_name(check_external_deps(), "pandoc")
+    assert line.present is True
+    assert line.detail == "pandoc 3.10.1 do Zettlr.app"
+
+
+# ---------------------------------------------------------------------------
+# `_pandoc_version` real, com `subprocess.run` mockado
+# ---------------------------------------------------------------------------
+
+
+def _fake_run(stdout: str) -> object:
+    def _run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 0, stdout=stdout, stderr="")
+
+    return _run
+
+
+def test_pandoc_version_parses_first_line(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "par.core.deps.subprocess.run", _fake_run("pandoc 3.10.1\nFeatures: +server\n")
+    )
+    assert _REAL_PANDOC_VERSION("/opt/bin/pandoc") == "3.10.1"
+
+
+def test_pandoc_version_none_on_missing_binary(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _missing(cmd: list[str], **kwargs: object) -> object:
+        raise FileNotFoundError(2, "No such file or directory", cmd[0])
+
+    monkeypatch.setattr("par.core.deps.subprocess.run", _missing)
+    assert _REAL_PANDOC_VERSION("/nao/existe/pandoc") is None
+
+
+def test_pandoc_version_none_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _slow(cmd: list[str], **kwargs: object) -> object:
+        raise subprocess.TimeoutExpired(cmd, 5.0)
+
+    monkeypatch.setattr("par.core.deps.subprocess.run", _slow)
+    assert _REAL_PANDOC_VERSION("/opt/bin/pandoc") is None
+
+
+def test_pandoc_version_none_on_garbage(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("par.core.deps.subprocess.run", _fake_run("oops"))
+    assert _REAL_PANDOC_VERSION("/opt/bin/pandoc") is None
