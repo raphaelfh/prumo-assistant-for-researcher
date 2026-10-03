@@ -2,7 +2,7 @@
 name: study
 description: "Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/studies/<slug>/notes/. No Reflect, oferece arquivar insight como finding."
 argument-hint: "[topic]"
-allowed-tools: Read Write Edit Glob Grep Bash(qmd *) Bash(prumo *) Bash(echo *) Bash(cat *)
+allowed-tools: Read Write Edit Glob Grep Bash(qmd *) Bash(prumo wiki *) Bash(prumo paper find *) Bash(echo *) Bash(cat *)
 prumo:
   version: 1.0.0
   schema: SessionLog/v1

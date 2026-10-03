@@ -2,7 +2,7 @@
 name: library
 description: "Gerencia o acervo bibliográfico do pj_* (docs/references/): sincroniza .bib do Zotero/BBT, atualiza grafo de citação passivo, marca paper principal, lista bibliografia, busca por palavra-chave, vê quem cita quem, audita consistência .bib↔notas."
 argument-hint: "[sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary <citekey> | list | graph <citekey> | sync-bib | find <query> | connect <coleção>]"
-allowed-tools: Read Write Edit Glob Grep Bash(prumo paper *) Bash(rg *)
+allowed-tools: Read Write Edit Glob Grep Bash(prumo paper sync *) Bash(prumo paper sync-pdfs *) Bash(prumo paper graph *) Bash(prumo paper find *) Bash(prumo paper lint *) Bash(prumo paper set-primary *) Bash(prumo paper migrate-layout *) Bash(rg *)
 prumo:
   version: 1.0.0
   determinism: deterministic

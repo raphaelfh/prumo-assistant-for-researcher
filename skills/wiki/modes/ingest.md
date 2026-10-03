@@ -2,7 +2,7 @@
 name: ingest
 description: "Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria a nota da fonte (type: source) em docs/studies/<escopo>/notes/, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /par:paper library."
 argument-hint: "[url | path | doi]"
-allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *)
+allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) Bash(prumo wiki *)
 prumo:
   version: 1.0.0
   schema: WikiSource/v1

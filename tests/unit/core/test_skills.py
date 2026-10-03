@@ -468,3 +468,70 @@ def test_skills_nao_citam_tools_mcp_do_qmd() -> None:
         if "mcp__qmd__" in p.read_text(encoding="utf-8")
     ]
     assert offenders == []
+
+
+# ---------------------------------------------------------------------------
+# Curingas Bash estreitos (D5, A14)
+# ---------------------------------------------------------------------------
+
+
+def _bash_rule_matches(token: str, command: str) -> bool:
+    """Semântica documentada das regras `Bash(...)` do Claude Code.
+
+    Token que não é Bash → False; `Bash` puro casa tudo; `Bash(<p> *)` e
+    `Bash(<p>:*)` casam `<p>` e `<p> …` (o espaço é fronteira); `Bash(<p>*)`
+    casa qualquer prefixo `<p>`; `Bash(<cmd>)` casa só o comando exato.
+    """
+    if token == "Bash":
+        return True
+    if not (token.startswith("Bash(") and token.endswith(")")):
+        return False
+    rule = token[len("Bash(") : -1]
+    for suffix in (" *", ":*"):
+        if rule.endswith(suffix):
+            prefix = rule[: -len(suffix)]
+            return command == prefix or command.startswith(prefix + " ")
+    if rule.endswith("*"):
+        return command.startswith(rule[:-1])
+    return command == rule
+
+
+def _all_allowed_tools() -> list[str]:
+    """Tokens de `allowed-tools` de toda porta e todo modo do repo."""
+    reg, _ = load_skill_registry(_REPO_SKILLS, strict=True)
+    manifests = [reg.get(n) for n in reg.names()] + [m for _, m in reg.iter_modes()]
+    return [tok for m in manifests for tok in m.allowed_tools]
+
+
+def test_semantica_do_curinga_bash() -> None:
+    rule = "Bash(prumo paper sync *)"
+    assert _bash_rule_matches(rule, "prumo paper sync")
+    assert _bash_rule_matches(rule, "prumo paper sync --x")
+    assert not _bash_rule_matches(rule, "prumo paper sync-pdfs")
+    assert _bash_rule_matches("Bash(prumo paper sync:*)", "prumo paper sync --x")
+    assert _bash_rule_matches("Bash(prumo paper sync*)", "prumo paper sync-pdfs")
+    assert _bash_rule_matches("Bash(git status)", "git status")
+    assert not _bash_rule_matches("Bash(git status)", "git status -s")
+    assert _bash_rule_matches("Bash", "qualquer coisa")
+
+
+def test_semantica_do_curinga_bash_ignora_outras_tools() -> None:
+    assert not _bash_rule_matches("Read", "prumo init x --force")
+    assert not _bash_rule_matches("mcp__plugin_par_prumo__paper_sync", "prumo paper sync")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "prumo paper connect x --create --yes",
+        "prumo init x --force",
+        "prumo update --yes",
+    ],
+)
+def test_nenhuma_regra_casa_comando_que_muda_estado_fora_do_fluxo(command: str) -> None:
+    offenders = [tok for tok in _all_allowed_tools() if _bash_rule_matches(tok, command)]
+    assert offenders == []
+
+
+def test_paper_connect_fora_de_todo_frontmatter() -> None:
+    assert [tok for tok in _all_allowed_tools() if "paper_connect" in tok] == []

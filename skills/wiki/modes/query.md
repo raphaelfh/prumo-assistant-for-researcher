@@ -2,7 +2,7 @@
 name: query
 description: "Responde pergunta ancorada no wiki do pj_* (docs/ + docs/references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [@citekeys]). Oferece arquivar a resposta como finding (type: finding) em docs/studies/<slug>/notes/ quando útil. NÃO é para perguntas de código."
 argument-hint: "<pergunta>"
-allowed-tools: Read Glob Grep Bash(qmd *) Bash(prumo *) Bash(cat *)
+allowed-tools: Read Glob Grep Bash(qmd *) Bash(prumo wiki *) Bash(prumo paper find *) Bash(cat *)
 prumo:
   version: 1.0.0
   schema: WikiQueryResponse/v1
