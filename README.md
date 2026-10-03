@@ -81,13 +81,14 @@ passo a passo completo em
 
 ## Pré-requisitos externos
 
-O plugin orquestra duas ferramentas que vivem fora do pacote Python. Rode
+O plugin orquestra três ferramentas que vivem fora do pacote Python. Rode
 `prumo doctor` a qualquer momento para checar o estado delas.
 
 | Dependência | Necessária para | Como instalar / habilitar |
 |---|---|---|
 | **`qmd`** (MCP de busca) | `/par:wiki query`, `/par:wiki ingest`, `/par:wiki study` | `bun install -g @tobilu/qmd` (repo: [github.com/tobi/qmd](https://github.com/tobi/qmd)). Precisa estar no `PATH`. Declarado em `.mcp.json` como servidor `qmd`. |
-| **Zotero 9 + Better BibTeX** | `paper sync-annotations`, `paper sync-notes`, `write export --to docx` (citações vivas) | Abra o Zotero 9 com o [Better BibTeX](https://retorque.re/zotero-better-bibtex/) instalado. Ele expõe a API local em `127.0.0.1:23119`. Só é necessário para os comandos que leem anotações/notas — o resto do prumo funciona sem ele. |
+| **Zotero 9 + Better BibTeX** | `paper sync-annotations`, `paper sync-notes`, `write export --to docx` (vínculo das citações, opcional) | Abra o Zotero 9 com o [Better BibTeX](https://retorque.re/zotero-better-bibtex/) instalado. Ele expõe a API local em `127.0.0.1:23119`. Só é necessário para os comandos que leem anotações/notas — o resto do prumo funciona sem ele. |
+| **Pandoc ≥ 3.8.2** | `write export`, `write compose` | macOS: `brew install pandoc` (ou o Zettlr, cujo pandoc o PAR usa quando não há um no PATH); Linux: pacote oficial em https://github.com/jgm/pandoc/releases (o do apt costuma ser antigo); confira com `prumo doctor`. |
 
 > [!tip]
 > `prumo doctor` lista o estado de cada dependência (`✓` presente / `○` ausente)

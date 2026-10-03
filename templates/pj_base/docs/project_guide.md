@@ -17,7 +17,7 @@ _(a tese central do estudo)_
 
 ## Editor (Zettlr) — setup one-time
 
-O front humano deste projeto é o [Zettlr](https://www.zettlr.com) (≥ 3.0 — o Pandoc embutido precisa ser 3.x). Uma vez só:
+O front humano deste projeto é o [Zettlr](https://www.zettlr.com) (recente: o 4.8 traz o pandoc 3.10.1; o export do PAR precisa de pandoc 3.8.2 ou mais novo, confira com `prumo doctor`). Uma vez só:
 
 1. **Workspace:** File → Open Workspace → raiz deste projeto.
 2. **Preview de citação:** Settings → Display → ligar "Render citations".
