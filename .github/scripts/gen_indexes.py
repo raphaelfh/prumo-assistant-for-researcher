@@ -198,15 +198,6 @@ _PF_CLI = (
     "consentimento) e pare aqui."
 )
 
-_PF_DRIFT = (
-    "**Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver\n"
-    "definido, compare a versão do CLI com o campo `version` de\n"
-    "`$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise\n"
-    '("CLI X < plugin Y — comandos novos podem não existir") e ofereça\n'
-    "`uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,\n"
-    "pule este passo em silêncio."
-)
-
 _PF_INIT = (
     "**Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,\n"
     "oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente\n"
@@ -258,7 +249,7 @@ def render_preflight(manifest: SkillManifest) -> str:
 
     ``requires: []`` (julgamento puro) devolve a variante fixa ``_PREFLIGHT_PURE``.
     Caso contrário, concatena sub-blocos condicionados à classe de dependência
-    presente em ``requires`` — ``cli`` (itens 1-3), ``qmd`` (item seguinte) e
+    presente em ``requires`` — ``cli`` (itens 1-2), ``qmd`` (item seguinte) e
     ``zotero`` (item seguinte) — renumerando 1..N conforme o que se aplica.
     Skills com ``qmd`` mas sem ``cli`` não têm o item 1 (que já cobre "CLI
     ausente → roteie pro /start"), então o item de qmd assume essa frase.
@@ -269,8 +260,8 @@ def render_preflight(manifest: SkillManifest) -> str:
     parts = [_PREFLIGHT_HEADER]
     n = 1
     if "cli" in reqs:
-        parts += [_pf_item(n, _PF_CLI), _pf_item(n + 1, _PF_DRIFT), _pf_item(n + 2, _PF_INIT)]
-        n += 3
+        parts += [_pf_item(n, _PF_CLI), _pf_item(n + 1, _PF_INIT)]
+        n += 2
     if "qmd" in reqs:
         qmd_text = _PF_QMD if "cli" in reqs else _PF_QMD_SEM_CLI
         parts.append(_pf_item(n, qmd_text))

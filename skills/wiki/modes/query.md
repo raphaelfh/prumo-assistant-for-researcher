@@ -42,8 +42,6 @@ Opera sobre o wiki estruturado em `/docs/wiki-schema.md` (monorepo). Usa `qmd` (
 - cwd é um `pj_*` com `docs/_index.md`, `docs/_log.md` e subdirs.
 - qmd está instalado (ver `docs/operations.md` do monorepo) e o wiki foi indexado ao menos uma vez (`qmd collection add . --name <pj>` + `qmd embed`).
 - Se não indexado, fluxo ainda funciona usando só `_index.md` + `Grep` + `Read`, mas resposta perde cobertura semântica.
-- O CLI `prumo` precisa estar no PATH (rode `prumo doctor`; se ausente:
-  `uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher`).
 
 ## Fluxo
 

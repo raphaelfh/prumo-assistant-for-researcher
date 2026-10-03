@@ -25,13 +25,7 @@ prumo:
 > 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
 >    operação desta skill; roteie para `/par:start` (instalação guiada com
 >    consentimento) e pare aqui.
-> 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
->    definido, compare a versão do CLI com o campo `version` de
->    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
->    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
->    `uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,
->    pule este passo em silêncio.
-> 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
+> 2. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
 >    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
 >
@@ -53,8 +47,6 @@ skill — é sempre o humano, com `prumo write review apply`.
   <reviewed.docx> --page <page>` já rodou e gerou `reviews/<slug>/events.yaml`
   + `review.md`. Sem isso, todo comando abaixo falha com o hint embutido
   (`prumo write review ingest ...`).
-- O CLI `prumo` está no PATH (`prumo doctor`; senão `uv tool install
-  git+https://github.com/raphaelfh/prumo-assistant-for-researcher`).
 - O servidor MCP `prumo` (tools `review_status`, `review_events`,
   `review_worklist`, `propose_prose_edit`) pode ou não estar conectado nesta
   sessão (registrado em `.mcp.json` como `"prumo"`, roda via `prumo mcp
