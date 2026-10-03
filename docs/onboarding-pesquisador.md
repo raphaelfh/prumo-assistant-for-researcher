@@ -171,29 +171,13 @@ Dois conectores desse marketplace valem destaque:
 > pública da Anthropic sobre plugins — não foi re-testada dentro deste
 > piloto (mesmo tratamento do aviso de Windows/WSL acima).
 
-### Perguntar ao seu Zotero (opcional, ferramenta de terceiros)
+### Busca semântica no seu acervo do Zotero, sem terminal
 
-O PAR não lê destaques nem notas do Zotero, nem busca na biblioteca inteira. A ferramenta [54yyyu/zotero-mcp](https://github.com/54yyyu/zotero-mcp) (licença MIT) faz isso. **Ela não foi validada neste piloto** e muda com frequência (12 versões entre agosto e setembro de 2026). Para a bibliografia do projeto, continue usando `/par:paper`.
-
-**No Claude Code (terminal, aba Code do app ou IDE).** Rode no terminal, ou cole cada linha para o agente rodar com a sua permissão:
-
-1. No Zotero 7 ou mais novo: Settings → Advanced → marque "Allow other applications on this computer to communicate with Zotero". Essa ferramenta exige essa opção.
-2. `uv tool install zotero-mcp-server`
-3. `zotero-mcp install-skill --target claude-user` (sem `--target`, o instalador grava também dentro do projeto).
-4. Abra uma sessão nova e pergunte "o que eu anotei no paper X?". Cada comando pede permissão; aprove os de leitura.
-
-Não é preciso rodar `zotero-mcp setup`: sem chave, a ferramenta usa o Zotero local.
-Para escrever no Zotero (precisa do Zotero 10 ou mais novo): `zotero-mcp authorize-local` e clique em "Always Allow" no Zotero.
-Para atualizar: `zotero-mcp update` e depois `zotero-mcp install-skill --target claude-user --force` (o update não atualiza a skill).
-
-**No chat do app Claude (fora da aba Code).** No terminal: `zotero-mcp setup --skip-semantic-search`; depois reinicie o app. Isso registra 38 ferramentas, que custam cerca de 13 mil tokens em toda mensagem. No Cowork, não testado.
-
-**Privacidade**
-- O que o Claude lê (anotações, texto de PDF) entra na conversa. Não use em biblioteca com documento identificável de paciente.
-- Nunca configure `ZOTERO_API_KEY`: o modo local basta, e a chave da Web API dá acesso à biblioteca inteira, PDFs incluídos.
-- Não instale o extra `[semantic]`. Se um dia instalar, use só o modelo local padrão: as opções OpenAI e Gemini mandam texto para fora.
-- Escritas vão para o Zotero e, com o sync ligado, para o zotero.org e seus outros dispositivos.
-- A ferramenta lê o banco do Zotero (`zotero.sqlite`) direto, em modo `immutable=1`, e só faz uma cópia temporária privada (apagada ao sair) quando há escritas pendentes no WAL. Com o Zotero aberto, esse modo pode devolver dado inconsistente sem avisar: confira no Zotero o que for citar.
+Existe uma ponte de terceiros que embute um servidor MCP dentro do próprio
+Zotero via extensão `.xpi` (Tools → Add-ons), expondo busca semântica do
+seu acervo em `127.0.0.1:23120/mcp`:
+[cookjohn/zotero-mcp](https://github.com/cookjohn/zotero-mcp). Citamos para
+quem quiser explorar — **não validado neste piloto**.
 
 ### Editando os arquivos `.md` do projeto
 
