@@ -106,13 +106,6 @@ def verify_refs_command(
         Path | None,
         typer.Option("--page", help="Escopo: só as citekeys desta página .md (recomendado)."),
     ] = None,
-    deep: Annotated[
-        bool,
-        typer.Option(
-            "--deep",
-            help=f"Verificação profunda via `uvx {verify.REFCHECKER_PIN}` (lento sem chave).",
-        ),
-    ] = False,
     refresh: Annotated[
         bool, typer.Option("--refresh", help="Ignora o cache local (TTL 7 dias).")
     ] = False,
@@ -123,7 +116,6 @@ def verify_refs_command(
         report = verify.verify_refs(
             path.resolve(),
             page=page.resolve() if page is not None else None,
-            deep=deep,
             refresh=refresh,
         )
         for finding in report["findings"]:
