@@ -1,0 +1,9 @@
+{
+  "extraKnownMarketplaces": {
+    "prumo-assistant-for-researcher": {
+      "source": { "source": "github", "repo": "raphaelfh/prumo-assistant-for-researcher" },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": { "par@prumo-assistant-for-researcher": true }
+}
