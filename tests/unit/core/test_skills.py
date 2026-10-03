@@ -583,3 +583,31 @@ def test_plugin_root_sempre_com_chaves() -> None:
         if re.search(r"\$CLAUDE_PLUGIN_ROOT", p.read_text(encoding="utf-8"))
     ]
     assert offenders == []
+
+
+def test_skills_nao_mandam_instalar_cli_a_parte() -> None:
+    """O CLI vem no plugin: nenhuma skill manda instalar/atualizar à parte (A15)."""
+    files = [*(_REPO / "skills").rglob("*.md"), *(_REPO / "agents").glob("*.md")]
+    offenders = [
+        str(p.relative_to(_REPO))
+        for p in files
+        for banned in ("uv tool install", "uv tool upgrade")
+        if banned in p.read_text(encoding="utf-8")
+    ]
+    assert offenders == []
+
+
+def test_start_cobre_superficie_uv_e_tools() -> None:
+    """O `/par:start` checa superfície, versão, uv e as tools do plugin (§Fluxo)."""
+    body = parse_skill_file(_REPO / "skills" / "start" / "SKILL.md").body
+    text = " ".join(body.split())
+    for needle in (
+        "PAR: falta o uv",
+        "mcp__plugin_par_prumo__",
+        "uv tool uninstall prumo-assistant-for-researcher",
+        "curl -LsSf https://astral.sh/uv/install.sh | sh",
+        "Better BibTeX ≥ 9.0.65",
+        "npm install -g @tobilu/qmd",
+        "nunca ofereça instalar o CLI à parte",
+    ):
+        assert needle in text, needle
