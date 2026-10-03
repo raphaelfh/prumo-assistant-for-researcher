@@ -8,6 +8,8 @@ from par.core.skill_refs import (
     RefChange,
     legacy_installed_dirs,
     migrate_skill_names,
+    move_plugin_copies,
+    plugin_copies,
     rewrite_invocations,
     scan_skill_refs,
 )
@@ -97,3 +99,87 @@ def test_legacy_installed_dirs(tmp_path: Path) -> None:
 
 def test_legacy_installed_dirs_sem_diretorio(tmp_path: Path) -> None:
     assert legacy_installed_dirs(tmp_path, LEGACY) == []
+
+
+SKILL_NAMES = {"paper", "wiki-query", "wiki"}
+AGENT_FILES = {"reviewer.md", "reader.md"}
+
+
+def _pj_com_copias(tmp_path: Path) -> Path:
+    for name in ("paper", "wiki-query", "minha-skill"):
+        d = tmp_path / ".claude" / "skills" / name
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_text(f"# {name}\n", encoding="utf-8")
+    agents = tmp_path / ".claude" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "reviewer.md").write_text("reviewer\n", encoding="utf-8")
+    (agents / "meu-agent.md").write_text("meu\n", encoding="utf-8")
+    return tmp_path
+
+
+def test_plugin_copies_lista_so_nomes_do_par(tmp_path: Path) -> None:
+    pj = _pj_com_copias(tmp_path)
+    assert plugin_copies(pj, SKILL_NAMES, AGENT_FILES) == [
+        ".claude/skills/paper",
+        ".claude/skills/wiki-query",
+        ".claude/agents/reviewer.md",
+    ]
+
+
+def test_plugin_copies_sem_claude_eh_vazio(tmp_path: Path) -> None:
+    assert plugin_copies(tmp_path, SKILL_NAMES, AGENT_FILES) == []
+
+
+def test_plugin_copies_ignora_arquivo_solto_em_skills(tmp_path: Path) -> None:
+    skills = tmp_path / ".claude" / "skills"
+    skills.mkdir(parents=True)
+    (skills / "paper").write_text("não é diretório\n", encoding="utf-8")
+    assert plugin_copies(tmp_path, SKILL_NAMES, AGENT_FILES) == []
+
+
+def test_plugin_copies_aceita_link_para_diretorio(tmp_path: Path) -> None:
+    alvo = tmp_path / "fora" / "paper"
+    alvo.mkdir(parents=True)
+    skills = tmp_path / ".claude" / "skills"
+    skills.mkdir(parents=True)
+    (skills / "paper").symlink_to(alvo, target_is_directory=True)
+    assert plugin_copies(tmp_path, SKILL_NAMES, AGENT_FILES) == [".claude/skills/paper"]
+
+
+def test_move_plugin_copies_preserva_estrutura_e_conteudo(tmp_path: Path) -> None:
+    pj = _pj_com_copias(tmp_path)
+    skill_bytes = (pj / ".claude/skills/paper/SKILL.md").read_bytes()
+    agent_bytes = (pj / ".claude/agents/reviewer.md").read_bytes()
+    rels = plugin_copies(pj, SKILL_NAMES, AGENT_FILES)
+    dest = pj / ".prumo" / "legacy-copies" / "20261002-120000"
+
+    assert move_plugin_copies(pj, rels, dest) == rels
+
+    assert (dest / "skills" / "paper" / "SKILL.md").read_bytes() == skill_bytes
+    assert (dest / "skills" / "wiki-query" / "SKILL.md").is_file()
+    assert (dest / "agents" / "reviewer.md").read_bytes() == agent_bytes
+    assert not (pj / ".claude/skills/paper").exists()
+    assert not (pj / ".claude/skills/wiki-query").exists()
+    assert not (pj / ".claude/agents/reviewer.md").exists()
+    assert (pj / ".claude/skills/minha-skill/SKILL.md").is_file()
+    assert (pj / ".claude/agents/meu-agent.md").is_file()
+
+
+def test_move_plugin_copies_apaga_diretorios_vazios(tmp_path: Path) -> None:
+    (tmp_path / ".claude/skills/paper").mkdir(parents=True)
+    (tmp_path / ".claude/skills/paper/SKILL.md").write_text("x\n", encoding="utf-8")
+    (tmp_path / ".claude/agents").mkdir(parents=True)
+    (tmp_path / ".claude/agents/reviewer.md").write_text("y\n", encoding="utf-8")
+    rels = plugin_copies(tmp_path, SKILL_NAMES, AGENT_FILES)
+
+    move_plugin_copies(tmp_path, rels, tmp_path / ".prumo" / "legacy-copies" / "t")
+
+    assert not (tmp_path / ".claude/skills").exists()
+    assert not (tmp_path / ".claude/agents").exists()
+    assert (tmp_path / ".claude").is_dir()
+
+
+def test_move_plugin_copies_sem_rels_nao_cria_destino(tmp_path: Path) -> None:
+    dest = tmp_path / ".prumo" / "legacy-copies" / "t"
+    assert move_plugin_copies(tmp_path, [], dest) == []
+    assert not dest.exists()
