@@ -292,3 +292,11 @@ def test_preflight_cli_tem_dois_itens(gen: ModuleType, registry: Any) -> None:
 
 def test_gerador_sem_pf_drift(gen: ModuleType) -> None:
     assert not hasattr(gen, "_PF_DRIFT")
+
+
+def test_pf_qmd_checa_o_cli(gen: ModuleType, registry: Any) -> None:
+    """O preflight do qmd checa o CLI com `qmd --version`, coberto por `Bash(qmd *)` (A9)."""
+    assert "qmd --version" in gen._PF_QMD
+    assert "command -v" not in gen._PF_QMD
+    assert "tools MCP" not in gen._PF_QMD
+    assert "/par:start" in gen.render_preflight(_mode(registry, "wiki", "query"))

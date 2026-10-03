@@ -46,8 +46,9 @@ def test_qmd_absent_includes_install_hint() -> None:
         statuses = check_external_deps()
     qmd = _by_name(statuses, "qmd")
     assert qmd.present is False
+    assert "npm install -g @tobilu/qmd" in qmd.hint
     assert "bun install -g @tobilu/qmd" in qmd.hint
-    assert "github.com/tobi/qmd" in qmd.hint
+    assert "github.com/tobi/qmd" not in qmd.hint
 
 
 def test_zotero_present_when_local_api_answers() -> None:

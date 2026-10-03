@@ -2,7 +2,7 @@
 name: ingest
 description: "Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria a nota da fonte (type: source) em docs/studies/<escopo>/notes/, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /par:paper library."
 argument-hint: "[url | path | doi]"
-allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) mcp__qmd__embed mcp__qmd__query
+allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *)
 prumo:
   version: 1.0.0
   schema: WikiSource/v1
@@ -24,8 +24,8 @@ prumo:
 <!-- prumo:preflight:begin -->
 > **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
 >
-> 1. **Busca semântica (qmd):** se as tools MCP do `qmd` não estiverem no seu
->    inventário NESTA sessão, diga isso explicitamente ("busca semântica
+> 1. **Busca semântica (qmd):** rode `qmd --version`; só `command not
+>    found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica
 >    indisponível — resultados via leitura direta, mais lentos/parciais") e
 >    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
 >    operação com o hint do `prumo doctor`. Se precisar do stack completo, roteie para `/par:start`.
@@ -70,7 +70,7 @@ Se houver dúvida, perguntar ao usuário uma vez antes de escolher o caminho.
 Antes de escrever qualquer arquivo, responder com:
 
 1. **3–5 pontos-chave** da fonte.
-2. **Páginas candidatas a tocar**: usar `Glob docs/studies/<escopo>/notes/*.md` + `qmd search "<termo>"` (via `mcp__qmd__*` se disponível, senão `Bash("qmd search ...")`) para checar o que já existe.
+2. **Páginas candidatas a tocar**: usar `Glob docs/studies/<escopo>/notes/*.md` + `qmd query "<termo>"` pelo Bash para checar o que já existe.
 3. **Páginas novas sugeridas**: conceitos centrais da fonte que ainda não têm arquivo.
 
 Esperar confirmação/direcionamento do usuário antes do passo 4.
@@ -153,16 +153,7 @@ Atualizar rodapé: `**Última atualização:** YYYY-MM-DD`.
 
 ### 8. Reindexar qmd
 
-Se o MCP `mcp__qmd__*` estiver ativo: chamar `qmd embed` via tool.
-
-Caso contrário, mostrar ao usuário o comando para rodar:
-
-```bash
-qmd embed                                     # incremental
-# ou na primeira vez:
-qmd collection add . --name <pj_nome>
-qmd embed
-```
+O agente roda `qmd embed` pelo Bash (na 1ª vez, `prumo wiki index`).
 
 ### 9. Resumo final ao usuário
 
@@ -172,7 +163,7 @@ qmd embed
   Páginas: docs/studies/<escopo>/notes/{x,y}.md   (+N novas)
   Log:     docs/_log.md (entrada de YYYY-MM-DD)
   Index:   docs/_index.md (+1 em Sources, +N em Concepts/Entities)
-  qmd:     reindexado (ou: rode `qmd embed`)
+  qmd:     reindexado (ou: qmd indisponível — o agente roda prumo wiki index depois de instalado)
 ```
 
 ## Boundaries
@@ -186,5 +177,5 @@ qmd embed
 
 - **Slug colide com arquivo existente** → sufixo `-2`, `-3`…
 - **Usuário cola URL de paper mas DOI não resolve** → orientar a adicionar no Zotero via URL ou arXiv ID; senão salvar como `source` genérico com `kind: doc` até o usuário conseguir o DOI.
-- **qmd indisponível** → fluxo não trava; só documenta no output que a reindexação não aconteceu e pede ao usuário para rodar depois.
+- **qmd indisponível** → fluxo não trava; o output diz que a reindexação não aconteceu.
 - **Páginas relacionadas em conflito com ingest anterior** → mostrar o diff proposto antes de escrever; nunca sobrescrever seções de autoria humana sem perguntar.

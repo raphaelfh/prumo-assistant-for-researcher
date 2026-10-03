@@ -2,8 +2,8 @@
 
 prumo orquestra ferramentas que vivem fora do pacote Python:
 
-- **qmd** — servidor MCP de busca (BM25+vector+rerank) que as skills
-  os modos ``wiki query``, ``wiki ingest`` e ``wiki study`` consomem. Binário no PATH.
+- **qmd** — CLI de busca (BM25 + vector + rerank) que os modos ``wiki query``,
+  ``wiki ingest`` e ``wiki study`` usam. Binário no PATH.
 - **Zotero + Better BibTeX** — fonte de bibliografia/anotações. Expõe API local
   HTTP em ``127.0.0.1:23119`` quando o app está aberto.
 - **Pandoc** — ``write export``/``write compose``; o do PATH ou o que vem dentro
@@ -225,8 +225,8 @@ def check_external_deps() -> list[DepStatus]:
             required_by=["wiki query", "wiki ingest", "wiki study"],
             detail=f"qmd em {qmd_path}" if qmd_path else "qmd não está no PATH",
             hint=(
-                "Instale o qmd (servidor MCP de busca): `bun install -g @tobilu/qmd` "
-                "— repo https://github.com/tobi/qmd. Depois confirme que está no PATH."
+                "Instale o qmd: `npm install -g @tobilu/qmd` "
+                "(ou `bun install -g @tobilu/qmd`) e indexe o projeto: `prumo wiki index`."
             ),
         )
     )
