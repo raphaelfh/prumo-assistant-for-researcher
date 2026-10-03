@@ -18,6 +18,8 @@ from par.core.skills import SkillRef
 
 __all__ = [
     "RefChange",
+    "backup_plugin_copies",
+    "exclude_paths",
     "migrate_skill_names",
     "move_plugin_copies",
     "plugin_copies",
@@ -95,6 +97,14 @@ def migrate_skill_names(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[R
     return _walk(pj_root, legacy, write=True)
 
 
+def _owned_dir(pj_root: Path, d: Path) -> bool:
+    """``d`` é diretório real do pj: nem ele nem ``.claude`` são link, e resolve dentro do pj."""
+    claude = pj_root / ".claude"
+    if claude.is_symlink() or d.is_symlink() or not d.is_dir():
+        return False
+    return d.resolve().is_relative_to(pj_root.resolve())
+
+
 def plugin_copies(
     pj_root: Path, skill_names: Iterable[str], agent_files: Iterable[str]
 ) -> list[str]:
@@ -104,19 +114,23 @@ def plugin_copies(
     inclusive link para diretório, com ``n`` em ``skill_names``), depois
     ``.claude/agents/<f>`` (arquivo com ``f`` em ``agent_files``); cada grupo em ordem
     alfabética. Nomes fora dessas listas nunca entram. Só lista: nada é movido nem apagado.
+
+    ``.claude``, ``.claude/skills`` ou ``.claude/agents`` que seja link (ou resolva fora
+    do pj) não é do pj: o conteúdo pertence a outra árvore e nunca é listado — senão o
+    ``prumo update`` arrancaria diretórios de fora do projeto.
     """
     skills = frozenset(skill_names)
     agents = frozenset(agent_files)
     out: list[str] = []
     skills_dir = pj_root / ".claude" / "skills"
-    if skills_dir.is_dir():
+    if _owned_dir(pj_root, skills_dir):
         out.extend(
             f".claude/skills/{d.name}"
             for d in sorted(skills_dir.iterdir(), key=lambda p: p.name)
             if d.name in skills and d.is_dir()
         )
     agents_dir = pj_root / ".claude" / "agents"
-    if agents_dir.is_dir():
+    if _owned_dir(pj_root, agents_dir):
         out.extend(
             f".claude/agents/{f.name}"
             for f in sorted(agents_dir.iterdir(), key=lambda p: p.name)
@@ -142,3 +156,22 @@ def move_plugin_copies(pj_root: Path, rels: Sequence[str], dest: Path) -> list[s
             if d.is_dir() and not d.is_symlink() and not any(d.iterdir()):
                 d.rmdir()
     return list(rels)
+
+
+def exclude_paths(changes: Sequence[RefChange], rels: Sequence[str]) -> list[RefChange]:
+    """Tira as ``RefChange`` dentro de ``rels`` (cópias do PAR): a cópia é movida, não reescrita."""
+    return [
+        c for c in changes if not any(c.path == rel or c.path.startswith(rel + "/") for rel in rels)
+    ]
+
+
+def backup_plugin_copies(pj_root: Path, rels: Sequence[str], stamp: str) -> str | None:
+    """Move as cópias para ``.prumo/legacy-copies/<stamp>/`` e devolve esse caminho relativo.
+
+    Sem cópias, nada é criado e devolve ``None``.
+    """
+    if not rels:
+        return None
+    dest = pj_root / ".prumo" / "legacy-copies" / stamp
+    move_plugin_copies(pj_root, rels, dest)
+    return dest.relative_to(pj_root).as_posix()

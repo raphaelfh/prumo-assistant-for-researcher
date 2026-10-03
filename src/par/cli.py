@@ -23,7 +23,6 @@ from __future__ import annotations
 import re
 import shutil
 import sys
-from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -65,9 +64,9 @@ from par.core.scaffold import (
 )
 from par.core.scaffold import overlay as _overlay
 from par.core.skill_refs import (
-    RefChange,
+    backup_plugin_copies,
+    exclude_paths,
     migrate_skill_names,
-    move_plugin_copies,
     plugin_copies,
     scan_skill_refs,
 )
@@ -199,13 +198,6 @@ def _plugin_copies(pj_root: Path) -> list[str]:
 def _legacy_stamp() -> str:
     """Carimbo do diretório de backup das cópias (seam de teste)."""
     return datetime.now().strftime("%Y%m%d-%H%M%S")
-
-
-def _outside(changes: list[RefChange], rels: Sequence[str]) -> list[RefChange]:
-    """Tira as ``RefChange`` dentro de uma cópia do PAR: a cópia vai ser movida, não reescrita."""
-    return [
-        c for c in changes if not any(c.path == rel or c.path.startswith(rel + "/") for rel in rels)
-    ]
 
 
 def _validate_project_name(raw: str) -> tuple[Path, str]:
@@ -621,7 +613,7 @@ def doctor_command(
     # e invocações antigas no projeto. Remédio único → issue única (Princípio VIII).
     # A invocação DENTRO de uma cópia não conta: a cópia vai ser movida, não reescrita.
     copias = _plugin_copies(target)
-    antigos = [c.path for c in _outside(scan_skill_refs(target, _legacy_skill_map()), copias)]
+    antigos = [c.path for c in exclude_paths(scan_skill_refs(target, _legacy_skill_map()), copias)]
     if copias:
         issues.append(
             "[skill_obsoleta] cópias antigas das skills/agents do PAR em .claude/ ("
@@ -763,12 +755,9 @@ def update_command(
         # de TTY) e ANTES da reescrita, para o backup guardar a cópia como estava.
         copias = _plugin_copies(pj_root)
         if dry_run:
-            skill_refs = _outside(scan_skill_refs(pj_root, legacy), copias)
+            skill_refs = exclude_paths(scan_skill_refs(pj_root, legacy), copias)
         else:
-            if copias:
-                dest = pj_root / ".prumo" / "legacy-copies" / _legacy_stamp()
-                move_plugin_copies(pj_root, copias, dest)
-                backup = dest.relative_to(pj_root).as_posix()
+            backup = backup_plugin_copies(pj_root, copias, _legacy_stamp())
             migrated = migrate_project_context(pj_root)
             skill_refs = migrate_skill_names(pj_root, legacy)
             copied = apply_template_update(pj_root, template, drift.missing)
