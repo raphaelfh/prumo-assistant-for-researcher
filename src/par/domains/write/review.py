@@ -726,29 +726,23 @@ _UNKNOWN_AUTHOR = "(desconhecido)"
 _ADEU_TIMEOUT = 120
 
 
-_PRUMO_GIT_URL = "git+https://github.com/raphaelfh/prumo-assistant-for-researcher.git"
-
-
 def _check_adeu_available() -> None:
     """Preflight 3a: o backend de prosa (adeu 1.29.0, pinado no pyproject;
-    o uv.lock trava também as transitivas no caminho do plugin e do dev —
-    ``uv tool install`` resolve as transitivas de novo) precisa estar
-    instalado neste Python antes de começar.
+    o uv.lock trava também as transitivas no caminho do plugin e do dev)
+    precisa estar instalado neste Python antes de começar.
 
-    Em Python 3.11 (perna dev/CI, ou ``uv tool install`` num 3.11) o marker
-    ``python_version >= '3.12'`` deixa o adeu de fora — daí a checagem por
-    ``find_spec`` em vez de confiar no lock. A mensagem cobre os três
-    caminhos: plugin (venv em ``~/.cache/prumo``), ``uv tool install`` e dev.
+    Em Python 3.11 (perna dev/CI) o marker ``python_version >= '3.12'``
+    deixa o adeu de fora — daí a checagem por ``find_spec`` em vez de confiar
+    no lock. A mensagem cobre os dois caminhos suportados: plugin (venv em
+    ``~/.cache/prumo``) e dev; o CLI à parte não é oferecido (A15).
     """
     if importlib.util.find_spec("adeu") is None:
         raise AdeuUnavailableError(
-            "o backend de prosa (adeu) não está instalado neste ambiente Python "
-            "(o adeu exige Python ≥ 3.12). "
+            "o backend de prosa (adeu) não está instalado neste ambiente Python. "
             "Pelo plugin: abra uma sessão nova; se persistir, apague a pasta e "
             "prepare de novo: rm -rf ~/.cache/prumo && prumo --version. "
-            "Instalado com uv tool install: reinstale num Python 3.12: "
-            f"uv tool install --python 3.12 --reinstall {_PRUMO_GIT_URL}. "
-            "Em desenvolvimento: uv sync --extra dev --python 3.12."
+            "Em desenvolvimento: uv sync --extra dev --python 3.12 "
+            "(o adeu exige Python ≥ 3.12)."
         )
 
 
