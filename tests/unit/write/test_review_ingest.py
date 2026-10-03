@@ -9,7 +9,7 @@ convenção "cada arquivo tem seu próprio builder" segue valendo SÓ para os
 builders de docx-zip, genuinamente diferentes por módulo — ver
 `test_review_reader.py`/`test_review_adeu.py`). `_run_adeu_extract` (seam
 do adeu) é SEMPRE mockado via
-`monkeypatch.setattr` no módulo `review` — nunca roda `uvx` de verdade
+`monkeypatch.setattr` no módulo `review` — nunca roda o adeu de verdade
 (regra deste repo, `.claude/rules/code.md`: dependência externa sempre
 mockada no seam).
 
@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import html
+import importlib.util
 import zipfile
 from pathlib import Path
 
@@ -63,6 +64,19 @@ _CONTENT_TYPES_OK = (
 # (docx revisado idêntico ao exportado) NÃO deve disparar — qualquer valor
 # que não seja o sha256 do docx revisado sintético serve.
 _UNRELATED_DOCX_SHA256 = hashlib.sha256(b"docx-exportado-original-placeholder").hexdigest()
+
+
+@pytest.fixture(autouse=True)
+def _adeu_presente(monkeypatch: pytest.MonkeyPatch) -> None:
+    """O preflight 3a só olha `find_spec("adeu")`; a perna 3.11 do CI não
+    tem o adeu (marker ≥ 3.12), então todo teste daqui o finge presente —
+    delegando ao `find_spec` real para qualquer outro nome."""
+    real = importlib.util.find_spec
+
+    def fake(name: str, package: str | None = None) -> object:
+        return object() if name == "adeu" else real(name, package)
+
+    monkeypatch.setattr(importlib.util, "find_spec", fake)
 
 
 def _payload(*, occ_id: str, citekeys: list[str], formatted: str) -> str:
@@ -187,33 +201,37 @@ def test_ingest_happy_path_prose_insertion_and_comment_writes_valid_sidecars(
     assert page.read_text() == body
 
 
-# --- 1a. preflight 3a: uvx não disponível → fail-fast antes de sidecars ------
+# --- 1a. preflight 3a: adeu ausente → fail-fast antes de sidecars ----------
 
 
-def test_ingest_fails_fast_without_uvx(
+def test_ingest_falha_cedo_sem_adeu(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     init_project: InitProject,
     write_review_artifacts: WriteReviewArtifacts,
 ) -> None:
-    """Preflight 3a: `ingest()` checa uvx no PATH ANTES de carregar sidecars.
-    Sem uvx, levanta `AdeuUnavailableError` mencionando o comando de
-    instalação, e NÃO faz nenhuma leitura de sidecar (fail-fast: economia de
-    trabalho inútil se o backend não estiver disponível)."""
-    body = "Pagina de teste para preflight uvx."
+    """Preflight 3a: `ingest()` checa se o adeu está instalado ANTES de
+    carregar sidecars. Sem ele, levanta `AdeuUnavailableError` com o comando
+    de correção, e NÃO faz nenhuma leitura de sidecar (fail-fast: economia
+    de trabalho inútil se o backend não estiver disponível)."""
+    body = "Pagina de teste para preflight do adeu."
     project_root, page = init_project(body=body)
     write_review_artifacts(project_root, page, source_text=body, docx_sha256=_UNRELATED_DOCX_SHA256)
     docx = _write_docx(tmp_path / "revisado.docx", paragraphs=[])
 
-    # Monkeypatch shutil.which no módulo review para simular uvx ausente
-    monkeypatch.setattr("par.domains.write.review.shutil.which", lambda _: None)
+    monkeypatch.setattr(importlib.util, "find_spec", lambda *_a, **_k: None)
+
+    def _nao_le_sidecars(*_a: object, **_k: object) -> None:
+        raise AssertionError("ingest leu sidecars antes do preflight do adeu")
+
+    monkeypatch.setattr(review, "_read_sidecars", _nao_le_sidecars)
 
     with pytest.raises(AdeuUnavailableError) as exc:
         ingest(reviewed_docx=docx, page=page, project_root=project_root)
 
     message = str(exc.value)
-    assert "uvx" in message
-    assert "uvx adeu==1.29.0 --version" in message
+    assert "adeu" in message
+    assert "prumo --version" in message
 
 
 # --- 1b. preflight de estrutura: docx não-zip → ValueError pt-BR ------------
@@ -233,7 +251,7 @@ def test_ingest_non_zip_docx_raises_value_error_with_actionable_hint(
     docx.write_text("isto claramente nao e um arquivo zip/docx")
 
     # Preflight de estrutura roda ANTES de `_read_sidecars` (mesmo estilo
-    # fail-fast do preflight de uvx acima) — nenhum sidecar precisa existir
+    # fail-fast do preflight do adeu acima) — nenhum sidecar precisa existir
     # para este teste.
     with pytest.raises(ValueError) as exc:
         ingest(reviewed_docx=docx, page=page, project_root=project_root)

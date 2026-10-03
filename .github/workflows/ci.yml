@@ -29,6 +29,9 @@ jobs:
       - name: Install project + dev deps (pelo uv.lock — determinístico)
         run: uv sync --frozen --extra dev --python ${{ matrix.python-version }}
 
+      - name: Lockfile em dia
+        run: uv lock --check
+
       - name: Ruff lint
         run: uv run ruff check .
 
