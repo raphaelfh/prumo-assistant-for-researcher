@@ -1,37 +1,34 @@
 ---
-title: Trilha do pesquisador — PAR sem terminal
-tags: [onboarding, pesquisador, golden-path, desktop, cowork]
+title: Trilha do pesquisador — app Claude, aba Code
+tags: [onboarding, pesquisador, golden-path, desktop]
 ---
 
-# Trilha do pesquisador (Desktop/Cowork, sem terminal)
+# Trilha do pesquisador (app Claude, aba Code)
 
-Este guia é para quem quer usar o PAR sem instalar nada no terminal —
-só conversando com o Claude, no Claude Desktop ou no Cowork. Se você programa e
-prefere o Claude Code, veja a trilha dev no [README do projeto](../README.md);
-este documento e aquela seção se referenciam mutuamente.
+Este guia é para quem quer usar o PAR conversando com o Claude, no app Claude,
+na aba **Code**. Se você programa e prefere o Claude Code no terminal, veja a
+trilha dev no [README do projeto](../README.md); este documento e aquela seção
+se referenciam mutuamente.
 
-Duas coisas antes de começar:
-
-- Você precisa de um plano Claude pago (Pro ou Max) — plugins não funcionam no
-  plano gratuito.
-- As superfícies Desktop/Cowork estão em *research preview*: se uma tela não
-  bater exatamente com a descrição abaixo, o caminho geral (menu de plugins →
-  adicionar repositório) continua valendo.
+Antes de começar: você precisa de um plano Claude pago (Pro ou Max) — plugins
+não funcionam no plano gratuito.
 
 ## 1. Instalar o plugin, direto na conversa
 
-No menu de plugins do Claude Desktop ou do Cowork, procure **"Add from a
-repository"** e informe:
+1. Abra o app Claude → aba **Code**.
+2. Cole:
 
-```
-raphaelfh/prumo-assistant-for-researcher
-```
+   ```
+   /plugin install par --marketplace raphaelfh/prumo-assistant-for-researcher
+   ```
 
-(ou a URL completa do repositório, se preferir). O catálogo vai mostrar o nome
-do plugin (`PAR`), a versão publicada no momento — ela muda com as
-releases, não estranhe se for diferente do que alguém te contou — e as skills
-listadas no catálogo. Depois de instalado, as skills aparecem com o prefixo
-`/par:...`.
+   e escolha **Instalar para você**. (Se o comando não for aceito, use o
+   caminho pela interface: **+** → **Plugins** → **Add plugin**.)
+3. Abra uma sessão nova e peça `/par:start`.
+
+O catálogo mostra o nome do plugin (`PAR`) e a versão publicada no momento —
+ela muda com as releases, não estranhe se for diferente do que alguém te
+contou. Depois de instalado, as skills aparecem com o prefixo `/par:...`.
 
 ## 2. Seu primeiro resultado, em poucos minutos
 
@@ -48,9 +45,7 @@ todos os problemas plantados de propósito num draft de teste (claims sem
 evidência, superlativos, contradição com a própria fonte citada) (no spike da
 Fase 0, testado no Claude Code). Essa skill é declarada "julgamento puro": o
 próprio contrato dela (o preflight do ADR-0019) diz que roda em qualquer
-superfície Claude — porque Desktop, Cowork e Claude Code instalam a partir do
-mesmo `marketplace.json` do mesmo repositório, não sistemas diferentes. É esse
-o valor imediato: o Claude lê o que você colou e responde, antes de você
+superfície Claude. É esse o valor imediato: o Claude lê o que você colou e responde, antes de você
 instalar qualquer coisa.
 
 ## 3. Quando você quiser ir além
@@ -67,21 +62,12 @@ funcionou. Nenhum comando roda sem sua permissão. Os passos que ele oferece,
 nesta ordem:
 
 - **uv** (gerenciador de pacotes Python): `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- **CLI do prumo**: `uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher.git`
 - **Diagnóstico**: `prumo doctor` — confere se o Zotero está aberto e acessível
-- **qmd (opcional — busca semântica)**: `bun install -g @tobilu/qmd`
+- **qmd (opcional — busca semântica)**: `npm install -g @tobilu/qmd`
 - **Seu projeto**: `prumo init pj_<nome>`, na pasta que você indicar
 
-No Cowork, esses comandos rodam dentro da pasta do projeto que você conectar
-(a "pasta designada") — é ali que os arquivos são lidos e escritos. Numa
-conversa sem pasta conectada (chat simples, sem execução de comandos), o
-assistente não consegue rodar nada sozinho: ele vai te indicar este mesmo
-documento, e você vai precisar do Cowork (ou de alguém com Claude Code) para
-de fato instalar.
-
-> Os comandos desta trilha foram validados em macOS/Linux. No Windows, use o
-> WSL — ou os instaladores nativos de Windows documentados pelo uv e pelo bun
-> (não validados neste piloto).
+> Os comandos desta trilha foram validados em macOS/Linux. Windows (inclusive
+> WSL): ainda não suportado.
 
 ## 4. Conectar sua biblioteca
 
@@ -135,7 +121,7 @@ se o `.bib` do projeto ainda estiver no placeholder do scaffold.
 
 ## 5. O que é opcional (e o que não é)
 
-- **qmd** (busca semântica no seu wiki) é opcional — exige `bun` instalado.
+- **qmd** (busca semântica no seu wiki) é opcional — `npm install -g @tobilu/qmd` (ou bun); na aba Code o próprio Claude roda a busca.
   Sem ele, a busca continua funcionando por leitura direta dos arquivos, só
   que mais devagar. Pode pular sem culpa.
 - **Zotero** só é necessário para as skills de bibliografia (sincronizar
@@ -147,13 +133,12 @@ se o `.bib` do projeto ainda estiver no placeholder do scaffold.
 ### Busca no seu wiki
 
 O caminho normal é o mais simples: peça ao agente e ele lê os arquivos de
-`docs/` diretamente — é o mesmo mecanismo nativo do Cowork usado em
+`docs/` diretamente — é o mesmo mecanismo nativo do Claude usado em
 qualquer outra pasta, sem ferramenta extra nenhuma.
 
 O `qmd` (busca semântica indexada) é **opcional-avançado**: só compensa em
-wikis grandes, e exige `bun` + terminal — por isso não faz parte da trilha
-100% sem terminal deste guia (a seção anterior já trata `qmd` como
-opcional mesmo para quem tem o CLI).
+wikis grandes. O qmd é um CLI opcional (`npm install -g @tobilu/qmd`); na aba
+Code, o próprio Claude roda a busca.
 
 ### Conectores de literatura (PubMed, ensaios clínicos)
 
@@ -161,7 +146,7 @@ A Anthropic mantém um marketplace curado para pesquisa em ciências da
 vida, [`anthropics/life-sciences`](https://github.com/anthropics/life-sciences),
 instalável in-app (sem terminal):
 
-1. No Cowork: **Customize** → **Plugins** → **Personal plugins** → **"+"**.
+1. No app Claude: **Customize** → **Plugins** → **Personal plugins** → **"+"**.
 2. **Add marketplace** → **Browse Anthropic sources** → **Life Sciences**.
 
 Dois conectores desse marketplace valem destaque:
@@ -172,7 +157,7 @@ Dois conectores desse marketplace valem destaque:
 
 > A navegação exata (nomes de menu, número de cliques) segue documentação
 > pública da Anthropic sobre plugins — não foi re-testada dentro deste
-> piloto (mesmo tratamento do aviso de Windows/WSL acima).
+> piloto.
 
 ### Perguntar ao seu Zotero (opcional, ferramenta de terceiros)
 
@@ -209,8 +194,8 @@ o prumo usa é a nativa dele, com autocomplete lendo direto o
 
 Se você — ou um colega — prefere o terminal, o [README do
 projeto](../README.md) tem a trilha completa: instalação do plugin via Claude
-Code, instalação do CLI via `uv`, e a tabela de pré-requisitos externos
-(Zotero, qmd).
+Code (o CLI vem no plugin; `uv run prumo` e `claude --plugin-dir .` só para
+desenvolvimento) e a tabela de pré-requisitos externos (Zotero, qmd).
 
 ## Kit do piloto (para quem está conduzindo o teste, não para quem está testando)
 
@@ -236,4 +221,6 @@ experimentando. Ela documenta o que medir ao rodar o piloto com 1 colega real
   CLI) **encerrou fechada**: a instalação guiada da Fase 2 passou no piloto
   sem travar, então o trigger dela (colega travado *apesar* da instalação
   guiada) não disparou — YAGNI militante aplicado corretamente, não
-  adiamento (Princípio VI).
+  adiamento (Princípio VI). Depois, a F5 foi **reaberta e entregue na
+  0.71.0**: o CLI passou a vir dentro do plugin, rodado pelo lançador
+  `shims/prumo` (ADR-0038), sem instalação à parte.
