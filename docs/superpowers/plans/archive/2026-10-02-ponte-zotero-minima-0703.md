@@ -1,8 +1,11 @@
 ---
-status: approved
+status: implemented
+verified: 2026-10-02
+release: "pendente — 0.70.3 PATCH (corte separado, RELEASING.md)"
 spec: "[[2026-10-02-ponte-zotero-minima-design]]"
-release: "0.70.3 PATCH"
 ---
+
+> **Fechamento (2026-10-02).** Tasks 1–8 e 10 implementadas em TDD no branch `fix/ponte-zotero-0703` (PR B): ADR-0037 aceita; `core/deps` com `zotero_base`, `bbt_rpc_url`, `in_claude_sandbox`, `pandoc_path` e a linha `pandoc` do doctor (piso 3.8.2, Zettlr.app como alternativa); `zotero_live_docx.lua` com `uris` sempre array, `zotero.lua` e `zotero_bibliography_docx.lua` apagados, pandoc 3.8.2 no CI; export docx sem gate, com `BbtLookup` melhor-esforço de 2 s, `docx_link_warning` (E1–E4), `{redo}` e E7; nota E6 só no `export` e avisos via `on_warning`; ingest com E5; `reconcile` com o prefixo `mcp__plugin_par_prumo__`; documentação da 0.70.3 e entrada do CHANGELOG em `[Não publicado]`. A Task 9 (receita do 54yyyu no onboarding) saiu neste mesmo branch, no PR B (commit `0579fc9`), e não no PR A separado previsto em "Ordem, dependências e PRs". Desvio deliberado da Spec B §Componentes (`write/cli.py`, que manda emitir `"warnings": avisos` no payload): `warnings` só no payload `--json` (o modo texto já mostra cada aviso via `console.warn`; Princípio VIII). Verificação: suíte inteira com 1307 passed e nenhum SKIPPED (a baseline tinha 4 SKIPPED "pandoc ausente" em `test_export_crossref.py`; agora `pandoc_path()` acha o pandoc 3.10.1 do Zettlr.app); ruff, mypy, `gen_indexes --check`, `validate_manifests` e `sync_manifest_version --check` limpos; greps de regressão vazios, e a única leitura de `PRUMO_ZOTERO_BASE` fica em `core/deps.py::zotero_base`. Smoke dentro do sandbox (`SANDBOX_RUNTIME=1`) num `prumo init` novo: `write export --to docx` sai com exit 0, aviso E2 com `prumo write export … --to docx --force` e a nota E6; `_read_docx_citations` dá `unlinked == ['silva2020']`; `--json` traz `warnings`; `prumo doctor --json` mostra `pandoc 3.10.1 do Zettlr.app`. Pendente: G2 (CI do PR B: passo "Pandoc 3.8.2 (piso do export)" e nenhum SKIPPED "pandoc ausente" nas duas versões de Python), G1 (máquina do dono: Better BibTeX ≥ 9.0.65, os dois `curl` do `item.pandoc_filter` e o Word real, itens a–d), o rebase sobre `main` com os índices regerados (Task 10, Step 9) e o corte da 0.70.3 pelos 8 passos do `RELEASING.md`.
 
 # Ponte Zotero mínima — 0.70.3 (docx sem gate, `uris` sempre array, pandoc, sandbox) Implementation Plan
 

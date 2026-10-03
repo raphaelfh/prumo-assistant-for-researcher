@@ -7,6 +7,27 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Corrigido
+
+- **O Refresh do Zotero no Word não quebra mais no docx do PAR.** Todo docx exportado sem `zotero.library` no frontmatter (o caso padrão) e todo docx do perfil do Zettlr saíam com as citações sem `uris`, e o primeiro Refresh do plugin do Zotero no Word parava com TypeError. Agora cada citação leva `uris` (vazio quando não há vínculo), junto com os dados embutidos (ADR-0037).
+- **As citações do docx voltam a se vincular à sua biblioteca.** O export mandava `library=""` ao Better BibTeX, que recusa a consulta; o erro era engolido e o vínculo nunca saía. Sem `zotero.library`, a consulta vai para a My Library.
+- O export passa a respeitar `PRUMO_ZOTERO_BASE` (dívida da ADR-0007 quitada).
+- `prumo write review ingest` diz o que aconteceu quando o coautor usou os botões do Zotero (Refresh, Add/Edit Citation) no docx, em vez de acusar "occ_id duplicado" (Princípio VIII).
+- O modo `review reconcile` pré-aprova as ferramentas do PAR pelo nome que elas têm no plugin (`mcp__plugin_par_prumo__*`). Acabam os pedidos de permissão a cada chamada.
+
+### Alterado
+
+- **O export docx não exige mais o Zotero aberto.** Com o Zotero fechado, ou com uma citekey fora da biblioteca, o docx sai do mesmo jeito, formatado, e o PAR avisa quantas citekeys ficaram sem vínculo, por quê e o comando para refazer (Princípio VIII; ADR-0037).
+- A nota de primeiro uso do docx deixa de mandar dar Refresh (o docx já sai formatado) e avisa que, na rodada de revisão, o coautor não deve usar os botões do Zotero.
+- **Pandoc:** no macOS sem pandoc no PATH, o PAR usa o que vem dentro do Zettlr.app. O `prumo doctor` ganha a linha `pandoc` e acusa versão anterior a 3.8.2, o piso real do export (tabelas numeradas, ADR-0035).
+- Dentro do sandbox do Claude Code, o aviso do docx diz que o sandbox bloqueou o acesso ao Zotero e como repetir fora dele. O `--json` de `write export` e `write compose` ganha a chave `warnings` (aditiva).
+
+### Removido
+
+- Os filtros Lua do pipeline antigo (`zotero.lua` e `zotero_bibliography_docx.lua`, 2.195 linhas), sem uso desde o filtro atual (Princípio VI).
+
+Para atualizar: além do plugin, rode `uv tool upgrade prumo-assistant-for-researcher`. O filtro corrigido vem com o CLI, e o perfil do Zettlr pega a correção sem ser regerado.
+
 ## [0.70.2] - 2026-09-13
 
 ### Corrigido

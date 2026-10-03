@@ -81,10 +81,9 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 **Plans ativos:**
 
 - [[superpowers/plans/2026-10-02-plugin-distribuicao-unica]] · approved
-- [[superpowers/plans/2026-10-02-ponte-zotero-minima-0703]] · approved
 - [[superpowers/plans/2026-10-02-ponte-zotero-minima-0710]] · approved
 
-**Plans arquivados:** 42 em `superpowers/plans/archive/`
+**Plans arquivados:** 43 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->
