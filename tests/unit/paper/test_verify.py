@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import importlib.util
+import inspect
 import json
-import subprocess
 import urllib.error
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -13,7 +14,7 @@ from typing import Any, cast
 
 import pytest
 
-from par.core.bib import BibEntry, parse_bib
+from par.core.bib import BibEntry
 from par.domains.paper import verify
 
 
@@ -329,7 +330,10 @@ class TestCheckEntry:
     def test_sem_identificador_info(self, tmp_path: Path) -> None:
         findings = verify.check_entry(_entry("title = {Só título},"), cache=self._cache(tmp_path))
         assert [(f.kind, f.level) for f in findings] == [("no-identifier", "info")]
-        assert "--deep" in findings[0].message
+        message = findings[0].message
+        assert "--deep" not in message
+        assert "adicione o DOI no Zotero" in message
+        assert "prumo paper verify-refs" in message
 
     def test_rede_fora_vira_network_error(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -574,161 +578,36 @@ class TestHttpSeamContract:
             verify._http_get_json("https://api.example.test/x")
 
 
-_REPORT_FIXTURE: dict[str, Any] = {
-    "generated_at": "2026-07-24",
-    "summary": {"total_references_processed": 2, "total_errors_found": 2},
-    "papers": [],
-    "records": [
-        {
-            "error_type": "author",
-            "error_details": "Author count mismatch: 3 cited vs 37 correct:\n  cited: ...",
-            "original_reference": {
-                "bibtex_key": "guan2020clinical",
-                "doi": "10.1056/nejmoa2002032",
-            },
-        },
-        {
-            "error_type": "multiple",
-            "error_details": "Non-existent web page: https://doi.org/10.9999/fake",
-            "original_reference": {"bibtex_key": "fora_do_escopo2024", "doi": "10.9999/fake"},
-        },
-        {"sem_error_type": True},
-    ],
-}
+def test_verify_refs_report_deep_sempre_false(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Princípio IV: a chave "deep" do JSON fica, sempre False (D3 tirou a camada).
+    (tmp_path / "docs" / "references").mkdir(parents=True)
+    (tmp_path / "docs" / "references" / "_references.bib").write_text(_BIB_TEXT, encoding="utf-8")
+    monkeypatch.setattr(
+        "par.domains.paper.verify._http_get_json",
+        _fake_http(
+            {
+                "api.crossref.org/works?filter=updates": _UPDATES_EMPTY,
+                "api.crossref.org/works/": _WORKS_OK,
+            }
+        ),
+    )
+    report = verify.verify_refs(tmp_path, cache_path=tmp_path / "c.json")
+    assert report["deep"] is False
 
 
-class TestDeepLayer:
-    def test_bib_subset_reconstroi_entradas(self) -> None:
-        entries = [
-            BibEntry(entry_type="article", citekey="a1", body="\n  title = {T1},\n"),
-            BibEntry(entry_type="book", citekey="b2", body="\n  title = {T2},\n"),
-        ]
-        text = verify._bib_subset_text(entries)
-        assert "@article{a1," in text and "@book{b2," in text
-        assert len(parse_bib(text)) == 2  # roundtrip pelo parser do repo
+def test_verify_refs_sem_parametro_deep() -> None:
+    assert "deep" not in inspect.signature(verify.verify_refs).parameters
 
-    def test_findings_do_report_filtra_escopo_e_vira_warning(self) -> None:
-        findings = verify._findings_from_report(_REPORT_FIXTURE, {"guan2020clinical"})
-        assert len(findings) == 1
-        f = findings[0]
-        assert f.citekey == "guan2020clinical"
-        assert f.level == "warning" and f.source == "refchecker"
-        assert f.kind == "refchecker:author"
-        assert "Author count mismatch" in f.message
 
-    def test_run_refchecker_uvx_ausente(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
-            raise FileNotFoundError("uvx")
-
-        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
-        with pytest.raises(verify.RefcheckerUnavailableError, match="uvx"):
-            verify._run_refchecker("@article{a,}")
-
-    def test_run_refchecker_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
-            raise subprocess.TimeoutExpired(cmd="uvx", timeout=1)
-
-        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
-        with pytest.raises(verify.RefcheckerUnavailableError, match="excedeu"):
-            verify._run_refchecker("@article{a,}", timeout=1)
-
-    def test_run_refchecker_exit_zero_com_report(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-            report_path = Path(cmd[cmd.index("--report-file") + 1])
-            report_path.write_text(json.dumps(_REPORT_FIXTURE), encoding="utf-8")
-            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-
-        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
-        report = verify._run_refchecker("@article{a,}")
-        assert report["summary"]["total_errors_found"] == 2
-
-    def test_run_refchecker_sem_report_e_hostil(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")  # exit 0, sem report!
-
-        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
-        with pytest.raises(verify.RefcheckerUnavailableError, match="report"):
-            verify._run_refchecker("@article{a,}")
-
-        def fake_run_list(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-            report_path = Path(cmd[cmd.index("--report-file") + 1])
-            report_path.write_text("[1, 2]", encoding="utf-8")  # JSON válido mas não-dict
-            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-
-        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run_list)
-        with pytest.raises(verify.RefcheckerUnavailableError):
-            verify._run_refchecker("@article{a,}")
-
-    def test_verify_refs_deep_mescla_warnings(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        (tmp_path / "docs" / "references").mkdir(parents=True)
-        (tmp_path / "docs" / "references" / "_references.bib").write_text(
-            _BIB_TEXT, encoding="utf-8"
-        )
-        monkeypatch.setattr(
-            "par.domains.paper.verify._http_get_json",
-            _fake_http(
-                {
-                    "api.crossref.org/works?filter=updates": _UPDATES_EMPTY,
-                    "api.crossref.org/works/": _WORKS_OK,
-                }
-            ),
-        )
-
-        def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-            bib_path = Path(cmd[cmd.index("--paper") + 1])
-            assert "guan2020clinical" in bib_path.read_text(encoding="utf-8")  # subset em escopo
-            report_path = Path(cmd[cmd.index("--report-file") + 1])
-            report_path.write_text(json.dumps(_REPORT_FIXTURE), encoding="utf-8")
-            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-
-        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
-        report = verify.verify_refs(tmp_path, deep=True, cache_path=tmp_path / "c.json")
-        assert report["deep"] is True
-        deep_findings = [f for f in report["findings"] if f["source"] == "refchecker"]
-        assert [f["kind"] for f in deep_findings] == ["refchecker:author"]
-        assert report["summary"]["warnings"] == 1  # deep nunca vira error
-
-    def test_verify_refs_sem_deep_nao_roda_subprocess(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        (tmp_path / "docs" / "references").mkdir(parents=True)
-        (tmp_path / "docs" / "references" / "_references.bib").write_text(
-            _BIB_TEXT, encoding="utf-8"
-        )
-        monkeypatch.setattr(
-            "par.domains.paper.verify._http_get_json",
-            _fake_http(
-                {
-                    "api.crossref.org/works?filter=updates": _UPDATES_EMPTY,
-                    "api.crossref.org/works/": _WORKS_OK,
-                }
-            ),
-        )
-
-        def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
-            raise AssertionError("subprocess não deveria rodar sem --deep")
-
-        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
-        report = verify.verify_refs(tmp_path, cache_path=tmp_path / "c.json")
-        assert report["deep"] is False
-
-    def test_deep_com_escopo_so_duplicatas_nao_roda_subprocess(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        # emenda pós-review T3: escopo 100% duplicado não pode disparar
-        # subprocess real contra um .bib derivado vazio
-        (tmp_path / "docs" / "references").mkdir(parents=True)
-        (tmp_path / "docs" / "references" / "_references.bib").write_text(
-            "@article{dup2020,\n  title = {A},\n}\n@article{dup2020,\n  title = {B},\n}\n",
-            encoding="utf-8",
-        )
-
-        def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
-            raise AssertionError("subprocess não deveria rodar com escopo só de duplicatas")
-
-        monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
-        report = verify.verify_refs(tmp_path, deep=True, cache_path=tmp_path / "c.json")
-        assert report["deep"] is True
-        assert [f["kind"] for f in report["findings"]] == ["duplicate-citekey"]
+def test_modulo_sem_camada_profunda() -> None:
+    for name in (
+        "REFCHECKER_PIN",
+        "RefcheckerUnavailableError",
+        "_run_refchecker",
+        "_findings_from_report",
+        "_bib_subset_text",
+    ):
+        assert not hasattr(verify, name), name
+    assert importlib.util.find_spec("par.core.uvx") is None

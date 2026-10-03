@@ -218,9 +218,7 @@ def paper_verify_refs(pj_path: str, page: str | None = None) -> dict[str, Any]:
     (Crossref/PubMed) e título.
 
     ``page`` restringe às citekeys de uma página ``.md`` — recomendado, porque
-    o acervo inteiro é lento. A verificação profunda (``--deep``, que dispara
-    ``uvx``) fica fora desta tool de propósito: subprocess externo não é
-    fachada fina."""
+    o acervo inteiro é lento."""
     return _paper_call(
         paper_api.verify_refs,
         Path(pj_path).resolve(),

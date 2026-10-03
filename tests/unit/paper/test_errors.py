@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from par import PrumoError
-from par.domains.paper import connect, verify
+from par.domains.paper import connect
 from par.domains.paper.errors import PaperError
 
 _PAPER_LEAVES = (
@@ -14,7 +14,6 @@ _PAPER_LEAVES = (
     connect.AmbiguousCollectionError,
     connect.AlreadyConnectedError,
     connect.UnsupportedCollectionNameError,
-    verify.RefcheckerUnavailableError,
 )
 
 

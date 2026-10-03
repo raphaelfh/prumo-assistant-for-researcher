@@ -260,23 +260,31 @@ def test_verify_refs_repassa_flags(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         pj_path: Path,
         *,
         page: Path | None = None,
-        deep: bool = False,
         refresh: bool = False,
         cache_path: Path | None = None,
     ) -> dict[str, Any]:
-        captured.update(pj=pj_path, page=page, deep=deep, refresh=refresh)
-        return _fake_report(pj_path, scope=[], checked=0, deep=deep)
+        captured.update(pj=pj_path, page=page, refresh=refresh)
+        return _fake_report(pj_path, scope=[], checked=0)
 
     monkeypatch.setattr("par.domains.paper.verify.verify_refs", fake)
     pagina = tmp_path / "p.md"
     pagina.write_text("x", encoding="utf-8")
     result = runner.invoke(
         app,
-        ["paper", "verify-refs", str(tmp_path), "--page", str(pagina), "--deep", "--refresh"],
+        ["paper", "verify-refs", str(tmp_path), "--page", str(pagina), "--refresh"],
     )
     assert result.exit_code == 0, result.output
-    assert captured["deep"] is True and captured["refresh"] is True
+    assert captured["refresh"] is True
     assert captured["page"] == pagina.resolve()
+
+
+def test_verify_refs_sem_opcao_deep(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        raise AssertionError("verify_refs não deveria rodar com --deep")
+
+    monkeypatch.setattr("par.domains.paper.verify.verify_refs", fake)
+    result = runner.invoke(app, ["paper", "verify-refs", str(tmp_path), "--deep"])
+    assert result.exit_code == 2
 
 
 def test_verify_refs_bib_ausente_mensagem_limpa(
