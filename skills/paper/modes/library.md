@@ -1,7 +1,7 @@
 ---
 name: library
 description: "Gerencia o acervo bibliográfico do pj_* (docs/references/): sincroniza .bib do Zotero/BBT, atualiza grafo de citação passivo, marca paper principal, lista bibliografia, busca por palavra-chave, vê quem cita quem, audita consistência .bib↔notas."
-argument-hint: "[sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary <citekey> | list | graph <citekey> | sync-bib | find <query> | connect <coleção>]"
+argument-hint: "[sync | update-cites | set-primary <citekey> | list | graph <citekey> | sync-bib | find <query> | connect <coleção>]"
 allowed-tools: Read Write Edit Glob Grep Bash(prumo paper sync *) Bash(prumo paper sync-pdfs *) Bash(prumo paper graph *) Bash(prumo paper find *) Bash(prumo paper lint *) Bash(prumo paper set-primary *) Bash(prumo paper migrate-layout *) Bash(rg *)
 prumo:
   version: 1.0.0
@@ -9,12 +9,12 @@ prumo:
   agent_compat: [claude-code]
   cost_estimate: ~1-3k tokens
   inputs:
-    operation: required (sync | sync-annotations | sync-notes | sync-all | update-cites | set-primary | list | graph | sync-bib | find | connect)
+    operation: required (sync | update-cites | set-primary | list | graph | sync-bib | find | connect)
     args: optional (operation-specific)
   requires: [cli, zotero]
   phrases:
     - "sincroniza minha bibliografia"
-    - "importa minhas anotações do Zotero"
+    - "o que eu anotei no Zotero sobre este paper"
     - "encontra paper sobre Y"
     - "quem cita Z"
     - "marca o paper principal"
@@ -57,8 +57,8 @@ pj_*/docs/references/
 └── papers/<citekey>/            # 1 PASTA por paper (layout α)
     ├── _meta.md                 # YAML CSL-JSON + body humano
     ├── _extract.md              # callout estruturado (gerado pelo modo `paper extract`)
-    ├── _annotations.md          # highlights do Zotero (gerado pelo prumo paper sync-annotations)
-    └── note__<itemKey>__<slug>.md  # 1 child note Zotero por arquivo (gerado pelo prumo paper sync-notes)
+    ├── _annotations.md          # legado, não gerado
+    └── note__<itemKey>__<slug>.md  # legado, não gerado
 ```
 
 > [!info]
@@ -115,35 +115,20 @@ Passos:
 
 4. **Órfãs** (citekey em `papers/` mas ausente do `.bib`) **não são deletadas** automaticamente — é aviso para o usuário renomear no Zotero ou deletar a nota à mão.
 
-### 1b. `sync-annotations`
+### Anotações, notas e a biblioteca inteira do Zotero (fora do PAR)
 
-Importa highlights + comentários do PDF do Zotero pra `docs/references/papers/<key>/_annotations.md` (arquivo dedicado). Read-only Zotero → repo.
+O PAR trabalha com o `.bib` do projeto e com os PDFs de `docs/references/pdfs/`. Ficam fora dele: destaques, comentários e notas-filhas do Zotero, busca na biblioteca inteira e cadastro de itens.
 
-```bash
-prumo paper sync-annotations <pj_path_absoluto>
-```
-
-Requer **Zotero 9 aberto** + Better BibTeX instalado (API local em `http://localhost:23119`). Se o Zotero estiver fechado, o comando falha com mensagem clara (exit code 2).
-
-### 1c. `sync-notes`
-
-Projeta cada **child note** do Zotero (rascunhos de leitura: "ideias da intro", "crítica metodológica") num arquivo próprio `docs/references/papers/<key>/note__<itemKey>__<slug>.md`. Um arquivo por nota; identificador estável é o `itemKey` do Zotero.
-
-```bash
-prumo paper sync-notes <pj_path_absoluto>
-```
-
-Read-only Zotero → repo. Edição da nota acontece **no Zotero**; o repo é espelho navegável. Texto humano escrito **após** o bloco `<!-- END ZOTERO -->` é preservado entre syncs. Requer Zotero aberto (mesmo pré-requisito do `sync-annotations`).
-
-### 1d. `sync-all`
-
-Atalho ergonômico: roda `sync` + `sync-annotations` + `sync-notes` em sequência.
-
-```bash
-prumo paper sync-all <pj_path_absoluto>
-```
-
-`sync` roda offline (lê o `.bib`). As fases que precisam do Zotero são **puladas com aviso** se ele estiver fechado — o comando não falha por isso. Use este como o comando padrão pós-leitura.
+1. Se esta sessão tiver uma dessas ferramentas, use-a:
+   - Com a skill `zotero-cli`: do citekey ao item, `zotero-cli --json search --mode citekey <citekey>`; depois `zotero-cli --json annotations list --item-key <KEY>` ou `zotero-cli --json notes list --item-key <KEY>`.
+   - Com as tools `mcp__zotero__*`: use as equivalentes de busca por citekey, de anotações e de notas do item, só de leitura.
+   - Cada comando ou tool pede permissão; não tente evitar essa confirmação.
+2. Escrever no Zotero (adicionar por DOI, notas, tags, anotações) só quando o usuário pedir com as palavras dele.
+   - Se aparecer "Cannot perform write operations", repasse: é preciso o Zotero 10 e `zotero-mcp authorize-local`.
+   - Nunca sugira chave da Web API do Zotero.
+3. Sem essas ferramentas, diga em 1 linha: "Isso fica fora do PAR: o PAR não lê destaques nem notas do Zotero." Depois ofereça ler o PDF do projeto e aponte a seção "Perguntar ao seu Zotero" de https://github.com/raphaelfh/prumo-assistant-for-researcher/blob/main/docs/onboarding-pesquisador.md. Não instale nada.
+4. Para adicionar um paper: Zotero Connector no navegador, ou a varinha "Add Item by Identifier" no Zotero. O Better BibTeX atualiza o `.bib`; depois rode `prumo paper sync`.
+5. Os `_annotations.md` e `note__*.md` antigos continuam onde estão e podem ser lidos. Nenhum comando os atualiza; só o `prumo paper migrate-layout` ainda grava `_annotations.md`, ao separar o bloco de anotações de uma nota plana antiga.
 
 ### 2. `update-cites`
 
@@ -241,13 +226,14 @@ Passos:
    ```bash
    prumo paper sync
    ```
+   Se `exported` vier `false`, repasse a dica do comando (o BBT pode levar alguns segundos; BBT ≥ 9.0.65).
 
 Regras duras:
 
 - **NUNCA** criar ou editar `_references.bib` à mão para "ajudar" — o autoexport é responsabilidade exclusiva do Better BibTeX; a skill não simula esse trabalho.
 - **NUNCA acrescente `--create` por iniciativa própria**, e **nunca acrescente `--yes`** — em nenhuma circunstância, nem para "resolver" um typo, nem para desatolar um comando que falhou, nem quando a criação parecer obviamente o que o usuário queria. `--create` cria coleção no acervo real do pesquisador e **não tem desfazer pelo CLI** (o Better BibTeX não expõe remoção; limpar é manual na UI do Zotero). A decisão de criar é do humano, com o caminho na frente dos olhos — ver [ADR-0028](../../docs/adr/adr-0028-criacao-de-colecao-opt-in.md), que pelo mesmo motivo mantém a tool MCP `paper_connect` sem esse parâmetro.
 - Sem `--create`, typo no nome da coleção **nunca** cria nada no Zotero: o comando valida a existência da coleção antes de qualquer chamada que altere o Zotero, e falha citando sugestões parecidas em vez de criar uma coleção fantasma. Com `--create`, essa rede de proteção passa a ser o eco + a confirmação — mais um motivo para a flag só entrar quando o usuário pediu.
-- Se o `_references.bib` do projeto já tiver entradas reais, o comando recusa reconectar (evita duplicar o autoexport já configurado) — oriente o usuário a conferir Preferences → Better BibTeX → Automatic export no Zotero.
+- O comando recusa conectar quando o `.bib` já tem entradas, para não sobrescrevê-lo; se ele já vem do Better BibTeX, siga com `prumo paper sync`.
 
 ## Erros comuns
 
