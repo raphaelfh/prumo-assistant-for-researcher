@@ -547,3 +547,27 @@ def test_porta_com_modo_cli_libera_prumo_version() -> None:
         and not any(_bash_rule_matches(t, "prumo --version") for t in reg.get(n).allowed_tools)
     ]
     assert offenders == []
+
+
+_REPO = Path(__file__).resolve().parents[3]
+_RETIRED_ZOTERO_TERMS = ("sync-annotations", "sync-notes", "sync-all", "paper_sync_all")
+
+
+def test_nenhum_texto_do_plugin_cita_comando_zotero_aposentado() -> None:
+    hits: list[str] = []
+    for root in ("skills", "agents", "templates"):
+        for md in sorted((_REPO / root).rglob("*.md")):
+            text = md.read_text(encoding="utf-8")
+            hits += [f"{md.relative_to(_REPO)}: {t}" for t in _RETIRED_ZOTERO_TERMS if t in text]
+    assert hits == [], hits
+
+
+def test_library_roteia_anotacoes_para_fora_do_par() -> None:
+    text = (_REPO / "skills" / "paper" / "modes" / "library.md").read_text(encoding="utf-8")
+    assert "### Anotações, notas e a biblioteca inteira do Zotero (fora do PAR)" in text
+    assert "Isso fica fora do PAR: o PAR não lê destaques nem notas do Zotero." in text
+    reg, _ = load_skill_registry(_REPO / "skills", strict=True)
+    mode = reg.find_mode(SkillRef("paper", "library"))
+    assert mode is not None
+    assert "o que eu anotei no Zotero sobre este paper" in mode.phrases
+    assert "importa minhas anotações do Zotero" not in mode.phrases
