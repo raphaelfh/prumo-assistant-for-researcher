@@ -16,7 +16,7 @@ quando há mudança rastreada/comentário numa região que o transplante por
 âncora de texto (Task 6/7, sobre a prosa linear do adeu) não sabe
 localizar — tabela, nota de rodapé/fim, ou equação (oMath).
 Task 4 entrega o seam do backend de PROSA (:func:`_run_adeu_extract`, adeu
-1.29.0, travado no uv.lock — nunca versão flutuante) e o parser das
+1.29.0, pinado no pyproject — nunca versão flutuante) e o parser das
 marcas com autoria (:func:`parse_adeu_markdown`): pareia cada marca de
 conteúdo CriticMarkup com a anotação `[Chg:<id> insert|delete] <Autor>` que
 o adeu cola imediatamente depois, produzindo :class:`ReviewMark` com offsets
@@ -158,7 +158,7 @@ class CitationConservationError(WriteError):
 
 
 class AdeuUnavailableError(WriteError):
-    """Backend de prosa (adeu 1.29.0, travado no uv.lock) ausente, estourou o
+    """Backend de prosa (adeu 1.29.0, pinado no pyproject) ausente, estourou o
     tempo ou terminou com exit != 0 (Task 4)."""
 
 
@@ -712,7 +712,7 @@ def assert_no_structural_changes(docx_path: Path) -> None:
 #
 # Prosa (NUNCA citação — Fase 0, decisão (b); citação é sempre
 # `read_docx_citations_with_state` acima) vem do backend PINADO — adeu
-# 1.29.0, travado no uv.lock: o formato de saída — marcas CriticMarkup com a
+# 1.29.0, pinado no pyproject: o formato de saída — marcas CriticMarkup com a
 # anotação `[Chg:<id> insert|delete] <Autor>` colada IMEDIATAMENTE depois de
 # cada marca de conteúdo, validado no spike — é contrato implícito com o
 # parser abaixo. Pinado de propósito (nunca `adeu` sem versão, nunca `>=`):
@@ -726,20 +726,29 @@ _UNKNOWN_AUTHOR = "(desconhecido)"
 _ADEU_TIMEOUT = 120
 
 
-def _check_adeu_available() -> None:
-    """Preflight 3a: o backend de prosa (adeu 1.29.0, travado no uv.lock)
-    precisa estar instalado neste Python antes de começar.
+_PRUMO_GIT_URL = "git+https://github.com/raphaelfh/prumo-assistant-for-researcher.git"
 
-    Na perna 3.11 (dev/CI) o marker ``python_version >= '3.12'`` deixa o adeu
-    de fora — daí a checagem por ``find_spec`` em vez de confiar no lock.
+
+def _check_adeu_available() -> None:
+    """Preflight 3a: o backend de prosa (adeu 1.29.0, pinado no pyproject;
+    o uv.lock trava também as transitivas no caminho do plugin e do dev —
+    ``uv tool install`` resolve as transitivas de novo) precisa estar
+    instalado neste Python antes de começar.
+
+    Em Python 3.11 (perna dev/CI, ou ``uv tool install`` num 3.11) o marker
+    ``python_version >= '3.12'`` deixa o adeu de fora — daí a checagem por
+    ``find_spec`` em vez de confiar no lock. A mensagem cobre os três
+    caminhos: plugin (venv em ``~/.cache/prumo``), ``uv tool install`` e dev.
     """
     if importlib.util.find_spec("adeu") is None:
         raise AdeuUnavailableError(
-            "o backend de prosa (adeu) não está instalado neste ambiente Python. "
+            "o backend de prosa (adeu) não está instalado neste ambiente Python "
+            "(o adeu exige Python ≥ 3.12). "
             "Pelo plugin: abra uma sessão nova; se persistir, apague a pasta e "
             "prepare de novo: rm -rf ~/.cache/prumo && prumo --version. "
-            "Em desenvolvimento: uv sync --extra dev --python 3.12 "
-            "(o adeu exige Python ≥ 3.12)."
+            "Instalado com uv tool install: reinstale num Python 3.12: "
+            f"uv tool install --python 3.12 --reinstall {_PRUMO_GIT_URL}. "
+            "Em desenvolvimento: uv sync --extra dev --python 3.12."
         )
 
 
@@ -751,7 +760,7 @@ _CHG_ANNOTATION_RE = re.compile(r"\[Chg:(?P<chg_id>\d+) (?:insert|delete)\]\s+(?
 
 
 def _run_adeu_extract(docx_path: Path) -> str:
-    """Roda o adeu 1.29.0, travado no uv.lock, como
+    """Roda o adeu 1.29.0, pinado no pyproject, como
     ``sys.executable -I -m adeu.cli extract --json <docx> -o -`` e devolve o
     campo ``markdown`` do JSON de stdout — cru, sem parse de marcas (isso é
     :func:`parse_adeu_markdown`).
@@ -761,7 +770,7 @@ def _run_adeu_extract(docx_path: Path) -> str:
     Versão PINADA (``adeu==1.29.0``, nunca flutuante) pelo motivo descrito no
     comentário da seção acima. ``-I`` (implica ``-E -P -s``) isola o boot: um
     diretório ``adeu/`` no cwd ou um ``PYTHONPATH``/``PYTHONHOME`` exportado
-    não sequestram o adeu e as dependências travadas no lock.
+    não sequestram o adeu e as dependências instaladas neste ambiente.
 
     Timeout e exit != 0 (docx incompatível, etc.) viram
     :class:`AdeuUnavailableError`: o chamador (Task 8, ``ingest``) só
@@ -792,13 +801,14 @@ def _run_adeu_extract(docx_path: Path) -> str:
     except subprocess.TimeoutExpired as exc:
         raise AdeuUnavailableError(
             f"o adeu passou de {_ADEU_TIMEOUT} s lendo {docx_path}; repita: "
-            "prumo write review ingest …"
+            f"prumo write review ingest {docx_path} --page <página.md>"
         ) from exc
     if proc.returncode != 0:
         raise AdeuUnavailableError(
             f"o adeu terminou com exit {proc.returncode} lendo {docx_path}. "
             f"stderr:\n{proc.stderr.strip()[-2000:]}\n"
-            "confira se o arquivo abre no Word e repita o ingest."
+            "confira se o arquivo abre no Word e repita o ingest: "
+            f"prumo write review ingest {docx_path} --page <página.md>"
         )
 
     try:
