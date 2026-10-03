@@ -43,7 +43,7 @@ def test_doctor_json_includes_external_deps(tmp_path: Path) -> None:
         DepStatus(
             name="zotero",
             present=False,
-            required_by=["paper sync-annotations"],
+            required_by=["paper connect"],
             detail="down",
             hint="abra o Zotero",
         ),

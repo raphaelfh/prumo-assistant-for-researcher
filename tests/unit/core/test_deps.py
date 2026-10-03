@@ -14,23 +14,25 @@ import pytest
 from par.core import deps
 from par.core.deps import (
     DepStatus,
+    _BbtProbe,
     bbt_rpc_url,
     check_external_deps,
     in_claude_sandbox,
     pandoc_path,
     zotero_base,
-    zotero_local_api_up,
 )
 
-# A função real, guardada na coleta: a fixture `autouse` `_no_real_pandoc`
-# (`tests/unit/conftest.py`) troca `deps._pandoc_version` em todo teste.
+# As funções reais, guardadas na coleta: as fixtures `autouse` `_no_real_pandoc`
+# e `_no_real_bbt_probe` (`tests/unit/conftest.py`) trocam `deps._pandoc_version`
+# e `deps._bbt_probe` em todo teste.
 _REAL_PANDOC_VERSION = deps._pandoc_version
+_REAL_BBT_PROBE = deps._bbt_probe
 
 
 def test_qmd_present_when_on_path() -> None:
     with (
         patch("par.core.deps._binary_on_path", return_value="/usr/local/bin/qmd"),
-        patch("par.core.deps._zotero_api_root", return_value=None),
+        patch("par.core.deps._bbt_probe", return_value=_BbtProbe(None, None)),
     ):
         statuses = check_external_deps()
     qmd = _by_name(statuses, "qmd")
@@ -41,7 +43,7 @@ def test_qmd_present_when_on_path() -> None:
 def test_qmd_absent_includes_install_hint() -> None:
     with (
         patch("par.core.deps._binary_on_path", return_value=None),
-        patch("par.core.deps._zotero_api_root", return_value=None),
+        patch("par.core.deps._bbt_probe", return_value=_BbtProbe(None, None)),
     ):
         statuses = check_external_deps()
     qmd = _by_name(statuses, "qmd")
@@ -51,26 +53,28 @@ def test_qmd_absent_includes_install_hint() -> None:
     assert "github.com/tobi/qmd" not in qmd.hint
 
 
-def test_zotero_present_when_local_api_answers() -> None:
+def _zotero_line(probe: _BbtProbe) -> DepStatus:
     with (
         patch("par.core.deps._binary_on_path", return_value=None),
-        patch("par.core.deps._zotero_api_root", return_value=200),
+        patch("par.core.deps._bbt_probe", return_value=probe),
     ):
-        statuses = check_external_deps()
-    zot = _by_name(statuses, "zotero")
+        return _by_name(check_external_deps(), "zotero")
+
+
+def test_zotero_presente_com_bbt_respondendo() -> None:
+    zot = _zotero_line(_BbtProbe(200, "9.0.6"))
     assert zot.present is True
+    assert zot.version == "9.0.6"
+    assert "9.0.6" in zot.detail
 
 
-def test_zotero_absent_hint_mentions_port_and_bbt() -> None:
-    with (
-        patch("par.core.deps._binary_on_path", return_value=None),
-        patch("par.core.deps._zotero_api_root", return_value=None),
-    ):
-        statuses = check_external_deps()
-    zot = _by_name(statuses, "zotero")
+def test_zotero_fechado_e10() -> None:
+    zot = _zotero_line(_BbtProbe(None, None))
     assert zot.present is False
-    assert "23119" in zot.hint
+    assert "23119" in zot.detail
+    assert "nada escutando" in zot.detail
     assert "Better BibTeX" in zot.hint
+    assert "prumo doctor" in zot.hint
 
 
 def test_dep_status_is_serializable() -> None:
@@ -93,31 +97,22 @@ def test_zotero_check_honors_env_override(monkeypatch: pytest.MonkeyPatch) -> No
         seen.append(url)
         raise urllib.error.URLError(ConnectionRefusedError(61, "Connection refused"))
 
+    monkeypatch.setattr("par.core.deps._bbt_probe", _REAL_BBT_PROBE)
     monkeypatch.setattr("par.core.deps.urllib.request.urlopen", _spy)
     monkeypatch.setattr("par.core.deps._binary_on_path", lambda name: None)
     check_external_deps()
-    assert seen == ["http://example.test:1234/api/"]
+    assert seen == ["http://example.test:1234/better-bibtex/cayw?probe=true"]
 
 
 def test_zotero_supported_version_stays_present() -> None:
-    with (
-        patch("par.core.deps._binary_on_path", return_value=None),
-        patch("par.core.deps._zotero_api_root", return_value=200),
-        patch("par.core.deps._zotero_version_header", return_value="9.0.6"),
-    ):
-        zot = _by_name(check_external_deps(), "zotero")
+    zot = _zotero_line(_BbtProbe(200, "9.0.6"))
     assert zot.present is True
     assert zot.version == "9.0.6"
     assert "9.0.6" in zot.detail
 
 
 def test_zotero_below_floor_flags_unsupported() -> None:
-    with (
-        patch("par.core.deps._binary_on_path", return_value=None),
-        patch("par.core.deps._zotero_api_root", return_value=200),
-        patch("par.core.deps._zotero_version_header", return_value="8.0.2"),
-    ):
-        zot = _by_name(check_external_deps(), "zotero")
+    zot = _zotero_line(_BbtProbe(200, "8.0.2"))
     assert zot.present is False
     assert zot.version == "8.0.2"
     assert "Zotero 9+" in zot.detail
@@ -125,35 +120,19 @@ def test_zotero_below_floor_flags_unsupported() -> None:
 
 
 def test_zotero_undetectable_version_is_fail_safe() -> None:
-    with (
-        patch("par.core.deps._binary_on_path", return_value=None),
-        patch("par.core.deps._zotero_api_root", return_value=200),
-        patch("par.core.deps._zotero_version_header", return_value=None),
-    ):
-        zot = _by_name(check_external_deps(), "zotero")
+    zot = _zotero_line(_BbtProbe(200, None))
     assert zot.present is True
     assert zot.version is None
     assert "versão não detectada" in zot.detail
 
 
-def test_zotero_version_probe_skipped_when_api_did_not_respond() -> None:
-    def _explode(host: str, port: int, timeout: float = 2.0) -> str | None:
-        raise AssertionError("probe de versão não deveria rodar sem resposta da API")
-
-    with (
-        patch("par.core.deps._binary_on_path", return_value=None),
-        patch("par.core.deps._zotero_api_root", return_value=None),
-        patch("par.core.deps._zotero_version_header", new=_explode),
-    ):
-        zot = _by_name(check_external_deps(), "zotero")
-    assert zot.present is False
-    assert zot.version is None
-
-
-def test_non_http_service_on_the_port_is_not_a_live_local_api() -> None:
+def test_non_http_service_on_the_port_is_not_a_live_local_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def _bad_status(*args: object, **kwargs: object) -> object:
         raise http.client.BadStatusLine("lixo nao-http")
 
+    monkeypatch.setattr("par.core.deps._bbt_probe", _REAL_BBT_PROBE)
     with (
         patch("par.core.deps._binary_on_path", return_value=None),
         patch("par.core.deps.urllib.request.urlopen", _bad_status),
@@ -165,10 +144,9 @@ def test_non_http_service_on_the_port_is_not_a_live_local_api() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Sonda "API local de pé" — shapes REAIS (Zotero 9.0.6 + BBT):
-# GET /                → 404 (HTTPError, subclasse de URLError/OSError)
-# GET /connector/ping  → 200 + header X-Zotero-Version, com a API local LIGADA OU NÃO
-# GET /api/            → 200 com a API local ligada; 403 "Local API is not enabled" sem
+# Sonda única ao Better BibTeX (ADR-0037, B10) — shapes REAIS (Zotero 9.0.6):
+# GET /better-bibtex/cayw?probe=true → 200 com o BBT carregado; 404 sem BBT
+# (ou ainda iniciando). O header X-Zotero-Version vem até no 404.
 # ---------------------------------------------------------------------------
 
 
@@ -186,40 +164,64 @@ class _FakePingResponse:
         return None
 
 
-def _zotero_running_urlopen(url: str, timeout: float = 0.0) -> _FakePingResponse:
-    """Zotero 9.0.6 rodando: só ``/connector/ping`` responde 200; o resto é 404."""
-    if url.endswith("/connector/ping"):
-        return _FakePingResponse({"X-Zotero-Version": "9.0.6"})
-    raise urllib.error.HTTPError(url, 404, "Not Found", email.message.Message(), None)
+def _http_error(code: int, version: str | None) -> urllib.error.HTTPError:
+    headers = email.message.Message()
+    if version is not None:
+        headers["X-Zotero-Version"] = version
+    return urllib.error.HTTPError("http://x", code, "erro", headers, None)
 
 
-def test_zotero_local_api_up_false_when_connection_refused() -> None:
+def test_bbt_probe_nada_escutando() -> None:
     def _refused(*args: object, **kwargs: object) -> object:
         raise urllib.error.URLError(ConnectionRefusedError(61, "Connection refused"))
 
     with patch("par.core.deps.urllib.request.urlopen", _refused):
-        assert zotero_local_api_up() is False
+        assert _REAL_BBT_PROBE() == _BbtProbe(None, None)
 
 
-def test_zotero_local_api_up_false_on_timeout() -> None:
+def test_bbt_probe_timeout() -> None:
     def _timeout(*args: object, **kwargs: object) -> object:
         raise TimeoutError
 
     with patch("par.core.deps.urllib.request.urlopen", _timeout):
-        assert zotero_local_api_up() is False
+        assert _REAL_BBT_PROBE() == _BbtProbe(None, None)
 
 
-def test_zotero_local_api_up_honors_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_bbt_probe_le_versao_do_200() -> None:
+    def _ok(*args: object, **kwargs: object) -> _FakePingResponse:
+        return _FakePingResponse({"X-Zotero-Version": "9.0.6"}, status=200)
+
+    with patch("par.core.deps.urllib.request.urlopen", _ok):
+        assert _REAL_BBT_PROBE() == _BbtProbe(200, "9.0.6")
+
+
+def test_bbt_probe_le_versao_do_404() -> None:
+    def _not_found(*args: object, **kwargs: object) -> object:
+        raise _http_error(404, "9.0.6")
+
+    with patch("par.core.deps.urllib.request.urlopen", _not_found):
+        assert _REAL_BBT_PROBE() == _BbtProbe(404, "9.0.6")
+
+
+def test_bbt_probe_500_sem_header() -> None:
+    def _boom(*args: object, **kwargs: object) -> object:
+        raise _http_error(500, None)
+
+    with patch("par.core.deps.urllib.request.urlopen", _boom):
+        assert _REAL_BBT_PROBE() == _BbtProbe(500, None)
+
+
+def test_bbt_probe_url_e_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://example.test:1234")
-    seen: list[str] = []
+    seen: list[tuple[str, float]] = []
 
     def _spy(url: str, timeout: float = 0.0) -> _FakePingResponse:
-        seen.append(url)
-        return _FakePingResponse({"X-Zotero-Version": "9.0.6"})
+        seen.append((url, timeout))
+        return _FakePingResponse({})
 
     with patch("par.core.deps.urllib.request.urlopen", _spy):
-        assert zotero_local_api_up() is True
-    assert seen == ["http://example.test:1234/api/"]
+        _REAL_BBT_PROBE()
+    assert seen == [("http://example.test:1234/better-bibtex/cayw?probe=true", 2.0)]
 
 
 def _by_name(statuses: list[DepStatus], name: str) -> DepStatus:
@@ -230,50 +232,66 @@ def _by_name(statuses: list[DepStatus], name: str) -> DepStatus:
 
 
 # ---------------------------------------------------------------------------
-# API local desligada ≠ Zotero fechado (auditoria 2026-08-23, achado A4)
+# Linha `zotero` do doctor: estados E10–E14, sem o toggle da API local
 # ---------------------------------------------------------------------------
 
 
-def test_zotero_local_api_up_probes_the_api_root() -> None:
-    """`/api/` é o único endpoint que reprova quando a API local está desligada."""
-    seen: list[str] = []
-
-    def _spy(url: str, timeout: float = 0.0) -> _FakePingResponse:
-        seen.append(url)
-        return _FakePingResponse({})
-
-    with patch("par.core.deps.urllib.request.urlopen", _spy):
-        assert zotero_local_api_up() is True
-    assert seen == ["http://127.0.0.1:23119/api/"]
+def test_zotero_fechado_no_sandbox_e11(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SANDBOX_RUNTIME", "1")
+    zot = _zotero_line(_BbtProbe(None, None))
+    assert zot.present is False
+    assert "sandbox" in zot.detail
+    assert "sandbox.excludedCommands" in zot.hint
 
 
-def test_zotero_local_api_up_false_when_local_api_is_disabled() -> None:
-    """Zotero ABERTO com a API local desligada responde 403 em `/api/`.
-
-    Antes qualquer status HTTP contava como "de pé", então o guard passava e
-    os comandos de anotação tomavam 403 em série.
-    """
-
-    def _forbidden(url: str, timeout: float = 0.0) -> object:
-        raise urllib.error.HTTPError(
-            url, 403, "Local API is not enabled", email.message.Message(), None
-        )
-
-    with patch("par.core.deps.urllib.request.urlopen", _forbidden):
-        assert zotero_local_api_up() is False
+def test_zotero_sem_bbt_e12() -> None:
+    zot = _zotero_line(_BbtProbe(404, "9.0.6"))
+    assert zot.present is False
+    assert "HTTP 404" in zot.detail
+    assert "9.0.6" in zot.detail
+    assert ".xpi" in zot.hint
+    assert "ainda iniciando" in zot.hint
 
 
-def test_doctor_flags_zotero_absent_when_local_api_is_disabled() -> None:
-    def _forbidden(url: str, timeout: float = 0.0) -> object:
-        raise urllib.error.HTTPError(
-            url, 403, "Local API is not enabled", email.message.Message(), None
-        )
+def test_zotero_sem_bbt_sem_versao_e12() -> None:
+    zot = _zotero_line(_BbtProbe(404, None))
+    assert zot.present is False
+    assert zot.detail.startswith("Zotero aberto em")
 
-    with patch("par.core.deps.urllib.request.urlopen", _forbidden):
-        zotero = _by_name(check_external_deps(), "zotero")
 
-    assert zotero.present is False
-    assert "Allow other applications" in zotero.hint
+def test_zotero_http_inesperado_e13() -> None:
+    zot = _zotero_line(_BbtProbe(500, "9.0.6"))
+    assert zot.present is False
+    assert "HTTP 500" in zot.detail
+    assert zot.hint == "Reinicie o Zotero e rode: prumo doctor"
+
+
+def test_zotero_404_com_versao_antiga_e14_antes_de_e12() -> None:
+    zot = _zotero_line(_BbtProbe(404, "8.0.1"))
+    assert zot.present is False
+    assert "Zotero 9+" in zot.detail
+    assert "zotero.org/download" in zot.hint
+    assert ".xpi" not in zot.hint
+
+
+def test_zotero_required_by() -> None:
+    zot = _zotero_line(_BbtProbe(200, "9.0.6"))
+    assert zot.required_by == ["paper connect", "write export --to docx (vínculo com a biblioteca)"]
+
+
+@pytest.mark.parametrize(
+    "probe",
+    [
+        _BbtProbe(None, None),
+        _BbtProbe(404, None),
+        _BbtProbe(500, None),
+        _BbtProbe(200, "8.0.2"),
+        _BbtProbe(200, "9.0.6"),
+    ],
+)
+def test_zotero_hint_nunca_pede_o_toggle(probe: _BbtProbe) -> None:
+    zot = _zotero_line(probe)
+    assert "Allow other applications" not in zot.hint + zot.detail
 
 
 # ---------------------------------------------------------------------------
@@ -370,7 +388,7 @@ def _pandoc_line(monkeypatch: pytest.MonkeyPatch, version: str | None) -> DepSta
     monkeypatch.setattr("par.core.deps._pandoc_version", lambda path, timeout=5.0: version)
     with (
         patch("par.core.deps._binary_on_path", return_value="/opt/bin/pandoc"),
-        patch("par.core.deps._zotero_api_root", return_value=None),
+        patch("par.core.deps._bbt_probe", return_value=_BbtProbe(None, None)),
     ):
         return _by_name(check_external_deps(), "pandoc")
 
@@ -387,7 +405,7 @@ def test_pandoc_line_is_last(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("par.core.deps._pandoc_version", lambda path, timeout=5.0: "3.10.1")
     with (
         patch("par.core.deps._binary_on_path", return_value="/opt/bin/pandoc"),
-        patch("par.core.deps._zotero_api_root", return_value=None),
+        patch("par.core.deps._bbt_probe", return_value=_BbtProbe(None, None)),
     ):
         names = [s.name for s in check_external_deps()]
     assert names == ["qmd", "zotero", "pandoc"]
@@ -421,7 +439,7 @@ def test_pandoc_line_absent_hint(monkeypatch: pytest.MonkeyPatch) -> None:
     # `_ZETTLR_PANDOC` fica no caminho inexistente da fixture do conftest.
     with (
         patch("par.core.deps._binary_on_path", return_value=None),
-        patch("par.core.deps._zotero_api_root", return_value=None),
+        patch("par.core.deps._bbt_probe", return_value=_BbtProbe(None, None)),
     ):
         line = _by_name(check_external_deps(), "pandoc")
     assert line.present is False
@@ -437,7 +455,7 @@ def test_pandoc_line_names_zettlr(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     monkeypatch.setattr("par.core.deps._pandoc_version", lambda path, timeout=5.0: "3.10.1")
     with (
         patch("par.core.deps._binary_on_path", return_value=None),
-        patch("par.core.deps._zotero_api_root", return_value=None),
+        patch("par.core.deps._bbt_probe", return_value=_BbtProbe(None, None)),
     ):
         line = _by_name(check_external_deps(), "pandoc")
     assert line.present is True
