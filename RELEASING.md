@@ -4,7 +4,7 @@
 
 ## Regra-mãe
 
-A versão é a **interface pública** do plugin para quem consome (`marketplace update` + `/reload-plugins`). Bumpar significa "tem algo que o usuário precisa saber". Não bumpe quando a mudança é invisível para quem usa o plugin.
+A versão é a **interface pública** do plugin para quem consome (atualizar o plugin + abrir uma sessão nova). Bumpar significa "tem algo que o usuário precisa saber". Não bumpe quando a mudança é invisível para quem usa o plugin.
 
 ## Pré-1.0 — mapeamento vigente (ADR-0015)
 
@@ -82,22 +82,25 @@ Suposição: você está num branch de trabalho ou direto no `main`, com mudanç
    - Mova as entradas de `## [Não publicado]` para `## [X.Y.Z] - AAAA-MM-DD`.
    - Recrie `## [Não publicado]` vazia no topo.
    - Atualize as referências de link no rodapé do arquivo.
+   - Se o release muda `uv.lock` ou `shims/prumo`, o CHANGELOG avisa que a 1ª chamada desta versão prepara o ambiente de novo (internet, cerca de 60 MB, uma vez).
 3. **Bump em `src/par/_version.py`** (fonte única) e propague pros manifests:
    ```bash
    # edite _version.py manualmente, depois:
-   python .github/scripts/sync_manifest_version.py
+   uv run python .github/scripts/sync_manifest_version.py
+   uv run python .github/scripts/gen_indexes.py   # carimba a versão no bloco runtime das portas, do start e do reader
    ```
    Isso escreve a versão em `.claude-plugin/plugin.json` e `marketplace.json`. Ambos **devem ficar iguais** — o CI valida coerência cruzada (`validate_manifests.py`).
 4. **Valide local:**
    ```bash
    python .github/scripts/validate_manifests.py
    python .github/scripts/sync_manifest_version.py --check
+   uv run python .github/scripts/gen_indexes.py --check
    ```
 5. **Atualize também `CITATION.cff`** (campo `version`) no mesmo commit.
 6. **Commit via branch de release + PR** (fluxo adotado desde a v0.61.0):
    ```bash
    git checkout -b release/vX.Y.Z
-   git add CHANGELOG.md CITATION.cff src/par/_version.py .claude-plugin/plugin.json .claude-plugin/marketplace.json
+   git add CHANGELOG.md CITATION.cff src/par/_version.py .claude-plugin/plugin.json .claude-plugin/marketplace.json skills agents
    git commit -m "release: X.Y.Z - resumo curto"
    git push -u origin release/vX.Y.Z
    gh pr create --title "release: vX.Y.Z" --fill
@@ -111,22 +114,13 @@ Suposição: você está num branch de trabalho ou direto no `main`, com mudanç
    # ou:
    gh release create vX.Y.Z --notes "$(awk '/^## \[X.Y.Z\]/,/^## \[/' CHANGELOG.md | head -n -1)"
    ```
-8. **Comunique aos consumidores** (se aplicável) que devem rodar:
-   ```
-   /plugin marketplace update prumo-assistant-for-researcher
-   /reload-plugins
-   ```
+8. **Comunique aos consumidores** (se aplicável): atualize o plugin (automático nos projetos com o `settings.json` do template; senão, no app: + → Plugins → Gerenciar plugins; no terminal: `/plugin marketplace update prumo-assistant-for-researcher`) e abra uma sessão nova.
 
 ## Como consumidores aplicam novas versões
 
-Em qualquer Claude Code que já tem o plugin instalado:
+Atualize o plugin (automático nos projetos com o `settings.json` do template; senão, no app: + → Plugins → Gerenciar plugins; no terminal: `/plugin marketplace update prumo-assistant-for-researcher`) e abra uma sessão nova.
 
-```
-/plugin marketplace update prumo-assistant-for-researcher
-/reload-plugins
-```
-
-`/plugin marketplace update` puxa o último commit do branch padrão do remoto. `/reload-plugins` recarrega skills/agents na sessão ativa sem reiniciar o CLI.
+`/plugin marketplace update` puxa o último commit do branch padrão do remoto. A sessão nova carrega as skills, os agents e o servidor MCP da versão nova; o lançador `shims/prumo` passa a rodar o CLI dessa mesma raiz.
 
 ## Exemplo aplicado (release real)
 
