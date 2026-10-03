@@ -344,7 +344,7 @@ def _wizard(console: Console, default_target: str | None = None) -> WizardAnswer
             if 0 <= _idx < len(_modules):
                 selected_modules.append(_modules[_idx].name)
 
-    # 4. git init (apenas se MODE_NEW)
+    # 3. git init (apenas se MODE_NEW)
     init_git = False
     if mode == MODE_NEW:
         init_git = typer.confirm("Inicializar repositório git?", default=True)
