@@ -6,7 +6,6 @@ from pathlib import Path
 
 from par.core.skill_refs import (
     RefChange,
-    legacy_installed_dirs,
     migrate_skill_names,
     move_plugin_copies,
     plugin_copies,
@@ -88,17 +87,6 @@ def test_migrate_escreve_e_zera_o_scan(tmp_path: Path) -> None:
     assert scan_skill_refs(pj, LEGACY) == []
     extract = pj / "docs" / "references" / "papers" / "k" / "_extract.md"
     assert "paper-extract" in extract.read_text(encoding="utf-8")
-
-
-def test_legacy_installed_dirs(tmp_path: Path) -> None:
-    pj = tmp_path / "pj"
-    (pj / ".claude" / "skills" / "wiki-query").mkdir(parents=True)
-    (pj / ".claude" / "skills" / "wiki").mkdir(parents=True)
-    assert legacy_installed_dirs(pj, LEGACY) == [".claude/skills/wiki-query"]
-
-
-def test_legacy_installed_dirs_sem_diretorio(tmp_path: Path) -> None:
-    assert legacy_installed_dirs(tmp_path, LEGACY) == []
 
 
 SKILL_NAMES = {"paper", "wiki-query", "wiki"}

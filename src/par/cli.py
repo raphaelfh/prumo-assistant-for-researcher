@@ -23,7 +23,9 @@ from __future__ import annotations
 import re
 import shutil
 import sys
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -63,8 +65,10 @@ from par.core.scaffold import (
 )
 from par.core.scaffold import overlay as _overlay
 from par.core.skill_refs import (
-    legacy_installed_dirs,
+    RefChange,
     migrate_skill_names,
+    move_plugin_copies,
+    plugin_copies,
     scan_skill_refs,
 )
 from par.core.skills import SkillRef, SkillRegistry, load_skill_registry
@@ -169,6 +173,39 @@ def _legacy_skill_map() -> dict[str, SkillRef]:
     """Nomes de skill antigos → modo novo, lidos do bundle (vazio sem bundle)."""
     registry = _skill_registry()
     return registry.legacy_map() if registry else {}
+
+
+def _plugin_skill_names() -> set[str]:
+    """Nomes de skill do PAR, atuais e antigos (vazio sem bundle) — A11."""
+    registry = _skill_registry()
+    if registry is None:
+        return set()
+    return set(registry.names()) | set(registry.legacy_map())
+
+
+def _plugin_agent_files() -> set[str]:
+    """Arquivos ``agents/*.md`` do plugin (vazio sem o diretório) — A11."""
+    agents_dir = find_resource("agents")
+    if agents_dir is None:
+        return set()
+    return {p.name for p in agents_dir.glob("*.md") if p.is_file()}
+
+
+def _plugin_copies(pj_root: Path) -> list[str]:
+    """Cópias do PAR deixadas em ``.claude/`` do pj por um ``prumo init`` antigo."""
+    return plugin_copies(pj_root, _plugin_skill_names(), _plugin_agent_files())
+
+
+def _legacy_stamp() -> str:
+    """Carimbo do diretório de backup das cópias (seam de teste)."""
+    return datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def _outside(changes: list[RefChange], rels: Sequence[str]) -> list[RefChange]:
+    """Tira as ``RefChange`` dentro de uma cópia do PAR: a cópia vai ser movida, não reescrita."""
+    return [
+        c for c in changes if not any(c.path == rel or c.path.startswith(rel + "/") for rel in rels)
+    ]
 
 
 def _validate_project_name(raw: str) -> tuple[Path, str]:
@@ -580,25 +617,32 @@ def doctor_command(
     # MESMO remédio, e remédio igual é mensagem única (Princípio VIII).
     issues.extend(standard_issues(target, _resolve_template_dir()))
 
-    # Superfície por domínio (ADR-0032): invocação antiga no projeto ou skill
-    # antiga instalada. Remédio único → issue única (Princípio VIII).
-    legacy = _legacy_skill_map()
-    antigos = [c.path for c in scan_skill_refs(target, legacy)]
-    instalados = legacy_installed_dirs(target, legacy)
-    if antigos or instalados:
-        partes: list[str] = []
-        if antigos:
-            partes.append(f"invocações antigas em {', '.join(antigos)}")
-        if instalados:
-            partes.append(
-                f"skills antigas instaladas em {', '.join(instalados)} — apague-as depois de "
-                "conferir que não há customização"
+    # Superfície por domínio (ADR-0032, A11): cópias antigas do PAR em .claude/
+    # e invocações antigas no projeto. Remédio único → issue única (Princípio VIII).
+    # A invocação DENTRO de uma cópia não conta: a cópia vai ser movida, não reescrita.
+    copias = _plugin_copies(target)
+    antigos = [c.path for c in _outside(scan_skill_refs(target, _legacy_skill_map()), copias)]
+    if copias:
+        issues.append(
+            "[skill_obsoleta] cópias antigas das skills/agents do PAR em .claude/ ("
+            + ", ".join(copias)
+            + ") sombreiam o plugin. Rode: prumo update — elas vão para "
+            ".prumo/legacy-copies/<AAAAMMDD-HHMMSS>/, nada é apagado; se você customizou "
+            "alguma, recrie-a em .claude/skills/<um-nome-seu>/"
+            + (
+                "; invocações antigas em "
+                + ", ".join(antigos)
+                + ", que o mesmo `prumo update` reescreve."
+                if antigos
+                else "."
             )
+        )
+    elif antigos:
         issues.append(
             "[skill_obsoleta] o PAR agora tem 5 skills com modos "
             "(paper, wiki, protocol, write, review): "
-            + "; ".join(partes)
-            + ". Rode `prumo update` para reescrever as invocações."
+            f"invocações antigas em {', '.join(antigos)}"
+            ". Rode `prumo update` para reescrever as invocações."
         )
 
     if (target / "references").is_dir() and not pj_layout.is_legacy_layout(target):
@@ -621,8 +665,6 @@ def doctor_command(
     # Staleness das checklists clínicas (Princípio II: validade sem LLM).
     skills_dir = _resolve_skills_dir()
     if skills_dir is not None:
-        from datetime import UTC, datetime
-
         from par.core.skills import stale_guideline_warnings
 
         registry, _warns = load_skill_registry(skills_dir, strict=False)
@@ -715,10 +757,18 @@ def update_command(
         copied: list[str] = []
         updated: list[str] = []
         migrated: str | None = None
+        backup: str | None = None
         legacy = _legacy_skill_map()
+        # A11: as cópias do PAR saem de .claude/ SEMPRE (sem depender de --yes nem
+        # de TTY) e ANTES da reescrita, para o backup guardar a cópia como estava.
+        copias = _plugin_copies(pj_root)
         if dry_run:
-            skill_refs = scan_skill_refs(pj_root, legacy)
+            skill_refs = _outside(scan_skill_refs(pj_root, legacy), copias)
         else:
+            if copias:
+                dest = pj_root / ".prumo" / "legacy-copies" / _legacy_stamp()
+                move_plugin_copies(pj_root, copias, dest)
+                backup = dest.relative_to(pj_root).as_posix()
             migrated = migrate_project_context(pj_root)
             skill_refs = migrate_skill_names(pj_root, legacy)
             copied = apply_template_update(pj_root, template, drift.missing)
@@ -733,6 +783,8 @@ def update_command(
                 dry_run=dry_run,
                 migrated=migrated,
                 skill_refs=len(skill_refs),
+                copies=len(copias),
+                backup=backup,
             ),
             {
                 "project": str(pj_root),
@@ -743,6 +795,8 @@ def update_command(
                 "updated": updated,
                 "migrated": migrated,
                 "skill_refs": [asdict(c) for c in skill_refs],
+                "plugin_copies": copias,
+                "legacy_backup": backup,
             },
         )
 
@@ -780,7 +834,22 @@ def _update_summary(
     dry_run: bool,
     migrated: str | None = None,
     skill_refs: int = 0,
+    copies: int = 0,
+    backup: str | None = None,
 ) -> str:
+    if not copies:
+        copias = ""
+    elif dry_run:
+        copias = (
+            f"{copies} cópia(s) antiga(s) do PAR a mover de .claude/ para "
+            ".prumo/legacy-copies/ (nada é apagado). "
+        )
+    else:
+        copias = (
+            f"{copies} cópia(s) antiga(s) do PAR saíram de .claude/ para {backup}/ "
+            "(nada foi apagado; o plugin passa a valer). Se você tinha customizado alguma, "
+            "recrie-a com outro nome em .claude/skills/<um-nome-seu>/. "
+        )
     refs = (
         f"{skill_refs} arquivo(s) com invocação de skill antiga "
         + ("a reescrever. " if dry_run else "reescrito(s). ")
@@ -788,22 +857,27 @@ def _update_summary(
         else ""
     )
     if dry_run:
-        if drift.clean and not skill_refs:
+        if drift.clean and not skill_refs and not copies:
             return "Projeto já está no padrão; nada a atualizar."
         template = (
             ""
             if drift.clean
             else f"{len(drift.missing)} arquivo(s) a copiar e {len(drift.diverged)} divergente(s). "
         )
-        return refs + template + "Rode sem --dry-run para aplicar."
+        return copias + refs + template + "Rode sem --dry-run para aplicar."
     aviso = (
         f"{migrated} saiu do projeto — o conteúdo preenchido foi para docs/project_guide.md. "
         if migrated
         else ""
     )
-    if not copied and not updated and not skill_refs:
+    if not copied and not updated and not skill_refs and not copies:
         return aviso + "Projeto já está no padrão; nada a atualizar."
-    return aviso + refs + f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
+    return (
+        copias
+        + aviso
+        + refs
+        + f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
+    )
 
 
 # ---------------------------------------------------------------------------

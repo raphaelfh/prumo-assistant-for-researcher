@@ -18,7 +18,6 @@ from par.core.skills import SkillRef
 
 __all__ = [
     "RefChange",
-    "legacy_installed_dirs",
     "migrate_skill_names",
     "move_plugin_copies",
     "plugin_copies",
@@ -94,22 +93,6 @@ def scan_skill_refs(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[RefCh
 def migrate_skill_names(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[RefChange]:
     """Reescreve as invocações antigas do projeto. Idempotente."""
     return _walk(pj_root, legacy, write=True)
-
-
-def legacy_installed_dirs(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[str]:
-    """``.claude/skills/<antigo>/`` que sobraram de um ``prumo init`` anterior.
-
-    Não são apagados: podem ter sido customizados (a skill de estilo sugeria
-    copiar-se para lá). O ``doctor`` aponta; a pessoa decide.
-    """
-    root = pj_root / ".claude" / "skills"
-    if not root.is_dir():
-        return []
-    return [
-        f".claude/skills/{d.name}"
-        for d in sorted(root.iterdir())
-        if d.is_dir() and d.name in legacy
-    ]
 
 
 def plugin_copies(
