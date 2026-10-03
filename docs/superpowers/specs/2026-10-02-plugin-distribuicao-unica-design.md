@@ -1,7 +1,7 @@
 ---
 title: O plugin é a única distribuição do PAR — CLI travado no uv.lock por launcher
 date: 2026-10-02
-status: draft
+status: approved
 tags: [distribuicao, plugin, launcher, uv, mcp, hooks, preflight, superficies, release]
 ---
 

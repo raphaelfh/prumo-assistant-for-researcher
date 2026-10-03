@@ -1,7 +1,7 @@
 ---
 title: Ponte Zotero mínima — anotações e notas saem do PAR; BBT só no connect e no lookup do docx; MCP de Zotero de terceiro como complemento opcional
 date: 2026-10-02
-status: draft
+status: approved
 tags: [zotero, better-bibtex, docx, word, pandoc, doctor, mcp, aposentadoria, adr-0037]
 ---
 
