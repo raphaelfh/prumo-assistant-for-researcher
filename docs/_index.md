@@ -12,7 +12,6 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 | Pergunta | Documento |
 |---|---|
 | Sou pesquisador sem terminal — como começo no Desktop/Cowork? | [[onboarding-pesquisador\|Trilha do pesquisador]] |
-| Tenho um gatilho concreto, qual comando usar? | [[actions-by-context\|Contextos → ações]] |
 | Como devo estruturar um novo `pj_*`? | [[Research Project Structure\|Estrutura de Projeto de Pesquisa]] |
 | Quais são os princípios não-negociáveis do projeto? | [[constitution\|Constitution]] |
 | Por que essa decisão estrutural foi tomada? | [[adr/_index\|Índice de ADRs]] |
@@ -22,7 +21,6 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 ## Como o vault está organizado
 
 - `Research Project Structure.md` — modelo "núcleo mínimo + módulos opcionais" pros `pj_*`.
-- `actions-by-context.md` — playbook de bolso por gatilho.
 - `constitution.md` — rule do projeto (princípios, restrições, governança).
 - `superpowers/specs/` — specs vivas de design (não-perecíveis; `status: approved | superseded`).
 - `superpowers/plans/` — planos ativos; implementados movem pra `plans/archive/` com `status/verified/release`.
@@ -41,7 +39,6 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 **Guias:**
 
 - [[Research Project Structure]] · Estrutura de Projeto de Pesquisa
-- [[actions-by-context]] · Contextos de necessidade → ações no PAR
 - [[constitution]] · PAR Constitution
 - [[onboarding-pesquisador]] · Trilha do pesquisador — PAR sem terminal
 - [[positioning]] · Posicionamento e claims do PAR
