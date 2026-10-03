@@ -10,8 +10,10 @@ o XML cru. Helper local (não importa de `test_export_docx_validation.py`).
 from __future__ import annotations
 
 import html
+import json
 import zipfile
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -534,3 +536,110 @@ def test_check_conservation_divergent_citekeys_raises(tmp_path: Path) -> None:
     error_msg = str(exc.value)
     assert "aaa2020" in error_msg
     assert "bbb2021" in error_msg
+
+
+# --- campo reescrito pelo Zotero no Word (E5, ADR-0037) ---------------------
+#
+# O Refresh e o Add/Edit Citation do plugin do Zotero reescrevem o campo com
+# `Citation.toJSON`, que guarda só uma lista fechada de chaves: somem
+# `prumoOcc`, `prumoFingerprint` e `zoteroItemID`, e o `id` de cada item troca
+# de citekey para o itemID numérico (vinculado) ou para `<sessão>/<rand>`
+# (embutido); só `itemData.id` guarda a citekey. O leitor real devolve
+# `occ_id` vazio para esse campo.
+
+
+def _zotero_rewritten_payload(
+    citekeys: list[str], formatted: str, *, linked_id: int | None = None
+) -> str:
+    """JSON que o Zotero grava no campo depois do Refresh (Spec B §Contexto,
+    "O Refresh também apaga as marcas do PAR"): sem `prumoOcc`, sem
+    `prumoFingerprint`, sem `zoteroItemID`, `citationID` aleatório. Com
+    ``linked_id``, o 1º item sai com o itemID numérico (inteiro) do item
+    vinculado no lugar do `<sessão>/<rand>`."""
+    items: list[dict[str, Any]] = []
+    for i, citekey in enumerate(citekeys):
+        item: dict[str, Any] = {
+            "id": f"SESS/RND{i}",
+            "itemData": {"id": citekey, "type": "article-journal", "title": "T"},
+        }
+        if i == 0 and linked_id is not None:
+            item["id"] = linked_id
+            item["uris"] = [f"http://zotero.org/users/local/k/items/ITEM{linked_id}"]
+        items.append(item)
+    return json.dumps(
+        {
+            "citationID": "q7Xk2LpA",
+            "properties": {"formattedCitation": formatted, "plainCitation": formatted},
+            "citationItems": items,
+            "schema": "https://github.com/citation-style-language/schema/raw/master/csl-citation.json",
+        }
+    )
+
+
+def test_check_conservation_all_rewritten_by_zotero(tmp_path: Path) -> None:
+    """Todos os campos reescritos: E5, e não o "occ_id duplicado … paste-clone"
+    que o agrupamento por `occ_id` (vazio nos dois) dispararia. O `id`
+    inteiro do item vinculado prova que a guarda vem antes de qualquer
+    checagem que use `citekeys`."""
+    docx = _write_docx_with_fields(
+        tmp_path / "refresh_todos.docx",
+        [
+            _field_xml(_zotero_rewritten_payload(["aaa2020"], "(Aaa, 2020)", linked_id=42)),
+            _field_xml(_zotero_rewritten_payload(["bbb2021"], "(Bbb, 2021)")),
+        ],
+    )
+    observed = read_docx_citations_with_state(docx)
+    assert [c.occ_id for c in observed] == ["", ""]
+    citemap = _citemap(
+        [
+            _occ(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)"),
+            _occ(occ_id="00000002", citekeys=["bbb2021"], formatted="(Bbb, 2021)"),
+        ]
+    )
+
+    with pytest.raises(CitationConservationError) as exc:
+        check_conservation(observed, citemap)
+    assert "2 campo(s)" in str(exc.value)
+    assert "occ_id duplicado" not in str(exc.value)
+
+
+def test_check_conservation_one_rewritten_among_many(tmp_path: Path) -> None:
+    """Um único campo reescrito (um Add/Edit Citation) entre campos intactos
+    já dá E5, e não o "ausente/hard delete" do occ que ele perdeu."""
+    payload_ok = _payload(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")
+    docx = _write_docx_with_fields(
+        tmp_path / "refresh_um.docx",
+        [
+            _field_xml(payload_ok),
+            _field_xml(_zotero_rewritten_payload(["bbb2021"], "(Bbb, 2021)")),
+        ],
+    )
+    observed = read_docx_citations_with_state(docx)
+    citemap = _citemap(
+        [
+            _occ(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)"),
+            _occ(occ_id="00000002", citekeys=["bbb2021"], formatted="(Bbb, 2021)"),
+        ]
+    )
+
+    with pytest.raises(CitationConservationError) as exc:
+        check_conservation(observed, citemap)
+    assert "1 campo(s)" in str(exc.value)
+
+
+def test_check_conservation_rewritten_message_names_buttons_and_command(tmp_path: Path) -> None:
+    """A mensagem nomeia os dois botões do Zotero e traz o comando de
+    re-export com a página do citemap."""
+    docx = _write_docx_with_fields(
+        tmp_path / "refresh_msg.docx",
+        [_field_xml(_zotero_rewritten_payload(["aaa2020"], "(Aaa, 2020)", linked_id=7))],
+    )
+    observed = read_docx_citations_with_state(docx)
+    citemap = _citemap([_occ(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")])
+
+    with pytest.raises(CitationConservationError) as exc:
+        check_conservation(observed, citemap)
+    message = str(exc.value)
+    assert "Refresh" in message
+    assert "Add/Edit Citation" in message
+    assert "prumo write export docs/page.md --to docx --force" in message
