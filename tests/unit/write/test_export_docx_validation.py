@@ -25,6 +25,7 @@ from par.core.markdown import SpanFragment, normalize_markdown_with_map, split_f
 from par.core.pj_layout import PjRootNotFoundError
 from par.domains.write.errors import WriteError
 from par.domains.write.export import (
+    BbtLookup,
     CorruptDocxError,
     MissingFieldLockError,
     MissingZoteroPrefsError,
@@ -199,9 +200,10 @@ def _patch_export_seams(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None
     csl = tmp_path / "apa.csl"
     csl.write_text("<style/>")
     monkeypatch.setattr(export_mod, "_check_pandoc", lambda: "pandoc")
-    monkeypatch.setattr(export_mod, "_check_bbt_running", lambda timeout=2.0: None)
     monkeypatch.setattr(export_mod, "resolve_csl", lambda style: csl)
-    monkeypatch.setattr(export_mod, "fetch_bbt_zotero_metadata", lambda keys, lib: {})
+    monkeypatch.setattr(
+        export_mod, "fetch_bbt_zotero_metadata", lambda keys, lib, **kw: BbtLookup({})
+    )
 
 
 def _fake_run_writing_output_flag(payloads: list[bytes], calls: list[list[str]]) -> object:
