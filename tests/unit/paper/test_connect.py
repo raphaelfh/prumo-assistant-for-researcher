@@ -245,6 +245,68 @@ class TestTransporteEMensagens:
         assert seen["ctype"] == "application/json"
         assert seen["timeout"] == 10.0
 
+    def test_404_do_bbt_diz_que_falta_o_better_bibtex(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Zotero aberto sem BBT (ou iniciando) responde 404: não mandar abrir o Zotero."""
+        import email.message
+        import urllib.error
+        import urllib.request
+
+        def fake(req: urllib.request.Request, timeout: float = 0.0) -> _FakeResp:
+            raise urllib.error.HTTPError(
+                req.full_url, 404, "No endpoint found", email.message.Message(), None
+            )
+
+        monkeypatch.setattr("par.domains.paper.connect.urllib.request.urlopen", fake)
+        with pytest.raises(connect.ZoteroOfflineError) as excinfo:
+            connect.list_collections()
+        msg = str(excinfo.value)
+        assert "HTTP 404" in msg
+        assert "Better BibTeX" in msg
+        assert ".xpi" in msg
+        assert "prumo doctor" in msg
+        assert "Abra o Zotero" not in msg
+
+    def test_outro_http_do_zotero_nao_e_zotero_fechado(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import email.message
+        import urllib.error
+        import urllib.request
+
+        def fake(req: urllib.request.Request, timeout: float = 0.0) -> _FakeResp:
+            raise urllib.error.HTTPError(req.full_url, 500, "boom", email.message.Message(), None)
+
+        monkeypatch.setattr("par.domains.paper.connect.urllib.request.urlopen", fake)
+        with pytest.raises(connect.ZoteroOfflineError) as excinfo:
+            connect.list_collections()
+        msg = str(excinfo.value)
+        assert "HTTP 500" in msg
+        assert "prumo doctor" in msg
+        assert "Abra o Zotero" not in msg
+
+    def test_corpo_nao_json_vira_zotero_offline(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """200 com corpo não-JSON (outro serviço na porta, HTML) não vaza JSONDecodeError."""
+        import urllib.request
+
+        class _HtmlResp(_FakeResp):
+            def read(self) -> bytes:
+                return b"<html>"
+
+        def fake(req: urllib.request.Request, timeout: float = 0.0) -> _FakeResp:
+            return _HtmlResp()
+
+        monkeypatch.setattr("par.domains.paper.connect.urllib.request.urlopen", fake)
+        with pytest.raises(connect.ZoteroOfflineError, match="prumo doctor"):
+            connect.list_collections()
+
+    def test_dica_do_sandbox_tem_fonte_unica(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from par.core.deps import SANDBOX_EXCLUDE_HINT
+
+        monkeypatch.setenv("SANDBOX_RUNTIME", "1")
+        assert SANDBOX_EXCLUDE_HINT in connect._offline_msg()
+
     def test_connect_nao_depende_de_zotero_py(self) -> None:
         assert "zotero" not in vars(connect)
 

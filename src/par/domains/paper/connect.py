@@ -41,6 +41,7 @@ from __future__ import annotations
 import difflib
 import json
 import time
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -49,7 +50,13 @@ from typing import Any
 
 from par.core import pj_layout
 from par.core.bib import parse_bib
-from par.core.deps import bbt_rpc_url, in_claude_sandbox, zotero_base
+from par.core.deps import (
+    SANDBOX_EXCLUDE_HINT,
+    ZOTERO_NO_BBT_HINT,
+    bbt_rpc_url,
+    in_claude_sandbox,
+    zotero_base,
+)
 from par.domains.paper.errors import PaperError
 
 BETTER_BIBLATEX_GUID = "f895aa0d-f28e-47fe-b247-2ea77c6ed583"
@@ -86,12 +93,29 @@ def _offline_msg() -> str:
         return (
             f"O sandbox do Claude Code não deixa o `prumo paper connect` falar com o "
             f"Zotero em {base}. Peça para repetir o comando fora do sandbox (o Claude "
-            f"pede permissão). Para o `prumo` rodar sempre fora do sandbox, acrescente "
-            f'`"prumo *"` em `sandbox.excludedCommands` no `~/.claude/settings.json`.'
+            f"pede permissão). {SANDBOX_EXCLUDE_HINT}"
         )
     return (
         f"O Zotero não respondeu em {base}. Abra o Zotero (com o Better BibTeX), "
         f"confira com `prumo doctor` e repita o comando."
+    )
+
+
+def _http_error_msg(code: int) -> str:
+    """Mensagem de Zotero que respondeu, mas com erro HTTP no JSON-RPC do BBT.
+
+    404 é o caso E12 do doctor (Zotero aberto, Better BibTeX ausente ou ainda
+    iniciando) e reusa a mesma dica; outro código pede reiniciar o Zotero.
+    """
+    base = zotero_base()
+    if code == 404:
+        return (
+            f"O Zotero respondeu em {base}, mas o Better BibTeX não (HTTP 404). "
+            f"{ZOTERO_NO_BBT_HINT}"
+        )
+    return (
+        f"O Zotero respondeu HTTP {code} em {base}. Reinicie o Zotero, confira com "
+        f"`prumo doctor` e repita o comando."
     )
 
 
@@ -114,14 +138,19 @@ def _rpc(method: str, params: list[Any]) -> dict[str, Any]:
     """Chamada JSON-RPC ao BBT: envelope + transporte + tradução de erro.
 
     Caminho ÚNICO de transporte deste módulo (era duplicado nos dois call
-    sites): rede fora (``URLError``/``OSError`` — ``URLError`` é subclasse
-    de ``OSError``) e resposta hostil (top-level não-dict) viram
-    ``ZoteroOfflineError`` — nunca vaza ``AttributeError`` de shape.
+    sites): erro HTTP (``HTTPError``, testado antes por ser subclasse de
+    ``OSError``) vira mensagem pela causa (404 = Better BibTeX ausente); rede
+    fora (``URLError``/``OSError``) e resposta hostil (corpo não-JSON —
+    ``JSONDecodeError`` é ``ValueError`` — ou top-level não-dict) viram
+    ``ZoteroOfflineError`` — nunca vaza ``JSONDecodeError`` nem
+    ``AttributeError`` de shape.
     """
     payload: dict[str, Any] = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
     try:
         resp = _http_post_json(bbt_rpc_url(), payload)
-    except OSError as exc:
+    except urllib.error.HTTPError as exc:
+        raise ZoteroOfflineError(_http_error_msg(exc.code)) from exc
+    except (OSError, ValueError) as exc:
         raise ZoteroOfflineError(_offline_msg()) from exc
     if not isinstance(resp, dict):
         raise ZoteroOfflineError(_offline_msg())
@@ -189,7 +218,7 @@ class ConnectResult:
 
 
 class ZoteroOfflineError(PaperError):
-    """Zotero não respondeu (fechado, sem BBT, ou JSON hostil do seam)."""
+    """Zotero não respondeu (fechado, sem BBT, erro HTTP ou resposta hostil)."""
 
 
 class CollectionNotFoundError(PaperError):
@@ -556,8 +585,7 @@ def connect_collection(
 
     Guarda 1: se o bib já tem entradas reais, recusa (``AlreadyConnectedError``)
     — conectar poderia sobrescrever, com a coleção, um ``.bib`` que já tem
-    entradas. É local:
-    nem ``user.groups`` chega a ser chamado.
+    entradas. É local: nem ``user.groups`` chega a ser chamado.
 
     Guarda 2 (a que importa pro risco de coleção-fantasma): ``plan_connection``
     decide o ``bbt_path`` lendo o Zotero, e só devolve um caminho INEXISTENTE
