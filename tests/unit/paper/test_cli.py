@@ -84,38 +84,6 @@ def _last_json(stdout: str) -> dict[str, object]:
     return last
 
 
-def test_paper_sync_notes_cli_writes_files(tmp_path: Path) -> None:
-    from unittest.mock import patch
-
-    from par.domains.paper.zotero import ZoteroRef
-
-    pj = tmp_path / "pj_x"
-    refs = pj / "docs" / "references"
-    (refs / "papers" / "smith2024").mkdir(parents=True)
-    (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
-    (refs / "papers" / "smith2024" / "_meta.md").write_text("---\nid: smith2024\n---\n\nbody\n")
-
-    note = {
-        "itemType": "note",
-        "key": "ABCD1234",
-        "note": "<h1>Ideia</h1><p>corpo</p>",
-        "dateAdded": "2026-04-30T14:23:00Z",
-        "dateModified": "2026-05-02T09:11:00Z",
-        "tags": [],
-    }
-    with (
-        patch("par.domains.paper.zotero.check_zotero_running", return_value=True),
-        patch(
-            "par.domains.paper.zotero.resolve_citekey",
-            return_value=ZoteroRef("users/13049353", "P1"),
-        ),
-        patch("par.domains.paper.zotero.fetch_children", return_value=[note]),
-    ):
-        result = runner.invoke(app, ["paper", "sync-notes", str(pj), "--json"])
-    assert result.exit_code == 0, result.output
-    assert (refs / "papers" / "smith2024" / "note__ABCD1234__ideia.md").is_file()
-
-
 def test_paper_extract_prep_emits_language(tmp_path: Path) -> None:
     from tests.unit.paper.test_prep import _bootstrap
 
@@ -186,26 +154,22 @@ def test_paper_extract_idempotent_second_apply_reports_unchanged(tmp_path: Path)
     assert _last_json(second.stdout)["changed"] is False
 
 
-def test_paper_sync_all_cli_runs_offline_sync(tmp_path: Path) -> None:
-    from unittest.mock import patch
+_RETIRED_COMMANDS = ["sync-annotations", "sync-notes", "sync-all"]
 
-    pj = tmp_path / "pj_y"
-    refs = pj / "docs" / "references"
-    (refs / "papers").mkdir(parents=True)
-    (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
 
-    with (
-        patch("par.domains.paper.zotero.check_zotero_running", return_value=False),
-    ):
-        result = runner.invoke(app, ["paper", "sync-all", str(pj), "--json"])
-    # sync (offline) succeeds; annotations/notes skipped with warnings -> exit 0
+@pytest.mark.parametrize("cmd", _RETIRED_COMMANDS)
+def test_paper_help_nao_lista_comando_aposentado(cmd: str) -> None:
+    result = runner.invoke(app, ["paper", "--help"])
     assert result.exit_code == 0, result.output
-    assert (refs / "papers" / "smith2024" / "_meta.md").is_file()
-    # Verify JSON payload has null sub-reports for offline syncs
-    payload = _last_json(result.stdout)
-    assert payload["annotations"] is None
-    assert payload["notes"] is None
-    assert isinstance(payload["warnings"], list) and payload["warnings"]
+    assert cmd not in result.output
+    assert "connect" in result.output
+
+
+@pytest.mark.parametrize("cmd", _RETIRED_COMMANDS)
+def test_paper_comando_aposentado_responde_no_such_command(cmd: str, tmp_path: Path) -> None:
+    result = runner.invoke(app, ["paper", cmd, str(tmp_path)])
+    assert result.exit_code == 2
+    assert "No such command" in result.output
 
 
 def _fake_report(pj: Path, **overrides: Any) -> dict[str, Any]:
