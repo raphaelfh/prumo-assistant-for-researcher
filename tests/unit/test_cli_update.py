@@ -253,3 +253,35 @@ def test_update_resumo_cita_o_backup(tmp_path: Path) -> None:
     out = " ".join(res.output.split())
     assert "cópia(s) antiga(s) do PAR saíram de .claude/ para .prumo/legacy-copies/" in out
     assert "nada foi apagado" in out
+
+
+# --- D4/A13: `.claude/settings.json` do template --------------------------------
+
+
+def test_update_acrescenta_settings_ausente(tmp_path: Path) -> None:
+    """pj sem `.claude/settings.json` o recebe como arquivo ausente."""
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    settings = pj / ".claude" / "settings.json"
+    settings.unlink()
+
+    res = runner.invoke(app, ["update", str(pj), "--json"])
+
+    assert res.exit_code == 0, res.output
+    assert settings.is_file()
+    payload = json.loads(res.output)
+    assert ".claude/settings.json" in payload["copied"]
+
+
+def test_update_nao_toca_settings_existente(tmp_path: Path) -> None:
+    """Um `.claude/settings.json` próprio do pj nunca é tocado, nem com `--yes`."""
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    settings = pj / ".claude" / "settings.json"
+    proprio = b'{"permissions": {"allow": ["Bash(ls:*)"]}}\n'
+    settings.write_bytes(proprio)
+
+    res = runner.invoke(app, ["update", str(pj), "--yes", "--json"])
+
+    assert res.exit_code == 0, res.output
+    assert settings.read_bytes() == proprio

@@ -312,3 +312,12 @@ def test_init_cria_rule_safe_outputs(tmp_path: Path) -> None:
     texto = rule.read_text(encoding="utf-8")
     assert not texto.startswith("---")
     assert "5" in texto and ".prumo/" in texto
+
+
+def test_init_traz_settings_do_template(tmp_path: Path) -> None:
+    """O overlay leva o `.claude/settings.json` do template, byte a byte (D4, A13)."""
+    target = tmp_path / "pj_demo"
+    res = runner.invoke(app, ["init", str(target), "--json"])
+    assert res.exit_code == 0, res.output
+    template = resolve_resource("templates") / "pj_base" / ".claude" / "settings.json"
+    assert (target / ".claude" / "settings.json").read_bytes() == template.read_bytes()

@@ -61,3 +61,17 @@ def test_hooks_json_so_sessionstart_em_forma_exec() -> None:
     (hook,) = entries[0]["hooks"]
     assert hook["command"] == "/bin/sh"
     assert hook["args"] == ["${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"]
+
+
+def test_settings_do_template_liga_o_auto_update() -> None:
+    """O template liga a atualização automática do PAR no pj e o oferece ao coautor (D4, A13)."""
+    path = REPO / "templates" / "pj_base" / ".claude" / "settings.json"
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "extraKnownMarketplaces": {
+            "prumo-assistant-for-researcher": {
+                "source": {"source": "github", "repo": "raphaelfh/prumo-assistant-for-researcher"},
+                "autoUpdate": True,
+            }
+        },
+        "enabledPlugins": {"par@prumo-assistant-for-researcher": True},
+    }
