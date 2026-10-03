@@ -31,45 +31,79 @@ prumo:
 
 Você é a porta de entrada E o instalador guiado. Primeiro descubra o estado:
 
-1. Rode `prumo doctor --json` (se `prumo` existir). Três cenários:
-   - **Tudo OK** → rode `prumo status --json`. Com `next` preenchido, ofereça
-     em 1 linha a frase `next.say` (invocação `next.invocation`) e o motivo
-     `next.why`. Sem `next`, ou se a pessoa quiser outra coisa, pergunte o que
-     ela quer fazer e roteie para a skill e o modo (bibliografia → `paper`; wiki
-     e estudo → `wiki`; PICOT, plano estatístico e CEP → `protocol`; escrita →
-     `write`; revisão → `review`). Use o catálogo abaixo para achar o modo pela
-     frase. Não execute a tarefa você mesmo.
-   - **`prumo` NÃO existe** → ofereça a instalação guiada abaixo.
-   - **Superfície sem execução de comandos** (chat puro) → aponte a trilha do
-     pesquisador: `docs/onboarding-pesquisador.md` no repositório do plugin.
+1. **Superfície.** Se esta conversa for uma tarefa do Cowork, um chat do claude.ai, uma sessão
+   SSH ou rodar no Windows ou no WSL, responda só com isto e pare:
+   "Aqui o PAR só julga texto que você colar — por exemplo, `/par:review critique`. Bibliografia
+   do Zotero, projeto no disco e exportação para Word não são suportados nem testados nesta
+   superfície. Abra o app Claude na aba **Code** (Mac) ou o Claude Code no terminal (Mac ou
+   Linux), escolha a pasta dos seus projetos e peça `/par:start` lá. No Windows (inclusive no
+   WSL), o PAR ainda não funciona."
+2. **CLI.** Rode `prumo --version`. O esperado é `prumo <versão do bloco PAR acima>`.
+   - `prumo` não existe → rode a forma `sh … --version` do bloco PAR e aplique os casos abaixo
+     à saída dela. Avise uma vez que os hooks do plugin não rodaram nesta sessão, então cada
+     comando pedirá permissão. Só se a saída não trouxer nem a versão nem uma linha `PAR:`, diga
+     "abra uma sessão nova" e pare.
+   - A saída contém `PAR: falta o uv` → vá para **Instalar o uv**.
+   - Outra versão → rode `command -v prumo`.
+     - Caminho terminado em `/shims/prumo` (outra versão do plugin): diga "este `prumo` é de
+       outra versão do plugin — abra uma sessão nova" e use a forma `sh` até lá.
+     - Qualquer outro caminho (por exemplo `~/.local/bin/prumo`, o CLI antigo instalado à
+       parte): ofereça UMA vez, com consentimento, `uv tool uninstall prumo-assistant-for-researcher`
+       e use a forma `sh` nesta sessão. Se a pessoa usa o Zettlr, antes da remoção peça
+       "regenera o perfil do Zettlr" dentro do projeto e a reimportação do perfil: o perfil
+       antigo aponta para dentro desse CLI.
+   - Linha `PAR:` do sandbox (saída 77) → ofereça repetir o mesmo comando fora do sandbox,
+     pedindo permissão.
+   - Qualquer outra linha `PAR:` → repasse-a (ela traz o comando de correção) e pare.
+   - Versão certa, mas `type -a prumo` lista também um `prumo` que não termina em
+     `/shims/prumo` → ofereça UMA vez a mesma remoção, com o mesmo cuidado do Zettlr (é o CLI
+     antigo, que voltaria a aparecer se os hooks falhassem). Outros `…/shims/prumo` na lista são
+     raízes antigas do plugin e não pedem nada.
+3. **Ferramentas do PAR.** Se as ferramentas `mcp__plugin_par_prumo__*` não estiverem no seu
+   inventário, diga: "As ferramentas do PAR não subiram nesta sessão (a 1ª preparação pode ter
+   demorado). Abra uma sessão nova." Siga pelo CLI enquanto isso.
+4. **Diagnóstico.** Rode `prumo doctor --json`.
+   - Dentro de um `pj_*` → rode `prumo status --json`. Com `next` preenchido, ofereça em 1 linha
+     a frase `next.say` (invocação `next.invocation`) e o motivo `next.why`. Sem `next`, ou se a
+     pessoa quiser outra coisa, pergunte o que ela quer fazer e roteie (bibliografia → `paper`;
+     wiki e estudo → `wiki`; PICOT, plano estatístico e CEP → `protocol`; escrita → `write`;
+     revisão → `review`), usando o catálogo abaixo. Não execute a tarefa você mesmo.
+   - Fora de um `pj_*` → siga a **Trilha guiada**.
+   - Dependência externa ausente → mostre o `hint` do doctor (ele traz o comando).
 
-## Instalação guiada (com consentimento POR COMANDO — nunca rode sem um "sim")
+## Instalar o uv (com consentimento — nunca rode sem um "sim")
 
-Explique o que cada passo faz ANTES de rodar; peça consentimento explícito;
-mostre a saída; siga só se funcionou:
+Explique antes: o uv é o gerenciador de Python que o PAR usa para preparar o próprio ambiente
+(instalação única). Se esta conversa for no Cowork, NÃO instale: lá o PAR não é suportado —
+mande a pessoa para a aba Code.
 
-1. **uv** (gerenciador Python): `command -v uv` — ausente? →
-   `curl -LsSf https://astral.sh/uv/install.sh | sh`
-2. **CLI prumo**: `uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher.git`
-   (atualização depois: `uv tool upgrade prumo-assistant-for-researcher`)
-3. **Diagnóstico**: `prumo doctor` — Zotero fechado/ausente? Oriente: instalar o
-   Zotero (zotero.org) + plugin Better BibTeX, abrir o app. NÃO é bloqueante para
-   escrita/julgamento; é necessário para sincronizar bibliografia.
-4. **qmd (OPCIONAL — busca semântica)**: exige `bun`. Se a pessoa não tem bun,
-   diga que é opcional e PULE (`wiki query` funciona em modo degradado por leitura
-   direta). Quem quiser: `bun install -g @tobilu/qmd`.
-5. **Projeto**: `prumo init pj_<nome>` na pasta que a pessoa designar.
-6. **Conectar a biblioteca**: com o Zotero aberto, `prumo paper connect "<coleção>"`
-   liga o `.bib` do projeto à coleção do Zotero (substitui a configuração manual
-   de "Keep updated"). Não é bloqueante — pode ser feito depois. Se a coleção ainda
-   não existir, `--create` cria e liga num passo — mas só quando a pessoa pedir a
-   criação: nunca acrescente a flag por conta própria (ADR-0028).
-7. **Primeiro output em minutos**: peça um trecho de draft e rode
-   `/par:review critique` — funciona sem NADA do stack (julgamento puro).
+`curl -LsSf https://astral.sh/uv/install.sh | sh`
 
-Regras duras: nunca simule saída de comando que falhou; nunca crie scaffold
-manualmente (`prumo init` é o único caminho); nunca cite tooling do monorepo do
-autor (`make ...`) — a pessoa instalou um plugin, não clonou um repositório.
+Se falhar com `Operation not permitted` ou `Read-only file system` (sandbox do Claude Code),
+peça para repetir fora do sandbox. Depois rode `prumo --version` de novo: não precisa reiniciar
+nada (o PAR acha o uv em `~/.local/bin`). A primeira vez baixa cerca de 60 MB, uma vez só.
+
+## Trilha guiada (um comando por vez, com consentimento)
+
+1. **Projeto:** `prumo init pj_<nome>` na pasta que a pessoa indicar. O projeto já sai com a
+   atualização automática do PAR ligada.
+2. **Sessão no projeto:** "Abra uma sessão nova dentro de `pj_<nome>` (no app: aba Code →
+   escolher a pasta; no terminal: `cd pj_<nome> && claude`) e peça `/par:start` de novo."
+3. **Zotero:** Zotero 9 ou mais novo com o Better BibTeX ≥ 9.0.65 (`.xpi`), app aberto. Serve para conectar a coleção (uma vez) e manter o `.bib` atualizado; no export docx, vincula as citações se estiver aberto. Não bloqueia escrita nem julgamento, e não é preciso ligar "Allow other applications".
+4. **Conectar a biblioteca:** com o Zotero aberto, `prumo paper connect "<coleção>"` liga o
+   `.bib` do projeto à coleção. Se a coleção ainda não existir, `--create` cria e liga num
+   passo — só quando a pessoa pedir a criação; nunca acrescente a flag por conta própria
+   (ADR-0028).
+5. **Sincronizar:** `prumo paper sync`.
+6. **qmd (opcional, busca semântica):** `npm install -g @tobilu/qmd` (ou
+   `bun install -g @tobilu/qmd`) e depois `prumo wiki index`. Não precisa reiniciar a sessão. Sem
+   qmd, `wiki query` funciona por leitura direta.
+7. **Primeiro resultado em minutos:** peça um trecho de draft e rode `/par:review critique` —
+   funciona sem nada do stack.
+
+Regras duras: nunca simule saída de comando que falhou; nunca crie scaffold à mão
+(`prumo init` é o único caminho); nunca cite tooling do monorepo do autor; nunca ofereça
+instalar o CLI à parte — ele vem no plugin.
 
 ## Catálogo completo (gerado — não editar à mão)
 
