@@ -77,6 +77,7 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
     for rel in [
         "CLAUDE.md",
         "README.md",
+        ".claude/settings.json",
         "docs/project_guide.md",
         "docs/templates/reference.docx",
         "docs/references/_references.bib",
