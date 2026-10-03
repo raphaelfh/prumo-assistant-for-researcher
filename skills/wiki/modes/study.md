@@ -31,8 +31,8 @@ prumo:
 > 2. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
 >    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
-> 3. **Busca semântica (qmd):** rode `qmd --version`; só `command not
->    found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica
+> 3. **Busca semântica (qmd):** rode `qmd --version`; só
+>    `command not found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica
 >    indisponível — resultados via leitura direta, mais lentos/parciais") e
 >    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
 >    operação com o hint do `prumo doctor`.

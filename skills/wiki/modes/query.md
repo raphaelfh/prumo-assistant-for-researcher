@@ -25,8 +25,8 @@ prumo:
 <!-- prumo:preflight:begin -->
 > **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
 >
-> 1. **Busca semântica (qmd):** rode `qmd --version`; só `command not
->    found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica
+> 1. **Busca semântica (qmd):** rode `qmd --version`; só
+>    `command not found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica
 >    indisponível — resultados via leitura direta, mais lentos/parciais") e
 >    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
 >    operação com o hint do `prumo doctor`. Se precisar do stack completo, roteie para `/par:start`.

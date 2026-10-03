@@ -300,3 +300,9 @@ def test_pf_qmd_checa_o_cli(gen: ModuleType, registry: Any) -> None:
     assert "command -v" not in gen._PF_QMD
     assert "tools MCP" not in gen._PF_QMD
     assert "/par:start" in gen.render_preflight(_mode(registry, "wiki", "query"))
+
+
+@pytest.mark.parametrize("const", ["_PF_CLI", "_PF_INIT", "_PF_QMD", "_PF_ZOTERO"])
+def test_preflight_nao_quebra_linha_dentro_de_crases(gen: ModuleType, const: str) -> None:
+    for line in getattr(gen, const).split("\n"):
+        assert line.count("`") % 2 == 0, line
