@@ -38,6 +38,7 @@ dependencies = [
   "pyyaml>=6.0",
   "tomli-w>=1.0",
   "mcp==1.28.1",
+  "adeu==1.29.0; python_version >= '3.12'",  # backend de prosa do review ingest (ADR-0016)
 ]
 dynamic = ["version"]
 
@@ -60,6 +61,9 @@ dev = [
   "mypy>=1.20,<2",
   "types-PyYAML>=6.0",
 ]
+
+[tool.uv]
+constraint-dependencies = ["cryptography<49; sys_platform == 'darwin' and platform_machine == 'x86_64'"]
 
 [tool.hatch.version]
 path = "src/par/_version.py"
