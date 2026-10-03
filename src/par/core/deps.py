@@ -185,17 +185,24 @@ _ZOTERO_CLOSED_HINT = (
     "Só o `prumo paper connect` e o vínculo das citações do docx precisam dele; "
     "o resto do PAR funciona sem ele."
 )
-_ZOTERO_SANDBOX_HINT = (
-    "Peça para repetir fora do sandbox (o Claude pede permissão): prumo doctor. "
+#: Receita para o ``prumo`` sair do sandbox do Bash do Claude Code de vez — fonte
+#: única (Princípio I) para o doctor, o ``paper connect`` e o ``write export``.
+SANDBOX_EXCLUDE_HINT = (
     'Para o `prumo` rodar sempre fora do sandbox, acrescente `"prumo *"` em '
     "`sandbox.excludedCommands` no `~/.claude/settings.json`."
+)
+_ZOTERO_SANDBOX_HINT = (
+    "Peça para repetir fora do sandbox (o Claude pede permissão): prumo doctor. "
+    + SANDBOX_EXCLUDE_HINT
 )
 _ZOTERO_OLD_HINT = (
     "Atualize para o Zotero 9+: baixe em https://www.zotero.org/download, instale e "
     "reabra o app. Depois atualize o Better BibTeX em Tools → Plugins se ele avisar "
     "(o BBT acompanha o major do Zotero)."
 )
-_ZOTERO_NO_BBT_HINT = (
+#: Dica de Better BibTeX ausente ou iniciando (E12, HTTP 404) — o ``paper connect``
+#: reusa o mesmo texto quando o JSON-RPC do BBT responde 404.
+ZOTERO_NO_BBT_HINT = (
     "Sem Better BibTeX (ou ainda iniciando — aguarde e rode prumo doctor). Para "
     "instalar: baixe o .xpi em https://github.com/retorquere/zotero-better-bibtex/releases "
     "e, no Zotero, Tools → Plugins → ⚙ → Install Plugin From File. Depois rode: prumo doctor"
@@ -232,7 +239,7 @@ def _zotero_status() -> DepStatus:
     elif probe.status == 404:
         opened = f"Zotero {v} aberto" if v else "Zotero aberto"
         detail = f"{opened} em {base}, mas o Better BibTeX não respondeu (HTTP 404)"
-        hint = _ZOTERO_NO_BBT_HINT
+        hint = ZOTERO_NO_BBT_HINT
     elif probe.status != 200:
         detail = f"o Zotero respondeu HTTP {probe.status} em /better-bibtex/cayw"
         hint = "Reinicie o Zotero e rode: prumo doctor"
