@@ -1,9 +1,5 @@
 {
   "mcpServers": {
-    "qmd": {
-      "command": "qmd",
-      "args": ["mcp"]
-    },
     "prumo": {
       "command": "prumo",
       "args": ["mcp", "serve"]

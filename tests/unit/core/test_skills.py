@@ -456,3 +456,15 @@ def test_skills_sem_contorno_de_subcomando_ausente() -> None:
         if "No such command" in p.read_text(encoding="utf-8")
     ]
     assert offenders == []
+
+
+def test_skills_nao_citam_tools_mcp_do_qmd() -> None:
+    """O qmd é só CLI: nenhuma skill nem agent cita as tools MCP dele (A9)."""
+    agents = _REPO_SKILLS.parent / "agents"
+    files = sorted(_REPO_SKILLS.rglob("*.md")) + sorted(agents.glob("*.md"))
+    offenders = [
+        str(p.relative_to(_REPO_SKILLS.parent))
+        for p in files
+        if "mcp__qmd__" in p.read_text(encoding="utf-8")
+    ]
+    assert offenders == []

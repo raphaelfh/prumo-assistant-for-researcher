@@ -2,7 +2,7 @@
 name: query
 description: "Responde pergunta ancorada no wiki do pj_* (docs/ + docs/references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [@citekeys]). Oferece arquivar a resposta como finding (type: finding) em docs/studies/<slug>/notes/ quando útil. NÃO é para perguntas de código."
 argument-hint: "<pergunta>"
-allowed-tools: Read Glob Grep Bash(qmd *) Bash(prumo *) Bash(cat *) mcp__qmd__query mcp__qmd__search
+allowed-tools: Read Glob Grep Bash(qmd *) Bash(prumo *) Bash(cat *)
 prumo:
   version: 1.0.0
   schema: WikiQueryResponse/v1
@@ -25,8 +25,8 @@ prumo:
 <!-- prumo:preflight:begin -->
 > **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
 >
-> 1. **Busca semântica (qmd):** se as tools MCP do `qmd` não estiverem no seu
->    inventário NESTA sessão, diga isso explicitamente ("busca semântica
+> 1. **Busca semântica (qmd):** rode `qmd --version`; só `command not
+>    found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica
 >    indisponível — resultados via leitura direta, mais lentos/parciais") e
 >    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
 >    operação com o hint do `prumo doctor`. Se precisar do stack completo, roteie para `/par:start`.
@@ -35,12 +35,12 @@ prumo:
 > operação exata nunca é simulada.
 <!-- prumo:preflight:end -->
 
-Opera sobre o wiki estruturado em `/docs/wiki-schema.md` (monorepo). Usa `qmd` (via MCP `mcp__qmd__*` se disponível; senão via `Bash("qmd …")`) para busca híbrida.
+Usa o CLI `qmd` pelo Bash (`qmd query "<termo>"`) para busca híbrida.
 
 ## Pressupostos
 
 - cwd é um `pj_*` com `docs/_index.md`, `docs/_log.md` e subdirs.
-- qmd está instalado (ver `docs/operations.md` do monorepo) e o wiki foi indexado ao menos uma vez (`qmd collection add . --name <pj>` + `qmd embed`).
+- qmd instalado (`npm install -g @tobilu/qmd`) e o wiki indexado ao menos uma vez (`prumo wiki index`).
 - Se não indexado, fluxo ainda funciona usando só `_index.md` + `Grep` + `Read`, mas resposta perde cobertura semântica.
 
 ## Fluxo
@@ -52,9 +52,7 @@ Se a pergunta for ambígua ou genérica ("tudo sobre X"), pedir refinamento em *
 ### 2. Localizar candidatas
 
 1. **`Read docs/_index.md`** → identificar seções/entidades/conceitos relacionados.
-2. **Busca qmd** (se MCP disponível):
-   - `mcp__qmd__query "<pergunta>"` (hybrid com rerank) → top 10.
-   - Fallback BM25: `mcp__qmd__search`.
+2. **Busca qmd** (se o CLI existir): `qmd query "<pergunta>"` pelo Bash (hybrid com rerank) → top 10.
 3. **Fallback sem qmd**: `Grep` com termos-chave em `docs/ docs/references/papers/`.
 4. Se o tópico é bibliográfico puro, considerar também `docs/references/_references.bib` e `/par:paper library list`.
 

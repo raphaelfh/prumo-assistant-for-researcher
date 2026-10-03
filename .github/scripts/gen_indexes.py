@@ -205,8 +205,8 @@ _PF_INIT = (
 )
 
 _PF_QMD = (
-    "**Busca semântica (qmd):** se as tools MCP do `qmd` não estiverem no seu\n"
-    'inventário NESTA sessão, diga isso explicitamente ("busca semântica\n'
+    "**Busca semântica (qmd):** rode `qmd --version`; só `command not\n"
+    'found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica\n'
     'indisponível — resultados via leitura direta, mais lentos/parciais") e\n'
     "prossiga só no fallback documentado por esta skill; sem fallback, recuse a\n"
     "operação com o hint do `prumo doctor`."

@@ -2,7 +2,7 @@
 name: study
 description: "Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/studies/<slug>/notes/. No Reflect, oferece arquivar insight como finding."
 argument-hint: "[topic]"
-allowed-tools: Read Write Edit Glob Grep Bash(prumo *) Bash(echo *) Bash(cat *) mcp__qmd__query mcp__qmd__search
+allowed-tools: Read Write Edit Glob Grep Bash(qmd *) Bash(prumo *) Bash(echo *) Bash(cat *)
 prumo:
   version: 1.0.0
   schema: SessionLog/v1
@@ -31,8 +31,8 @@ prumo:
 > 2. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
 >    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
-> 3. **Busca semântica (qmd):** se as tools MCP do `qmd` não estiverem no seu
->    inventário NESTA sessão, diga isso explicitamente ("busca semântica
+> 3. **Busca semântica (qmd):** rode `qmd --version`; só `command not
+>    found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica
 >    indisponível — resultados via leitura direta, mais lentos/parciais") e
 >    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
 >    operação com o hint do `prumo doctor`.
@@ -66,7 +66,7 @@ O slug é derivado automaticamente do tópico ao criar o log (passo 2).
 ### 1. Context gathering (pré-sessão)
 
 1. Buscar tópico no wiki via:
-   - `mcp__qmd__query "<topic>"` se MCP disponível, senão `Grep` em `docs/`
+   - `qmd query "<topic>"` pelo Bash se o qmd existir, senão `Grep` em `docs/`
    - `prumo paper find "<topic>"` para papers
    - `Read docs/_index.md`
 2. Listar top 5-8 candidates ao usuário:
@@ -220,7 +220,7 @@ Sessão concluída — `<topic>`
 
 ## Erros comuns
 
-- `mcp__qmd__query` indisponível → fallback `Grep` + `Read`. Aviso no log: cobertura semântica reduzida.
+- `qmd` indisponível → fallback `Grep` + `Read`. Aviso no log: cobertura semântica reduzida.
 - Acervo vazio → todas as citations viram `[REF FALTANTE]`. Avise no início e ofereça abortar.
 - Mais de 50% das respostas precisam `[REF FALTANTE]` no Recall+Anchor → aborta com sugestão de ingest.
 - Usuário abandona sessão → status = `partial`, `prumo wiki study-finish` captura quantos steps completaram.
