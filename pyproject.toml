@@ -49,7 +49,6 @@ Issues = "https://github.com/raphaelfh/prumo-assistant-for-researcher/issues"
 
 [project.scripts]
 prumo = "par.cli:app"
-prumo-zettlr-export = "par.domains.write.cli:zettlr_export_entry"
 
 [project.optional-dependencies]
 dev = [

@@ -35,6 +35,8 @@ def test_gitignore_do_pj_base_protege_o_essencial() -> None:
     assert "~$*" in texto
     assert "__marimo__/" in texto  # cache/export de notebook marimo
     assert "uv.lock" not in texto  # lockfile passa a ser versionado
+    # perfil do Zettlr: caminhos absolutos desta máquina (Spec A, A10)
+    assert "docs/templates/prumo-docx.yaml" in texto.splitlines()
 
 
 def test_gitignore_da_bibliografia_e_local_e_nao_ancorado() -> None:
