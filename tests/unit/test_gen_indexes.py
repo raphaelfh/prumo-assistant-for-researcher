@@ -281,3 +281,14 @@ def test_kb_index_lista_os_guias_de_docs(gen: ModuleType) -> None:
     body = gen.render_kb_index()
     assert "- [[positioning]] · Posicionamento e claims do PAR" in body
     assert "[[_index]]" not in body
+
+
+def test_preflight_cli_tem_dois_itens(gen: ModuleType, registry: Any) -> None:
+    out = gen.render_preflight(_mode(registry, "paper", "extract"))
+    assert "> 1. " in out and "> 2. " in out
+    assert "> 3. " not in out
+    assert "Drift CLI×plugin" not in out
+
+
+def test_gerador_sem_pf_drift(gen: ModuleType) -> None:
+    assert not hasattr(gen, "_PF_DRIFT")

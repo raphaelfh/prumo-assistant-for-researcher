@@ -446,29 +446,13 @@ def test_skills_use_plugin_mcp_prefix() -> None:
     assert offenders == []
 
 
-def _bodies_calling(subcommand: str) -> dict[str, str]:
-    """Corpo (sem frontmatter) de cada skill/modo real que manda rodar ``subcommand``."""
-    reg, _ = load_skill_registry(_REPO_SKILLS, strict=True)
-    bodies = {name: reg.get(name).body for name in reg.names()}
-    bodies |= {ref.slug: mode.body for ref, mode in reg.iter_modes()}
-    return {slug: body for slug, body in bodies.items() if subcommand in body}
-
-
-@pytest.mark.parametrize(
-    ("subcommand", "expected"),
-    [
-        ("prumo validate", {"paper/support", "review/critique"}),
-        ("prumo status", {"start"}),
-    ],
-)
-def test_subcomando_recente_tem_fallback_de_subcomando_ausente(
-    subcommand: str, expected: set[str]
-) -> None:
-    """`prumo --version` passar não garante o subcomando: CLI 0.67.2 não tem `validate`."""
-    callers = _bodies_calling(subcommand)
-    assert set(callers) == expected
-    missing = subcommand.split()[1]
-    for slug, body in callers.items():
-        assert f"No such command '{missing}'" in body, slug
-        assert "uv tool upgrade prumo-assistant-for-researcher" in body, slug
-        assert "consentimento" in body, slug
+def test_skills_sem_contorno_de_subcomando_ausente() -> None:
+    """Com o lançador, o CLI vem pinado na versão do plugin: sem contorno de drift (A7)."""
+    agents = _REPO_SKILLS.parent / "agents"
+    files = sorted(_REPO_SKILLS.rglob("*.md")) + sorted(agents.glob("*.md"))
+    offenders = [
+        str(p.relative_to(_REPO_SKILLS.parent))
+        for p in files
+        if "No such command" in p.read_text(encoding="utf-8")
+    ]
+    assert offenders == []

@@ -107,9 +107,7 @@ Com o CLI disponível (`prumo --version`), valide o JSON devolvido (juntado, se 
 a mensagem ao reviewer UMA vez; na segunda falha, mostre o erro ao pesquisador
 sem completar o relatório por conta própria.
 
-**Sem validador** — `prumo` ausente OU subcomando ausente
-(`No such command 'validate'`, exit 2: `prumo --version` responde, mas o CLI
-instalado é mais antigo que o plugin) — confira à mão (este modo roda sem o stack):
+**Sem validador** (`prumo` ausente, como no Cowork) — confira à mão (este modo roda sem o stack):
 `schema_version` = `PeerReviewReport/v1`; `draft_path`, `thesis_in_one_sentence`
 e `executive_summary` não vazios; `recommendation` ∈ `accept|minor|major|reject`;
 `draft_genre` e `mental_model_applied` nos valores de `agents/reviewer.md`; toda
@@ -117,9 +115,7 @@ fraqueza com `section`, `point` e `fix`; todo `quote` com até 25 palavras e ach
 literalmente no draft (Grep); em `citation_checks`, `citekey` presente no draft como
 `@citekey`, `partial|contradicts|not_found` só com `evidence_level` `abstract` ou
 `fulltext` e `source_quote`, `no_source` só com `evidence_level: none`. Falhou → mesma regra de uma devolução ao
-reviewer. Se foi subcomando ausente, diga ao pesquisador UMA vez que
-`uv tool upgrade prumo-assistant-for-researcher` traz a validação e rode SÓ com consentimento; a
-revisão não espera por isso.
+reviewer.
 
 O contrato completo é `PeerReviewReport/v1`; exemplo preenchido em
 [`../examples/sample_report.json`](../examples/sample_report.json).

@@ -28,16 +28,10 @@ prumo:
 > 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
 >    operação desta skill; roteie para `/par:start` (instalação guiada com
 >    consentimento) e pare aqui.
-> 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
->    definido, compare a versão do CLI com o campo `version` de
->    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
->    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
->    `uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,
->    pule este passo em silêncio.
-> 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
+> 2. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
 >    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
-> 4. **Busca semântica (qmd):** se as tools MCP do `qmd` não estiverem no seu
+> 3. **Busca semântica (qmd):** se as tools MCP do `qmd` não estiverem no seu
 >    inventário NESTA sessão, diga isso explicitamente ("busca semântica
 >    indisponível — resultados via leitura direta, mais lentos/parciais") e
 >    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
@@ -58,8 +52,6 @@ ou num wikilink interno**. Se a fonte não está no acervo, emita
 - cwd é um `pj_*` com `docs/_index.md` e `docs/references/_references.bib` (mesmo que vazios).
 - A parte determinística (criar log, anexar steps, arquivar finding) é exposta
   via `prumo wiki *` (study-start/step/finish, finding). Você só cuida do agêntico.
-- O CLI `prumo` precisa estar no PATH (rode `prumo doctor`; se ausente:
-  `uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher`).
 
 ## Fluxo
 

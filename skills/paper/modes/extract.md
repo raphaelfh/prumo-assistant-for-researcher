@@ -30,13 +30,7 @@ prumo:
 > 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
 >    operação desta skill; roteie para `/par:start` (instalação guiada com
 >    consentimento) e pare aqui.
-> 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
->    definido, compare a versão do CLI com o campo `version` de
->    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
->    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
->    `uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,
->    pule este passo em silêncio.
-> 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
+> 2. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
 >    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
 >    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
 >
@@ -51,8 +45,6 @@ Skill que lê o PDF (via symlink em `docs/references/pdfs/<citekey>.pdf`), gera 
 - cwd é um `pj_*` (scaffold default atende). A skill lê o PDF e escreve o callout em `_extract.md`.
 - A validação de pré-requisitos (template, `.bib`, PDF, `_meta.md`) e a leitura de
   config são feitas por `prumo paper extract-prep <citekey>` (aborta com o comando de correção).
-- O CLI `prumo` precisa estar no PATH (rode `prumo doctor`; se ausente:
-  `uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher`).
 
 ## Operações
 
