@@ -172,10 +172,11 @@ def _crossref_filter() -> Path:
 class BbtLookup:
     """Resultado do ``item.pandoc_filter`` — nunca levanta (ADR-0037)."""
 
-    items: dict[str, dict[str, object]]  # citekey → {"itemID", "uri"}
+    items: dict[str, dict[str, object]]  # citekey → {"itemID": int, "uri": str}, só os presentes
     failure: Literal["", "unreachable", "rpc_error"] = ""
     detail: str = ""  # mensagem do BBT (rpc_error) ou repr da falha de rede
     library: str | None = None  # biblioteca consultada; None = My Library
+    duplicates: tuple[str, ...] = ()  # citekeys com mais de um item no Zotero (errors[k] > 0)
 
 
 _UNEXPECTED_RPC_DETAIL = "resposta JSON-RPC inesperada"
@@ -200,15 +201,16 @@ def fetch_bbt_zotero_metadata(
     if library:
         params.append(library)  # sem biblioteca o BBT usa a My Library; "" faz o BBT recusar
     payload = {"jsonrpc": "2.0", "method": "item.pandoc_filter", "params": params}
-    req = urllib.request.Request(
-        bbt_rpc_url(),
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
     try:
+        # O Request entra no try: base malformada (``PRUMO_ZOTERO_BASE``) levanta ValueError aqui.
+        req = urllib.request.Request(
+            bbt_rpc_url(),
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = json.load(resp)
+            raw = resp.read()
     except urllib.error.HTTPError as exc:
         failure: Literal["unreachable", "rpc_error"] = (
             "unreachable" if exc.code == 404 else "rpc_error"
@@ -216,6 +218,10 @@ def fetch_bbt_zotero_metadata(
         return BbtLookup({}, failure=failure, detail=f"HTTP {exc.code}", library=lib)
     except (OSError, ValueError, http.client.HTTPException) as exc:
         return BbtLookup({}, failure="unreachable", detail=repr(exc), library=lib)
+    try:
+        body = json.loads(raw)
+    except ValueError:  # algo respondeu, mas não JSON (vazio, HTML, truncado)
+        return BbtLookup({}, failure="rpc_error", detail=_UNEXPECTED_RPC_DETAIL, library=lib)
 
     if not isinstance(body, dict):
         return BbtLookup({}, failure="rpc_error", detail=_UNEXPECTED_RPC_DETAIL, library=lib)
@@ -225,20 +231,32 @@ def fetch_bbt_zotero_metadata(
         detail = str(message) if message else str(error)
         return BbtLookup({}, failure="rpc_error", detail=detail, library=lib)
     result = body.get("result")
-    items = result.get("items", {}) if isinstance(result, dict) else None
-    if not isinstance(items, dict):
+    items = result.get("items") if isinstance(result, dict) else None
+    if not isinstance(result, dict) or not isinstance(items, dict):
         return BbtLookup({}, failure="rpc_error", detail=_UNEXPECTED_RPC_DETAIL, library=lib)
+    # ``errors[citekey]``: 0 = não achada, n > 0 = citekey duplicada (filtro oficial do BBT).
+    errors = result.get("errors")
+    duplicates = tuple(
+        str(key)
+        for key, count in (errors.items() if isinstance(errors, dict) else ())
+        if isinstance(count, int) and not isinstance(count, bool) and count > 0
+    )
     out: dict[str, dict[str, object]] = {}
     for key, data in items.items():
         custom = data.get("custom") if isinstance(data, dict) else None
         if not isinstance(custom, dict):
             continue  # null do BBT (chave não achada) ou item fora do contrato
+        # Só campos bem tipados: um ``null`` no lookup viraria ``"uris":[null]`` no docx.
+        entry: dict[str, object] = {}
         item_id = custom.get("itemID")
+        if isinstance(item_id, int) and not isinstance(item_id, bool):
+            entry["itemID"] = item_id
         uri = custom.get("uri")
-        if item_id is None and uri is None:
-            continue
-        out[str(key)] = {"itemID": item_id, "uri": uri}
-    return BbtLookup(out, library=lib)
+        if isinstance(uri, str) and uri:
+            entry["uri"] = uri
+        if entry:
+            out[str(key)] = entry
+    return BbtLookup(out, library=lib, duplicates=duplicates)
 
 
 _DOI_FIELD_RE = re.compile(r"doi\s*=\s*[{\"]([^}\"]+)", re.I)
@@ -628,10 +646,16 @@ def _read_docx_citations(docx_path: Path) -> list[dict[str, object]]:
                     item["id"]: item.get("prumoFingerprint", "") for item in citation_items
                 },
                 "formatted": (payload.get("properties") or {}).get("formattedCitation", ""),
-                "unlinked": [item["id"] for item in citation_items if not item.get("uris")],
+                "unlinked": [item["id"] for item in citation_items if not _has_uri(item)],
             }
         )
     return occurrences
+
+
+def _has_uri(item: dict[str, Any]) -> bool:
+    """``True`` quando ``uris`` traz ao menos uma string não vazia (``[null]`` não vincula)."""
+    uris = item.get("uris")
+    return isinstance(uris, list) and any(isinstance(u, str) and u for u in uris)
 
 
 _LINK_UNREACHABLE_MSG = (
@@ -659,6 +683,11 @@ _LINK_NOT_FOUND_MSG = (
     "({library}): {keys}. Saem sem vínculo. Se estão numa biblioteca de grupo, ponha "
     '`zotero: {{library: "<nome do grupo>"}}` no frontmatter e rode: {redo}'
 )
+_LINK_DUPLICATE_MSG = (
+    "{n} citekey(s) estão duplicadas no Zotero (mais de um item com a mesma chave): {keys}. "
+    "O Better BibTeX não sabe qual vincular, e elas saem sem vínculo. Deixe cada chave única "
+    "(no Zotero, Better BibTeX → Refresh/Pin BibTeX key) e rode: {redo}"
+)
 
 
 def docx_link_warning(docx_path: Path, lookup: BbtLookup, redo_command: str) -> str | None:
@@ -671,7 +700,9 @@ def docx_link_warning(docx_path: Path, lookup: BbtLookup, redo_command: str) -> 
     ordem da primeira aparição. A causa vem de ``lookup.failure``:
     ``"unreachable"`` dá E1 (ou E2, dentro do sandbox do Claude Code),
     ``"rpc_error"`` dá E3 e ``""`` dá E4 (o BBT respondeu sem algumas
-    chaves). Toda mensagem termina no ``redo_command`` (ADR-0037).
+    chaves); as chaves em ``lookup.duplicates`` saem do E4 e ganham frase
+    própria, numa segunda linha. Toda mensagem termina no ``redo_command``
+    (ADR-0037).
     """
     keys = list(
         dict.fromkeys(
@@ -689,12 +720,30 @@ def docx_link_warning(docx_path: Path, lookup: BbtLookup, redo_command: str) -> 
         return _LINK_UNREACHABLE_MSG.format(n=n, redo=redo_command)
     if lookup.failure == "rpc_error":
         return _LINK_RPC_ERROR_MSG.format(detail=lookup.detail, n=n, redo=redo_command)
-    return _LINK_NOT_FOUND_MSG.format(
-        n=n,
-        library=lookup.library or "My Library, a padrão",
-        keys=", ".join(keys[:5]) + (", …" if n > 5 else ""),
-        redo=redo_command,
-    )
+    duplicated = [key for key in keys if key in lookup.duplicates]
+    not_found = [key for key in keys if key not in lookup.duplicates]
+    messages: list[str] = []
+    if not_found:
+        messages.append(
+            _LINK_NOT_FOUND_MSG.format(
+                n=len(not_found),
+                library=lookup.library or "My Library, a padrão",
+                keys=_first_keys(not_found),
+                redo=redo_command,
+            )
+        )
+    if duplicated:
+        messages.append(
+            _LINK_DUPLICATE_MSG.format(
+                n=len(duplicated), keys=_first_keys(duplicated), redo=redo_command
+            )
+        )
+    return "\n".join(messages)
+
+
+def _first_keys(keys: list[str]) -> str:
+    """Até 5 chaves, depois ``…`` (E4)."""
+    return ", ".join(keys[:5]) + (", …" if len(keys) > 5 else "")
 
 
 def _redo_command(

@@ -118,6 +118,47 @@ def test_lua_uris_is_always_a_json_array(tmp_path: Path) -> None:
     }
 
 
+@requires_pandoc
+def test_lua_uris_ignores_non_string_uri(tmp_path: Path) -> None:
+    """Lookup com ``"uri": null`` (lookup antigo/fora do contrato) sai ``uris: []``,
+    e ``zoteroItemID`` só aparece quando é número."""
+    assert _PANDOC is not None
+    (tmp_path / "refs.bib").write_text(
+        "@article{k2020, author={Silva, Ana}, title={T1}, journal={J}, year={2020}}\n"
+    )
+    (tmp_path / "style.csl").write_text(
+        subprocess.run(
+            [_PANDOC, "--print-default-data-file", "default.csl"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    )
+    (tmp_path / "zotero_lookup.json").write_text(
+        json.dumps({"k2020": {"itemID": None, "uri": None, "fingerprint": "x"}})
+    )
+    (tmp_path / "in.md").write_text("Cita [@k2020].\n\n::: {#refs}\n:::\n")
+    cmd = export_mod._build_pandoc_cmd(
+        pandoc_bin=_PANDOC,
+        input_md=tmp_path / "in.md",
+        output=tmp_path / "out.docx",
+        bib=tmp_path / "refs.bib",
+        csl=tmp_path / "style.csl",
+        style="apa",
+        metadata_file=None,
+        template=None,
+        reference_doc=None,
+        to_format="docx",
+        zotero_lookup_file=tmp_path / "zotero_lookup.json",
+        resource_path=tmp_path,
+    )
+    export_mod._run_pandoc_checked(cmd)
+    (item,) = [i for p in _field_payloads(tmp_path / "out.docx") for i in p["citationItems"]]
+    assert item["uris"] == []
+    assert "zoteroItemID" not in item
+    assert _read_docx_citations(tmp_path / "out.docx")[0]["unlinked"] == ["k2020"]
+
+
 # ---------- fetch_bbt_zotero_metadata: lookup melhor-esforço (B1, B3) ----------
 
 _RPC_URL = "http://127.0.0.1:23119/better-bibtex/json-rpc"
@@ -213,6 +254,76 @@ def test_fetch_success_returns_items(monkeypatch: pytest.MonkeyPatch) -> None:
     lookup = fetch_bbt_zotero_metadata(["smith2020", "ghost2020"], None)
     assert lookup.items == {"smith2020": {"itemID": 7, "uri": uri}}
     assert lookup.failure == ""
+
+
+def test_fetch_keeps_only_well_typed_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``uri`` ausente/vazio/não-str não vira ``null`` no lookup: o Lua o emitiria como
+    ``"uris":[null]`` e a citação passaria por vinculada sem aviso (ADR-0037)."""
+    uri = "http://zotero.org/users/local/k/items/AB"
+    body = {
+        "jsonrpc": "2.0",
+        "result": {
+            "items": {
+                "id_only2020": {"custom": {"itemID": 7}},
+                "uri_only2020": {"custom": {"uri": uri}},
+                "empty_uri2020": {"custom": {"itemID": 8, "uri": ""}},
+                "bad_types2020": {"custom": {"itemID": "x", "uri": 5}},
+            }
+        },
+    }
+    _install_urlopen_spy(monkeypatch, body=body)
+    lookup = fetch_bbt_zotero_metadata(list(body["result"]["items"]), None)  # type: ignore[index]
+    assert lookup.items == {
+        "id_only2020": {"itemID": 7},
+        "uri_only2020": {"uri": uri},
+        "empty_uri2020": {"itemID": 8},
+    }
+
+
+def test_fetch_never_raises_on_empty_zotero_base(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``PRUMO_ZOTERO_BASE=""`` cai no padrão; base malformada vira ``unreachable``."""
+    monkeypatch.setenv("PRUMO_ZOTERO_BASE", "")
+    calls = _install_urlopen_spy(monkeypatch, body=_OK_BODY)
+    fetch_bbt_zotero_metadata(["k"], None)
+    assert calls[0][0].full_url == _RPC_URL
+
+
+def test_fetch_unreachable_on_malformed_zotero_base(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://[::1")
+    lookup = fetch_bbt_zotero_metadata(["k"], None)
+    assert lookup.failure == "unreachable"
+    assert lookup.items == {}
+
+
+@pytest.mark.parametrize("raw", [b"", b"<html>No endpoint found</html>", b'{"result": {'])
+def test_fetch_rpc_error_on_non_json_body(monkeypatch: pytest.MonkeyPatch, raw: bytes) -> None:
+    """Algo respondeu 200 com corpo que não é JSON: E3, não E1/E2."""
+
+    def spy(req: urllib.request.Request, timeout: float) -> io.BytesIO:
+        return io.BytesIO(raw)
+
+    monkeypatch.setattr("par.domains.write.export.urllib.request.urlopen", spy)
+    lookup = fetch_bbt_zotero_metadata(["k"], None)
+    assert lookup.failure == "rpc_error"
+    assert lookup.detail == "resposta JSON-RPC inesperada"
+
+
+def test_fetch_rpc_error_when_result_has_no_items(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_urlopen_spy(monkeypatch, body={"jsonrpc": "2.0", "result": {}})
+    lookup = fetch_bbt_zotero_metadata(["k"], None)
+    assert lookup.failure == "rpc_error"
+
+
+def test_fetch_records_duplicate_citekeys(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``errors[citekey]`` do BBT: 0 = não achada, n>0 = citekey duplicada."""
+    body = {
+        "jsonrpc": "2.0",
+        "result": {"items": {}, "errors": {"dup2020": 2, "ghost2020": 0, "odd2020": "x"}},
+    }
+    _install_urlopen_spy(monkeypatch, body=body)
+    lookup = fetch_bbt_zotero_metadata(["dup2020", "ghost2020"], None)
+    assert lookup.failure == ""
+    assert lookup.duplicates == ("dup2020",)
 
 
 def test_fetch_params_omit_library_when_absent(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -328,6 +439,35 @@ def test_warning_not_found_e4_lists_keys_and_library(tmp_path: Path) -> None:
     default = docx_link_warning(docx, BbtLookup({"a2020": _LINKED_ENTRY}), _REDO)
     assert default is not None
     assert "(My Library, a padrão)" in default
+
+
+def test_read_docx_citations_null_uri_is_unlinked(tmp_path: Path) -> None:
+    """``uris`` sem nenhuma string não vazia (``[null]``, ``[""]``) conta como sem vínculo."""
+    payload = _payload([{"id": "a2020", "uris": [None]}, {"id": "b2021", "uris": [""]}])
+    docx = _write_minimal_docx_with_payloads(tmp_path / "n.docx", [payload])
+    assert _read_docx_citations(docx)[0]["unlinked"] == ["a2020", "b2021"]
+
+
+def test_warning_duplicates_get_own_sentence(tmp_path: Path) -> None:
+    """Citekey duplicada no Zotero não entra no E4 ("não achada"): tem frase própria."""
+    docx = _docx_with(tmp_path, [{"id": "dup2020", "uris": []}, {"id": "ghost2021", "uris": []}])
+    msg = docx_link_warning(docx, BbtLookup({}, duplicates=("dup2020",)), _REDO)
+    assert msg is not None
+    not_found, duplicated = msg.split("\n")
+    assert not_found.startswith("1 citekey(s) não foram achadas")
+    assert "ghost2021" in not_found
+    assert "dup2020" not in not_found
+    assert "duplicada" in duplicated
+    assert "dup2020" in duplicated
+    assert _REDO in duplicated
+
+
+def test_warning_only_duplicates(tmp_path: Path) -> None:
+    docx = _docx_with(tmp_path, [{"id": "dup2020", "uris": []}])
+    msg = docx_link_warning(docx, BbtLookup({}, duplicates=("dup2020",)), _REDO)
+    assert msg is not None
+    assert "não foram achadas" not in msg
+    assert "dup2020" in msg
 
 
 def test_warning_e4_truncates_after_five_keys(tmp_path: Path) -> None:

@@ -9,7 +9,7 @@ uv sync                        # ambiente Python base
 /plugin install par@prumo-assistant-for-researcher   # no Claude Code: skills + agents + MCP qmd
 ```
 
-Editor recomendado: [Zettlr](https://www.zettlr.com) ≥ 3.0 — preview vivo de citações; setup em `docs/project_guide.md`.
+Editor recomendado: [Zettlr](https://www.zettlr.com) recente (o export do PAR precisa de pandoc 3.8.2 ou mais novo; confira com `prumo doctor`) — preview vivo de citações; setup em `docs/project_guide.md`.
 
 ## Estrutura
 

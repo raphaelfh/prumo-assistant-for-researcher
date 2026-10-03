@@ -95,15 +95,17 @@ local function build_csl_citation(cite)
     -- I1/I2b (spec da ponte): id SEMPRE = citekey (átomo opaco chaveado);
     -- o id numérico do Zotero viaja em zoteroItemID.
     local item = { id = key }
-    if lookup.itemID then item.zoteroItemID = lookup.itemID end
+    -- `type()` e não truthiness: `pandoc.json` decodifica `null` como userdata truthy.
+    if type(lookup.itemID) == 'number' then item.zoteroItemID = lookup.itemID end
     -- `uris` SEMPRE presente e SEMPRE array JSON (ADR-0037). Sem ele, o
     -- Refresh do plugin do Zotero no Word lança TypeError em
     -- Citation.loadItemData (ramo de item embutido de integration.js).
     -- `json.decode('[]')` sai `[]` em todo pandoc suportado; `pandoc.List`
     -- vazio sai `{}` antes do pandoc 3.2.1, e uma tabela Lua vazia crua
     -- sai `{}` sempre.
-    item.uris = lookup.uri and { lookup.uri } or json.decode('[]')
-    if lookup.fingerprint then item.prumoFingerprint = lookup.fingerprint end
+    item.uris = (type(lookup.uri) == 'string' and lookup.uri ~= '') and { lookup.uri }
+      or json.decode('[]')
+    if type(lookup.fingerprint) == 'string' then item.prumoFingerprint = lookup.fingerprint end
     if references_by_key[key] then
       item.itemData = references_by_key[key]
     end

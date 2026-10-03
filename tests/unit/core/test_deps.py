@@ -290,6 +290,12 @@ def test_zotero_base_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
     assert zotero_base() == "http://localhost:9999"
 
 
+def test_zotero_base_empty_env_falls_back_to_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``PRUMO_ZOTERO_BASE=""`` não vira URL relativa (que derruba export e doctor)."""
+    monkeypatch.setenv("PRUMO_ZOTERO_BASE", "")
+    assert zotero_base() == "http://127.0.0.1:23119"
+
+
 def test_bbt_rpc_url_follows_base(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://example.test:1234")
     assert bbt_rpc_url() == "http://example.test:1234/better-bibtex/json-rpc"
