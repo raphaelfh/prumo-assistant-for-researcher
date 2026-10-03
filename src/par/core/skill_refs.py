@@ -9,7 +9,8 @@ Só o TOKEN de invocação muda — ``par:<antigo>`` ou ``prumo-assist:<antigo>`
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+import shutil
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,6 +20,8 @@ __all__ = [
     "RefChange",
     "legacy_installed_dirs",
     "migrate_skill_names",
+    "move_plugin_copies",
+    "plugin_copies",
     "rewrite_invocations",
     "scan_skill_refs",
 ]
@@ -107,3 +110,52 @@ def legacy_installed_dirs(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list
         for d in sorted(root.iterdir())
         if d.is_dir() and d.name in legacy
     ]
+
+
+def plugin_copies(
+    pj_root: Path, skill_names: Iterable[str], agent_files: Iterable[str]
+) -> list[str]:
+    """Cópias de skills/agents do PAR deixadas no ``pj_*`` por um ``prumo init`` antigo (A11).
+
+    Devolve caminhos POSIX relativos ao pj: primeiro ``.claude/skills/<n>`` (diretório,
+    inclusive link para diretório, com ``n`` em ``skill_names``), depois
+    ``.claude/agents/<f>`` (arquivo com ``f`` em ``agent_files``); cada grupo em ordem
+    alfabética. Nomes fora dessas listas nunca entram. Só lista: nada é movido nem apagado.
+    """
+    skills = frozenset(skill_names)
+    agents = frozenset(agent_files)
+    out: list[str] = []
+    skills_dir = pj_root / ".claude" / "skills"
+    if skills_dir.is_dir():
+        out.extend(
+            f".claude/skills/{d.name}"
+            for d in sorted(skills_dir.iterdir(), key=lambda p: p.name)
+            if d.name in skills and d.is_dir()
+        )
+    agents_dir = pj_root / ".claude" / "agents"
+    if agents_dir.is_dir():
+        out.extend(
+            f".claude/agents/{f.name}"
+            for f in sorted(agents_dir.iterdir(), key=lambda p: p.name)
+            if f.name in agents and f.is_file()
+        )
+    return out
+
+
+def move_plugin_copies(pj_root: Path, rels: Sequence[str], dest: Path) -> list[str]:
+    """Move as cópias listadas por :func:`plugin_copies` para ``dest/{skills,agents}/``.
+
+    Nada é apagado: cada cópia vai inteira para o backup (``.prumo/legacy-copies/...``),
+    e nomes fora de ``rels`` nunca são tocados. Depois do move, ``.claude/skills`` e
+    ``.claude/agents`` saem só se ficarem vazios. Com ``rels`` vazio, ``dest`` não é criado.
+    """
+    for rel in rels:
+        target = dest / Path(rel).relative_to(".claude")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(pj_root / rel), str(target))
+    if rels:
+        for sub in ("skills", "agents"):
+            d = pj_root / ".claude" / sub
+            if d.is_dir() and not d.is_symlink() and not any(d.iterdir()):
+                d.rmdir()
+    return list(rels)
