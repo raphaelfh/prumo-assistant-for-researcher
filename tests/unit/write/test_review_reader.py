@@ -643,3 +643,19 @@ def test_check_conservation_rewritten_message_names_buttons_and_command(tmp_path
     assert "Refresh" in message
     assert "Add/Edit Citation" in message
     assert "prumo write export docs/page.md --to docx --force" in message
+
+
+def test_check_conservation_rewritten_message_quotes_page_with_spaces(tmp_path: Path) -> None:
+    """O comando do E5 é copiável: página com espaço sai entre aspas (``shlex.quote``)."""
+    docx = _write_docx_with_fields(
+        tmp_path / "refresh_space.docx",
+        [_field_xml(_zotero_rewritten_payload(["aaa2020"], "(Aaa, 2020)", linked_id=7))],
+    )
+    observed = read_docx_citations_with_state(docx)
+    citemap = _citemap(
+        [_occ(occ_id="00000001", citekeys=["aaa2020"], formatted="(Aaa, 2020)")]
+    ).model_copy(update={"page": "docs/notes/meu artigo.md"})
+
+    with pytest.raises(CitationConservationError) as exc:
+        check_conservation(observed, citemap)
+    assert "prumo write export 'docs/notes/meu artigo.md' --to docx --force" in str(exc.value)

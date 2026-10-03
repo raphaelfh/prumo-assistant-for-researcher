@@ -29,8 +29,10 @@ sidecar corrompido já sai pronto do domínio.
 
 Desde 2026-08-23 o servidor cobre também o domínio `paper` (7 tools, uma
 delas mutante — ver `MUTATING_TOOLS`), e por isso deixou de se chamar
-`prumo-review`: o nome é o prefixo das tools no agent-host
-(`mcp__prumo__paper_find`). ADR emendando a 0017.
+`prumo-review`: o nome é o prefixo das tools no agent-host —
+`mcp__plugin_par_prumo__paper_find` quando servido pelo plugin (ADR-0037,
+B8); `mcp__prumo__*` só no `.mcp.json` de projeto deste repo. ADR emendando
+a 0017.
 
 Task 1 entrega as 3 tools READ-ONLY (`review_status`, `review_events`,
 `review_worklist`) + `run_stdio()` (chamado por `prumo mcp serve`,

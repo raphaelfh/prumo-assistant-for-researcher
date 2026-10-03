@@ -61,7 +61,7 @@ def _binary_on_path(name: str) -> str | None:
 
 def zotero_base() -> str:
     """Base HTTP do Zotero local (connector + Better BibTeX). Override: ``PRUMO_ZOTERO_BASE`` (ADR-0007)."""
-    return os.environ.get("PRUMO_ZOTERO_BASE", _DEFAULT_ZOTERO_BASE)
+    return os.environ.get("PRUMO_ZOTERO_BASE") or _DEFAULT_ZOTERO_BASE  # "" = padrão
 
 
 def bbt_rpc_url() -> str:

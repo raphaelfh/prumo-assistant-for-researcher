@@ -157,8 +157,8 @@ def _search_library_name(citekey: str) -> str | None:
 def _pandoc_filter_uri(citekey: str, library: str) -> str | None:
     """URI Zotero do item (``http://zotero.org/users/<id>/items/<KEY>``).
 
-    Usa ``item.pandoc_filter`` — a mesma API que o ``zotero.lua`` chama — e lê
-    ``result.items[<citekey>].custom.uri``.
+    Usa ``item.pandoc_filter`` (JSON-RPC do Better BibTeX, o mesmo método do
+    lookup do export docx) e lê ``result.items[<citekey>].custom.uri``.
     """
     result = _bbt_rpc_call("item.pandoc_filter", [[citekey], True, library])
     if not isinstance(result, dict):

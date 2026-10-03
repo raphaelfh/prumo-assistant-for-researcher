@@ -37,6 +37,7 @@ import hashlib
 import json
 import logging
 import re
+import shlex
 import shutil
 import zipfile
 from collections import Counter
@@ -444,7 +445,7 @@ def check_conservation(observed: list[DocxCitation], citemap: CiteMapFile) -> li
     rewritten = [citation for citation in observed if not citation.occ_id]
     if rewritten:
         raise CitationConservationError(
-            _ZOTERO_REWROTE_MSG.format(n=len(rewritten), page=citemap.page)
+            _ZOTERO_REWROTE_MSG.format(n=len(rewritten), page=shlex.quote(citemap.page))
         )
 
     by_occ: dict[str, list[DocxCitation]] = {}
