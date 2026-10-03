@@ -248,6 +248,7 @@ def test_run_adeu_extract_exit_nao_zero(tmp_path: Path) -> None:
     assert str(docx) in message
     assert "boom" in message
     assert "confira se o arquivo abre no Word e repita o ingest" in message
+    assert f"prumo write review ingest {docx} --page <página.md>" in message
 
 
 def test_run_adeu_extract_timeout(tmp_path: Path) -> None:
@@ -261,7 +262,8 @@ def test_run_adeu_extract_timeout(tmp_path: Path) -> None:
 
     message = str(exc.value)
     assert f"o adeu passou de 120 s lendo {docx}" in message
-    assert "prumo write review ingest" in message
+    assert f"prumo write review ingest {docx} --page <página.md>" in message
+    assert "…" not in message
 
 
 def test_check_adeu_available_sem_adeu(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -279,6 +281,12 @@ def test_check_adeu_available_sem_adeu(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "adeu" in message
     assert "rm -rf ~/.cache/prumo && prumo --version" in message
     assert "uv sync --extra dev --python 3.12" in message
+    # Instalação via `uv tool install` (README/start) num Python 3.11: o
+    # marker deixa o adeu de fora — a mensagem precisa cobrir esse caminho.
+    assert (
+        "uv tool install --python 3.12 --reinstall "
+        "git+https://github.com/raphaelfh/prumo-assistant-for-researcher.git"
+    ) in message
 
 
 def test_check_adeu_available_com_adeu(monkeypatch: pytest.MonkeyPatch) -> None:
