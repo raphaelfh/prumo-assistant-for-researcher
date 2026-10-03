@@ -281,12 +281,15 @@ def test_check_adeu_available_sem_adeu(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "adeu" in message
     assert "rm -rf ~/.cache/prumo && prumo --version" in message
     assert "uv sync --extra dev --python 3.12" in message
-    # Instalação via `uv tool install` (README/start) num Python 3.11: o
-    # marker deixa o adeu de fora — a mensagem precisa cobrir esse caminho.
-    assert (
-        "uv tool install --python 3.12 --reinstall "
-        "git+https://github.com/raphaelfh/prumo-assistant-for-researcher.git"
-    ) in message
+    # A15: o CLI à parte não é caminho suportado — a mensagem nunca o oferece.
+    assert "uv tool" not in message
+    assert message == (
+        "o backend de prosa (adeu) não está instalado neste ambiente Python. "
+        "Pelo plugin: abra uma sessão nova; se persistir, apague a pasta e "
+        "prepare de novo: rm -rf ~/.cache/prumo && prumo --version. "
+        "Em desenvolvimento: uv sync --extra dev --python 3.12 "
+        "(o adeu exige Python ≥ 3.12)."
+    )
 
 
 def test_check_adeu_available_com_adeu(monkeypatch: pytest.MonkeyPatch) -> None:
