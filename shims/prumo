@@ -30,9 +30,10 @@ _die() {
 
 case $0 in */*) _d=${0%/*} ;; *) _d=. ;; esac
 _root=$(CDPATH='' cd -- "$_d/.." 2>/dev/null && pwd -P) || _root=
-[ -f "$_root/uv.lock" ] && [ -f "$_root/src/par/cli.py" ] ||
+if [ ! -f "$_root/uv.lock" ] || [ ! -f "$_root/src/par/cli.py" ]; then
   _die 1 "instalação do plugin incompleta${_root:+ em $_root} (ou o lançador foi chamado por um link simbólico, o que não é suportado)." \
     "Reinstale o plugin (no app: + → Plugins → Gerenciar plugins; no terminal: /plugin uninstall par e /plugin install par@prumo-assistant-for-researcher) e abra uma sessão nova."
+fi
 
 # Anexado (não prefixado): o MCP aberto pelo app de janela também acha uv, pandoc e typst.
 PATH="$PATH:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin"; export PATH
