@@ -1,14 +1,11 @@
 """Verificação de referências do ``_references.bib`` — Fase 4 da ponte.
 
-Camada NATIVA determinística (este módulo, Tasks 1–2): existência do DOI no
-Crossref, retração via Crossref ``filter=updates:`` e PubMed ``pubtype``,
-identidade de título. É o único gate (achado ``error`` → exit 1 no CLI).
-Camada PROFUNDA opcional (Task 3): ``uvx academic-refchecker==3.0.151`` —
-achados viram ``warning`` (enriquecimento, nunca gate). Classificação
-citação-suporte é do modo ``paper support`` (LLM sinaliza, nunca bloqueia).
+Camada NATIVA determinística: existência do DOI no Crossref, retração via
+Crossref ``filter=updates:`` e PubMed ``pubtype``, identidade de título. É o
+único gate (achado ``error`` → exit 1 no CLI). Classificação citação-suporte é
+do modo ``paper support`` (LLM sinaliza, nunca bloqueia).
 
-Privacidade (ADR-0018): só DOIs/PMIDs saem da máquina na camada nativa; o
-``--deep`` envia o subconjunto do bib em escopo, nunca o bib inteiro.
+Privacidade (ADR-0018): só DOIs/PMIDs saem da máquina.
 Respostas ficam em cache local (TTL 7 dias) em ``default_cache_path()``.
 """
 
@@ -18,10 +15,8 @@ import difflib
 import json
 import os
 import re
-import tempfile
 import urllib.error
 import urllib.request
-from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -32,8 +27,6 @@ from par._version import __version__
 from par.core import pj_layout
 from par.core.bib import BibEntry, extract_field, parse_bib
 from par.core.citations import scan_marked_citekeys
-from par.core.uvx import PinnedTool, run_pinned
-from par.domains.paper.errors import PaperError
 from par.domains.paper.graph import extract_citekeys
 
 _USER_AGENT = f"prumo-assistant-for-researcher/{__version__} (+https://github.com/raphaelfh/prumo-assistant-for-researcher)"
@@ -226,7 +219,7 @@ class Finding:
     level: str  # "error" | "warning" | "info" — só "error" deriva exit 1
     kind: str
     message: str
-    source: str  # "crossref" | "pubmed" | "local" | "refchecker"
+    source: str  # "crossref" | "pubmed" | "local"
 
 
 def _cached_get_json(cache: RefCache, key: str, url: str, *, refresh: bool) -> dict[str, Any]:
@@ -406,8 +399,9 @@ def check_entry(entry: BibEntry, *, cache: RefCache, refresh: bool = False) -> l
                 level="info",
                 kind="no-identifier",
                 message=(
-                    f"entrada sem DOI/PMID{extra} — verificação nativa impossível; rode "
-                    "com --deep para busca por título/autores (refchecker)."
+                    f"entrada sem DOI/PMID{extra} — verificação nativa impossível; adicione "
+                    "o DOI no Zotero, deixe o Better BibTeX regravar o .bib e rode: "
+                    "prumo paper verify-refs"
                 ),
                 source="local",
             )
@@ -425,113 +419,6 @@ def check_entry(entry: BibEntry, *, cache: RefCache, refresh: bool = False) -> l
         if already_retracted:
             pubmed = [f for f in pubmed if f.kind != "retracted"]
         findings.extend(pubmed)
-    return findings
-
-
-REFCHECKER_PIN = "academic-refchecker==3.0.151"
-_REFCHECKER_HINT = (
-    "Instale o uv (https://docs.astral.sh/uv/) e confirme: "
-    f"`uvx {REFCHECKER_PIN} --help`. Sem uv, rode sem --deep — a verificação "
-    "nativa (Crossref/PubMed) continua funcionando."
-)
-
-
-class RefcheckerUnavailableError(PaperError):
-    """Backend profundo (`uvx academic-refchecker==3.0.151`) ausente ou hostil."""
-
-
-# Identidade de erro do refchecker para o motor comum de ferramenta pinada
-# (`core/uvx.run_pinned`) — rótulos byte-idênticos ao wording que este
-# módulo emitia antes da extração (travados pelos testes do seam).
-_REFCHECKER_TOOL = PinnedTool(
-    error_cls=RefcheckerUnavailableError,
-    hint=_REFCHECKER_HINT,
-    missing_label=f"o backend profundo (`uvx {REFCHECKER_PIN}`)",
-    timeout_label="refchecker",
-    timeout_detail=(
-        "sem chave de API o pool público é lento; reduza o escopo (--page) "
-        "ou rode de novo mais tarde."
-    ),
-    exit_label=f"refchecker (`uvx {REFCHECKER_PIN}`)",
-)
-
-
-def _bib_subset_text(entries: Sequence[BibEntry]) -> str:
-    """Reconstrói um .bib só com as entradas em escopo (privacidade: o bib
-    inteiro nunca sai da máquina; ver Global Constraints)."""
-    return "\n".join(f"@{e.entry_type}{{{e.citekey},{e.body}}}" for e in entries) + "\n"
-
-
-def _run_refchecker(bib_text: str, *, timeout: float = 600.0) -> dict[str, Any]:
-    """Roda o refchecker PINADO sobre um .bib temporário e devolve o report.
-
-    Fatos do spike 2026-07-24 que este seam honra: o refchecker termina com
-    **exit 0 mesmo com erros** — o gate é o ``--report-file``; sem chave de
-    API o pool público é lento (default 600s de timeout). Seam isolado para
-    mock nos testes (regra do repo).
-    """
-    with tempfile.TemporaryDirectory(prefix="prumo-refcheck-") as tmp:
-        bib_path = Path(tmp) / "scope.bib"
-        report_path = Path(tmp) / "report.json"
-        bib_path.write_text(bib_text, encoding="utf-8")
-        run_pinned(
-            _REFCHECKER_TOOL,
-            [
-                "uvx",
-                REFCHECKER_PIN,
-                "--paper",
-                str(bib_path),
-                "--report-file",
-                str(report_path),
-            ],
-            timeout=timeout,
-        )
-        try:
-            payload = json.loads(report_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise RefcheckerUnavailableError(
-                "refchecker terminou com exit 0 mas o report JSON está ausente/ilegível "
-                "— o exit code dele NÃO sinaliza falha (spike 2026-07-24); sem report "
-                f"não há verificação. {_REFCHECKER_HINT}"
-            ) from exc
-        if not isinstance(payload, dict):
-            raise RefcheckerUnavailableError(
-                f"report do refchecker não é o JSON esperado (objeto no topo). {_REFCHECKER_HINT}"
-            )
-        return cast(dict[str, Any], payload)
-
-
-def _findings_from_report(report: dict[str, Any], scope: set[str]) -> list[Finding]:
-    """Records → Findings ``warning`` (deep é enriquecimento, nunca gate —
-    Global Constraints). Mapeamento pelo ``original_reference.bibtex_key``."""
-    findings: list[Finding] = []
-    records = report.get("records")
-    for record in records if isinstance(records, list) else []:
-        if not isinstance(record, dict):
-            continue
-        error_type = record.get("error_type")
-        if not error_type:
-            continue
-        original = record.get("original_reference")
-        citekey = original.get("bibtex_key") if isinstance(original, dict) else None
-        if not isinstance(citekey, str) or citekey not in scope:
-            continue
-        details = str(record.get("error_details") or "").strip()
-        first_line = details.splitlines()[0] if details else "achado sem detalhes"
-        # Cap defensivo: o refchecker embute referências cruas no
-        # error_details — uma linha de milhares de chars não pode fluir
-        # inteira pro Finding.message/CLI.
-        if len(first_line) > 200:
-            first_line = first_line[:200] + "…"
-        findings.append(
-            Finding(
-                citekey=citekey,
-                level="warning",
-                kind=f"refchecker:{error_type}",
-                message=(f"[deep] {first_line} — confira a entrada no Zotero e re-exporte o BBT."),
-                source="refchecker",
-            )
-        )
     return findings
 
 
@@ -556,7 +443,6 @@ def verify_refs(
     pj_path: Path,
     *,
     page: Path | None = None,
-    deep: bool = False,
     refresh: bool = False,
     cache_path: Path | None = None,
 ) -> dict[str, Any]:
@@ -667,14 +553,6 @@ def verify_refs(
             continue
         findings.extend(check_entry(by_key[key], cache=cache, refresh=refresh))
 
-    # Citekeys duplicadas ficam fora do deep (mesma razão do skip nativo) e o
-    # guard usa o subconjunto filtrado: escopo só-de-duplicatas não dispara
-    # subprocess nenhum (emenda pós-review T3).
-    deep_keys = [k for k in scope if k not in duplicate_counts]
-    if deep and deep_keys:
-        deep_report = _run_refchecker(_bib_subset_text([by_key[k] for k in deep_keys]))
-        findings.extend(_findings_from_report(deep_report, set(deep_keys)))
-
     summary = {
         "errors": sum(1 for f in findings if f.level == "error"),
         "warnings": sum(1 for f in findings if f.level == "warning"),
@@ -685,7 +563,7 @@ def verify_refs(
         "page": str(page) if page is not None else None,
         "scope": scope,
         "checked": len(scope),
-        "deep": deep,
+        "deep": False,
         "findings": [asdict(f) for f in findings],
         "summary": summary,
     }

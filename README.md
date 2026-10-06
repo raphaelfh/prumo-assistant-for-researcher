@@ -10,17 +10,25 @@ protocolos e escrever/revisar documentos.
 
 Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de design em [`docs/constitution.md`](docs/constitution.md); decisões registradas em [`docs/adr/`](docs/adr/); status atual e próximas fases em [`ROADMAP.md`](ROADMAP.md).
 
-## Para pesquisadores (Desktop/Cowork, sem terminal)
+## Para pesquisadores (app Claude, aba Code)
 
-Você não precisa de terminal para usar o PAR. Direto no Claude
-Desktop ou no Cowork: menu de plugins → **"Add from a repository"** →
-`raphaelfh/prumo-assistant-for-researcher` (exige plano Claude pago — Pro ou Max).
+Você não precisa de terminal para usar o PAR. Três passos:
 
-Depois de instalado, cole um trecho de draft e peça `/par:review critique`
-— funciona sem instalar mais nada (julgamento puro; testado no spike da Fase 0
-sem CLI/Zotero/qmd). Quando quiser ir além (bibliografia, projeto no disco), a
-própria conversa guia a instalação do resto — `/par:start` pede seu
-consentimento a cada comando.
+1. Abra o app Claude (plano pago — Pro ou Max) → aba **Code**.
+2. Cole `/plugin install par --marketplace raphaelfh/prumo-assistant-for-researcher`
+   → **Instalar para você**. (Se o comando não for aceito, use o caminho pela
+   interface: **+** → **Plugins** → **Add plugin**.)
+3. Abra uma sessão nova e peça `/par:start`.
+
+O `/par:start` confere o que falta e pede seu consentimento a cada comando. O
+CLI `prumo` vem dentro do plugin: não há nada a instalar além do `uv`, que o
+próprio `/par:start` oferece instalar.
+
+**Onde funciona.** A aba Code do app Claude (Mac) e o Claude Code no terminal
+(Mac ou Linux) são os canais suportados. No Cowork e no chat do claude.ai, só o
+julgamento sobre texto colado (por exemplo, `/par:review critique`) é garantido:
+para o resto, use a aba Code. Windows (inclusive WSL): sem suporte. Mac Intel:
+suportado, validado pelo job `launcher-smoke` do CI.
 
 Guia completo, passo a passo, em linguagem simples:
 [`docs/onboarding-pesquisador.md`](docs/onboarding-pesquisador.md).
@@ -39,7 +47,7 @@ Guia completo, passo a passo, em linguagem simples:
 | "fecha a PICOT" | `/par:protocol picot` | Formaliza, propaga e versiona a PICOT do projeto em 3 destinos (.claude/picot.toml canônico, docs/studies/<slug>/writing/protocol.md operacional, docs/project_guide.md acadêmico) + ADR append-only quando muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado. |
 | "gera o plano de análise estatística" | `/par:protocol sap` | Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa PicotSpec.outcome+metrics e protocol.md § Splits. Rascunho que referencia TRIPOD+AI/SPIRIT-AI, TRIPOD-LLM quando o pipeline usa LLM e CONSORT 2025/DECIDE-AI conforme o desenho; conformidade final é do estatístico. |
 | "revisa este draft" | `/par:review critique` | Simula revisão crítica de draft acadêmico (paper, capítulo, grant, proposta) produzindo feedback estruturado por seção com forças, fraquezas, claims sem evidência e sugestões acionáveis. Aplica mental model adequado (TRIPOD+AI / TRIPOD-LLM / DECIDE-AI / CLAIM / CONSORT 2025 / PRISMA / STROBE). |
-| "reconcilia os eventos ambíguos da revisão" | `/par:review reconcile` | Reconcilia eventos ambíguos do round-trip de revisão (unanchored/ambiguous/non-identity) propondo marcas CriticMarkup pendentes no worklist via prumo — o humano decide com `prumo write review apply`. NUNCA propõe/move/cunha citação (I1/I3b: eventos de citação são decisão humana). |
+| "reconcilia os eventos ambíguos da revisão" | `/par:review reconcile` | Reconcilia eventos ambíguos do round-trip de revisão (unanchored/ambiguous/non-identity) propondo marcas CriticMarkup pendentes no worklist via prumo — o humano decide com `prumo write review apply`. NUNCA propõe/move/cunha citação (citação é decisão humana). |
 | — | `/par:start` | Porta de entrada do par: instala o que falta e roteia para a skill e o modo certos (paper, wiki, protocol, write, review). |
 | "adiciona esta fonte ao wiki" | `/par:wiki ingest` | Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria a nota da fonte (type: source) em docs/studies/<escopo>/notes/, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /par:paper library. |
 | "audita o wiki" | `/par:wiki lint` | Health-check do wiki de um pj_*: detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos sem página, links mortos, prefixo de log inválido, múltiplos role:primary. Gera relatório timestamped como finding (type: finding) em docs/studies/<slug>/notes/_lint_<data>.md. |
@@ -54,7 +62,9 @@ Guia completo, passo a passo, em linguagem simples:
 
 ### MCP
 
-- **`qmd`** — servidor MCP para busca BM25 + vector + rerank local no wiki dos projetos. **Requer instalação** — ver [Pré-requisitos externos](#pré-requisitos-externos).
+- **`prumo`** — servidor MCP do PAR. Sobe pelo lançador do plugin (`/bin/sh ${CLAUDE_PLUGIN_ROOT}/shims/prumo mcp serve`); as tools aparecem como `mcp__plugin_par_prumo__*`. Não há nada a instalar além do `uv`.
+
+qmd é CLI opcional (ver [Pré-requisitos externos](#pré-requisitos-externos)); não há servidor MCP do qmd no plugin.
 
 ## Instalação
 
@@ -66,29 +76,29 @@ Guia completo, passo a passo, em linguagem simples:
 
 Após a instalação, as skills aparecem com o prefixo `/par:...`.
 
-Para usar as skills que dependem do CLI Python (bibliografia, escrita, wiki),
-instale também o `prumo`:
+O CLI `prumo` vem no plugin: o lançador `shims/prumo` roda o código da raiz do
+plugin num ambiente montado pelo `uv` a partir do `uv.lock` (na 1ª vez, cerca
+de 60 MB em `~/.cache/prumo`), sem instalar nada no sistema.
 
-```bash
-uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher.git
-```
+O PAR se atualiza sozinho nos projetos criados ou atualizados a partir da
+0.71.0; senão, aceite a atualização em + → Plugins. Depois, abra uma sessão
+nova.
 
-Atualizar depois: `uv tool upgrade prumo-assistant-for-researcher`.
-
-Guia sem terminal para quem prefere não usar o CLI/Claude Code: [Para
-pesquisadores](#para-pesquisadores-desktopcowork-sem-terminal) acima, ou o
+Guia pelo app Claude, sem terminal: [Para
+pesquisadores](#para-pesquisadores-app-claude-aba-code) acima, ou o
 passo a passo completo em
 [`docs/onboarding-pesquisador.md`](docs/onboarding-pesquisador.md).
 
 ## Pré-requisitos externos
 
-O plugin orquestra três ferramentas que vivem fora do pacote Python. Rode
+O plugin orquestra ferramentas que vivem fora do pacote Python. Rode
 `prumo doctor` a qualquer momento para checar o estado delas.
 
 | Dependência | Necessária para | Como instalar / habilitar |
 |---|---|---|
-| **`qmd`** (MCP de busca) | `/par:wiki query`, `/par:wiki ingest`, `/par:wiki study` | `bun install -g @tobilu/qmd` (repo: [github.com/tobi/qmd](https://github.com/tobi/qmd)). Precisa estar no `PATH`. Declarado em `.mcp.json` como servidor `qmd`. |
-| **Zotero 9 + Better BibTeX** | `paper sync-annotations`, `paper sync-notes`, `write export --to docx` (vínculo das citações, opcional) | Abra o Zotero 9 com o [Better BibTeX](https://retorque.re/zotero-better-bibtex/) instalado. Ele expõe a API local em `127.0.0.1:23119`. Só é necessário para os comandos que leem anotações/notas — o resto do prumo funciona sem ele. |
+| **`uv`** | o CLI `prumo` e o servidor MCP do PAR (o lançador monta o ambiente com ele) | Instalador oficial em [docs.astral.sh/uv](https://docs.astral.sh/uv/); o `/par:start` oferece instalar. Sem versão mínima a decorar: o PAR avisa se o seu for antigo e diz como atualizar. |
+| **`qmd`** (CLI de busca, opcional) | busca semântica em `/par:wiki query`, `/par:wiki ingest`, `/par:wiki study` | `npm install -g @tobilu/qmd` (repo: [github.com/tobi/qmd](https://github.com/tobi/qmd)). Precisa estar no `PATH`. É CLI: não há servidor MCP do qmd no plugin. |
+| **Zotero 9+ e Better BibTeX ≥ 9.0.65** | `paper connect`; vínculo das citações no `write export --to docx` | Abra o Zotero com o [Better BibTeX](https://retorque.re/zotero-better-bibtex/) instalado (`.xpi`). O PAR fala com ele em `127.0.0.1:23119` e não precisa da opção 'Allow other applications'. Sem o Zotero, o resto do PAR funciona, e o docx sai com as citações sem vínculo. |
 | **Pandoc ≥ 3.8.2** | `write export`, `write compose` | macOS: `brew install pandoc` (ou o Zettlr, cujo pandoc o PAR usa quando não há um no PATH); Linux: pacote oficial em https://github.com/jgm/pandoc/releases (o do apt costuma ser antigo); confira com `prumo doctor`. |
 
 > [!tip]
@@ -97,9 +107,10 @@ O plugin orquestra três ferramentas que vivem fora do pacote Python. Rode
 > o uso das partes do plugin que não dependem dela.
 
 > [!note]
-> Por padrão o prumo fala com o Zotero em `http://127.0.0.1:23119`. Para usar
-> outra porta/host, exporte `PRUMO_ZOTERO_BASE` (ex.:
-> `export PRUMO_ZOTERO_BASE=http://localhost:23200`).
+> Por padrão o prumo fala com o Zotero em `http://127.0.0.1:23119`.
+> `PRUMO_ZOTERO_BASE` (ex.: `export PRUMO_ZOTERO_BASE=http://localhost:23200`)
+> é variável de dev: o servidor MCP aberto pelo app não herda variáveis do
+> perfil do shell.
 
 ## Pressupostos de projeto
 
@@ -130,12 +141,20 @@ Camadas opcionais com gatilho (`prumo add <módulo>`): `code`, `data`, `notebook
 - Histórico completo em [`CHANGELOG.md`](CHANGELOG.md).
 - Política de versionamento e processo de release em [`RELEASING.md`](RELEASING.md).
 
-Para atualizar o plugin num Claude Code já configurado:
+Para atualizar o plugin num Claude Code já configurado: o PAR se atualiza
+sozinho nos projetos criados ou atualizados a partir da 0.71.0; senão, aceite a
+atualização em + → Plugins (ou `/plugin marketplace update
+prumo-assistant-for-researcher` no terminal). Depois, abra uma sessão nova.
+
+## Desinstalar
 
 ```
-/plugin marketplace update prumo-assistant-for-researcher
-/reload-plugins
+/plugin uninstall par
+rm -rf ~/.cache/prumo
 ```
+
+Só se nada mais os usa: `uv cache clean` e `uv python uninstall 3.12` (cerca
+de 70 MB).
 
 ## Licença
 

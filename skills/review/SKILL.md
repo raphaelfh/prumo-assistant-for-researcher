@@ -6,13 +6,19 @@ when_to_use: |
   - critique: "revisa este draft"; "me dá um peer review"; "quais buracos no meu argumento"; "seja o advogado do diabo"; "seja duro"; "revisa antes de submeter"
   - reconcile: "reconcilia os eventos ambíguos da revisão"; "resolve as marcas sem âncora do docx"
 argument-hint: "[critique|reconcile] [argumentos do modo]"
-allowed-tools: Read Glob Grep Bash(prumo validate *) Agent Bash(prumo write review events *) Bash(prumo doctor *) mcp__plugin_par_prumo__review_status mcp__plugin_par_prumo__review_events mcp__plugin_par_prumo__review_worklist mcp__plugin_par_prumo__propose_prose_edit
+allowed-tools: Read Glob Grep Bash(prumo validate *) Agent Bash(prumo write review events *) Bash(prumo doctor *) mcp__plugin_par_prumo__review_status mcp__plugin_par_prumo__review_events mcp__plugin_par_prumo__review_worklist mcp__plugin_par_prumo__propose_prose_edit Bash(prumo --version)
 prumo:
   version: 2.0.0
   agent_compat: [claude-code]
 ---
 
 # review — revisão
+
+<!-- prumo:runtime:begin -->
+**PAR 0.70.2** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}`
+- CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas cada comando pede permissão.
+- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`.
+<!-- prumo:runtime:end -->
 
 Escolha o modo antes de agir:
 

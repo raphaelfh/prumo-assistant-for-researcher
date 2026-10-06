@@ -203,8 +203,10 @@ def zettlr_profile_command(
 
         out = generate_profile(path.resolve(), style=style)
         console.success(
-            f"Perfil Zettlr gerado: {out}. Importe uma vez no Zettlr "
-            "(Assets Manager → defaults files); re-rode este comando se o prumo for reinstalado."
+            f"Perfil Zettlr gerado: {out} (o filtro fica em docs/templates/zotero_live_docx.lua). "
+            "Importe uma vez no Zettlr (Assets Manager → defaults files). Depois de atualizar o "
+            "PAR, se o `prumo doctor` avisar do perfil, rode `prumo write zettlr-profile` de "
+            "novo — o caminho não muda, então não precisa reimportar."
         )
         console.emit({"profile": str(out)})
 
@@ -529,31 +531,3 @@ def review_apply_command(
                 "drops_confirmed": result.drops_confirmed,
             }
         )
-
-
-def zettlr_export_entry() -> None:
-    """Console-script pro custom command do Zettlr: `prumo-zettlr-export <arquivo.md>`.
-
-    O Zettlr invoca o comando com o caminho absoluto do arquivo
-    selecionado como único argumento e mostra a saída ao usuário.
-    Caminho canônico: mesmas guardas do ``prumo write export --to docx``.
-    """
-    import sys
-
-    try:
-        with cli_run(json_mode=False, catches=(FileNotFoundError, ValueError)) as console:
-            if len(sys.argv) != 2:
-                raise PrumoError("uso: prumo-zettlr-export <arquivo.md>")
-            page = Path(sys.argv[1]).resolve()
-            # force=True: aqui é sempre o autor reexportando a própria fonte pra
-            # build/exports/ (gitignored, regenerável) — o docx do coautor com
-            # tracked changes nunca mora ali, então a guarda de sobrescrita não
-            # protege nada neste caminho e só quebraria o re-export de rotina.
-            result = export.export(page=page, to="docx", force=True, on_warning=console.warn)
-            console.success(f"exportado: {result}")
-    except typer.Exit as e:
-        # Entrypoint fora do dispatch do Click (é um `[project.scripts]` cru,
-        # não um app Typer/Click): sem isso, o `typer.Exit` levantado por
-        # `cli_run` em erro escaparia como traceback cru no painel do Zettlr,
-        # mesmo após a mensagem pt-BR já ter sido impressa por `console.error`.
-        raise SystemExit(e.exit_code) from None

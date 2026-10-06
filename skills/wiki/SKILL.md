@@ -8,13 +8,19 @@ when_to_use: |
   - query: "o que a literatura diz sobre X"; "compara Y e Z"; "quais decisões tomamos sobre W"
   - study: "me ensina X"; "me coloca à prova sobre Y"; "preciso fixar Z"
 argument-hint: "[ingest|lint|query|study] [argumentos do modo]"
-allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) mcp__qmd__embed mcp__qmd__query Bash(rg *) Bash(prumo *) Bash(cat *) mcp__qmd__search Bash(echo *)
+allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) Bash(prumo wiki *) Bash(prumo wiki lint *) Bash(rg *) Bash(prumo paper find *) Bash(cat *) Bash(echo *) Bash(prumo --version)
 prumo:
   version: 2.0.0
   agent_compat: [claude-code]
 ---
 
 # wiki — wiki do projeto
+
+<!-- prumo:runtime:begin -->
+**PAR 0.70.2** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}`
+- CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas cada comando pede permissão.
+- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`.
+<!-- prumo:runtime:end -->
 
 Escolha o modo antes de agir:
 

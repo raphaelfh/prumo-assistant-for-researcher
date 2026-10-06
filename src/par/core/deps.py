@@ -2,10 +2,10 @@
 
 prumo orquestra ferramentas que vivem fora do pacote Python:
 
-- **qmd** — servidor MCP de busca (BM25+vector+rerank) que as skills
-  os modos ``wiki query``, ``wiki ingest`` e ``wiki study`` consomem. Binário no PATH.
-- **Zotero + Better BibTeX** — fonte de bibliografia/anotações. Expõe API local
-  HTTP em ``127.0.0.1:23119`` quando o app está aberto.
+- **qmd** — CLI de busca (BM25 + vector + rerank) que os modos ``wiki query``,
+  ``wiki ingest`` e ``wiki study`` usam. Binário no PATH.
+- **Zotero + Better BibTeX** — citation keys, auto-export do ``.bib``
+  (``paper connect``) e vínculo das citações do docx.
 - **Pandoc** — ``write export``/``write compose``; o do PATH ou o que vem dentro
   do Zettlr.app, com o piso 3.8.2 (ADR-0037).
 
@@ -25,7 +25,6 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
 
 _DEFAULT_ZOTERO_BASE = "http://127.0.0.1:23119"
 _ZETTLR_PANDOC = Path("/Applications/Zettlr.app/Contents/Resources/pandoc")
@@ -98,61 +97,28 @@ def _pandoc_version(path: str, timeout: float = 5.0) -> str | None:
     return m.group(1) if m else None
 
 
-def _zotero_api_root(timeout: float = 2.0) -> int | None:
-    """Status HTTP de ``GET {base}/api/``, ou ``None`` se nada respondeu.
-
-    Seam testável. ``/api/`` é o endpoint no-op da API local, e o gate da
-    preferência roda ANTES dele: com o app aberto e a API local **desligada**
-    responde ``403 Local API is not enabled``; com ela ligada, ``2xx``. É
-    também o único endpoint isento da checagem de versão da API, então serve
-    de sonda em qualquer major do Zotero.
-
-    Sondar a porta crua ou ``/connector/ping`` não distingue os dois casos: o
-    connector server sobe junto com o app, independentemente da API local.
-    """
-    try:
-        with urllib.request.urlopen(f"{zotero_base()}/api/", timeout=timeout) as resp:
-            return int(resp.status)
-    except urllib.error.HTTPError as exc:
-        return int(exc.code)
-    except (OSError, http.client.HTTPException):
-        return None
-
-
-def _zotero_host_port() -> tuple[str, int]:
-    """Host/porta da API local do Zotero, honrando ``PRUMO_ZOTERO_BASE``."""
-    parsed = urlparse(zotero_base())
-    return parsed.hostname or "127.0.0.1", parsed.port or 23119
-
-
 _SUPPORTED_ZOTERO_MAJOR = 9
 
 
-def _zotero_version_header(host: str, port: int, timeout: float = 2.0) -> str | None:
-    """Versão do Zotero via header ``X-Zotero-Version`` do connector ping.
+@dataclass(frozen=True)
+class _BbtProbe:
+    status: int | None  # None = nada escutando
+    zotero_version: str | None  # header X-Zotero-Version, presente até no 404
 
-    Seam testável. ``None`` = não detectável (fail-safe: não reprova).
-    """
-    url = f"http://{host}:{port}/connector/ping"
+
+def _bbt_probe(timeout: float = 2.0) -> _BbtProbe:
+    """GET {zotero_base()}/better-bibtex/cayw?probe=true. 200 = BBT carregado
+    ('ready' ou 'starting'); 404 = Zotero sem BBT ou BBT ainda iniciando. Não
+    depende da API local. Seam testável."""
+    url = f"{zotero_base()}/better-bibtex/cayw?probe=true"
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:
-            value = resp.headers.get("X-Zotero-Version")
-            return str(value) if value else None
+            return _BbtProbe(int(resp.status), resp.headers.get("X-Zotero-Version"))
+    except urllib.error.HTTPError as exc:
+        headers = exc.headers
+        return _BbtProbe(int(exc.code), headers.get("X-Zotero-Version") if headers else None)
     except (OSError, http.client.HTTPException):
-        return None
-
-
-def zotero_local_api_up(timeout: float = 2.0) -> bool:
-    """``True`` se a **API local** do Zotero responde — não só se o app está aberto.
-
-    Sonda o mesmo endpoint que ``check_external_deps`` (o ``doctor``) para que
-    doctor e domínios nunca discordem. Só ``2xx`` conta: a API local é opt-in
-    (Settings → Advanced) e, desligada, o app aberto responde ``403`` — tratar
-    isso como "de pé" fazia o guard passar e os comandos de anotação tomarem
-    403 em série.
-    """
-    code = _zotero_api_root(timeout=timeout)
-    return code is not None and 200 <= code < 300
+        return _BbtProbe(None, None)
 
 
 def _zotero_major(version: str | None) -> int | None:
@@ -213,6 +179,87 @@ def _pandoc_status() -> DepStatus:
     )
 
 
+_ZOTERO_REQUIRED_BY = ["paper connect", "write export --to docx (vínculo com a biblioteca)"]
+_ZOTERO_CLOSED_HINT = (
+    "Abra o Zotero 9 ou mais novo, com o Better BibTeX, e rode: prumo doctor. "
+    "Só o `prumo paper connect` e o vínculo das citações do docx precisam dele; "
+    "o resto do PAR funciona sem ele."
+)
+#: Receita para o ``prumo`` sair do sandbox do Bash do Claude Code de vez — fonte
+#: única (Princípio I) para o doctor, o ``paper connect`` e o ``write export``.
+SANDBOX_EXCLUDE_HINT = (
+    'Para o `prumo` rodar sempre fora do sandbox, acrescente `"prumo *"` em '
+    "`sandbox.excludedCommands` no `~/.claude/settings.json`."
+)
+_ZOTERO_SANDBOX_HINT = (
+    "Peça para repetir fora do sandbox (o Claude pede permissão): prumo doctor. "
+    + SANDBOX_EXCLUDE_HINT
+)
+_ZOTERO_OLD_HINT = (
+    "Atualize para o Zotero 9+: baixe em https://www.zotero.org/download, instale e "
+    "reabra o app. Depois atualize o Better BibTeX em Tools → Plugins se ele avisar "
+    "(o BBT acompanha o major do Zotero)."
+)
+#: Dica de Better BibTeX ausente ou iniciando (E12, HTTP 404) — o ``paper connect``
+#: reusa o mesmo texto quando o JSON-RPC do BBT responde 404.
+ZOTERO_NO_BBT_HINT = (
+    "Sem Better BibTeX (ou ainda iniciando — aguarde e rode prumo doctor). Para "
+    "instalar: baixe o .xpi em https://github.com/retorquere/zotero-better-bibtex/releases "
+    "e, no Zotero, Tools → Plugins → ⚙ → Install Plugin From File. Depois rode: prumo doctor"
+)
+
+
+def _zotero_status() -> DepStatus:
+    """Linha ``zotero`` do doctor: uma sonda só ao Better BibTeX (ADR-0037, B10).
+
+    Não depende da API local do Zotero (o toggle "Allow other applications").
+    Estados, o primeiro que casa decide: E10/E11 (nada escutando), E14 (major
+    abaixo de 9, inclusive no 404), E12 (404), E13 (outro HTTP), ✓ (200).
+    """
+    base = zotero_base()
+    probe = _bbt_probe()
+    v = probe.zotero_version
+    major = _zotero_major(v)
+
+    present = False
+    hint = ""
+    if probe.status is None:
+        if in_claude_sandbox():
+            detail = f"o sandbox do Claude Code não deixa este comando falar com o Zotero em {base}"
+            hint = _ZOTERO_SANDBOX_HINT
+        else:
+            detail = f"nada escutando em {base}"
+            hint = _ZOTERO_CLOSED_HINT
+    elif major is not None and major < _SUPPORTED_ZOTERO_MAJOR:
+        detail = (
+            f"Zotero {v} rodando em {base} — abaixo do par suportado "
+            f"(Zotero {_SUPPORTED_ZOTERO_MAJOR}+ com Better BibTeX)"
+        )
+        hint = _ZOTERO_OLD_HINT
+    elif probe.status == 404:
+        opened = f"Zotero {v} aberto" if v else "Zotero aberto"
+        detail = f"{opened} em {base}, mas o Better BibTeX não respondeu (HTTP 404)"
+        hint = ZOTERO_NO_BBT_HINT
+    elif probe.status != 200:
+        detail = f"o Zotero respondeu HTTP {probe.status} em /better-bibtex/cayw"
+        hint = "Reinicie o Zotero e rode: prumo doctor"
+    else:
+        present = True
+        detail = (
+            f"Better BibTeX respondendo em {base} — Zotero {v}"
+            if v
+            else f"Better BibTeX respondendo em {base} (versão não detectada)"
+        )
+    return DepStatus(
+        name="zotero",
+        present=present,
+        required_by=list(_ZOTERO_REQUIRED_BY),
+        detail=detail,
+        hint=hint,
+        version=v,
+    )
+
+
 def check_external_deps() -> list[DepStatus]:
     """Audita dependências externas. Nunca levanta — sempre retorna a lista."""
     statuses: list[DepStatus] = []
@@ -225,66 +272,13 @@ def check_external_deps() -> list[DepStatus]:
             required_by=["wiki query", "wiki ingest", "wiki study"],
             detail=f"qmd em {qmd_path}" if qmd_path else "qmd não está no PATH",
             hint=(
-                "Instale o qmd (servidor MCP de busca): `bun install -g @tobilu/qmd` "
-                "— repo https://github.com/tobi/qmd. Depois confirme que está no PATH."
+                "Instale o qmd: `npm install -g @tobilu/qmd` "
+                "(ou `bun install -g @tobilu/qmd`) e indexe o projeto: `prumo wiki index`."
             ),
         )
     )
 
-    host, port = _zotero_host_port()
-    api_code = _zotero_api_root()
-    responded = api_code is not None
-    api_enabled = responded and 200 <= (api_code or 0) < 300
-    version = _zotero_version_header(host, port) if responded else None
-    major = _zotero_major(version)
-    supported = major is None or major >= _SUPPORTED_ZOTERO_MAJOR
-
-    if not responded:
-        detail = f"nada escutando em {host}:{port}"
-        hint = (
-            f"Abra o Zotero {_SUPPORTED_ZOTERO_MAJOR} (com Better BibTeX instalado) — "
-            f"ele expõe a API local em {host}:{port}. Só é necessário pros comandos "
-            f"que leem anotações/notas; o resto do prumo funciona sem ele."
-        )
-    elif not api_enabled:
-        detail = (
-            f"Zotero aberto em {host}:{port}, mas a API local está DESLIGADA "
-            f"(HTTP {api_code} em /api/)"
-        )
-        hint = (
-            "Ligue a API local: Zotero → Settings → Advanced → marque "
-            '"Allow other applications on this computer to communicate with Zotero", '
-            "e rode `prumo doctor` de novo."
-        )
-    elif not supported:
-        detail = (
-            f"Zotero {version} rodando em {host}:{port} — abaixo do par "
-            f"suportado (Zotero {_SUPPORTED_ZOTERO_MAJOR}+ com Better BibTeX)"
-        )
-        hint = (
-            f"Atualize para o Zotero {_SUPPORTED_ZOTERO_MAJOR}+: baixe em "
-            f"https://www.zotero.org/download, instale e reabra o app. Depois "
-            f"atualize o Better BibTeX em Tools → Plugins se ele avisar "
-            f"(o BBT acompanha o major do Zotero)."
-        )
-    elif version is None:
-        detail = f"API local respondendo em {host}:{port} (versão não detectada)"
-        hint = ""
-    else:
-        detail = f"API local respondendo em {host}:{port} — Zotero {version}"
-        hint = ""
-
-    statuses.append(
-        DepStatus(
-            name="zotero",
-            present=api_enabled and supported,
-            required_by=["paper sync-annotations", "paper sync-notes", "write export --to docx"],
-            detail=detail,
-            hint=hint,
-            version=version,
-        )
-    )
-
+    statuses.append(_zotero_status())
     statuses.append(_pandoc_status())
 
     return statuses

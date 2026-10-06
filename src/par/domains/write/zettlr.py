@@ -16,13 +16,15 @@ duplicada.
 
 Fica de fora por design (spec 2026-07-22): lookup BBT (URIs de relink)
 e guardas pós-export — exclusivos do caminho canônico ``prumo write
-export``. O perfil é gerado por máquina (caminho absoluto do filtro no
-wheel instalado) — nunca commitado no template.
+export``. O perfil é gerado por máquina (cópia do filtro no projeto,
+caminho estável entre versões) — nunca commitado: o
+``zettlr-profile`` garante a linha do perfil no ``.gitignore`` do pj.
 """
 
 from __future__ import annotations
 
 import contextlib
+import shutil
 from pathlib import Path
 
 import yaml
@@ -33,6 +35,13 @@ from par.domains.write.export import _zotero_live_docx_filter
 
 PROFILE_RELPATH = Path("docs") / "templates" / "prumo-docx.yaml"
 REFERENCE_DOC_RELPATH = Path("docs") / "templates" / "reference.docx"
+FILTER_RELPATH = Path("docs") / "templates" / "zotero_live_docx.lua"
+
+_GITIGNORE_LINE = PROFILE_RELPATH.as_posix()
+_GITIGNORE_COMMENT = (
+    "# perfil do Zettlr: caminhos absolutos desta máquina; "
+    "regenere com `prumo write zettlr-profile`"
+)
 
 _READER = "markdown+yaml_metadata_block+pipe_tables+grid_tables+fenced_code_blocks"
 
@@ -60,11 +69,14 @@ def generate_profile(pj_path: Path, *, style: str = "apa") -> Path:
             f"{pj_path} não parece a raiz de um pj_* (esperado docs/references/_references.bib). "
             "Rode na raiz do projeto ou aponte-a: `prumo write zettlr-profile --path <raiz>`."
         )
+    filter_copy = pj_path / FILTER_RELPATH
+    filter_copy.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(_zotero_live_docx_filter(), filter_copy)
     profile: dict[str, object] = {
         "reader": _READER,
         "writer": "docx",
         "standalone": True,
-        "filters": ["citeproc", str(_zotero_live_docx_filter())],
+        "filters": ["citeproc", str(filter_copy.resolve())],
         "metadata": {"zotero_csl_style": style},
     }
     with contextlib.suppress(CslNotFoundError):
@@ -75,14 +87,34 @@ def generate_profile(pj_path: Path, *, style: str = "apa") -> Path:
     out = pj_path / PROFILE_RELPATH
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(yaml.safe_dump(profile, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    _ensure_gitignored(pj_path)
     return out
 
 
-def profile_issues(pj_path: Path) -> list[str]:
-    """Checagem para o doctor: perfil existente apontando arquivo morto.
+def _ensure_gitignored(pj_path: Path) -> None:
+    """Garante a linha do perfil no ``<pj>/.gitignore`` (cria o arquivo se faltar).
 
-    Perfil ausente NÃO é problema (projeto legado ou pré-perfil);
-    quebrado (wheel movido/reinstalado) é.
+    O perfil traz caminhos absolutos desta máquina; commitado, quebra o
+    export do coautor. O ``prumo update`` não mexe num ``.gitignore`` que já
+    existe, então nos pj existentes é este comando que acrescenta a linha.
+    """
+    gitignore = pj_path / ".gitignore"
+    text = gitignore.read_text(encoding="utf-8") if gitignore.is_file() else ""
+    if any(line.strip() == _GITIGNORE_LINE for line in text.splitlines()):
+        return
+    if text and not text.endswith("\n"):
+        text += "\n"
+    text += f"{_GITIGNORE_COMMENT}\n{_GITIGNORE_LINE}\n"
+    gitignore.write_text(text, encoding="utf-8")
+
+
+def profile_issues(pj_path: Path) -> list[str]:
+    """Checagem para o doctor: perfil existente com filtro ou reference-doc quebrado.
+
+    Perfil ausente NÃO é problema (projeto legado ou pré-perfil). Para o
+    filtro, acusa três casos: arquivo inexistente, filtro fora do projeto
+    (perfil antigo apontando para dentro de uma instalação do PAR) e cópia
+    no projeto com bytes diferentes do filtro desta versão.
     """
     profile_path = pj_path / PROFILE_RELPATH
     if not profile_path.is_file():
@@ -103,11 +135,10 @@ def profile_issues(pj_path: Path) -> list[str]:
     filters = data.get("filters") or []
     if isinstance(filters, list):
         for f in filters:
-            if isinstance(f, str) and f != "citeproc" and not Path(f).is_file():
-                issues.append(
-                    f"Perfil Zettlr aponta filtro inexistente: {f}. "
-                    "Regenere: `prumo write zettlr-profile`."
-                )
+            if isinstance(f, str) and f != "citeproc":
+                issue = _filter_issue(pj_path, f)
+                if issue:
+                    issues.append(issue)
     ref = data.get("reference-doc")
     if isinstance(ref, str) and not Path(ref).is_file():
         issues.append(
@@ -115,3 +146,23 @@ def profile_issues(pj_path: Path) -> list[str]:
             "Regenere: `prumo write zettlr-profile`."
         )
     return issues
+
+
+def _filter_issue(pj_path: Path, f: str) -> str | None:
+    """Um problema do filtro ``f`` do perfil, ou ``None`` se ele está em dia."""
+    path = Path(f)
+    if not path.is_file():
+        return (
+            f"Perfil Zettlr aponta filtro inexistente: {f}. Regenere: `prumo write zettlr-profile`."
+        )
+    if path.resolve() != (pj_path / FILTER_RELPATH).resolve():
+        return (
+            f"Perfil Zettlr aponta filtro fora do projeto: {f}. "
+            "Regenere: `prumo write zettlr-profile`."
+        )
+    if path.read_bytes() != _zotero_live_docx_filter().read_bytes():
+        return (
+            f"A cópia do filtro em {FILTER_RELPATH.as_posix()} está diferente da desta "
+            "versão do PAR. Regenere: `prumo write zettlr-profile`."
+        )
+    return None

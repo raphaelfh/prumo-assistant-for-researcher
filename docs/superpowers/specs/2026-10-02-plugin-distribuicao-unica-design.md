@@ -805,9 +805,10 @@ _die() {
 
 case $0 in */*) _d=${0%/*} ;; *) _d=. ;; esac
 _root=$(CDPATH='' cd -- "$_d/.." 2>/dev/null && pwd -P) || _root=
-[ -f "$_root/uv.lock" ] && [ -f "$_root/src/par/cli.py" ] ||
+if [ ! -f "$_root/uv.lock" ] || [ ! -f "$_root/src/par/cli.py" ]; then
   _die 1 "instalação do plugin incompleta${_root:+ em $_root} (ou o lançador foi chamado por um link simbólico, o que não é suportado)." \
     "Reinstale o plugin (no app: + → Plugins → Gerenciar plugins; no terminal: /plugin uninstall par e /plugin install par@prumo-assistant-for-researcher) e abra uma sessão nova."
+fi
 
 # Anexado (não prefixado): o MCP aberto pelo app de janela também acha uv, pandoc e typst.
 PATH="$PATH:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin"; export PATH
@@ -926,7 +927,7 @@ sobrescrita, porque o POSIX sh não tem `local`.
 # à frente do PATH do Bash da sessão, para `prumo` sem caminho casar com as
 # permissões Bash(prumo ...) das skills. Idempotente, silencioso (stdout de
 # SessionStart vira contexto do modelo) e nunca falha a sessão.
-[ -n "${CLAUDE_ENV_FILE:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT:-}/shims/prumo" ] || exit 0
+if [ -z "${CLAUDE_ENV_FILE:-}" ] || [ ! -f "${CLAUDE_PLUGIN_ROOT:-}/shims/prumo" ]; then exit 0; fi
 _q=$(printf '%s' "$CLAUDE_PLUGIN_ROOT/shims" | sed "s/'/'\\\\''/g")
 _line="export PATH='$_q':\"\$PATH\""
 { grep -qxF -- "$_line" "$CLAUDE_ENV_FILE" || printf '%s\n' "$_line" >>"$CLAUDE_ENV_FILE"; } 2>/dev/null
@@ -1338,9 +1339,8 @@ Os blocos dos três modos `qmd` (`wiki/{ingest,query,study}`) também são reger
 - **Novo job `launcher-smoke`.** Matriz `os: [ubuntu-latest, macos-latest, macos-15-intel]`, com
   `PRUMO_CACHE_DIR=$RUNNER_TEMP/pc`. Passos:
   1. `shellcheck -s sh shims/prumo hooks/session-start.sh`, só no ubuntu, onde o shellcheck vem
-     instalado. O ShellCheck 0.11.0 sai limpo nos dois arquivos com a severidade padrão
-     (medido); a forma `[ teste ] && [ teste ] || _die …` não dispara o SC2015, que só vale
-     quando o meio não é um teste.
+     instalado. O shellcheck do runner ubuntu acusa SC2015 em
+     `[ teste ] && [ teste ] || …` (o 0.11.0 local não acusava), por isso as guardas usam `if`.
   2. Copiar `git ls-files` para `$RUNNER_TEMP/root` e rodar `chmod -R a-w`.
   3. `sh $RUNNER_TEMP/root/shims/prumo --version` deve imprimir `prumo <__version__>`. No ubuntu,
      onde `/bin/sh` já é o `dash`, repetir com `bash --posix`; no macOS, onde `/bin/sh` é o bash

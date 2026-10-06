@@ -11,8 +11,7 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 
 | Pergunta | Documento |
 |---|---|
-| Sou pesquisador sem terminal — como começo no Desktop/Cowork? | [[onboarding-pesquisador\|Trilha do pesquisador]] |
-| Tenho um gatilho concreto, qual comando usar? | [[actions-by-context\|Contextos → ações]] |
+| Sou pesquisador — como começo pelo app Claude (aba Code)? | [[onboarding-pesquisador\|Trilha do pesquisador]] |
 | Como devo estruturar um novo `pj_*`? | [[Research Project Structure\|Estrutura de Projeto de Pesquisa]] |
 | Quais são os princípios não-negociáveis do projeto? | [[constitution\|Constitution]] |
 | Por que essa decisão estrutural foi tomada? | [[adr/_index\|Índice de ADRs]] |
@@ -22,12 +21,11 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 ## Como o vault está organizado
 
 - `Research Project Structure.md` — modelo "núcleo mínimo + módulos opcionais" pros `pj_*`.
-- `actions-by-context.md` — playbook de bolso por gatilho.
 - `constitution.md` — rule do projeto (princípios, restrições, governança).
 - `superpowers/specs/` — specs vivas de design (não-perecíveis; `status: approved | superseded`).
 - `superpowers/plans/` — planos ativos; implementados movem pra `plans/archive/` com `status/verified/release`.
 - `adr/` — decisões registradas (MADR minimal, imutáveis). Índice: [[adr/_index]].
-- `onboarding-pesquisador.md` — trilha do pesquisador sem terminal (Desktop/Cowork) + kit do piloto da Fase 2.
+- `onboarding-pesquisador.md` — trilha do pesquisador pelo app Claude (aba Code) + kit do piloto da Fase 2.
 
 ## Convenções
 
@@ -41,9 +39,8 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 **Guias:**
 
 - [[Research Project Structure]] · Estrutura de Projeto de Pesquisa
-- [[actions-by-context]] · Contextos de necessidade → ações no PAR
 - [[constitution]] · PAR Constitution
-- [[onboarding-pesquisador]] · Trilha do pesquisador — PAR sem terminal
+- [[onboarding-pesquisador]] · Trilha do pesquisador — app Claude, aba Code
 - [[positioning]] · Posicionamento e claims do PAR
 
 **Specs** (não-perecíveis):
@@ -52,7 +49,7 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-05-03-active-learning-design]] · approved
 - [[superpowers/specs/2026-05-03-formulate-picot-design]] · approved
 - [[superpowers/specs/2026-05-03-write-family-design]] · approved
-- [[superpowers/specs/2026-05-03-zotero-notes-integration-design]] · approved
+- [[superpowers/specs/2026-05-03-zotero-notes-integration-design]] · superseded
 - [[superpowers/specs/2026-05-30-pj-base-simplification-design]] · approved
 - [[superpowers/specs/2026-06-11-repo-organization-redesign-design]] · approved
 - [[superpowers/specs/2026-06-13-researcher-pipeline-design]] · approved
@@ -80,10 +77,9 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 
 **Plans ativos:**
 
-- [[superpowers/plans/2026-10-02-plugin-distribuicao-unica]] · approved
-- [[superpowers/plans/2026-10-02-ponte-zotero-minima-0710]] · approved
+- (nenhum)
 
-**Plans arquivados:** 43 em `superpowers/plans/archive/`
+**Plans arquivados:** 45 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->

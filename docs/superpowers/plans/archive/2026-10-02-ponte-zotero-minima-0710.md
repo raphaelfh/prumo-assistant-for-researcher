@@ -1,8 +1,11 @@
 ---
-status: approved
+status: implemented
+verified: 2026-10-03
+release: "0.71.0 MINOR (corte único com a Spec A) — pendente do corte"
 spec: "[[2026-10-02-ponte-zotero-minima-design]]"
-release: "0.71.0 MINOR (corte único com a Spec A)"
 ---
+
+> **Fechamento (2026-10-03).** Tasks 1–8 entregues em commits consecutivos num único branch (empilhado sobre o trabalho da 0.70.3): `connect` com transporte próprio e mensagens E15–E17; saem `sync-annotations`, `sync-notes`, `sync-all`, a tool MCP `paper_sync_all`, `ZoteroApiError`, `child_note_path` e a regra `duplicate_item_key`; doctor com a sonda única `_bbt_probe` (E10–E14); modo `paper library` roteando "o que eu anotei"; docs, template, receita do 54yyyu no onboarding e spec de notas aposentada; CHANGELOG em `[Não publicado]`. Verificação (Step 3): 1325 testes passando, 0 skip; ruff, `ruff format --check`, mypy, `gen_indexes --check`, `validate_manifests` e `sync_manifest_version --check` limpos; varredura de nomes aposentados vazia. Smokes (Step 4, `SANDBOX_RUNTIME=1`): `paper --help` sem os comandos aposentados; `paper sync-all .` sai com 2 e "No such command"; o servidor MCP lista 10 tools; num pj recém-criado, `doctor --json` sai com 0 e, como o sandbox deixou passar o localhost com o Zotero aberto, a linha `zotero` veio ✓ (Zotero 10.0.4) em vez do E11; `paper connect` de coleção inexistente sai com 1 e "NADA foi criado", `.bib` segue placeholder. Pendentes: G3 (manual, na máquina do dono; bloqueia o corte), P16 (medir a frase nova no Desktop com a lista-ouro) e o corte da 0.71.0.
 
 # Ponte Zotero mínima — parte 0.71.0 (aposentadoria, sonda única, `connect`) Implementation Plan
 

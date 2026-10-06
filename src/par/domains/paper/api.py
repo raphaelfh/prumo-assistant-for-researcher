@@ -20,9 +20,7 @@ from par.domains.paper.migrate import migrate_pj as migrate_layout
 from par.domains.paper.pdfs import sync_pdfs
 from par.domains.paper.prep import ExtractPrep, extract_prep
 from par.domains.paper.sync import sync
-from par.domains.paper.sync_all import sync_all
 from par.domains.paper.verify import verify_refs
-from par.domains.paper.zotero import sync_annotations, sync_notes
 
 __all__ = [
     "ExtractPrep",
@@ -36,9 +34,6 @@ __all__ = [
     "parse_extract_payload",
     "set_primary",
     "sync",
-    "sync_all",
-    "sync_annotations",
-    "sync_notes",
     "sync_pdfs",
     "update_graph",
     "verify_refs",

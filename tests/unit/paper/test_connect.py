@@ -173,8 +173,156 @@ class TestConnectCollection:
         pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
         fake, _ = _fake_rpc({"user.groups": urllib.error.URLError("refused")})
         monkeypatch.setattr("par.domains.paper.connect._http_post_json", fake)
-        with pytest.raises(connect.ZoteroOfflineError, match="abra o Zotero"):
+        with pytest.raises(connect.ZoteroOfflineError, match="Abra o Zotero"):
             connect.connect_collection(pj, "GynOb")
+
+
+class _FakeResp:
+    """Resposta HTTP mínima para o fake de ``urlopen`` (context manager)."""
+
+    def __enter__(self) -> _FakeResp:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return b'{"jsonrpc": "2.0", "result": []}'
+
+
+class TestTransporteEMensagens:
+    def test_offline_msg_usa_a_base_configurada(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://example.test:1234")
+        msg = connect._offline_msg()
+        assert "http://example.test:1234" in msg
+        assert "Abra o Zotero" in msg
+        assert "prumo doctor" in msg
+        assert "sandbox" not in msg
+
+    def test_offline_msg_no_sandbox_ensina_excluded_commands(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SANDBOX_RUNTIME", "1")
+        monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://example.test:1234")
+        msg = connect._offline_msg()
+        assert "sandbox do Claude Code" in msg
+        assert "sandbox.excludedCommands" in msg
+        assert '"prumo *"' in msg
+        assert "http://example.test:1234" in msg
+
+    def test_zotero_fechado_no_sandbox(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import urllib.error
+
+        monkeypatch.setenv("SANDBOX_RUNTIME", "1")
+        pj = _pj(tmp_path, bib_text=_PLACEHOLDER)
+        fake, _ = _fake_rpc({"user.groups": urllib.error.URLError("refused")})
+        monkeypatch.setattr("par.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.ZoteroOfflineError, match=r"sandbox\.excludedCommands"):
+            connect.connect_collection(pj, "GynOb")
+
+    def test_http_post_json_posta_no_endpoint_do_bbt(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import json
+        import urllib.request
+
+        monkeypatch.setenv("PRUMO_ZOTERO_BASE", "http://example.test:1234")
+        seen: dict[str, Any] = {}
+
+        def fake(req: urllib.request.Request, timeout: float = 0.0) -> _FakeResp:
+            seen["url"] = req.full_url
+            assert isinstance(req.data, bytes)
+            seen["body"] = json.loads(req.data)
+            seen["ctype"] = req.get_header("Content-type")
+            seen["timeout"] = timeout
+            return _FakeResp()
+
+        monkeypatch.setattr("par.domains.paper.connect.urllib.request.urlopen", fake)
+        assert connect.list_collections() == []
+        assert seen["url"] == "http://example.test:1234/better-bibtex/json-rpc"
+        assert seen["body"]["method"] == "user.groups"
+        assert seen["body"]["params"] == [True]
+        assert seen["ctype"] == "application/json"
+        assert seen["timeout"] == 10.0
+
+    def test_404_do_bbt_diz_que_falta_o_better_bibtex(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Zotero aberto sem BBT (ou iniciando) responde 404: não mandar abrir o Zotero."""
+        import email.message
+        import urllib.error
+        import urllib.request
+
+        def fake(req: urllib.request.Request, timeout: float = 0.0) -> _FakeResp:
+            raise urllib.error.HTTPError(
+                req.full_url, 404, "No endpoint found", email.message.Message(), None
+            )
+
+        monkeypatch.setattr("par.domains.paper.connect.urllib.request.urlopen", fake)
+        with pytest.raises(connect.ZoteroOfflineError) as excinfo:
+            connect.list_collections()
+        msg = str(excinfo.value)
+        assert "HTTP 404" in msg
+        assert "Better BibTeX" in msg
+        assert ".xpi" in msg
+        assert "prumo doctor" in msg
+        assert "Abra o Zotero" not in msg
+
+    def test_outro_http_do_zotero_nao_e_zotero_fechado(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import email.message
+        import urllib.error
+        import urllib.request
+
+        def fake(req: urllib.request.Request, timeout: float = 0.0) -> _FakeResp:
+            raise urllib.error.HTTPError(req.full_url, 500, "boom", email.message.Message(), None)
+
+        monkeypatch.setattr("par.domains.paper.connect.urllib.request.urlopen", fake)
+        with pytest.raises(connect.ZoteroOfflineError) as excinfo:
+            connect.list_collections()
+        msg = str(excinfo.value)
+        assert "HTTP 500" in msg
+        assert "prumo doctor" in msg
+        assert "Abra o Zotero" not in msg
+
+    def test_corpo_nao_json_vira_zotero_offline(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """200 com corpo não-JSON (outro serviço na porta, HTML) não vaza JSONDecodeError."""
+        import urllib.request
+
+        class _HtmlResp(_FakeResp):
+            def read(self) -> bytes:
+                return b"<html>"
+
+        def fake(req: urllib.request.Request, timeout: float = 0.0) -> _FakeResp:
+            return _HtmlResp()
+
+        monkeypatch.setattr("par.domains.paper.connect.urllib.request.urlopen", fake)
+        with pytest.raises(connect.ZoteroOfflineError, match="prumo doctor"):
+            connect.list_collections()
+
+    def test_dica_do_sandbox_tem_fonte_unica(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from par.core.deps import SANDBOX_EXCLUDE_HINT
+
+        monkeypatch.setenv("SANDBOX_RUNTIME", "1")
+        assert SANDBOX_EXCLUDE_HINT in connect._offline_msg()
+
+    def test_connect_nao_depende_de_zotero_py(self) -> None:
+        assert "zotero" not in vars(connect)
+
+    def test_guarda_1_diz_o_risco_real_e_o_remedio(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pj = _pj(tmp_path, bib_text="@article{x2020,\n  title = {T},\n}\n")
+        fake, calls = _fake_rpc({})
+        monkeypatch.setattr("par.domains.paper.connect._http_post_json", fake)
+        with pytest.raises(connect.AlreadyConnectedError) as excinfo:
+            connect.connect_collection(pj, "GynOb")
+        msg = str(excinfo.value)
+        assert "sobrescrevê-lo" in msg
+        assert "Automatic export" in msg
+        assert "prumo paper sync" in msg
+        assert calls == []
 
 
 _GROUPS_SLASH = [

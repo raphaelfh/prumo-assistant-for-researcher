@@ -17,7 +17,9 @@ Documentação do projeto. Preencha conforme o estudo evolui — este README é 
 
 ## Operações wiki
 
-```bash
+Os `/par:wiki …` são pedidos ao Claude, feitos na conversa:
+
+```text
 # Ingerir fonte nova
 /par:wiki ingest <URL | DOI | arXiv | PDF>
 
@@ -26,8 +28,11 @@ Documentação do projeto. Preencha conforme o estudo evolui — este README é 
 
 # Auditar consistência
 /par:wiki lint
+```
 
-# Buscar no wiki (CLI)
+No terminal, o uso opcional é a busca do qmd (CLI; instale com `npm install -g @tobilu/qmd`):
+
+```bash
 qmd query "<termo>"
 ```
 

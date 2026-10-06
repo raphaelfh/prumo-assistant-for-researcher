@@ -1,7 +1,7 @@
 """Subcomandos ``prumo paper *`` — Typer fachada.
 
 Lógica fica nos módulos de domínio (``sync``, ``graph``, ``find``, ``lint``,
-``pdfs``, ``zotero``, ``callout``). Aqui só parsing de args + saída.
+``pdfs``, ``connect``, ``callout``). Aqui só parsing de args + saída.
 """
 
 from __future__ import annotations
@@ -25,11 +25,9 @@ from par.domains.paper import (
     pdfs,
     sync,
     verify,
-    zotero,
 )
 from par.domains.paper import prep as paper_prep
 from par.domains.paper.callout import apply_extraction, parse_extract_payload
-from par.domains.paper.sync_all import sync_all as _sync_all
 
 paper_app = typer.Typer(
     name="paper",
@@ -106,13 +104,6 @@ def verify_refs_command(
         Path | None,
         typer.Option("--page", help="Escopo: só as citekeys desta página .md (recomendado)."),
     ] = None,
-    deep: Annotated[
-        bool,
-        typer.Option(
-            "--deep",
-            help=f"Verificação profunda via `uvx {verify.REFCHECKER_PIN}` (lento sem chave).",
-        ),
-    ] = False,
     refresh: Annotated[
         bool, typer.Option("--refresh", help="Ignora o cache local (TTL 7 dias).")
     ] = False,
@@ -123,7 +114,6 @@ def verify_refs_command(
         report = verify.verify_refs(
             path.resolve(),
             page=page.resolve() if page is not None else None,
-            deep=deep,
             refresh=refresh,
         )
         for finding in report["findings"]:
@@ -268,10 +258,7 @@ def connect_command(
                 "Preferences → Better BibTeX → Automatic export — não há undo pelo CLI."
             )
         if not r.exported:
-            console.info(
-                "export agendado no BBT — o arquivo aparece em instantes; confira com "
-                "`prumo paper sync` em seguida."
-            )
+            console.info(connect.EXPORT_PENDING_HINT)
         console.emit(
             {
                 "library": r.collection.library,
@@ -283,74 +270,6 @@ def connect_command(
                 "next": "prumo paper sync",
             }
         )
-
-
-@paper_app.command("sync-annotations")
-def sync_annotations_command(
-    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
-    json_mode: Annotated[bool, typer.Option("--json")] = False,
-) -> None:
-    """Sincroniza annotations + child notes do Zotero pra cada nota local.
-
-    Requer Zotero 9 aberto + Better BibTeX instalado (API local em
-    ``http://localhost:23119``)."""
-    with cli_run(
-        json_mode=json_mode,
-        catches=(FileNotFoundError, ConnectionError),
-        exit_code=2,
-    ) as console:
-        report = zotero.sync_annotations(path.resolve())
-        console.success(
-            f"{report['inserted']} inseridos, {report['updated']} atualizados, "
-            f"{report['unchanged']} já em dia."
-        )
-        console.emit(report)
-
-
-@paper_app.command("sync-notes")
-def sync_notes_command(
-    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
-    json_mode: Annotated[bool, typer.Option("--json")] = False,
-) -> None:
-    """Projeta cada child note do Zotero em ``<key>/note__<itemKey>__<slug>.md``.
-
-    Read-only Zotero → repo. Requer Zotero 9 aberto + Better BibTeX
-    (API local em ``http://localhost:23119``)."""
-    with cli_run(
-        json_mode=json_mode,
-        catches=(FileNotFoundError, ConnectionError),
-        exit_code=2,
-    ) as console:
-        report = zotero.sync_notes(path.resolve())
-        console.success(
-            f"{report['inserted']} inseridas, {report['updated']} atualizadas, "
-            f"{report['unchanged']} já em dia."
-        )
-        console.emit(report)
-
-
-@paper_app.command("sync-all")
-def sync_all_command(
-    path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
-    json_mode: Annotated[bool, typer.Option("--json")] = False,
-) -> None:
-    """Orquestra ``sync`` + ``sync-annotations`` + ``sync-notes`` numa tacada.
-
-    ``sync`` roda offline (lê o ``.bib``). As fases que precisam do Zotero são
-    puladas com aviso se ele estiver fechado — o comando não falha por isso."""
-    with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
-        report = _sync_all(path.resolve())
-        s = report["sync"]
-        console.success(f"meta: {s['created']} novas / {s['updated']} atualizadas.")
-        if report["annotations"] is not None:
-            a = report["annotations"]
-            console.info(f"  annotations: {a['inserted']} novas / {a['updated']} atualizadas.")
-        if report["notes"] is not None:
-            n = report["notes"]
-            console.info(f"  notes: {n['inserted']} novas / {n['updated']} atualizadas.")
-        for w in report["warnings"]:
-            console.warn(w)
-        console.emit(report)
 
 
 @paper_app.command("extract-prep")

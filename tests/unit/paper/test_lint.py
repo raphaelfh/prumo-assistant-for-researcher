@@ -117,7 +117,8 @@ def test_lint_warns_subdir_without_meta(tmp_path: Path) -> None:
     assert any("incomplete_dir" in w["message"] for w in report["issues"])
 
 
-def test_lint_flags_duplicate_item_key(tmp_path: Path) -> None:
+def test_lint_nao_audita_notas_legadas_do_zotero(tmp_path: Path) -> None:
+    """B9/ADR-0037: `note__*.md` é legado só leitura; o lint não audita mais itemKey."""
     refs = tmp_path / "docs" / "references"
     notes = refs / "papers" / "smith2024"
     notes.mkdir(parents=True)
@@ -130,9 +131,8 @@ def test_lint_flags_duplicate_item_key(tmp_path: Path) -> None:
         "---\npaper: smith2024\nzotero_item_key: ABCD1234\n---\n\nB\n"
     )
     report = lint(tmp_path)
-    dup = [i for i in report["issues"] if i["code"] == "duplicate_item_key"]
-    assert len(dup) >= 1
-    assert "ABCD1234" in dup[0]["message"]
+    assert not [i for i in report["issues"] if i["code"] == "duplicate_item_key"]
+    assert report["ok"] is True
 
 
 def test_lint_flags_duplicate_citekey_as_error(tmp_path: Path) -> None:
@@ -167,19 +167,3 @@ def test_lint_no_duplicate_citekey_when_keys_distinct(tmp_path: Path) -> None:
     report = lint(pj)
     assert not [i for i in report["issues"] if i["code"] == "duplicate_citekey"]
     assert report["ok"]
-
-
-def test_lint_no_duplicate_when_item_keys_distinct(tmp_path: Path) -> None:
-    refs = tmp_path / "docs" / "references"
-    notes = refs / "papers" / "smith2024"
-    notes.mkdir(parents=True)
-    (refs / "_references.bib").write_text("@article{smith2024, title={X}}\n")
-    (notes / "_meta.md").write_text("---\nid: smith2024\n---\n\nbody\n")
-    (notes / "note__ABCD1234__um.md").write_text(
-        "---\npaper: smith2024\nzotero_item_key: ABCD1234\n---\n\nA\n"
-    )
-    (notes / "note__EFGH5678__dois.md").write_text(
-        "---\npaper: smith2024\nzotero_item_key: EFGH5678\n---\n\nB\n"
-    )
-    report = lint(tmp_path)
-    assert not [i for i in report["issues"] if i["code"] == "duplicate_item_key"]

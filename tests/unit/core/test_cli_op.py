@@ -46,7 +46,8 @@ def test_first_match_wins_by_insertion_order() -> None:
 
 
 def test_per_command_exit_code_still_applies() -> None:
-    """Caso sync-annotations: ``exit_code=2`` pro comando inteiro continua valendo."""
+    """Caso paper connect (Zotero fechado sai com 2): ``exit_code`` fixo pro
+    comando inteiro continua valendo."""
     with pytest.raises(typer.Exit) as excinfo, cli_run(catches=(ConnectionError,), exit_code=2):
         raise ConnectionError("zotero fechado")
     assert excinfo.value.exit_code == 2

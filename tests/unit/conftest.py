@@ -23,6 +23,7 @@ from typing import Protocol
 import pytest
 import yaml
 
+from par.core.deps import _BbtProbe
 from par.domains.write.export import slugify
 from par.domains.write.schemas.v1 import (
     CiteMapFile,
@@ -47,6 +48,14 @@ def _no_real_pandoc(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
     monkeypatch.setattr("par.core.deps._ZETTLR_PANDOC", tmp_path / "sem-zettlr" / "pandoc")
     monkeypatch.setattr("par.core.deps._pandoc_version", lambda path, timeout=5.0: None)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_bbt_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nenhum teste fala com o Zotero real pela sonda do doctor (regra de seams,
+    `.claude/rules/code.md`). Os testes da sonda usam ``_REAL_BBT_PROBE`` de
+    ``test_deps.py``; os da linha ``zotero`` fazem patch de ``_bbt_probe``."""
+    monkeypatch.setattr("par.core.deps._bbt_probe", lambda timeout=2.0: _BbtProbe(None, None))
 
 
 @pytest.fixture(autouse=True)

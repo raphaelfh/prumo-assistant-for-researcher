@@ -588,71 +588,31 @@ def test_write_compose_force_overwrites_existing_output(
     assert out.read_bytes() == b"<html>ok</html>"
 
 
-def test_zettlr_entry_calls_canonical_docx_export(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    page = tmp_path / "draft.md"
-    page.write_text("x")
-    called: dict[str, object] = {}
+def test_zettlr_export_entry_nao_existe() -> None:
+    """O console script `prumo-zettlr-export` saiu na 0.71.0 (Spec A, A10)."""
+    from par.domains.write import cli as write_cli
 
-    def fake_export(*, page: Path, to: str = "docx", **kwargs: object) -> Path:
-        called["page"] = page
-        called["to"] = to
-        return tmp_path / "out.docx"
-
-    monkeypatch.setattr("par.domains.write.cli.export.export", fake_export)
-    monkeypatch.setattr("sys.argv", ["prumo-zettlr-export", str(page)])
-    from par.domains.write.cli import zettlr_export_entry
-
-    zettlr_export_entry()
-    assert called == {"page": page.resolve(), "to": "docx"}
+    assert not hasattr(write_cli, "zettlr_export_entry")
 
 
-def test_zettlr_entry_export_error_exits_cleanly(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    page = tmp_path / "draft.md"
-    page.write_text("x")
+def test_pyproject_sem_console_script_do_zettlr() -> None:
+    import tomllib
 
-    def fake_export(*, page: Path, to: str = "docx", **kwargs: object) -> Path:
-        raise FileNotFoundError("bibliografia não encontrada: x")
-
-    monkeypatch.setattr("par.domains.write.cli.export.export", fake_export)
-    monkeypatch.setattr("sys.argv", ["prumo-zettlr-export", str(page)])
-    from par.domains.write.cli import zettlr_export_entry
-
-    with pytest.raises(SystemExit) as exc:
-        zettlr_export_entry()
-    assert exc.value.code == 1
+    pyproject = Path(__file__).resolve().parents[3] / "pyproject.toml"
+    scripts = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["scripts"]
+    assert "prumo-zettlr-export" not in scripts
 
 
-def test_zettlr_entry_forwards_warnings(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """O aviso de vínculo também chega ao painel do Zettlr (``on_warning=console.warn``).
-    Sai com ``zettlr_export_entry`` na 0.71.0 (Spec A)."""
-    page = tmp_path / "draft.md"
-    page.write_text("x")
+def test_zettlr_profile_mensagem_cita_o_filtro_no_projeto(tmp_path: Path) -> None:
+    (tmp_path / "docs" / "references").mkdir(parents=True)
+    (tmp_path / "docs" / "references" / "_references.bib").write_text("")
 
-    def fake(**kwargs: Any) -> Path:
-        kwargs["on_warning"]("aviso z")
-        return tmp_path / "out.docx"
+    result = runner.invoke(app, ["write", "zettlr-profile", "--path", str(tmp_path)])
 
-    monkeypatch.setattr("par.domains.write.cli.export.export", fake)
-    monkeypatch.setattr("sys.argv", ["prumo-zettlr-export", str(page)])
-    from par.domains.write.cli import zettlr_export_entry
-
-    zettlr_export_entry()
-    assert "aviso z" in capsys.readouterr().out
-
-
-def test_zettlr_entry_usage_error_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("sys.argv", ["prumo-zettlr-export"])
-    from par.domains.write.cli import zettlr_export_entry
-
-    with pytest.raises(SystemExit) as exc:
-        zettlr_export_entry()
-    assert exc.value.code == 1
+    assert result.exit_code == 0, result.output
+    out = " ".join(result.output.split())
+    assert "docs/templates/zotero_live_docx.lua" in out
+    assert "não precisa reimportar" in out
 
 
 def test_export_command_reports_citekey_error_cleanly(
