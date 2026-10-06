@@ -16,7 +16,7 @@ prumo:
 # protocol — protocolo do estudo
 
 <!-- prumo:runtime:begin -->
-**PAR 0.70.2** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}`
+**PAR 0.71.0** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}`
 - CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas cada comando pede permissão.
 - Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`.
 <!-- prumo:runtime:end -->
