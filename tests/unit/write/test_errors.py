@@ -9,7 +9,6 @@ from par.domains.write import export, review
 from par.domains.write.errors import WriteError
 
 _WRITE_LEAVES = (
-    export.ZoteroNotRunningError,
     export.PandocFailedError,
     export.ZoteroCitekeyNotFoundError,
     export.MissingBibliographyPlaceholderError,

@@ -37,6 +37,7 @@ import hashlib
 import json
 import logging
 import re
+import shlex
 import shutil
 import zipfile
 from collections import Counter
@@ -390,6 +391,17 @@ def read_docx_citations_with_state(docx_path: Path) -> list[DocxCitation]:
     return citations
 
 
+_ZOTERO_REWROTE_MSG = (
+    "{n} campo(s) de citação deste docx foram reescritos pelo plugin do Zotero no Word "
+    "(Refresh ou Add/Edit Citation) e perderam as marcas do PAR: o ingest não consegue "
+    "parear as citações. Peça ao coautor a versão de antes de usar esses botões e rode o "
+    "ingest nela. Ou guarde a cópia do coautor fora de build/exports/, re-exporte com "
+    "`prumo write export {page} --to docx --force` (acrescente as mesmas opções do export "
+    "original, como `--style` ou `--reference-doc`) e peça uma revisão nova sem os botões "
+    "do Zotero."
+)
+
+
 def check_conservation(observed: list[DocxCitation], citemap: CiteMapFile) -> list[DocxCitation]:
     """Confere a conservação de citações do docx revisado (I2/I2b/I3-lite).
 
@@ -399,6 +411,11 @@ def check_conservation(observed: list[DocxCitation], citemap: CiteMapFile) -> li
     pt-BR, nomeando occ_ids/citekeys) na primeira divergência encontrada, nesta
     ordem:
 
+    0. **Campo reescrito pelo Zotero** (`occ_id` vazio em qualquer citação):
+       o PAR sempre grava `prumoOcc`, então só o Refresh ou o Add/Edit
+       Citation do Zotero o apagam; vem antes do agrupamento, porque com
+       vários vazios o ramo de duplicata dispararia com 'paste-clone'
+       (ADR-0037).
     1. **occ_id duplicado** no observado (paste-clone, I2b). Caso especial
        diagnosticado: se a duplicata é EXATAMENTE um par `deleted` + `touched`
        — a cópia sobrevivente está inteira dentro de `w:ins` (Word marca assim
@@ -425,6 +442,12 @@ def check_conservation(observed: list[DocxCitation], citemap: CiteMapFile) -> li
     pendente de confirmação explícita no `apply`, Task 9) quando NENHUMA
     divergência dispara os gates acima.
     """
+    rewritten = [citation for citation in observed if not citation.occ_id]
+    if rewritten:
+        raise CitationConservationError(
+            _ZOTERO_REWROTE_MSG.format(n=len(rewritten), page=shlex.quote(citemap.page))
+        )
+
     by_occ: dict[str, list[DocxCitation]] = {}
     for citation in observed:
         by_occ.setdefault(citation.occ_id, []).append(citation)

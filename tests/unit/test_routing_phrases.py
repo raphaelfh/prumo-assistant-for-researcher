@@ -20,7 +20,7 @@ def test_lista_ouro_cobre_todos_os_modos_com_frases_ineditas() -> None:
     registry, _ = load_skill_registry(resolve_resource("skills"))
     frases_frontmatter = {p for _, m in registry.iter_modes() for p in m.phrases}
 
-    assert len(casos) == 30
+    assert len(casos) == 32
     assert sum(1 for c in casos if c.get("needs_mode_file")) == 5
     for caso in casos:
         assert registry.resolve(caso["expected"]) is not None, caso

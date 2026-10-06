@@ -82,7 +82,7 @@ prumo-assistant-for-researcher/
 │   ├── status.py              ← `prumo status`: compõe leituras de domínios e só lê o
 │                                 disco; mesmo precedente do mcp_server (ADR-0017)
 │   ├── contracts.py           ← `prumo validate`: registry dos contratos devolvidos por subagents
-│   ├── _filters/              ← filtros Lua vendorados do Pandoc (zotero_live_docx.lua)
+│   ├── _filters/              ← filtros Lua vendorados do Pandoc (crossref.lua, zotero_live_docx.lua)
 │   ├── core/                  ← transversal; NUNCA importa domains/ (ADR-0005)
 │   ├── domains/               ← paper · wiki · capture · protocol · write
 │   │   └── <X>/               ← cli.py + api.py + <op>.py + schemas/v1.py

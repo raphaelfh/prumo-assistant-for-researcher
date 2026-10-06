@@ -37,6 +37,25 @@ from par.domains.write.schemas.v1 import (
 W_XMLNS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 
 
+@pytest.fixture(autouse=True)
+def _no_real_pandoc(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Nenhum teste executa pandoc real pelo doctor (regra de seams, `.claude/rules/code.md`).
+
+    O Zettlr.app do dono e o pandoc 3.8.2 do CI ficam fora: `_ZETTLR_PANDOC`
+    aponta para um caminho que não existe, e `_pandoc_version` não roda nada.
+    Os testes da linha `pandoc` e de `pandoc_path()` sobrescrevem os dois.
+    """
+    monkeypatch.setattr("par.core.deps._ZETTLR_PANDOC", tmp_path / "sem-zettlr" / "pandoc")
+    monkeypatch.setattr("par.core.deps._pandoc_version", lambda path, timeout=5.0: None)
+
+
+@pytest.fixture(autouse=True)
+def _outside_claude_sandbox(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A suíte roda igual dentro e fora do sandbox do Claude Code (que define
+    ``SANDBOX_RUNTIME=1``). Os testes das variantes de sandbox definem a variável."""
+    monkeypatch.delenv("SANDBOX_RUNTIME", raising=False)
+
+
 class InitProject(Protocol):
     """Tipo do factory devolvido pela fixture `init_project` (mypy --strict)."""
 

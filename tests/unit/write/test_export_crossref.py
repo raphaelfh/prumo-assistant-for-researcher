@@ -1,20 +1,20 @@
 """Figuras e tabelas numeradas no export (ADR-0035).
 
 Testes do builder rodam sempre. Os de pipeline completo usam o pandoc real
-(filtro Lua não tem como ser mockado de forma útil) e são pulados sem pandoc
-no PATH — o CI (``ubuntu-latest``) não o instala.
+(`pandoc_path()`: PATH ou Zettlr.app) e são pulados sem ele; o CI instala o
+3.8.2, o piso.
 """
 
 from __future__ import annotations
 
 import base64
-import shutil
 import subprocess
 import zipfile
 from pathlib import Path
 
 import pytest
 
+from par.core.deps import pandoc_path
 from par.domains.write import export as export_mod
 from par.domains.write.export import (
     PandocFailedError,
@@ -27,14 +27,18 @@ _PNG_1PX = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 )
 
-requires_pandoc = pytest.mark.skipif(shutil.which("pandoc") is None, reason="pandoc ausente")
+_PANDOC = pandoc_path()
+
+requires_pandoc = pytest.mark.skipif(
+    _PANDOC is None, reason="pandoc ausente (nem no PATH nem no Zettlr.app)"
+)
 
 
 def _cmd(
     to_format: str, tmp: Path, *, lang: str | None = None, csl: Path | None = None
 ) -> list[str]:
     return _build_pandoc_cmd(
-        pandoc_bin="pandoc",
+        pandoc_bin=_PANDOC or "pandoc",
         input_md=tmp / "in.md",
         output=tmp / f"out.{to_format}",
         bib=tmp / "refs.bib",
@@ -100,6 +104,7 @@ def test_export_passa_writing_language_ao_pandoc(
 
 def _run_docx(tmp: Path, body: str, *, lang: str = "en-US") -> tuple[str, str]:
     """Roda a cadeia docx real (crossref → citeproc → zotero_live) e devolve (xml, stderr)."""
+    assert _PANDOC is not None
     (tmp / "x.png").write_bytes(_PNG_1PX)
     (tmp / "refs.bib").write_text(
         "@article{silva2020, author={Silva, Ana}, title={T}, journal={J}, year={2020}}\n"
@@ -107,7 +112,7 @@ def _run_docx(tmp: Path, body: str, *, lang: str = "en-US") -> tuple[str, str]:
     csl = tmp / "style.csl"
     csl.write_text(
         subprocess.run(
-            ["pandoc", "--print-default-data-file", "default.csl"],
+            [_PANDOC, "--print-default-data-file", "default.csl"],
             capture_output=True,
             text=True,
             check=True,

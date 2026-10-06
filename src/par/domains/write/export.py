@@ -11,9 +11,10 @@ Pipeline por formato:
   ``ZOTERO_PREF_1``/``ZOTERO_PREF_2`` em ``docProps/custom.xml``, então
   o docx abre com a bibliografia já visível e o plugin Word reconhece o
   documento sem abrir o diálogo "Document Preferences" no primeiro
-  Refresh. Exige Zotero + Better BibTeX rodando em ``127.0.0.1:23119``
-  para fornecer as URIs dos itens (sem URIs, Refresh ainda funciona
-  via CSL JSON embedado mas "Add/Edit Citation" não relinka).
+  Refresh. Usa o Better BibTeX, se estiver aberto, para vincular as
+  citações à biblioteca: o lookup é melhor-esforço (2 s); sem vínculo,
+  cada citação sai com ``uris`` vazio e ``itemData`` embutido, e
+  :func:`docx_link_warning` avisa com o comando de refazer (ADR-0037).
 - ``html`` / ``typst`` / ``pdf`` — usam ``--citeproc`` com CSL local
   (texto renderizado, não editável por nenhum plugin externo).
 """
@@ -22,9 +23,11 @@ from __future__ import annotations
 
 import hashlib
 import html
+import http.client
 import json
 import logging
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -32,9 +35,11 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
+from collections.abc import Callable
+from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import yaml
 
@@ -42,6 +47,7 @@ from par.core import pj_layout
 from par.core.citations import iter_marked_citation_spans, scan_citekeys
 from par.core.config import load_project_config
 from par.core.csl import list_zotero_styles, resolve_csl
+from par.core.deps import bbt_rpc_url, in_claude_sandbox, pandoc_path, zotero_base
 from par.core.markdown import (
     SpanFragment,
     normalize_markdown,
@@ -61,15 +67,9 @@ logger = logging.getLogger(__name__)
 
 EXT_BY_FORMAT = {"docx": "docx", "typst": "typ", "pdf": "pdf", "html": "html"}
 
-BBT_JSONRPC_URL = "http://127.0.0.1:23119/better-bibtex/json-rpc"
-
 
 class ToolNotFoundError(FileNotFoundError):
     """Pandoc/Typst não encontrados no PATH."""
-
-
-class ZoteroNotRunningError(WriteError):
-    """Zotero + Better BibTeX não acessíveis localmente."""
 
 
 class PandocFailedError(WriteError):
@@ -87,7 +87,7 @@ class MissingResourceError(WriteError):
 
 
 class ZoteroCitekeyNotFoundError(WriteError):
-    """``zotero.lua`` não encontrou uma ou mais citekeys na biblioteca ativa."""
+    """O citeproc não encontrou uma ou mais citekeys na biblioteca ativa."""
 
 
 class MissingBibliographyPlaceholderError(WriteError):
@@ -130,10 +130,17 @@ def _project_language(project_root: Path) -> str:
 
 
 def _check_pandoc() -> str:
-    pandoc = shutil.which("pandoc")
+    """pandoc do PATH ou o do Zettlr.app (:func:`par.core.deps.pandoc_path`).
+
+    O export **não** checa a versão: o piso 3.8.2 é avisado pelo ``prumo doctor``
+    (ADR-0037).
+    """
+    pandoc = pandoc_path()
     if not pandoc:
         raise ToolNotFoundError(
-            "pandoc não encontrado no PATH. Instale: `brew install pandoc` (macOS)."
+            "pandoc não encontrado (nem no PATH nem dentro do Zettlr.app). Instale o pandoc "
+            "3.8.2 ou mais novo (macOS: `brew install pandoc`; Linux: pacote oficial em "
+            "https://github.com/jgm/pandoc/releases) e confira com: prumo doctor"
         )
     return pandoc
 
@@ -145,20 +152,6 @@ def _check_typst() -> str:
             "typst não encontrado no PATH. Instale: `brew install typst` (macOS)."
         )
     return typst
-
-
-def _zotero_lua_filter() -> Path:
-    """Caminho absoluto do filtro ``zotero.lua`` (Better BibTeX) — pipeline legado."""
-    ref = resources.files("par._filters").joinpath("zotero.lua")
-    with resources.as_file(ref) as p:
-        return Path(p)
-
-
-def _zotero_bibliography_docx_filter() -> Path:
-    """Companheiro do ``zotero.lua`` — pipeline legado."""
-    ref = resources.files("par._filters").joinpath("zotero_bibliography_docx.lua")
-    with resources.as_file(ref) as p:
-        return Path(p)
 
 
 def _zotero_live_docx_filter() -> Path:
@@ -175,47 +168,95 @@ def _crossref_filter() -> Path:
     return Path(str(ref))
 
 
+@dataclass(frozen=True)
+class BbtLookup:
+    """Resultado do ``item.pandoc_filter`` — nunca levanta (ADR-0037)."""
+
+    items: dict[str, dict[str, object]]  # citekey → {"itemID": int, "uri": str}, só os presentes
+    failure: Literal["", "unreachable", "rpc_error"] = ""
+    detail: str = ""  # mensagem do BBT (rpc_error) ou repr da falha de rede
+    library: str | None = None  # biblioteca consultada; None = My Library
+    duplicates: tuple[str, ...] = ()  # citekeys com mais de um item no Zotero (errors[k] > 0)
+
+
+_UNEXPECTED_RPC_DETAIL = "resposta JSON-RPC inesperada"
+
+
 def fetch_bbt_zotero_metadata(
-    citekeys: list[str], library: str | None, *, timeout: float = 10.0
-) -> dict[str, dict[str, object]]:
+    citekeys: list[str], library: str | None, *, timeout: float = 2.0
+) -> BbtLookup:
     """Consulta o BBT JSON-RPC para mapear citekey → {itemID, uri}.
 
-    Usa ``item.pandoc_filter`` (a mesma API que o ``zotero.lua`` chama
-    internamente) com ``asCSL=true``. Retorna apenas as chaves
-    encontradas — chaves ausentes simplesmente não aparecem no dict, e
-    o filtro Lua cai num fallback emitindo o campo só com CSL embedado.
+    Usa ``item.pandoc_filter`` com ``asCSL=true`` em :func:`par.core.deps.bbt_rpc_url`.
+    Melhor-esforço, nunca levanta (ADR-0037): a falha volta em
+    :attr:`BbtLookup.failure` — ``"unreachable"`` (rede, timeout, HTTP 404 do
+    Zotero sem o BBT) ou ``"rpc_error"`` (outro HTTP, ``error`` no corpo
+    JSON-RPC, corpo fora do contrato). Chaves não achadas não aparecem em
+    :attr:`BbtLookup.items` e saem sem vínculo (``uris`` vazio no docx).
     """
+    lib = str(library) if library else None
     if not citekeys:
-        return {}
-    payload = {
-        "jsonrpc": "2.0",
-        "method": "item.pandoc_filter",
-        "params": [citekeys, True, library or ""],
-    }
-    req = urllib.request.Request(
-        BBT_JSONRPC_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+        return BbtLookup({}, library=lib)
+    params: list[object] = [citekeys, True]
+    if library:
+        params.append(library)  # sem biblioteca o BBT usa a My Library; "" faz o BBT recusar
+    payload = {"jsonrpc": "2.0", "method": "item.pandoc_filter", "params": params}
     try:
+        # O Request entra no try: base malformada (``PRUMO_ZOTERO_BASE``) levanta ValueError aqui.
+        req = urllib.request.Request(
+            bbt_rpc_url(),
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = json.load(resp)
-    except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
-        raise ZoteroNotRunningError(
-            f"BBT JSON-RPC indisponível ({BBT_JSONRPC_URL}): {exc!r}"
-        ) from exc
-    result = body.get("result") or {}
-    items = result.get("items") or {}
+            raw = resp.read()
+    except urllib.error.HTTPError as exc:
+        failure: Literal["unreachable", "rpc_error"] = (
+            "unreachable" if exc.code == 404 else "rpc_error"
+        )
+        return BbtLookup({}, failure=failure, detail=f"HTTP {exc.code}", library=lib)
+    except (OSError, ValueError, http.client.HTTPException) as exc:
+        return BbtLookup({}, failure="unreachable", detail=repr(exc), library=lib)
+    try:
+        body = json.loads(raw)
+    except ValueError:  # algo respondeu, mas não JSON (vazio, HTML, truncado)
+        return BbtLookup({}, failure="rpc_error", detail=_UNEXPECTED_RPC_DETAIL, library=lib)
+
+    if not isinstance(body, dict):
+        return BbtLookup({}, failure="rpc_error", detail=_UNEXPECTED_RPC_DETAIL, library=lib)
+    error = body.get("error")
+    if error is not None:
+        message = error.get("message") if isinstance(error, dict) else None
+        detail = str(message) if message else str(error)
+        return BbtLookup({}, failure="rpc_error", detail=detail, library=lib)
+    result = body.get("result")
+    items = result.get("items") if isinstance(result, dict) else None
+    if not isinstance(result, dict) or not isinstance(items, dict):
+        return BbtLookup({}, failure="rpc_error", detail=_UNEXPECTED_RPC_DETAIL, library=lib)
+    # ``errors[citekey]``: 0 = não achada, n > 0 = citekey duplicada (filtro oficial do BBT).
+    errors = result.get("errors")
+    duplicates = tuple(
+        str(key)
+        for key, count in (errors.items() if isinstance(errors, dict) else ())
+        if isinstance(count, int) and not isinstance(count, bool) and count > 0
+    )
     out: dict[str, dict[str, object]] = {}
     for key, data in items.items():
-        custom = (data or {}).get("custom") or {}
+        custom = data.get("custom") if isinstance(data, dict) else None
+        if not isinstance(custom, dict):
+            continue  # null do BBT (chave não achada) ou item fora do contrato
+        # Só campos bem tipados: um ``null`` no lookup viraria ``"uris":[null]`` no docx.
+        entry: dict[str, object] = {}
         item_id = custom.get("itemID")
+        if isinstance(item_id, int) and not isinstance(item_id, bool):
+            entry["itemID"] = item_id
         uri = custom.get("uri")
-        if item_id is None and uri is None:
-            continue
-        out[key] = {"itemID": item_id, "uri": uri}
-    return out
+        if isinstance(uri, str) and uri:
+            entry["uri"] = uri
+        if entry:
+            out[str(key)] = entry
+    return BbtLookup(out, library=lib, duplicates=duplicates)
 
 
 _DOI_FIELD_RE = re.compile(r"doi\s*=\s*[{\"]([^}\"]+)", re.I)
@@ -264,26 +305,32 @@ def _fingerprint_for(bib_entry_raw: str | None, lookup: dict[str, object] | None
     return "none"
 
 
-def _write_zotero_lookup(td_path: Path, meta: dict[str, Any], text: str, bib: Path) -> Path | None:
+def _write_zotero_lookup(
+    td_path: Path, meta: dict[str, Any], text: str, bib: Path
+) -> tuple[Path | None, BbtLookup]:
     """Resolve citekeys→{itemID, uri, fingerprint} via BBT e grava o lookup file.
 
     Bloco único compartilhado por :func:`export` e :func:`compose` (era
     duplicado byte a byte): extrai a library do frontmatter, consulta o BBT
-    (:func:`fetch_bbt_zotero_metadata`) e anexa o fingerprint de cada entry
-    (``.bib`` splitado UMA vez). Retorna o caminho do ``zotero_lookup.json``
-    em ``td_path``, ou ``None`` quando o BBT não devolveu nada (o filtro Lua
-    cai no fallback só-CSL).
+    (:func:`fetch_bbt_zotero_metadata`, melhor-esforço) e anexa o fingerprint
+    de cada entry (``.bib`` splitado UMA vez) num dict novo, sem mutar o
+    lookup. Retorna ``(zotero_lookup.json em td_path, lookup)``; o caminho é
+    ``None`` quando o BBT não devolveu nenhum item (o filtro Lua emite cada
+    citação com ``uris`` vazio). O ``lookup`` segue para
+    :func:`docx_link_warning`, que lê dele a causa da falha.
     """
     library = (meta.get("zotero") or {}).get("library") if isinstance(meta, dict) else None
     lookup = fetch_bbt_zotero_metadata(scan_citekeys(text), library)
-    if not lookup:
-        return None
+    if not lookup.items:
+        return None, lookup
     entries_raw = _bib_entries_by_key(bib.read_text())
-    for key, entry in lookup.items():
-        entry["fingerprint"] = _fingerprint_for(entries_raw.get(key), entry)
+    enriched = {
+        key: {**entry, "fingerprint": _fingerprint_for(entries_raw.get(key), entry)}
+        for key, entry in lookup.items.items()
+    }
     lookup_file = td_path / "zotero_lookup.json"
-    lookup_file.write_text(json.dumps(lookup))
-    return lookup_file
+    lookup_file.write_text(json.dumps(enriched))
+    return lookup_file, lookup
 
 
 _CITEPROC_MISSING_RE = re.compile(r"\[WARNING\] Citeproc: citation (\S+) not found")
@@ -499,7 +546,7 @@ def _assert_fields_locked(document_xml: str) -> None:
         )
 
 
-def _finalize_docx(cmd: list[str], out: Path) -> None:
+def _finalize_docx(cmd: list[str], out: Path, *, locked: bool = True) -> None:
     """Roda o pandoc para docx e aplica a cadeia completa de guardas pós-build.
 
     Cadeia única compartilhada por :func:`export` e :func:`compose` (era
@@ -512,7 +559,8 @@ def _finalize_docx(cmd: list[str], out: Path) -> None:
     document_xml, custom_xml = _docx_texts(out)
     _assert_bibliography_present(document_xml)
     _assert_zotero_prefs_present(document_xml, custom_xml)
-    _assert_fields_locked(document_xml)
+    if locked:
+        _assert_fields_locked(document_xml)
 
 
 _INSTR_TEXT_RE = re.compile(r"<w:instrText[^>]*>(.*?)</w:instrText>", re.DOTALL)
@@ -567,7 +615,9 @@ def _read_docx_citations(docx_path: Path) -> list[dict[str, object]]:
     slice+``json.loads`` mas pula este ``html.unescape`` — seu texto já vem
     resolvido pelo ElementTree). Retorna, NA ORDEM DO DOCUMENTO, um dict por
     ocorrência com ``occ_id``, ``citation_id``, ``citekeys``, ``fingerprints``
-    (citekey → fingerprint) e ``formatted``.
+    (citekey → fingerprint), ``formatted`` e ``unlinked`` (as citekeys cujo
+    item saiu com ``uris`` ausente ou vazio, isto é, sem vínculo com a
+    biblioteca do Zotero — lido por :func:`docx_link_warning`).
 
     JSON inválido num campo é hard-fail (:class:`CiteMapMismatchError`) — um
     docx com um campo Zotero corrompido não tem citemap parcial.
@@ -597,9 +647,138 @@ def _read_docx_citations(docx_path: Path) -> list[dict[str, object]]:
                     item["id"]: item.get("prumoFingerprint", "") for item in citation_items
                 },
                 "formatted": (payload.get("properties") or {}).get("formattedCitation", ""),
+                "unlinked": [item["id"] for item in citation_items if not _has_uri(item)],
             }
         )
     return occurrences
+
+
+def _has_uri(item: dict[str, Any]) -> bool:
+    """``True`` quando ``uris`` traz ao menos uma string não vazia (``[null]`` não vincula)."""
+    uris = item.get("uris")
+    return isinstance(uris, list) and any(isinstance(u, str) and u for u in uris)
+
+
+_LINK_UNREACHABLE_MSG = (
+    "Não consegui falar com o Better BibTeX (Zotero fechado, sem o Better BibTeX, ainda "
+    "iniciando ou sem resposta em 2 s): {n} citekey(s) saíram sem vínculo com a sua "
+    "biblioteca. O docx abre, e o Refresh do Word funciona com os dados embutidos. Para "
+    "vincular, abra o Zotero e rode: {redo}"
+)
+_LINK_SANDBOX_MSG = (
+    "O sandbox do Claude Code não deixou o export falar com o Zotero em {base}: {n} "
+    "citekey(s) saíram sem vínculo com a sua biblioteca (o docx abre e o Refresh funciona). "
+    "Para vincular, peça para repetir fora do sandbox (o Claude pede permissão): {redo}. "
+    'Para o `prumo` rodar sempre fora do sandbox, acrescente `"prumo *"` em '
+    "`sandbox.excludedCommands` no `~/.claude/settings.json`."
+)
+_LINK_RPC_ERROR_MSG = (
+    "O Better BibTeX recusou a consulta ({detail}): {n} citekey(s) saíram sem vínculo com "
+    "a sua biblioteca. Causas comuns: `zotero.library` no frontmatter com um nome que não "
+    "existe no Zotero, ou Better BibTeX anterior a 9.0.65 com a janela principal do Zotero "
+    "fechada. Corrija (Tools → Plugins atualiza o Better BibTeX; abra a janela do Zotero) "
+    "e rode: {redo}"
+)
+_LINK_NOT_FOUND_MSG = (
+    "{n} citekey(s) não foram achadas pelo Better BibTeX na biblioteca consultada "
+    "({library}): {keys}. Saem sem vínculo. Se estão numa biblioteca de grupo, ponha "
+    '`zotero: {{library: "<nome do grupo>"}}` no frontmatter e rode: {redo}'
+)
+_LINK_DUPLICATE_MSG = (
+    "{n} citekey(s) estão duplicadas no Zotero (mais de um item com a mesma chave): {keys}. "
+    "O Better BibTeX não sabe qual vincular, e elas saem sem vínculo. Deixe cada chave única "
+    "(no Zotero, Better BibTeX → Refresh/Pin BibTeX key) e rode: {redo}"
+)
+
+
+def docx_link_warning(docx_path: Path, lookup: BbtLookup, redo_command: str) -> str | None:
+    """Uma mensagem pt-BR por causa, para as citekeys que saíram com ``uris`` vazio no OOXML;
+    ``None`` quando todas têm vínculo.
+
+    A lista vem do próprio docx (:func:`_read_docx_citations`), não do texto:
+    ``scan_citekeys`` admite falso positivo, que viraria uma citekey "não
+    achada" inexistente no docx (B1). ``{n}`` conta citekeys distintas, na
+    ordem da primeira aparição. A causa vem de ``lookup.failure``:
+    ``"unreachable"`` dá E1 (ou E2, dentro do sandbox do Claude Code),
+    ``"rpc_error"`` dá E3 e ``""`` dá E4 (o BBT respondeu sem algumas
+    chaves); as chaves em ``lookup.duplicates`` saem do E4 e ganham frase
+    própria, numa segunda linha. Toda mensagem termina no ``redo_command``
+    (ADR-0037).
+    """
+    keys = list(
+        dict.fromkeys(
+            key
+            for occurrence in _read_docx_citations(docx_path)
+            for key in cast(list[str], occurrence["unlinked"])
+        )
+    )
+    if not keys:
+        return None
+    n = len(keys)
+    if lookup.failure == "unreachable":
+        if in_claude_sandbox():
+            return _LINK_SANDBOX_MSG.format(base=zotero_base(), n=n, redo=redo_command)
+        return _LINK_UNREACHABLE_MSG.format(n=n, redo=redo_command)
+    if lookup.failure == "rpc_error":
+        return _LINK_RPC_ERROR_MSG.format(detail=lookup.detail, n=n, redo=redo_command)
+    duplicated = [key for key in keys if key in lookup.duplicates]
+    not_found = [key for key in keys if key not in lookup.duplicates]
+    messages: list[str] = []
+    if not_found:
+        messages.append(
+            _LINK_NOT_FOUND_MSG.format(
+                n=len(not_found),
+                library=lookup.library or "My Library, a padrão",
+                keys=_first_keys(not_found),
+                redo=redo_command,
+            )
+        )
+    if duplicated:
+        messages.append(
+            _LINK_DUPLICATE_MSG.format(
+                n=len(duplicated), keys=_first_keys(duplicated), redo=redo_command
+            )
+        )
+    return "\n".join(messages)
+
+
+def _first_keys(keys: list[str]) -> str:
+    """Até 5 chaves, depois ``…`` (E4)."""
+    return ", ".join(keys[:5]) + (", …" if len(keys) > 5 else "")
+
+
+def _redo_command(
+    subcommand: Literal["export", "compose"],
+    target: Path,
+    *,
+    style: str | None = None,
+    bib: Path | None = None,
+    out_dir: Path | None = None,
+    reference_doc: Path | None = None,
+    final: bool = False,
+) -> str:
+    """Comando ``prumo`` que refaz o docx com as mesmas opções da chamada (``{redo}``, B1).
+
+    ``prumo write export {page}`` ou ``prumo write compose --index {index}``,
+    depois ``--to docx --force`` e, nessa ordem, ``--style``, ``--bib``,
+    ``--out-dir`` e ``--reference-doc`` para cada um que veio (``None`` fica
+    de fora), com ``shlex.quote``. Um redo com os defaults reescreveria, com
+    ``--force``, outro documento. ``out`` não entra: não tem flag na CLI.
+    """
+    q = shlex.quote
+    if subcommand == "export":
+        parts = ["prumo write export", q(str(target))]
+    else:
+        parts = ["prumo write compose --index", q(str(target))]
+    parts.append("--to docx --force")
+    if style is not None:
+        parts.append(f"--style {q(style)}")
+    for flag, path in (("--bib", bib), ("--out-dir", out_dir), ("--reference-doc", reference_doc)):
+        if path is not None:
+            parts.append(f"{flag} {q(str(path))}")
+    if final:
+        parts.append("--final")
+    return " ".join(parts)
 
 
 def _norm_citation_spans(norm_text: str) -> list[tuple[int, int]]:
@@ -721,22 +900,6 @@ def _emit_review_sidecars(
     return out_dir
 
 
-def _check_bbt_running(timeout: float = 2.0) -> None:
-    """Confirma que Zotero + BBT estão acessíveis em ``127.0.0.1:23119``.
-
-    O filtro ``zotero.lua`` chama essa API durante a conversão; se ela não
-    estiver no ar o pandoc falha sem mensagem útil.
-    """
-    try:
-        urllib.request.urlopen(BBT_JSONRPC_URL, timeout=timeout).close()
-    except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
-        raise ZoteroNotRunningError(
-            "Zotero + Better BibTeX não respondem em "
-            f"{BBT_JSONRPC_URL}. Abra o Zotero (com BBT instalado) e tente de novo. "
-            "Detalhe: " + repr(exc)
-        ) from exc
-
-
 def slugify(path: Path, project_root: Path) -> str:
     """``docs/studies/principal/notes/foo.md`` → ``studies__principal__notes__foo``."""
     rel = path.relative_to(project_root) if path.is_absolute() else path
@@ -761,6 +924,7 @@ def _build_pandoc_cmd(
     zotero_lookup_file: Path | None = None,
     resource_path: Path | str | None = None,
     lang: str | None = None,
+    lock_citations: bool = True,
 ) -> list[str]:
     """Monta o comando do pandoc.
 
@@ -808,6 +972,8 @@ def _build_pandoc_cmd(
         ]
         if zotero_lookup_file:
             cmd += [f"--metadata=zotero_lookup_file:{zotero_lookup_file}"]
+        if not lock_citations:
+            cmd += ["--metadata=prumo_unlocked_citations:true"]
         if reference_doc:
             cmd += [f"--reference-doc={reference_doc}"]
     elif to_format == "html":
@@ -843,6 +1009,8 @@ def export(
     reference_doc: Path | None = None,
     project_root: Path | None = None,
     force: bool = False,
+    on_warning: Callable[[str], None] | None = None,
+    final: bool = False,
 ) -> Path:
     """Exporta uma página `.md` para o formato escolhido. Retorna caminho do output.
 
@@ -851,22 +1019,31 @@ def export(
     regra vive AQUI, nunca recomputada pela fachada. ``force`` autoriza
     sobrescrever um ``out`` já existente (default recusa — ver a guarda
     logo abaixo).
+
+    O docx não exige o Zotero aberto (ADR-0037): o vínculo com a biblioteca
+    é melhor-esforço, e as citações que saírem sem ele viram UM aviso
+    (:func:`docx_link_warning`, com o comando de refazer) entregue a
+    ``on_warning`` — a fachada imprime; o padrão é ``logger.warning``.
     """
     if to not in EXT_BY_FORMAT:
         raise ValueError(f"--to deve ser um de {list(EXT_BY_FORMAT)}, recebeu {to}")
+    if final and to != "docx":
+        raise ValueError(
+            f"--final só vale para docx (recebeu --to {to}). Rode: "
+            f"prumo write export {page} --to docx --final"
+        )
 
     # Raiz do projeto ANTES das checagens de dependência — preserva a
     # precedência de erro da fachada antiga (que resolvia a raiz antes de
     # chamar o domínio) e alinha com compose(): página fora de projeto
-    # reporta "Raiz do projeto não localizada" sem sondar pandoc/BBT.
+    # reporta "Raiz do projeto não localizada" sem sondar o pandoc.
     project_root = project_root or detect_project_root(page)
 
     pandoc_bin = _check_pandoc()
     if to == "pdf":
         _check_typst()
-    if to == "docx":
-        _check_bbt_running()
     csl = resolve_csl(style)
+    bib_arg = bib
     bib = bib or pj_layout.bib_path(project_root)
     if not bib.is_file():
         raise FileNotFoundError(f"bibliografia não encontrada: {bib}")
@@ -898,8 +1075,9 @@ def export(
             meta_file.write_text(yaml.safe_dump(meta, allow_unicode=True))
 
         zotero_lookup_file: Path | None = None
+        lookup = BbtLookup({})
         if to == "docx":
-            zotero_lookup_file = _write_zotero_lookup(td_path, meta, body_norm, bib)
+            zotero_lookup_file, lookup = _write_zotero_lookup(td_path, meta, body_norm, bib)
 
         target = out if to != "pdf" else td_path / f"{out.stem}.typ"
         cmd = _build_pandoc_cmd(
@@ -916,10 +1094,11 @@ def export(
             zotero_lookup_file=zotero_lookup_file,
             resource_path=page.parent,
             lang=_project_language(project_root),
+            lock_citations=not final,
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
         if to == "docx":
-            _finalize_docx(cmd, out)
+            _finalize_docx(cmd, out, locked=not final)
             _emit_review_sidecars(
                 page=page,
                 project_root=project_root,
@@ -929,6 +1108,17 @@ def export(
                 docx_path=out,
                 bib=bib,
             )
+            redo = _redo_command(
+                "export",
+                page,
+                style=None if style == "apa" else style,
+                bib=bib_arg,
+                out_dir=out_dir,
+                reference_doc=reference_doc,
+                final=final,
+            )
+            if aviso := docx_link_warning(out, lookup, redo):
+                (on_warning or logger.warning)(aviso)
         else:
             _run_pandoc_checked(cmd)
 
@@ -951,6 +1141,7 @@ def compose(
     reference_doc: Path | None = None,
     project_root: Path | None = None,
     force: bool = False,
+    on_warning: Callable[[str], None] | None = None,
 ) -> Path:
     """Compõe várias páginas listadas no frontmatter ``pages:`` de um index.
 
@@ -969,6 +1160,9 @@ def compose(
     com :func:`export` via :func:`_run_pandoc_checked` fazia TODA figura em
     página composta falhar sempre, já que ``compose()`` nunca passava
     ``resource_path`` nenhum).
+
+    ``on_warning`` recebe o aviso de vínculo do docx, como em :func:`export`
+    (ADR-0037); o padrão é ``logger.warning``.
     """
     project_root = project_root or detect_project_root(index)
     text = index.read_text()
@@ -977,6 +1171,7 @@ def compose(
     if not pages_meta:
         raise ValueError(f"{index}: frontmatter precisa ter 'pages: [...]'")
 
+    style_arg = style
     style = style or meta.get("style") or "apa"
 
     parts: list[str] = []
@@ -1009,9 +1204,8 @@ def compose(
     pandoc_bin = _check_pandoc()
     if to == "pdf":
         _check_typst()
-    if to == "docx":
-        _check_bbt_running()
     csl = resolve_csl(style)
+    bib_arg = bib
     bib = bib or pj_layout.bib_path(project_root)
     if not bib.is_file():
         raise FileNotFoundError(f"bibliografia não encontrada: {bib}")
@@ -1028,8 +1222,9 @@ def compose(
             meta_file.write_text(yaml.safe_dump(meta_export, allow_unicode=True))
 
         zotero_lookup_file: Path | None = None
+        lookup = BbtLookup({})
         if to == "docx":
-            zotero_lookup_file = _write_zotero_lookup(td_path, meta, combined, bib)
+            zotero_lookup_file, lookup = _write_zotero_lookup(td_path, meta, combined, bib)
 
         target = out if to != "pdf" else td_path / f"{out.stem}.typ"
         cmd = _build_pandoc_cmd(
@@ -1051,6 +1246,16 @@ def compose(
             cmd += ["--toc", f"--toc-depth={meta.get('toc-depth', 2)}"]
         if to == "docx":
             _finalize_docx(cmd, out)
+            redo = _redo_command(
+                "compose",
+                index,
+                style=style_arg,
+                bib=bib_arg,
+                out_dir=out_dir,
+                reference_doc=reference_doc,
+            )
+            if aviso := docx_link_warning(out, lookup, redo):
+                (on_warning or logger.warning)(aviso)
         else:
             _run_pandoc_checked(cmd)
 
