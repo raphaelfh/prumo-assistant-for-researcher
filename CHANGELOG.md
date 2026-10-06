@@ -9,11 +9,17 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Corrigido
 
-- **O Refresh do Zotero no Word não quebra mais no docx do PAR.** Todo docx exportado sem `zotero.library` no frontmatter (o caso padrão) e todo docx do perfil do Zettlr saíam com as citações sem `uris`, e o primeiro Refresh do plugin do Zotero no Word parava com TypeError. Agora cada citação leva `uris` (vazio quando não há vínculo), junto com os dados embutidos (ADR-0037).
+- **O Zotero no Word reconhece de novo as citações do docx do PAR.** Todo docx exportado sem `zotero.library` no frontmatter (o caso padrão) e todo docx do perfil do Zettlr saíam com as citações sem `uris`, e o primeiro Refresh do plugin do Zotero no Word parava com TypeError. Agora cada citação leva `uris` (vazio quando não há vínculo), junto com os dados embutidos (ADR-0037).
+- **Os dados embutidos de cada citação do docx saem em CSL-JSON de texto.** Título, revista, volume etc. saíam como estrutura interna do pandoc, e o Zotero não conseguia usá-los no Refresh quando o item não estava na biblioteca (ADR-0037).
 - **As citações do docx voltam a se vincular à sua biblioteca.** O export mandava `library=""` ao Better BibTeX, que recusa a consulta; o erro era engolido e o vínculo nunca saía. Sem `zotero.library`, a consulta vai para a My Library.
 - O export passa a respeitar `PRUMO_ZOTERO_BASE` (dívida da ADR-0007 quitada).
 - `prumo write review ingest` diz o que aconteceu quando o coautor usou os botões do Zotero (Refresh, Add/Edit Citation) no docx, em vez de acusar "occ_id duplicado" (Princípio VIII).
 - O modo `review reconcile` pré-aprova as ferramentas do PAR pelo nome que elas têm no plugin (`mcp__plugin_par_prumo__*`). Acabam os pedidos de permissão a cada chamada.
+
+### Adicionado
+
+- **Modo `/par:write export`**: guia a pesquisadora até o docx certo sem precisar saber o comando. Pergunta se é para o coautor revisar (citações travadas, volta com `review ingest`) ou a versão final (`--final`, para usar o Zotero no Word), roda o export e repassa os avisos (ADR-0037).
+- **`prumo write export --to docx --final`**: docx sem trava nas citações, para usar o Zotero no Word depois (Refresh, trocar estilo, editar citações). O docx padrão continua travado para a rodada de revisão, e por isso o Refresh do Zotero não reescreve as citações dele (ADR-0037).
 
 ### Alterado
 

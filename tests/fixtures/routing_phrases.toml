@@ -1,6 +1,6 @@
 # Lista-ouro de roteamento (spec 2026-09-12, critério de aceite de F1).
 # Frases reais de pesquisador, DIFERENTES das `prumo.phrases` dos modos, para medir
-# generalização. Critério manual no Desktop: >= 27/30 caem no modo certo na 1ª invocação.
+# generalização. Critério manual no Desktop: >= 29/32 caem no modo certo na 1ª invocação.
 # `needs_mode_file = true`: o modo certo exige um passo que só existe em modes/<modo>.md.
 
 [[case]]
@@ -127,3 +127,11 @@ expected = "review/critique"
 phrase = "voltou o docx do orientador e tem marcas que não casaram"
 expected = "review/reconcile"
 needs_mode_file = true
+
+[[case]]
+phrase = "manda o artigo em word pra minha orientadora corrigir"
+expected = "write/export"
+
+[[case]]
+phrase = "preciso do arquivo do word pra submeter na revista"
+expected = "write/export"
