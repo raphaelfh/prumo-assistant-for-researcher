@@ -18,6 +18,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Adicionado
 
+- **Modo `/par:write export`**: guia a pesquisadora até o docx certo sem precisar saber o comando. Pergunta se é para o coautor revisar (citações travadas, volta com `review ingest`) ou a versão final (`--final`, para usar o Zotero no Word), roda o export e repassa os avisos (ADR-0037).
 - **`prumo write export --to docx --final`**: docx sem trava nas citações, para usar o Zotero no Word depois (Refresh, trocar estilo, editar citações). O docx padrão continua travado para a rodada de revisão, e por isso o Refresh do Zotero não reescreve as citações dele (ADR-0037).
 
 ### Alterado
