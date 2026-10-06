@@ -25,36 +25,20 @@ prumo:
 # Paper Extract — extração estruturada de PDF → callout da nota
 
 <!-- prumo:preflight:begin -->
-> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+> **Preflight — antes de qualquer operação deste modo:**
 >
-> 1. **Superfície e CLI:** este modo precisa do app Claude na aba Code (Mac) ou do Claude Code
->    no terminal (Mac ou Linux). Se esta conversa for uma tarefa do Cowork, um chat, uma sessão
->    SSH ou rodar no Windows ou no WSL, diga em uma frase que este modo não é suportado aqui e
->    que a pessoa deve abrir o app Claude na aba Code (Mac) ou o Claude Code no terminal (Mac ou
->    Linux), e pare. Senão, rode `prumo --version`; o esperado é
->    `prumo <versão do bloco PAR da porta>`.
->    (a) `prumo` não existe: rode a forma `sh … --version` do bloco PAR e aplique (b)–(d) à
->    saída dela; avise uma vez que cada comando vai pedir permissão. Só se a saída não trouxer
->    nem a versão nem uma linha `PAR:`, diga "abra uma sessão nova" e pare.
->    (b) Outra versão: rode `command -v prumo`. Caminho terminado em `/shims/prumo`: é outra
->    versão do plugin; diga "este `prumo` é de outra versão do plugin — abra uma sessão nova".
->    Qualquer outro caminho (por exemplo `~/.local/bin/prumo`): é o CLI antigo, instalado à
->    parte; ofereça UMA vez, com consentimento, `uv tool uninstall prumo-assistant-for-researcher`
->    (se a pessoa usa o Zettlr, antes peça "regenera o perfil do Zettlr" e a reimportação do
->    perfil, que ainda aponta para dentro desse CLI). Nos dois casos, use a forma `sh …` nesta
->    sessão.
->    (c) A saída contém `PAR: falta o uv`: roteie para `/par:start` (que instala o uv com
->    consentimento) e pare.
->    (d) Qualquer outra linha que comece com `PAR:`: repasse-a (ela traz o comando de correção).
->    Se for a do sandbox (saída 77), ofereça repetir o mesmo comando fora do sandbox, pedindo
->    permissão; nos outros casos, pare.
+> 1. **Superfície e CLI:** fora do app Claude na aba Code (Mac) ou do Claude Code no terminal
+>    (Mac ou Linux), isto é, numa tarefa do Cowork, num chat, numa sessão SSH, no Windows ou no
+>    WSL, diga em uma frase que este modo não roda aqui e pare. Senão, rode `prumo --version`
+>    (sem `prumo`, a forma `sh … --version` do bloco PAR; cada comando pedirá permissão). O
+>    esperado é `prumo <versão do bloco PAR da porta>`.
+>    - Linha `PAR:` do sandbox (saída 77): ofereça repetir o comando fora do sandbox, pedindo
+>      permissão.
+>    - Qualquer outra saída (outra versão, `PAR: falta o uv`, outra linha `PAR:`, nada): roteie
+>      para `/par:start`, que resolve, e pare.
 >    Nunca simule a operação.
 > 2. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
->    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
->    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
->
-> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
-> operação exata nunca é simulada.
+>    oriente `prumo init pj_<nome>`; nunca crie o scaffold à mão.
 <!-- prumo:preflight:end -->
 
 Skill que lê o PDF (via symlink em `docs/references/pdfs/<citekey>.pdf`), gera conteúdo para 5 seções estruturadas e escreve em `docs/references/papers/<citekey>/_extract.md` (arquivo dedicado, layout α). O usuário edita/refina as seções humanas em `_meta.md`; o `_extract.md` é 100% auto.
@@ -83,14 +67,11 @@ Passos:
    Preencha: `citekey`, `pdf_path`, `template_path` e `language` (do passo 1), `pj_path` (absoluto),
    `model` (o modelo desta sessão) e `date` (hoje, YYYY-MM-DD).
 
-3. **Receber o status** do reader: `{"citekey", "status", "error"?}`. O reader grava sozinho via
+3. **Receber o status** do reader: `{"citekey", "status", "error"?}`. O reader grava sozinho (nunca grave pelo thread principal) via
    `prumo paper extract`, com locators por seção; o comando valida o JSON por `PaperCallout/v1` e
    carimba a proveniência no `_meta.md`. Se `status` for `error`, aborte mostrando o motivo.
 
-4. **Não grave o extract pelo thread principal.** O PDF e o JSON ficam no contexto do reader; aqui
-   só chega o status.
-
-5. **Mostrar o callout** gravado ao usuário e perguntar: "Arquivar TL;DR como finding (`type: finding`) em `docs/studies/<slug>/notes/`?". Se sim, delegar a `/par:wiki query` ou criar finding direto.
+4. **Mostrar o callout** gravado ao usuário e perguntar: "Arquivar TL;DR como finding (`type: finding`) em `docs/studies/<slug>/notes/`?". Se sim, delegar a `/par:wiki query` ou criar finding direto.
 
 ### 2. `/par:paper extract [--limit N] [--stale-only]` — batch
 
@@ -133,6 +114,5 @@ Passos:
 ## Erros comuns
 
 - `paper_extraction.md` ausente → "Restaure rodando `prumo init . --merge` no diretório do projeto (recoloca arquivos ausentes do template sem sobrescrever os existentes)."
-- `pj_config.toml` ausente → usa DEFAULTS (não é erro fatal).
 - `prumo paper extract` recusa o JSON do reader (seção fora do template, tipo errado) → o reader corrige 1 vez pela mensagem; na segunda recusa devolve `error` e o batch segue.
 - Callout com delimitadores corrompidos (usuário mexeu dentro) → abortar com "Restaure ou delete as linhas entre `<!-- paper-extract:begin -->` e `<!-- paper-extract:end -->` em docs/references/papers/<citekey>/_extract.md."

@@ -30,40 +30,24 @@ prumo:
 # Write Scientific — prose acadêmica genérica
 
 <!-- prumo:preflight:begin -->
-> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+> **Preflight — antes de qualquer operação deste modo:**
 >
-> 1. **Superfície e CLI:** este modo precisa do app Claude na aba Code (Mac) ou do Claude Code
->    no terminal (Mac ou Linux). Se esta conversa for uma tarefa do Cowork, um chat, uma sessão
->    SSH ou rodar no Windows ou no WSL, diga em uma frase que este modo não é suportado aqui e
->    que a pessoa deve abrir o app Claude na aba Code (Mac) ou o Claude Code no terminal (Mac ou
->    Linux), e pare. Senão, rode `prumo --version`; o esperado é
->    `prumo <versão do bloco PAR da porta>`.
->    (a) `prumo` não existe: rode a forma `sh … --version` do bloco PAR e aplique (b)–(d) à
->    saída dela; avise uma vez que cada comando vai pedir permissão. Só se a saída não trouxer
->    nem a versão nem uma linha `PAR:`, diga "abra uma sessão nova" e pare.
->    (b) Outra versão: rode `command -v prumo`. Caminho terminado em `/shims/prumo`: é outra
->    versão do plugin; diga "este `prumo` é de outra versão do plugin — abra uma sessão nova".
->    Qualquer outro caminho (por exemplo `~/.local/bin/prumo`): é o CLI antigo, instalado à
->    parte; ofereça UMA vez, com consentimento, `uv tool uninstall prumo-assistant-for-researcher`
->    (se a pessoa usa o Zettlr, antes peça "regenera o perfil do Zettlr" e a reimportação do
->    perfil, que ainda aponta para dentro desse CLI). Nos dois casos, use a forma `sh …` nesta
->    sessão.
->    (c) A saída contém `PAR: falta o uv`: roteie para `/par:start` (que instala o uv com
->    consentimento) e pare.
->    (d) Qualquer outra linha que comece com `PAR:`: repasse-a (ela traz o comando de correção).
->    Se for a do sandbox (saída 77), ofereça repetir o mesmo comando fora do sandbox, pedindo
->    permissão; nos outros casos, pare.
+> 1. **Superfície e CLI:** fora do app Claude na aba Code (Mac) ou do Claude Code no terminal
+>    (Mac ou Linux), isto é, numa tarefa do Cowork, num chat, numa sessão SSH, no Windows ou no
+>    WSL, diga em uma frase que este modo não roda aqui e pare. Senão, rode `prumo --version`
+>    (sem `prumo`, a forma `sh … --version` do bloco PAR; cada comando pedirá permissão). O
+>    esperado é `prumo <versão do bloco PAR da porta>`.
+>    - Linha `PAR:` do sandbox (saída 77): ofereça repetir o comando fora do sandbox, pedindo
+>      permissão.
+>    - Qualquer outra saída (outra versão, `PAR: falta o uv`, outra linha `PAR:`, nada): roteie
+>      para `/par:start`, que resolve, e pare.
 >    Nunca simule a operação.
 > 2. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
->    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
->    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
->
-> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
-> operação exata nunca é simulada.
+>    oriente `prumo init pj_<nome>`; nunca crie o scaffold à mão.
 <!-- prumo:preflight:end -->
 
 <!-- prumo:prose:begin -->
-> **Contrato de prosa (gerado de `.github/scripts/prose_conventions.md` — não edite este bloco).**
+> **Contrato de prosa.**
 > 1. **Idioma.** Já vem resolvido: `prumo write prep --json` devolve `language` e
 >    `language_source` (`flag`, `pj_config` ou `default`). Use esse valor e
 >    **declare-o ao usuário com a origem** — não releia `pj_config.toml` nem
@@ -106,7 +90,7 @@ projeto: `<pj>/.claude/writing_templates/scientific.md`. Override ad-hoc:
 
 ## Regras invioláveis
 
-1. **Citação strict** (mesmo padrão da família).
+1. **Citação strict.** Só `[@citekey]` presente em `inputs.citekeys`; senão, `[REF FALTANTE: <descrição curta>]`. Nunca invente citekey.
 2. **Aceita seed text** via `--seed <text>` ou stdin (se conversa).
 3. **`--section <name>`** foca em uma seção quando template tem várias.
 4. **PicotSpec opcional** — se ausente, gera baseado só no seed/template.
@@ -120,7 +104,7 @@ opcional; se ausente, gere a partir do seed/template):
    O JSON traz `language` + `language_source` (idioma já resolvido; declare ao usuário).
    Leia `inputs` + `template_path`. Use `--seed`/stdin como texto-base e `--section`
    pra focar uma seção, quando passados.
-2-4. Resolver template → gerar prose → validar citação strict (idêntico aos outros).
+2-4. Resolver template → gerar prose → validar citação strict (passos 2 e 3 do `manuscript`).
 5. **Escrever output** via `prumo write draft`:
    ```bash
    cat <<'DRAFT' | prumo write draft \
@@ -137,5 +121,5 @@ opcional; se ausente, gere a partir do seed/template):
 
 ## Boundaries
 
-- **Não substitui** os outros 3 — se gênero é claro (paper / CEP / statistics), use a skill específica.
+- **Não substitui** `/par:write manuscript`, `/par:protocol cep` nem `/par:protocol sap` — se o gênero é claro (paper / CEP / statistics), use o modo específico.
 - **Não amplia escopo** sem pedido — se usuário pede 1 parágrafo, gere 1 parágrafo.

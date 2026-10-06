@@ -1,6 +1,6 @@
 ---
 name: write
-description: "Escrita do manuscrito: draft IMRaD, seção avulsa, convenções editoriais de escrita científica e declaração de uso de IA."
+description: "Escrita do manuscrito: draft IMRaD, seção avulsa, convenções editoriais de escrita científica, declaração de uso de IA e export para docx."
 when_to_use: |
   Modos: disclosure, export, manuscript, section, style. Frases típicas:
   - disclosure: "gera a declaração de uso de IA"; "disclosure de IA pro periódico"
