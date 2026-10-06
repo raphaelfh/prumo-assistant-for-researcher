@@ -283,8 +283,8 @@ def _pj_with_root(tmp_path: Path) -> tuple[Path, Path]:
 def _stub_pandoc_seams(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Mocka só os seams externos (binário, CSL, subprocess) — a guarda de
     sobrescrita e o resto de `export()`/`compose()` rodam de verdade.
-    `--to html` evita a checagem de BBT (só exigida para docx) e a
-    validação estrutural do zip docx, mantendo o teste focado na guarda."""
+    `--to html` evita a validação estrutural do zip docx, mantendo o teste
+    focado na guarda."""
     csl = tmp_path / "apa.csl"
     csl.write_text("<style/>")
     monkeypatch.setattr(export, "_check_pandoc", lambda: "pandoc")
@@ -301,15 +301,108 @@ def _stub_pandoc_seams(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr("par.domains.write.export.subprocess.run", fake_run)
 
 
+def _flat(output: str) -> str:
+    """Desfaz a quebra de linha do Rich (80 colunas no ``CliRunner``)."""
+    return " ".join(output.split())
+
+
 def test_write_export_docx_prints_first_use_note(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """E6 (ADR-0037): o docx já sai formatado, então a nota não manda dar
+    Refresh; ela pede ao coautor da revisão para não usar os botões do Zotero."""
     pj, page = _pj_with_bib(tmp_path)
     fake_out = pj / "build" / "exports" / "p.docx"
     monkeypatch.setattr("par.domains.write.cli.export.export", lambda **kw: fake_out)
     result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
     assert result.exit_code == 0, result.output
-    assert "Primeiro uso no Word" in result.output
+    saida = _flat(result.output)
+    assert "Primeiro uso no Word" in saida
+    assert "não precisa de Refresh" in saida
+    assert "use Zotero → Refresh" not in saida
+
+
+def test_write_export_final_passa_final_e_troca_a_nota(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``--final`` gera o docx sem trava nas citações (para o Zotero no Word) e
+    troca a nota de primeiro uso pela do docx final."""
+    pj, page = _pj_with_bib(tmp_path)
+    fake_out = pj / "build" / "exports" / "p.docx"
+    seen: dict[str, Any] = {}
+
+    def fake(**kw: Any) -> Path:
+        seen.update(kw)
+        return fake_out
+
+    monkeypatch.setattr("par.domains.write.cli.export.export", fake)
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx", "--final"])
+    assert result.exit_code == 0, result.output
+    assert seen["final"] is True
+    saida = _flat(result.output)
+    assert "Docx final" in saida
+    assert "Primeiro uso no Word" not in saida
+
+
+def test_write_export_sem_final_trava_por_padrao(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, page = _pj_with_bib(tmp_path)
+    seen: dict[str, Any] = {}
+
+    def fake(**kw: Any) -> Path:
+        seen.update(kw)
+        return pj / "build" / "exports" / "p.docx"
+
+    monkeypatch.setattr("par.domains.write.cli.export.export", fake)
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
+    assert result.exit_code == 0, result.output
+    assert seen["final"] is False
+
+
+def test_write_export_warning_goes_to_console(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O aviso de vínculo que o domínio manda por ``on_warning`` sai em
+    ``console.warn`` (ADR-0037, B1)."""
+    pj, page = _pj_with_bib(tmp_path)
+    fake_out = pj / "build" / "exports" / "p.docx"
+
+    def fake(**kw: Any) -> Path:
+        kw["on_warning"]("aviso teste")
+        return fake_out
+
+    monkeypatch.setattr("par.domains.write.cli.export.export", fake)
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
+    assert result.exit_code == 0, result.output
+    assert "⚠ aviso teste" in _flat(result.output)
+
+
+def test_write_export_json_carries_warnings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, page = _pj_with_bib(tmp_path)
+    fake_out = pj / "build" / "exports" / "p.docx"
+
+    def fake(**kw: Any) -> Path:
+        kw["on_warning"]("aviso teste")
+        return fake_out
+
+    monkeypatch.setattr("par.domains.write.cli.export.export", fake)
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx", "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["warnings"] == ["aviso teste"]
+
+
+def test_write_export_json_warnings_empty_without_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, page = _pj_with_bib(tmp_path)
+    fake_out = pj / "build" / "exports" / "p.docx"
+    monkeypatch.setattr("par.domains.write.cli.export.export", lambda **kw: fake_out)
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx", "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["warnings"] == []
 
 
 def test_write_export_html_omits_first_use_note(
@@ -328,13 +421,11 @@ def test_write_export_html_omits_first_use_note(
     [
         ("export", export.CorruptDocxError),
         ("compose", export.CorruptDocxError),
-        ("export", export.ZoteroNotRunningError),
         ("compose", export.MissingBibliographyPlaceholderError),
     ],
     ids=[
         "export-corrupt-docx",
         "compose-corrupt-docx",
-        "export-zotero-down",
         "compose-missing-refs-placeholder",
     ],
 )
@@ -365,9 +456,11 @@ def test_write_error_paths_show_clean_error(
     assert "Traceback" not in result.output
 
 
-def test_write_compose_docx_prints_first_use_note(
+def test_write_compose_docx_omits_first_use_note(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """E6 sai só no ``export`` (ADR-0037, B4): o ``compose`` não grava
+    citemap, não pode ser ingerido, e a frase de revisão não se aplica."""
     pj, _page = _pj_with_bib(tmp_path)
     index = pj / "docs" / "index.md"
     index.write_text("---\npages: [docs/p.md]\n---\n")
@@ -375,7 +468,45 @@ def test_write_compose_docx_prints_first_use_note(
     monkeypatch.setattr("par.domains.write.cli.export.compose", lambda **kw: fake_out)
     result = runner.invoke(app, ["write", "compose", "--index", str(index), "--to", "docx"])
     assert result.exit_code == 0, result.output
-    assert "Primeiro uso no Word" in result.output
+    assert "Primeiro uso no Word" not in result.output
+
+
+def test_write_compose_warning_goes_to_console(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, _page = _pj_with_bib(tmp_path)
+    index = pj / "docs" / "index.md"
+    index.write_text("---\npages: [docs/p.md]\n---\n")
+    fake_out = pj / "build" / "exports" / "index.docx"
+
+    def fake(**kw: Any) -> Path:
+        kw["on_warning"]("aviso teste")
+        return fake_out
+
+    monkeypatch.setattr("par.domains.write.cli.export.compose", fake)
+    result = runner.invoke(app, ["write", "compose", "--index", str(index), "--to", "docx"])
+    assert result.exit_code == 0, result.output
+    assert "⚠ aviso teste" in _flat(result.output)
+
+
+def test_write_compose_json_carries_warnings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, _page = _pj_with_bib(tmp_path)
+    index = pj / "docs" / "index.md"
+    index.write_text("---\npages: [docs/p.md]\n---\n")
+    fake_out = pj / "build" / "exports" / "index.docx"
+
+    def fake(**kw: Any) -> Path:
+        kw["on_warning"]("aviso teste")
+        return fake_out
+
+    monkeypatch.setattr("par.domains.write.cli.export.compose", fake)
+    result = runner.invoke(
+        app, ["write", "compose", "--index", str(index), "--to", "docx", "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["warnings"] == ["aviso teste"]
 
 
 def test_write_export_twice_without_force_fails_cleanly(
@@ -493,6 +624,26 @@ def test_zettlr_entry_export_error_exits_cleanly(
     with pytest.raises(SystemExit) as exc:
         zettlr_export_entry()
     assert exc.value.code == 1
+
+
+def test_zettlr_entry_forwards_warnings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """O aviso de vínculo também chega ao painel do Zettlr (``on_warning=console.warn``).
+    Sai com ``zettlr_export_entry`` na 0.71.0 (Spec A)."""
+    page = tmp_path / "draft.md"
+    page.write_text("x")
+
+    def fake(**kwargs: Any) -> Path:
+        kwargs["on_warning"]("aviso z")
+        return tmp_path / "out.docx"
+
+    monkeypatch.setattr("par.domains.write.cli.export.export", fake)
+    monkeypatch.setattr("sys.argv", ["prumo-zettlr-export", str(page)])
+    from par.domains.write.cli import zettlr_export_entry
+
+    zettlr_export_entry()
+    assert "aviso z" in capsys.readouterr().out
 
 
 def test_zettlr_entry_usage_error_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:

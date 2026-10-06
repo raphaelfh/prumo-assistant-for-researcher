@@ -44,4 +44,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0034-renomeia-para-par]] — Renomeia o projeto para prumo-assistant-for-researcher (PAR) · aceito
 - [[adr/adr-0035-figuras-e-tabelas-por-filtro-lua]] — Figuras e tabelas numeradas por filtro Lua vendorizado · aceito
 - [[adr/adr-0036-meta-embutido-sem-trace]] — Proveniência só no `_meta` embutido; trace JSONL adiado · aceito
+- [[adr/adr-0037-ponte-zotero-minima]] — Ponte Zotero mínima: anotações e notas saem do PAR; Better BibTeX só no connect e no lookup do docx · aceito
 <!-- prumo:adr-index:end -->

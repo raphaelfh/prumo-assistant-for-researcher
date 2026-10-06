@@ -46,6 +46,7 @@ Guia completo, passo a passo, em linguagem simples:
 | "o que a literatura diz sobre X" | `/par:wiki query` | Responde pergunta ancorada no wiki do pj_* (docs/ + docs/references/) usando qmd + leitura de páginas, sempre com citações ([[wikilinks]] e [@citekeys]). Oferece arquivar a resposta como finding (type: finding) em docs/studies/<slug>/notes/ quando útil. NÃO é para perguntas de código. |
 | "me ensina X" | `/par:wiki study` | Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/studies/<slug>/notes/. No Reflect, oferece arquivar insight como finding. |
 | "gera a declaração de uso de IA" | `/par:write disclosure` | Gera a declaração de uso de IA do projeto a partir da proveniência gravada nos artefatos (determinístico, pt ou en). |
+| "exporta o docx para o coautor revisar" | `/par:write export` | Gera o docx do manuscrito com citações vivas do Zotero: travado para a rodada de revisão do coautor, ou final para editar no Word com o Zotero. |
 | "escreve um draft do meu paper" | `/par:write manuscript` | Gera draft de paper IMRaD venue-aware a partir do PICOT, callouts _extract.md, protocol.md e project_guide.md, com citação strict do acervo ([REF FALTANTE] quando ausente). |
 | "escreve essa seção" | `/par:write section` | Gera prose acadêmica genérica quando o usuário tem texto-base ou só uma seção isolada e não cabe em paper/CEP/statistics. Aceita --seed, --section, --template. Citação strict do acervo. |
 | "aplica as convenções de escrita científica" | `/par:write style` | Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc, em pt-BR ou inglês americano (idioma resolvido por cascata, default en-US) — citação sempre imediatamente antes do ponto final, múltiplas citações num único colchete ([@a; @b]), pontuação sem travessão/dois-pontos/ponto-e-vírgula em texto corrido, remoção de superlativo, economia lexical, coesão entre períodos. Mexe na forma, não na substância; o diff confere as citações, o sentido fica para o autor revisar. |
@@ -81,13 +82,14 @@ passo a passo completo em
 
 ## Pré-requisitos externos
 
-O plugin orquestra duas ferramentas que vivem fora do pacote Python. Rode
+O plugin orquestra três ferramentas que vivem fora do pacote Python. Rode
 `prumo doctor` a qualquer momento para checar o estado delas.
 
 | Dependência | Necessária para | Como instalar / habilitar |
 |---|---|---|
 | **`qmd`** (MCP de busca) | `/par:wiki query`, `/par:wiki ingest`, `/par:wiki study` | `bun install -g @tobilu/qmd` (repo: [github.com/tobi/qmd](https://github.com/tobi/qmd)). Precisa estar no `PATH`. Declarado em `.mcp.json` como servidor `qmd`. |
-| **Zotero 9 + Better BibTeX** | `paper sync-annotations`, `paper sync-notes`, `write export --to docx` (citações vivas) | Abra o Zotero 9 com o [Better BibTeX](https://retorque.re/zotero-better-bibtex/) instalado. Ele expõe a API local em `127.0.0.1:23119`. Só é necessário para os comandos que leem anotações/notas — o resto do prumo funciona sem ele. |
+| **Zotero 9 + Better BibTeX** | `paper sync-annotations`, `paper sync-notes`, `write export --to docx` (vínculo das citações, opcional) | Abra o Zotero 9 com o [Better BibTeX](https://retorque.re/zotero-better-bibtex/) instalado. Ele expõe a API local em `127.0.0.1:23119`. Só é necessário para os comandos que leem anotações/notas — o resto do prumo funciona sem ele. |
+| **Pandoc ≥ 3.8.2** | `write export`, `write compose` | macOS: `brew install pandoc` (ou o Zettlr, cujo pandoc o PAR usa quando não há um no PATH); Linux: pacote oficial em https://github.com/jgm/pandoc/releases (o do apt costuma ser antigo); confira com `prumo doctor`. |
 
 > [!tip]
 > `prumo doctor` lista o estado de cada dependência (`✓` presente / `○` ausente)

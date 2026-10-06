@@ -20,7 +20,7 @@ Por que existe:
   "Document Preferences" no primeiro Refresh.
 
 Pré-requisitos:
-- Pandoc 3.0+ (para `pandoc.json`).
+- Pandoc ≥ 3.8.2: piso único do export (o `crossref.lua` precisa da extensão `table_attributes`).
 - O comando do pandoc precisa ter `--citeproc --bibliography=refs.bib
   --csl=<style>.csl` ANTES de `--lua-filter=zotero_live_docx.lua`.
 - `meta.zotero_lookup_file` aponta para JSON `{citekey: {itemID, uri,
@@ -41,6 +41,9 @@ local csl_style_id = 'apa'
 local citation_counter = 0
 local occ_counter = 0
 local references_by_key = {}
+-- `prumo write export --final` manda `prumo_unlocked_citations`: sem trava, o
+-- plugin do Zotero consegue reescrever o campo no Refresh (G1, ADR-0037).
+local lock_citations = true
 
 local function xmlescape(s)
   return (tostring(s)
@@ -86,6 +89,25 @@ local function zotero_pref_xml()
   )
 end
 
+-- `pandoc.utils.references` devolve os campos de texto como `Inlines`;
+-- serializados crus viram AST (`[{"t":"Str","c":…}]`) e o Zotero quebra ao
+-- usar o item embutido. CSL-JSON quer strings: achata `Inlines`/`Inline`
+-- com `stringify` e percorre tabelas (autores, datas) recursivamente.
+local function to_csl_json(value)
+  local ptype = pandoc.utils.type(value)
+  if ptype == 'Inlines' or ptype == 'Inline' or ptype == 'Blocks' or ptype == 'Block' then
+    return pandoc.utils.stringify(value)
+  end
+  if type(value) == 'table' then
+    local out = {}
+    for k, v in pairs(value) do
+      out[k] = to_csl_json(v)
+    end
+    return setmetatable(out, getmetatable(value))
+  end
+  return value
+end
+
 local function build_csl_citation(cite)
   local plain_text = pandoc.utils.stringify(cite.content)
   local items = {}
@@ -95,9 +117,17 @@ local function build_csl_citation(cite)
     -- I1/I2b (spec da ponte): id SEMPRE = citekey (átomo opaco chaveado);
     -- o id numérico do Zotero viaja em zoteroItemID.
     local item = { id = key }
-    if lookup.itemID then item.zoteroItemID = lookup.itemID end
-    if lookup.uri then item.uris = { lookup.uri } end
-    if lookup.fingerprint then item.prumoFingerprint = lookup.fingerprint end
+    -- `type()` e não truthiness: `pandoc.json` decodifica `null` como userdata truthy.
+    if type(lookup.itemID) == 'number' then item.zoteroItemID = lookup.itemID end
+    -- `uris` SEMPRE presente e SEMPRE array JSON (ADR-0037). Sem ele, o
+    -- Refresh do plugin do Zotero no Word lança TypeError em
+    -- Citation.loadItemData (ramo de item embutido de integration.js).
+    -- `json.decode('[]')` sai `[]` em todo pandoc suportado; `pandoc.List`
+    -- vazio sai `{}` antes do pandoc 3.2.1, e uma tabela Lua vazia crua
+    -- sai `{}` sempre.
+    item.uris = (type(lookup.uri) == 'string' and lookup.uri ~= '') and { lookup.uri }
+      or json.decode('[]')
+    if type(lookup.fingerprint) == 'string' then item.prumoFingerprint = lookup.fingerprint end
     if references_by_key[key] then
       item.itemData = references_by_key[key]
     end
@@ -115,8 +145,8 @@ local function build_csl_citation(cite)
   -- I2b (spec da ponte): prumoOcc é um contador PRÓPRIO do prumo, distinto
   -- de citationID (que o plugin Word/Zotero pode reescrever no Refresh) —
   -- o citemap usa esse contador pra parear ocorrências 1:1 com o texto
-  -- normalizado; melhor-esforço (se o Refresh descartar chaves custom, a
-  -- conservação degrada pro multiconjunto de citekeys, sem quebrar).
+  -- normalizado; o Zotero descarta `prumoOcc` no Refresh e no Add/Edit
+  -- Citation; o ingest recusa esse docx com mensagem própria (ADR-0037).
   occ_counter = occ_counter + 1
   return {
     citationID = next_citation_id(),
@@ -150,6 +180,9 @@ local function wrap_cite_in_field(cite)
   -- ou comentar. sdtContentLocked bloqueia edição do CONTEÚDO do sdt no
   -- Word (bookmark não travaria nada). Bibliografia (wrap_bibliography)
   -- NÃO é travada nesta fase.
+  if not lock_citations then
+    return pandoc.RawInline('openxml', field)
+  end
   local locked_field = table.concat({
     '<w:sdt><w:sdtPr><w:alias w:val="prumo-citation"/>',
     '<w:lock w:val="sdtContentLocked"/></w:sdtPr><w:sdtContent>',
@@ -188,6 +221,9 @@ function Pandoc(doc)
   if doc.meta.zotero_lookup_file then
     load_lookup_file(pandoc.utils.stringify(doc.meta.zotero_lookup_file))
   end
+  if doc.meta.prumo_unlocked_citations then
+    lock_citations = false
+  end
   if doc.meta.zotero_csl_style then
     csl_style_id = pandoc.utils.stringify(doc.meta.zotero_csl_style)
   end
@@ -196,7 +232,7 @@ function Pandoc(doc)
   -- carregou da bib — usamos para popular itemData de cada citationItem
   -- quando não temos URI do Zotero.
   for _, ref in ipairs(pandoc.utils.references(doc)) do
-    references_by_key[ref.id] = ref
+    references_by_key[ref.id] = to_csl_json(ref)
   end
 
   doc.blocks = doc.blocks:walk({
