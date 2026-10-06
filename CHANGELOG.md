@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.71.0] - 2026-10-06
+
 ### Corrigido
 
 - **O Zotero no Word reconhece de novo as citações do docx do PAR.** Todo docx exportado sem `zotero.library` no frontmatter (o caso padrão) e todo docx do perfil do Zettlr saíam com as citações sem `uris`, e o primeiro Refresh do plugin do Zotero no Word parava com TypeError. Agora cada citação leva `uris` (vazio quando não há vínculo), junto com os dados embutidos (ADR-0037).
@@ -1494,7 +1496,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.2...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.0...HEAD
+[0.71.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.2...v0.71.0
 [0.70.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.1...v0.70.2
 [0.70.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.0...v0.70.1
 [0.70.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.69.1...v0.70.0
