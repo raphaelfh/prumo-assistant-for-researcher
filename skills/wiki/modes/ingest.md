@@ -22,20 +22,17 @@ prumo:
 # Wiki Ingest — adicionar fonte ao wiki de um `pj_*`
 
 <!-- prumo:preflight:begin -->
-> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+> **Preflight — antes de qualquer operação deste modo:**
 >
 > 1. **Busca semântica (qmd):** rode `qmd --version`; só
 >    `command not found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica
 >    indisponível — resultados via leitura direta, mais lentos/parciais") e
 >    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
 >    operação com o hint do `prumo doctor`. Se precisar do stack completo, roteie para `/par:start`.
->
-> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
-> operação exata nunca é simulada.
 <!-- prumo:preflight:end -->
 
 Toda página do wiki é uma nota de `docs/studies/<escopo>/notes/` distinguida pelo `type:` do
-frontmatter — não existe diretório por tipo (ADR-0022/0023). O frontmatter canônico de cada
+frontmatter — não existe diretório por tipo. O frontmatter canônico de cada
 tipo está nos passos 4 e 5 desta skill.
 
 ## Pressupostos
@@ -77,7 +74,7 @@ Esperar confirmação/direcionamento do usuário antes do passo 4.
 
 ### 4. Criar a nota da fonte em `docs/studies/<escopo>/notes/<slug>.md`
 
-Slug: kebab-case do título, ASCII minúsculo, sem stopwords. Colisão → sufixo numérico.
+Slug: kebab-case do título, ASCII minúsculo, sem stopwords. Colisão → sufixo `-2`, `-3`…
 
 Frontmatter:
 
@@ -121,7 +118,7 @@ Corpo (seções fixas):
 
 ### 5. Criar/atualizar páginas relacionadas
 
-Até **10–15 páginas** por ingest. Para cada conceito/entidade central:
+Até **15 páginas** por ingest; se mais forem necessárias, quebrar em ingests separados e deixar claro no log que é parte N/M. Para cada conceito/entidade central:
 
 - Se já existe nota com `type: concept` ou `type: entity` para o termo (mesmo `notes/` do escopo): `Edit` para acrescentar a fonte em `sources:` e um bullet em `## Evidências`.
 - Se não existe e o usuário confirmou no passo 3: criar `docs/studies/<escopo>/notes/<slug>.md` com o mesmo frontmatter do passo 4, trocando `type:` para `concept` (métodos, abordagens, ideias) ou `entity` (modelos, datasets, coortes, ferramentas, instituições) e omitindo `url`/`kind`; seção `## Evidências` com bullet apontando para `[[<slug-da-fonte>]]`.
@@ -170,14 +167,10 @@ Para o `prumo wiki index`, use `prumo`; se ele não existir nesta sessão, use a
 
 ## Boundaries
 
-- **Nunca baixa PDF automaticamente** (copyright). Para paper, o usuário coloca o PDF em `docs/references/pdfs/<citekey>.pdf` manualmente.
-- **Não mexe em** `content/`, `pyproject.toml`, notebooks.
-- **Paper científico** nunca entra direto pelo `/par:wiki ingest`. Orientar o usuário: (1) adicionar no Zotero; (2) `/par:paper library sync`; (3) voltar aqui para costurar a fonte a outras páginas do wiki se quiser.
-- **Máximo de 15 páginas tocadas** por ingest. Se mais forem necessárias, quebrar em ingests separados e deixar claro no log que é parte N/M.
+- **Nunca baixa PDF automaticamente** (copyright). PDFs de paper vêm do Zotero via `prumo paper sync-pdfs`.
+- **Não mexe em** notebooks.
 
 ## Erros comuns
 
-- **Slug colide com arquivo existente** → sufixo `-2`, `-3`…
 - **Usuário cola URL de paper mas DOI não resolve** → orientar a adicionar no Zotero via URL ou arXiv ID; senão salvar como `source` genérico com `kind: doc` até o usuário conseguir o DOI.
-- **qmd indisponível** → fluxo não trava; o output diz que a reindexação não aconteceu.
 - **Páginas relacionadas em conflito com ingest anterior** → mostrar o diff proposto antes de escrever; nunca sobrescrever seções de autoria humana sem perguntar.

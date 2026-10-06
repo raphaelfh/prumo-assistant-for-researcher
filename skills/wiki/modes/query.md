@@ -23,25 +23,19 @@ prumo:
 # Wiki Query — responder com citações e arquivar
 
 <!-- prumo:preflight:begin -->
-> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+> **Preflight — antes de qualquer operação deste modo:**
 >
 > 1. **Busca semântica (qmd):** rode `qmd --version`; só
 >    `command not found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica
 >    indisponível — resultados via leitura direta, mais lentos/parciais") e
 >    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
 >    operação com o hint do `prumo doctor`. Se precisar do stack completo, roteie para `/par:start`.
->
-> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
-> operação exata nunca é simulada.
 <!-- prumo:preflight:end -->
-
-Usa o CLI `qmd` pelo Bash (`qmd query "<termo>"`) para busca híbrida.
 
 ## Pressupostos
 
 - cwd é um `pj_*` com `docs/_index.md`, `docs/_log.md` e subdirs.
 - qmd instalado (`npm install -g @tobilu/qmd`) e o wiki indexado ao menos uma vez (`prumo wiki index`).
-- Se não indexado, fluxo ainda funciona usando só `_index.md` + `Grep` + `Read`, mas resposta perde cobertura semântica.
 
 ## Fluxo
 
@@ -58,7 +52,7 @@ Se a pergunta for ambígua ou genérica ("tudo sobre X"), pedir refinamento em *
 
 ### 3. Ler as páginas mais relevantes
 
-Ler ≤ 5–8 páginas selecionadas na íntegra (não só trechos). Extrair:
+Ler ≤ 5–8 páginas selecionadas na íntegra (não só trechos). Se a pergunta exigir mais, pedir ao usuário para refinar OU responder em partes e arquivar como 2 findings ligados por `related:`. Extrair:
 - **Claim** (o que cada página afirma sobre a pergunta).
 - **Evidência** (fonte citada pela página — paper, source, notebook, decision).
 - **Ressalva** (limitações, coorte específica, dataset).
@@ -139,17 +133,15 @@ LOG
 ### 6. Visualizações inline
 
 Quando a resposta pedir gráfico (comparação numérica, distribuição, timeline):
-- Gerar bloco Python com **seaborn + matplotlib** (ver rule `.claude/rules/coding_style.md`), renderizado em notebook ou salvo em `docs/studies/<escopo>/notes/_assets/<slug>.png` referenciado no markdown do finding.
+- Gerar bloco Python com **seaborn + matplotlib** (ver `.claude/rules/coding_style.md`, se existir), renderizado em notebook ou salvo em `docs/studies/<escopo>/notes/_assets/<slug>.png` referenciado no markdown do finding.
 - Plotly **só** se o usuário pedir explicitamente um dashboard interativo.
 
 ## Boundaries
 
-- **Não executa notebooks** nem roda código de modelagem — isso é escopo das skills `clinical-metrics`, `data-cleaning`, etc.
+- **Não executa notebooks** nem roda código de modelagem.
 - **Não cria páginas `concept`/`entity`** — isso é `/par:wiki ingest`.
-- **Limite de leitura**: até 8 páginas por query para manter contexto enxuto. Se a pergunta for enorme, quebrar em sub-perguntas e rodar em sequência.
 
 ## Erros comuns
 
 - **qmd retorna 0 resultados** → rodar `qmd embed` antes; ou recair em `Grep` + `Read docs/_index.md`.
 - **Usuário pergunta algo que não está no wiki** → responder "Não há páginas sobre isso no wiki" + sugerir `/par:wiki ingest` com fontes candidatas + registrar no log como `query | <pergunta> — gap`.
-- **Resposta exige mais de 8 páginas** → pedir ao usuário para refinar OU responder em partes e arquivar como 2 findings ligados por `related:`.

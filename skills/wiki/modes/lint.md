@@ -2,7 +2,7 @@
 name: lint
 description: "Health-check do wiki de um pj_*: detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos sem página, links mortos, prefixo de log inválido, múltiplos role:primary. Gera relatório timestamped como finding (type: finding) em docs/studies/<slug>/notes/_lint_<data>.md."
 argument-hint: "[--quick]"
-allowed-tools: Read Write Edit Glob Grep Bash(rg *)
+allowed-tools: Read Write Edit Glob Grep Bash(prumo wiki lint *) Bash(rg *)
 prumo:
   version: 1.1.0
   schema: WikiLintReport/v1
@@ -22,36 +22,20 @@ prumo:
 # Wiki Lint — auditar consistência do wiki
 
 <!-- prumo:preflight:begin -->
-> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+> **Preflight — antes de qualquer operação deste modo:**
 >
-> 1. **Superfície e CLI:** este modo precisa do app Claude na aba Code (Mac) ou do Claude Code
->    no terminal (Mac ou Linux). Se esta conversa for uma tarefa do Cowork, um chat, uma sessão
->    SSH ou rodar no Windows ou no WSL, diga em uma frase que este modo não é suportado aqui e
->    que a pessoa deve abrir o app Claude na aba Code (Mac) ou o Claude Code no terminal (Mac ou
->    Linux), e pare. Senão, rode `prumo --version`; o esperado é
->    `prumo <versão do bloco PAR da porta>`.
->    (a) `prumo` não existe: rode a forma `sh … --version` do bloco PAR e aplique (b)–(d) à
->    saída dela; avise uma vez que cada comando vai pedir permissão. Só se a saída não trouxer
->    nem a versão nem uma linha `PAR:`, diga "abra uma sessão nova" e pare.
->    (b) Outra versão: rode `command -v prumo`. Caminho terminado em `/shims/prumo`: é outra
->    versão do plugin; diga "este `prumo` é de outra versão do plugin — abra uma sessão nova".
->    Qualquer outro caminho (por exemplo `~/.local/bin/prumo`): é o CLI antigo, instalado à
->    parte; ofereça UMA vez, com consentimento, `uv tool uninstall prumo-assistant-for-researcher`
->    (se a pessoa usa o Zettlr, antes peça "regenera o perfil do Zettlr" e a reimportação do
->    perfil, que ainda aponta para dentro desse CLI). Nos dois casos, use a forma `sh …` nesta
->    sessão.
->    (c) A saída contém `PAR: falta o uv`: roteie para `/par:start` (que instala o uv com
->    consentimento) e pare.
->    (d) Qualquer outra linha que comece com `PAR:`: repasse-a (ela traz o comando de correção).
->    Se for a do sandbox (saída 77), ofereça repetir o mesmo comando fora do sandbox, pedindo
->    permissão; nos outros casos, pare.
+> 1. **Superfície e CLI:** fora do app Claude na aba Code (Mac) ou do Claude Code no terminal
+>    (Mac ou Linux), isto é, numa tarefa do Cowork, num chat, numa sessão SSH, no Windows ou no
+>    WSL, diga em uma frase que este modo não roda aqui e pare. Senão, rode `prumo --version`
+>    (sem `prumo`, a forma `sh … --version` do bloco PAR; cada comando pedirá permissão). O
+>    esperado é `prumo <versão do bloco PAR da porta>`.
+>    - Linha `PAR:` do sandbox (saída 77): ofereça repetir o comando fora do sandbox, pedindo
+>      permissão.
+>    - Qualquer outra saída (outra versão, `PAR: falta o uv`, outra linha `PAR:`, nada): roteie
+>      para `/par:start`, que resolve, e pare.
 >    Nunca simule a operação.
 > 2. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
->    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
->    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
->
-> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
-> operação exata nunca é simulada.
+>    oriente `prumo init pj_<nome>`; nunca crie o scaffold à mão.
 <!-- prumo:preflight:end -->
 
 Aplica as regras de integridade descritas neste checklist, uma por seção. Gera relatório;
@@ -67,68 +51,34 @@ não corrige automaticamente.
 
 ## Checklist (ordem fixa)
 
-> **Determinístico vs. agêntico.** As seções 2, 3, 4, 8 e 9 agora são cobertas
-> por `prumo wiki lint` (Python, reprodutível, custo zero de LLM). Rode-o
-> primeiro e gaste orçamento de LLM apenas nas seções **6 (contradições)** e
-> **7 (stale claims)**, que exigem julgamento semântico. Códigos emitidos:
-> `broken_citekey`, `orphan_page`, `broken_log_prefix`, `multiple_primary`,
-> `dead_link`, `concept_candidate` (severity `info`), `stat_mismatch` (%, IC de Wilson ou q de
-> BH relatado que não bate com o recálculo).
+> **Determinístico primeiro.** Rode `prumo wiki lint --json` e leve os achados para as seções
+> 1, 2, 3, 8 e 9 do relatório. Gaste orçamento de LLM só nas seções 5, 6 e 7.
 
-### 1. Páginas órfãs
+### 1–3, 8, 9. Cobertos por `prumo wiki lint --json`
 
-Uma página é órfã se está sob um escopo (`docs/studies/<escopo>/`) mas **não** é linkada de nenhum lugar.
+| Código | Seção | Significado |
+|---|---|---|
+| `orphan_page` | 1. Páginas órfãs | página do escopo sem link de entrada (wikilink ou link Markdown) |
+| `broken_citekey` | 2. Citekeys quebradas | `[@foo]` sem entrada no `docs/references/_references.bib` |
+| `broken_log_prefix` | 3. Prefixo de log | entrada de `_log.md` fora de `## [YYYY-MM-DD] <ingest\|query\|lint\|decision\|milestone\|note> \| …` |
+| `concept_candidate` (info) | 8. Conceitos candidatos | `[[termo]]` citado ≥ 3× no escopo sem nota correspondente |
+| `dead_link` | 9. Links mortos | alvo de `links_to`/`sources`/`related` inexistente no mesmo escopo |
+| `stat_mismatch` | Evidências | %, IC de Wilson ou q de BH relatado que não bate com o recálculo |
 
-**Isentos de `orphan_page`**: `README.md`, `protocol.md` e qualquer stem começando com `_`. A isenção é intencional e útil — um `README.md` por escopo funciona como MOC (*map of content*) e sai do relatório. É a saída recomendada para o ruído de órfã em tabelas, figuras e drafts, que nunca terão link de entrada vindo de outra nota: crie `docs/studies/<escopo>/README.md` apontando para elas.
+Outros códigos (`ambiguous_link`, `no_frontmatter`, `bib_missing`, `no_index`, `no_log`,
+`no_scope`) entram em Evidências como estão.
 
-```bash
-# Universo: todos os arquivos markdown do wiki (exceto _index, _log, README, protocol).
-# Conjunto "linkado": união de
-#   - entradas em _index.md
-#   - wikilinks [[nome]] em outras páginas
-```
+**Isentos de `orphan_page`**: `README.md`, `protocol.md` e qualquer stem começando com `_`. Para o
+ruído de órfã em tabelas, figuras e drafts, sugira `docs/studies/<escopo>/README.md` como MOC
+(*map of content*) apontando para elas.
 
-Implementação sugerida:
-
-```bash
-# Listar todas as páginas do escopo (identidade = caminho relativo ao escopo)
-Glob docs/studies/<escopo>/**/*.md
-
-# Conjunto linkado via rg (não usar Grep direto — usar a ferramenta Grep)
-Grep "\\[\\[([^@][^\\]]+)\\]\\]" docs/studies/<escopo>/ docs/references/papers/ -o --multiline
-# + parse de _index.md
-```
-
-Reportar lista de órfãs com caminho relativo.
-
-### 2. Citekeys quebradas
-
-Toda citação `[@foo]` (marcada) ou `@foo` (narrativa) deve ter entrada `@<tipo>{foo,…}` em `docs/references/_references.bib`.
-
-Não reimplemente a extração de citekey em grep: `prumo wiki lint` já usa a
-gramática única (`core/citations.py`), tratando corretamente grupo (`[@a; @b]`)
-e locator (`[@k, p. 3]`) — que um grep de colchete inteiro transformaria em
-falso positivo. Escopo do `broken_citekey`: só as formas MARCADAS (`[@foo]`),
-via `scan_marked_citekeys` — narrativa solta (`@foo`) fica de fora de
-propósito, para que um handle `@fulano` em prosa não vire warning espúrio. Se
-o usuário quiser conferir narrativa, isso é leitura manual da página, não
-saída do lint.
-
-Reportar citekeys referenciadas sem definição (e, se útil, o inverso — definidas mas nunca usadas).
-
-### 3. Prefixo de log quebrado
-
-Toda entrada em `_log.md` deve casar `^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|decision|milestone|note) \| .+$`.
-
-```
-Grep "^## " docs/_log.md
-```
-
-Reportar linhas que não batem o regex.
+`broken_citekey` só olha a forma marcada (`[@foo]`); narrativa solta (`@foo`) fica de fora de
+propósito. Não reimplemente a checagem em grep.
 
 ### 4. Múltiplos `role: primary`
 
-Em `docs/references/papers/`, o campo `role: primary` deve aparecer no frontmatter de **exatamente 1** nota.
+Não é coberto pelo `prumo wiki lint`. Em `docs/references/papers/`, o campo `role: primary` deve
+aparecer no frontmatter de **exatamente 1** nota.
 
 ```
 Grep "^role: primary" docs/references/papers/ -c
@@ -160,30 +110,6 @@ Heurística:
 - Para cada finding, coletar sources em `sources:`.
 - Checar se alguma source mais recente (`date:` posterior) linkada a [[conceito]] compartilhado contradiz (novamente, LLM decide).
 - Reportar pares.
-
-### 8. Conceitos candidatos a página
-
-Conceito mencionado em wikilinks `[[termo]]` **sem** nota correspondente no `notes/` do escopo
-(uma nota `type: concept`) e **citado ≥ 3 vezes** dentro do mesmo escopo.
-
-```
-Grep "\\[\\[[^\\]]+\\]\\]" docs/studies/<escopo>/ -o   # todos wikilinks do escopo
-# Agregar, filtrar por frequência >=3, remover os que já têm arquivo.
-```
-
-Reportar lista ordenada por frequência descendente.
-
-### 9. Links mortos em `links_to` / `sources`
-
-Frontmatter com lista de wikilinks (`links_to`, `sources`, `related`) cujo alvo não existe no vault.
-
-```
-Para cada página com esses campos:
-  Para cada wikilink no campo:
-    Verificar se o arquivo destino existe.
-```
-
-Reportar pares (página origem, link morto).
 
 ## Relatório
 

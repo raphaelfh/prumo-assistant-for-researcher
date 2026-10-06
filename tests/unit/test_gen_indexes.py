@@ -366,8 +366,8 @@ def test_check_acusa_runtime_desatualizado(
 def test_preflight_cli_novo(gen: ModuleType, registry: Any) -> None:
     out = gen.render_preflight(_mode(registry, "paper", "extract"))
     assert "> 1. " in out and "> 2. " in out and "> 3. " not in out
-    for needle in ("PAR: falta o uv", "/shims/prumo", "(b)–(d)", "fora do sandbox"):
+    for needle in ("PAR: falta o uv", "forma `sh", "fora do sandbox", "/par:start", "Windows"):
         assert needle in out, needle
-    assert out.count("uv tool uninstall prumo-assistant-for-researcher") == 1
-    for banned in ("Drift CLI×plugin", "uv tool install", "uv tool upgrade"):
+    # A árvore completa (CLI antigo, outra raiz) mora só no `/par:start`.
+    for banned in ("Drift CLI×plugin", "uv tool", "ADR-0019", "monorepo"):
         assert banned not in out, banned

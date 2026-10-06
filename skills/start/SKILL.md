@@ -23,7 +23,7 @@ prumo:
 <!-- prumo:runtime:end -->
 
 <!-- prumo:preflight:begin -->
-> **Preflight (contrato ADR-0019):** esta skill é de julgamento puro — NÃO depende
+> **Preflight:** esta skill é de julgamento puro — NÃO depende
 > de CLI, Zotero ou qmd e roda em qualquer superfície Claude. Não invente dados de
 > acervo/projeto: use apenas o que o usuário fornecer na conversa. Se a tarefa
 > pedir operação exata (citekey, contagem, export), roteie para a skill dedicada.
@@ -55,10 +55,8 @@ Você é a porta de entrada E o instalador guiado. Primeiro descubra o estado:
    - Linha `PAR:` do sandbox (saída 77) → ofereça repetir o mesmo comando fora do sandbox,
      pedindo permissão.
    - Qualquer outra linha `PAR:` → repasse-a (ela traz o comando de correção) e pare.
-   - Versão certa, mas `type -a prumo` lista também um `prumo` que não termina em
-     `/shims/prumo` → ofereça UMA vez a mesma remoção, com o mesmo cuidado do Zettlr (é o CLI
-     antigo, que voltaria a aparecer se os hooks falhassem). Outros `…/shims/prumo` na lista são
-     raízes antigas do plugin e não pedem nada.
+   - Versão certa, mas `type -a prumo` lista um `prumo` fora de `/shims/prumo` → ofereça UMA
+     vez a mesma remoção, com o cuidado do Zettlr. Outros `…/shims/prumo` não pedem nada.
 3. **Ferramentas do PAR.** Se as ferramentas `mcp__plugin_par_prumo__*` não estiverem no seu
    inventário, diga: "As ferramentas do PAR não subiram nesta sessão (a 1ª preparação pode ter
    demorado). Abra uma sessão nova." Siga pelo CLI enquanto isso.
@@ -74,8 +72,7 @@ Você é a porta de entrada E o instalador guiado. Primeiro descubra o estado:
 ## Instalar o uv (com consentimento — nunca rode sem um "sim")
 
 Explique antes: o uv é o gerenciador de Python que o PAR usa para preparar o próprio ambiente
-(instalação única). Se esta conversa for no Cowork, NÃO instale: lá o PAR não é suportado —
-mande a pessoa para a aba Code.
+(instalação única).
 
 `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
@@ -92,8 +89,7 @@ nada (o PAR acha o uv em `~/.local/bin`). A primeira vez baixa cerca de 60 MB, u
 3. **Zotero:** Zotero 9 ou mais novo com o Better BibTeX ≥ 9.0.65 (`.xpi`), app aberto. Serve para conectar a coleção (uma vez) e manter o `.bib` atualizado; no export docx, vincula as citações se estiver aberto. Não bloqueia escrita nem julgamento, e não é preciso ligar "Allow other applications".
 4. **Conectar a biblioteca:** com o Zotero aberto, `prumo paper connect "<coleção>"` liga o
    `.bib` do projeto à coleção. Se a coleção ainda não existir, `--create` cria e liga num
-   passo — só quando a pessoa pedir a criação; nunca acrescente a flag por conta própria
-   (ADR-0028).
+   passo — só quando a pessoa pedir a criação; nunca acrescente a flag por conta própria.
 5. **Sincronizar:** `prumo paper sync`.
 6. **qmd (opcional, busca semântica):** `npm install -g @tobilu/qmd` (ou
    `bun install -g @tobilu/qmd`) e depois `prumo wiki index`. Não precisa reiniciar a sessão. Sem
@@ -102,7 +98,7 @@ nada (o PAR acha o uv em `~/.local/bin`). A primeira vez baixa cerca de 60 MB, u
    funciona sem nada do stack.
 
 Regras duras: nunca simule saída de comando que falhou; nunca crie scaffold à mão
-(`prumo init` é o único caminho); nunca cite tooling do monorepo do autor; nunca ofereça
+(`prumo init` é o único caminho); nunca ofereça
 instalar o CLI à parte — ele vem no plugin.
 
 ## Catálogo completo (gerado — não editar à mão)
@@ -115,7 +111,7 @@ instalar o CLI à parte — ele vem no plugin.
 - `/par:protocol picot` — "fecha a PICOT" — Formaliza, propaga e versiona a PICOT do projeto em 3 destinos (.claude/picot.toml canônico, docs/studies/<slug>/writing/protocol.md operacional, docs/project_guide.md acadêmico) + ADR append-only quando muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado.
 - `/par:protocol sap` — "gera o plano de análise estatística" — Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa PicotSpec.outcome+metrics e protocol.md § Splits. Rascunho que referencia TRIPOD+AI/SPIRIT-AI, TRIPOD-LLM quando o pipeline usa LLM e CONSORT 2025/DECIDE-AI conforme o desenho; conformidade final é do estatístico.
 - `/par:review critique` — "revisa este draft" — Simula revisão crítica de draft acadêmico (paper, capítulo, grant, proposta) produzindo feedback estruturado por seção com forças, fraquezas, claims sem evidência e sugestões acionáveis. Aplica mental model adequado (TRIPOD+AI / TRIPOD-LLM / DECIDE-AI / CLAIM / CONSORT 2025 / PRISMA / STROBE).
-- `/par:review reconcile` — "reconcilia os eventos ambíguos da revisão" — Reconcilia eventos ambíguos do round-trip de revisão (unanchored/ambiguous/non-identity) propondo marcas CriticMarkup pendentes no worklist via prumo — o humano decide com `prumo write review apply`. NUNCA propõe/move/cunha citação (I1/I3b: eventos de citação são decisão humana).
+- `/par:review reconcile` — "reconcilia os eventos ambíguos da revisão" — Reconcilia eventos ambíguos do round-trip de revisão (unanchored/ambiguous/non-identity) propondo marcas CriticMarkup pendentes no worklist via prumo — o humano decide com `prumo write review apply`. NUNCA propõe/move/cunha citação (citação é decisão humana).
 - `/par:start` — Porta de entrada do par: instala o que falta e roteia para a skill e o modo certos (paper, wiki, protocol, write, review).
 - `/par:wiki ingest` — "adiciona esta fonte ao wiki" — Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria a nota da fonte (type: source) em docs/studies/<escopo>/notes/, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /par:paper library.
 - `/par:wiki lint` — "audita o wiki" — Health-check do wiki de um pj_*: detecta páginas órfãs, citekeys quebradas, contradições, stale claims, conceitos sem página, links mortos, prefixo de log inválido, múltiplos role:primary. Gera relatório timestamped como finding (type: finding) em docs/studies/<slug>/notes/_lint_<data>.md.

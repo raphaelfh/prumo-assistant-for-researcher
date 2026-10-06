@@ -25,42 +25,26 @@ prumo:
 # Paper Manager — acervo bibliográfico de `pj_*/docs/references/`
 
 <!-- prumo:preflight:begin -->
-> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+> **Preflight — antes de qualquer operação deste modo:**
 >
-> 1. **Superfície e CLI:** este modo precisa do app Claude na aba Code (Mac) ou do Claude Code
->    no terminal (Mac ou Linux). Se esta conversa for uma tarefa do Cowork, um chat, uma sessão
->    SSH ou rodar no Windows ou no WSL, diga em uma frase que este modo não é suportado aqui e
->    que a pessoa deve abrir o app Claude na aba Code (Mac) ou o Claude Code no terminal (Mac ou
->    Linux), e pare. Senão, rode `prumo --version`; o esperado é
->    `prumo <versão do bloco PAR da porta>`.
->    (a) `prumo` não existe: rode a forma `sh … --version` do bloco PAR e aplique (b)–(d) à
->    saída dela; avise uma vez que cada comando vai pedir permissão. Só se a saída não trouxer
->    nem a versão nem uma linha `PAR:`, diga "abra uma sessão nova" e pare.
->    (b) Outra versão: rode `command -v prumo`. Caminho terminado em `/shims/prumo`: é outra
->    versão do plugin; diga "este `prumo` é de outra versão do plugin — abra uma sessão nova".
->    Qualquer outro caminho (por exemplo `~/.local/bin/prumo`): é o CLI antigo, instalado à
->    parte; ofereça UMA vez, com consentimento, `uv tool uninstall prumo-assistant-for-researcher`
->    (se a pessoa usa o Zettlr, antes peça "regenera o perfil do Zettlr" e a reimportação do
->    perfil, que ainda aponta para dentro desse CLI). Nos dois casos, use a forma `sh …` nesta
->    sessão.
->    (c) A saída contém `PAR: falta o uv`: roteie para `/par:start` (que instala o uv com
->    consentimento) e pare.
->    (d) Qualquer outra linha que comece com `PAR:`: repasse-a (ela traz o comando de correção).
->    Se for a do sandbox (saída 77), ofereça repetir o mesmo comando fora do sandbox, pedindo
->    permissão; nos outros casos, pare.
+> 1. **Superfície e CLI:** fora do app Claude na aba Code (Mac) ou do Claude Code no terminal
+>    (Mac ou Linux), isto é, numa tarefa do Cowork, num chat, numa sessão SSH, no Windows ou no
+>    WSL, diga em uma frase que este modo não roda aqui e pare. Senão, rode `prumo --version`
+>    (sem `prumo`, a forma `sh … --version` do bloco PAR; cada comando pedirá permissão). O
+>    esperado é `prumo <versão do bloco PAR da porta>`.
+>    - Linha `PAR:` do sandbox (saída 77): ofereça repetir o comando fora do sandbox, pedindo
+>      permissão.
+>    - Qualquer outra saída (outra versão, `PAR: falta o uv`, outra linha `PAR:`, nada): roteie
+>      para `/par:start`, que resolve, e pare.
 >    Nunca simule a operação.
 > 2. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
->    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
->    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
+>    oriente `prumo init pj_<nome>`; nunca crie o scaffold à mão.
 > 3. **Zotero:** confira `prumo doctor --json` → `external_deps[name=zotero].present`;
 >    ausente/fechado → recuse operações que dependem dele citando o hint do doctor
 >    (abrir o Zotero; instalar Better BibTeX).
->
-> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
-> operação exata nunca é simulada.
 <!-- prumo:preflight:end -->
 
-Skill para manter o acervo de papers como motor file-based: 1 `.md` por paper, 1 BibTeX central, PDFs em `pdfs/` (gitignored). Todas as operações são feitas via `WebFetch` + `Read`/`Edit`/`Write` — sem novas deps Python.
+Skill para manter o acervo de papers como motor file-based: 1 `.md` por paper, 1 BibTeX central, PDFs em `pdfs/` (gitignored).
 
 Pressuposto: o diretório corrente é um `pj_*` com a estrutura padrão em `docs/references/`. Se `docs/references/` não existir, orientar `prumo init pj_<nome>` (via /par:start se o CLI não existir) — nunca retrofit manual.
 
@@ -80,8 +64,7 @@ pj_*/docs/references/
     └── note__<itemKey>__<slug>.md  # legado, não gerado
 ```
 
-> [!info]
-> Layout legado (`notes/<key>.md` plano, na raiz de `references/`) ainda é lido por compatibilidade durante transição. Para migrar: `prumo paper migrate-layout`.
+Notas legadas (`notes/<key>.md` plano, `_annotations.md`, `note__*.md`) podem ser lidas; nenhum comando as atualiza. Para migrar: `prumo paper migrate-layout`.
 
 ## YAML é a única fonte de verdade
 
@@ -106,8 +89,7 @@ Regras:
 
 ## Operações
 
-> [!note]
-> A operação `add <doi>` (fetching CrossRef direto) foi removida. Hoje o Zotero é a fonte única de metadata e PDF. Para adicionar um paper: (1) insira no Zotero (arraste o PDF, cole o DOI, etc.); (2) o Better BibTeX regrava `_references.bib` automaticamente; (3) rode `/par:paper library sync`. Para os PDFs: `prumo paper sync-pdfs`.
+O Zotero é a fonte única de metadata e PDF. PDFs do projeto: `prumo paper sync-pdfs`.
 
 ### 1. `sync`
 
@@ -147,7 +129,6 @@ O PAR trabalha com o `.bib` do projeto e com os PDFs de `docs/references/pdfs/`.
    - Nunca sugira chave da Web API do Zotero.
 3. Sem essas ferramentas, diga em 1 linha: "Isso fica fora do PAR: o PAR não lê destaques nem notas do Zotero." Depois ofereça ler o PDF do projeto e aponte a seção "Perguntar ao seu Zotero" de https://github.com/raphaelfh/prumo-assistant-for-researcher/blob/main/docs/onboarding-pesquisador.md. Não instale nada.
 4. Para adicionar um paper: Zotero Connector no navegador, ou a varinha "Add Item by Identifier" no Zotero. O Better BibTeX atualiza o `.bib`; depois rode `prumo paper sync`.
-5. Os `_annotations.md` e `note__*.md` antigos continuam onde estão e podem ser lidos. Nenhum comando os atualiza; só o `prumo paper migrate-layout` ainda grava `_annotations.md`, ao separar o bloco de anotações de uma nota plana antiga.
 
 ### 2. `update-cites`
 
@@ -183,7 +164,7 @@ Mostra vizinhos do paper no grafo de citações.
 
 Passos:
 1. `Read docs/references/papers/<citekey>/_meta.md` → campo `cites: [...]` → lista de quem este paper cita (dentro do acervo).
-2. `rg "@<citekey>\b" docs/references/papers/ -l` (gramática Pandoc: `[@k]` e `@k`) + `rg "^\s*-\s*<citekey>\s*$" docs/references/papers/ -l` (campo `cites:`, que o `_NotaDumper` serializa em bloco) → quem cita este paper.
+2. `rg "@<citekey>\b" docs/references/papers/ -l` (gramática Pandoc: `[@k]` e `@k`) + `rg "^\s*-\s*<citekey>\s*$" docs/references/papers/ -l` (campo `cites:`, em bloco) → quem cita este paper.
 
    > O `\b` final evita colisão de prefixo (`@boehm2025multimodal` casaria também
    > `@boehm2025multimodalX`). Citekey Pandoc admite `-`, `.`, `:` e `_`, então
@@ -220,7 +201,7 @@ Passos:
 
 ### 8. `connect <coleção>`
 
-Liga o `.bib` do projeto a uma coleção do Zotero via `autoexport.add` do Better BibTeX — o comando que substitui o fio manual de configurar "Keep updated" dentro do Zotero. Normalmente é rodado uma única vez, logo depois de `prumo init`.
+Liga o `.bib` do projeto a uma coleção do Zotero via autoexport do Better BibTeX. Normalmente é rodado uma única vez, logo depois de `prumo init`.
 
 Quando o usuário pedir algo como "conecta minha coleção X" (ou "liga meu projeto na coleção X do Zotero"):
 
@@ -250,18 +231,16 @@ Passos:
 Regras duras:
 
 - **NUNCA** criar ou editar `_references.bib` à mão para "ajudar" — o autoexport é responsabilidade exclusiva do Better BibTeX; a skill não simula esse trabalho.
-- **NUNCA acrescente `--create` por iniciativa própria**, e **nunca acrescente `--yes`** — em nenhuma circunstância, nem para "resolver" um typo, nem para desatolar um comando que falhou, nem quando a criação parecer obviamente o que o usuário queria. `--create` cria coleção no acervo real do pesquisador e **não tem desfazer pelo CLI** (o Better BibTeX não expõe remoção; limpar é manual na UI do Zotero). A decisão de criar é do humano, com o caminho na frente dos olhos — ver [ADR-0028](../../docs/adr/adr-0028-criacao-de-colecao-opt-in.md), que pelo mesmo motivo mantém a tool MCP `paper_connect` sem esse parâmetro.
-- Sem `--create`, typo no nome da coleção **nunca** cria nada no Zotero: o comando valida a existência da coleção antes de qualquer chamada que altere o Zotero, e falha citando sugestões parecidas em vez de criar uma coleção fantasma. Com `--create`, essa rede de proteção passa a ser o eco + a confirmação — mais um motivo para a flag só entrar quando o usuário pediu.
+- **NUNCA acrescente `--create` ou `--yes` por iniciativa própria**, nem para "resolver" um typo ou desatolar um comando que falhou: `--create` cria coleção no acervo real e **não tem desfazer** (limpar é manual na UI do Zotero).
 - O comando recusa conectar quando o `.bib` já tem entradas, para não sobrescrevê-lo; se ele já vem do Better BibTeX, siga com `prumo paper sync`.
 
 ## Erros comuns
 
 - **Citekey colide**: adicionar sufixo `a/b/c` automaticamente (ex.: `smith2024multimodal` já existe → `smith2024multimodala`).
-- **`docs/references/` não existe**: orientar `mkdir` do layout mínimo + copiar template (ou rodar scaffold em novo projeto).
+- **`docs/references/` não existe**: orientar `prumo init pj_<nome>`.
 - **PDF presente mas sem nota**: rodar `prumo paper sync` para gerar a nota a partir da entrada do `.bib`; o campo `pdf:` vai apontar para o arquivo correto.
 
 ## Boundaries
 
 - Skill **não** edita o `.gitignore` nem arquivos fora de `docs/references/`.
-- Skill **não** faz commits — deixa isso para o usuário (e para `/project-manager` quando for registrar ref no monorepo).
-- Skill respeita a rule `.claude/rules/documentation.md`: YAML-only, citekey BBT, seções fixas.
+- Skill **não** faz commits — deixa isso para o usuário.

@@ -1,12 +1,10 @@
 # Reporting guidelines — mental-model reference
 
-Carregado sob demanda pelo modo `review critique`. Use como _mental model_ para
-identificar lacunas; não cite a checklist no review final salvo se útil.
-Mapear o gênero do draft → guideline(s):
+Mental model por gênero do draft; não cite a checklist no review final salvo se útil.
 
 | Gênero do draft | Guideline(s) |
 |---|---|
-| Modelo de predição (regressão ou ML) | **TRIPOD+AI** (2024) |
+| Modelo de predição (regressão ou ML) | **TRIPOD+AI** (2024; 27 itens) |
 | Estudo que desenvolve/avalia um **LLM** em saúde | **TRIPOD-LLM** (Nat Med, jan/2025) |
 | Avaliação clínica **precoce** de sistema de apoio à decisão por IA | **DECIDE-AI** |
 | RCT (geral) | **CONSORT 2025** |
@@ -40,11 +38,3 @@ uso real.
 Atualiza o CONSORT 2010 (não usar mais o 2010). 30 itens + diagrama de fluxo;
 adiciona uma seção de **open science** e integra itens de extensões. Para
 RCTs com componente de IA, combinar com CONSORT-AI.
-
-## Demais (inalterados)
-
-- **TRIPOD+AI** (2024) — modelos de predição (regressão/ML), 27 itens.
-- **SPIRIT-AI** — protocolo de ensaio clínico com IA.
-- **CLAIM / MI-CLAIM** — imaging AI.
-- **PRISMA 2020** — revisões sistemáticas.
-- **STROBE** — estudos observacionais.

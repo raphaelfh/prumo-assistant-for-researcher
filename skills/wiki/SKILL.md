@@ -8,7 +8,7 @@ when_to_use: |
   - query: "o que a literatura diz sobre X"; "compara Y e Z"; "quais decisões tomamos sobre W"
   - study: "me ensina X"; "me coloca à prova sobre Y"; "preciso fixar Z"
 argument-hint: "[ingest|lint|query|study] [argumentos do modo]"
-allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) Bash(prumo wiki *) Bash(rg *) Bash(prumo paper find *) Bash(cat *) Bash(echo *) Bash(prumo --version)
+allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) Bash(prumo wiki *) Bash(prumo wiki lint *) Bash(rg *) Bash(prumo paper find *) Bash(cat *) Bash(echo *) Bash(prumo --version)
 prumo:
   version: 2.0.0
   agent_compat: [claude-code]

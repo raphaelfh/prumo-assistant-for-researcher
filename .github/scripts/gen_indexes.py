@@ -199,40 +199,26 @@ def render_adr_index() -> str:
     return "\n".join(lines)
 
 
-_PREFLIGHT_HEADER = (
-    "> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**\n>"
-)
+_PREFLIGHT_HEADER = "> **Preflight — antes de qualquer operação deste modo:**\n>"
 
-# Superfície e versão (A7). Reconhece a falta do uv pela linha `PAR: falta o uv`,
-# nunca pelo exit 127 (ambíguo entre shells).
+# Superfície e versão (A7), versão curta: a árvore completa (CLI antigo, outra
+# raiz do plugin, instalar o uv) mora só no passo 2 do `/par:start`. Reconhece as
+# falhas pela linha `PAR:`, nunca pelo exit 127 (ambíguo entre shells).
 _PF_CLI = """\
-**Superfície e CLI:** este modo precisa do app Claude na aba Code (Mac) ou do Claude Code
-no terminal (Mac ou Linux). Se esta conversa for uma tarefa do Cowork, um chat, uma sessão
-SSH ou rodar no Windows ou no WSL, diga em uma frase que este modo não é suportado aqui e
-que a pessoa deve abrir o app Claude na aba Code (Mac) ou o Claude Code no terminal (Mac ou
-Linux), e pare. Senão, rode `prumo --version`; o esperado é
-`prumo <versão do bloco PAR da porta>`.
-(a) `prumo` não existe: rode a forma `sh … --version` do bloco PAR e aplique (b)–(d) à
-saída dela; avise uma vez que cada comando vai pedir permissão. Só se a saída não trouxer
-nem a versão nem uma linha `PAR:`, diga "abra uma sessão nova" e pare.
-(b) Outra versão: rode `command -v prumo`. Caminho terminado em `/shims/prumo`: é outra
-versão do plugin; diga "este `prumo` é de outra versão do plugin — abra uma sessão nova".
-Qualquer outro caminho (por exemplo `~/.local/bin/prumo`): é o CLI antigo, instalado à
-parte; ofereça UMA vez, com consentimento, `uv tool uninstall prumo-assistant-for-researcher`
-(se a pessoa usa o Zettlr, antes peça "regenera o perfil do Zettlr" e a reimportação do
-perfil, que ainda aponta para dentro desse CLI). Nos dois casos, use a forma `sh …` nesta
-sessão.
-(c) A saída contém `PAR: falta o uv`: roteie para `/par:start` (que instala o uv com
-consentimento) e pare.
-(d) Qualquer outra linha que comece com `PAR:`: repasse-a (ela traz o comando de correção).
-Se for a do sandbox (saída 77), ofereça repetir o mesmo comando fora do sandbox, pedindo
-permissão; nos outros casos, pare.
+**Superfície e CLI:** fora do app Claude na aba Code (Mac) ou do Claude Code no terminal
+(Mac ou Linux), isto é, numa tarefa do Cowork, num chat, numa sessão SSH, no Windows ou no
+WSL, diga em uma frase que este modo não roda aqui e pare. Senão, rode `prumo --version`
+(sem `prumo`, a forma `sh … --version` do bloco PAR; cada comando pedirá permissão). O
+esperado é `prumo <versão do bloco PAR da porta>`.
+- Linha `PAR:` do sandbox (saída 77): ofereça repetir o comando fora do sandbox, pedindo
+  permissão.
+- Qualquer outra saída (outra versão, `PAR: falta o uv`, outra linha `PAR:`, nada): roteie
+  para `/par:start`, que resolve, e pare.
 Nunca simule a operação."""
 
 _PF_INIT = (
     "**Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,\n"
-    "oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente\n"
-    "não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor."
+    "oriente `prumo init pj_<nome>`; nunca crie o scaffold à mão."
 )
 
 _PF_QMD = (
@@ -253,14 +239,8 @@ _PF_ZOTERO = (
     "(abrir o Zotero; instalar Better BibTeX)."
 )
 
-_PREFLIGHT_FOOTER = (
-    ">\n"
-    "> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):\n"
-    "> operação exata nunca é simulada."
-)
-
 _PREFLIGHT_PURE = (
-    "> **Preflight (contrato ADR-0019):** esta skill é de julgamento puro — NÃO depende\n"
+    "> **Preflight:** esta skill é de julgamento puro — NÃO depende\n"
     "> de CLI, Zotero ou qmd e roda em qualquer superfície Claude. Não invente dados de\n"
     "> acervo/projeto: use apenas o que o usuário fornecer na conversa. Se a tarefa\n"
     "> pedir operação exata (citekey, contagem, export), roteie para a skill dedicada."
@@ -300,16 +280,13 @@ def render_preflight(manifest: SkillManifest) -> str:
     if "zotero" in reqs:
         parts.append(_pf_item(n, _PF_ZOTERO))
         n += 1
-    parts.append(_PREFLIGHT_FOOTER)
     return "\n".join(parts)
 
 
 CONVENTIONS = REPO / ".github" / "scripts" / "prose_conventions.md"
 
-_PROSE_HEADER = (
-    "> **Contrato de prosa (gerado de `.github/scripts/prose_conventions.md` — "
-    "não edite este bloco).**"
-)
+# A fonte é `.github/scripts/prose_conventions.md`; o bloco é regerado.
+_PROSE_HEADER = "> **Contrato de prosa.**"
 
 
 @cache

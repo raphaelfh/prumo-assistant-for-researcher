@@ -58,6 +58,7 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   `.gitignore` do projeto, porque ele traz caminhos desta máquina.
 - **⚠ Breaking — regressão honesta: Windows (nativo e WSL) declarado sem suporte**, com
   mensagem fixa. O onboarding citava instaladores nativos não validados.
+- **Skills mais enxutas** (Princípio VIII): o preflight de cada modo cai de cerca de 390 para 110 palavras (a árvore completa de diagnóstico fica no `/par:start`); saem notas de manutenção, histórico, repetições e referências a comandos e arquivos que não existem. As skills ficam cerca de 19% menores. O modo `wiki lint` passa a usar `prumo wiki lint --json` para as checagens determinísticas.
 
 ### Removido
 
