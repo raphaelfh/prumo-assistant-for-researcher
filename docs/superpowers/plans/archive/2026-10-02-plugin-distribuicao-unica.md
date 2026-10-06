@@ -1,8 +1,11 @@
 ---
-status: approved
+status: implemented
+verified: 2026-10-06
+release: "0.71.0 MINOR ⚠ (corte único, RELEASING.md)"
 spec: "[[2026-10-02-plugin-distribuicao-unica-design]]"
-release: "0.71.0 MINOR ⚠ (corte único)"
 ---
+
+> **Fechamento (2026-10-06).** Tasks 1–23 entregues no #60, junto com a Spec B (ADR-0037) e depois do merge do #59 (correções do docx, `--final` e o modo `/par:write export`): lançador `shims/prumo` com venv por conteúdo em `~/.cache/prumo`, hook `SessionStart` em forma exec, `.mcp.json` via `/bin/sh`, bloco `prumo:runtime` carimbado pelo `gen_indexes`, preflight `cli` reescrito, adeu no lock, saem `uvx`, `--deep`, MCP do qmd, `prumo-zettlr-export` e `integrations/`; `init` sem cópias e `update` com backup; template com `.claude/settings.json`; curingas Bash estreitos; docs, ADR-0038 e constitution 1.2.3. `launcher-smoke` verde nos três legs (ubuntu, macOS arm64, macOS Intel). O S-canal (instalação pelo marketplace na aba Code, máquina do dono) fica para logo depois do corte, com os remédios da spec.
 
 # Plugin como distribuição única (Spec A) Implementation Plan
 

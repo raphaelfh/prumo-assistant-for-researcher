@@ -77,9 +77,9 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 
 **Plans ativos:**
 
-- [[superpowers/plans/2026-10-02-plugin-distribuicao-unica]] · approved
+- (nenhum)
 
-**Plans arquivados:** 44 em `superpowers/plans/archive/`
+**Plans arquivados:** 45 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->
