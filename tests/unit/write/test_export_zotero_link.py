@@ -671,3 +671,81 @@ def test_check_pandoc_uses_zettlr_binary(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr("par.core.deps._binary_on_path", lambda name: None)
     monkeypatch.setattr("par.core.deps._ZETTLR_PANDOC", fake)
     assert export_mod._check_pandoc() == str(fake)
+
+
+def _export_docx_with_real_pandoc(tmp_path: Path, *, lock: bool) -> Path:
+    assert _PANDOC is not None
+    (tmp_path / "refs.bib").write_text(
+        "@article{a2020, author={Silva, Ana}, title={T}, journal={J}, year={2020}}\n"
+    )
+    (tmp_path / "style.csl").write_text(
+        subprocess.run(
+            [_PANDOC, "--print-default-data-file", "default.csl"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    )
+    (tmp_path / "in.md").write_text("Cita [@a2020].\n\n::: {#refs}\n:::\n")
+    cmd = export_mod._build_pandoc_cmd(
+        pandoc_bin=_PANDOC,
+        input_md=tmp_path / "in.md",
+        output=tmp_path / "out.docx",
+        bib=tmp_path / "refs.bib",
+        csl=tmp_path / "style.csl",
+        style="apa",
+        metadata_file=None,
+        template=None,
+        reference_doc=None,
+        to_format="docx",
+        resource_path=tmp_path,
+        lock_citations=lock,
+    )
+    export_mod._run_pandoc_checked(cmd)
+    return tmp_path / "out.docx"
+
+
+@requires_pandoc
+def test_lua_trava_as_citacoes_por_padrao(tmp_path: Path) -> None:
+    """Padrão (rodada de revisão): cada campo vai num content control travado (I4)."""
+    with zipfile.ZipFile(_export_docx_with_real_pandoc(tmp_path, lock=True)) as z:
+        xml = z.read("word/document.xml").decode()
+    assert xml.count("sdtContentLocked") == xml.count("ZOTERO_ITEM") == 1
+
+
+@requires_pandoc
+def test_lua_final_sai_sem_trava(tmp_path: Path) -> None:
+    """``--final``: sem trava, o plugin do Zotero consegue reescrever o campo no
+    Refresh (G1: OSStatus -1708 no setCode de campo travado)."""
+    with zipfile.ZipFile(_export_docx_with_real_pandoc(tmp_path, lock=False)) as z:
+        xml = z.read("word/document.xml").decode()
+    assert xml.count("ZOTERO_ITEM") == 1
+    assert "sdtContentLocked" not in xml
+    assert "prumo-citation" not in xml
+
+
+def test_build_pandoc_cmd_final_manda_metadado() -> None:
+    kw: dict[str, Any] = {
+        "pandoc_bin": "pandoc",
+        "input_md": Path("in.md"),
+        "output": Path("out.docx"),
+        "bib": Path("r.bib"),
+        "csl": Path("s.csl"),
+        "style": "apa",
+        "metadata_file": None,
+        "template": None,
+        "reference_doc": None,
+        "to_format": "docx",
+    }
+    assert not any("prumo_unlocked" in a for a in export_mod._build_pandoc_cmd(**kw))
+    cmd = export_mod._build_pandoc_cmd(**kw, lock_citations=False)
+    assert "--metadata=prumo_unlocked_citations:true" in cmd
+
+
+def test_export_final_so_vale_para_docx(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="--final"):
+        export_mod.export(tmp_path / "p.md", to="html", final=True)
+
+
+def test_redo_command_final() -> None:
+    assert _redo_command("export", Path("p.md"), final=True).endswith("--final")

@@ -41,6 +41,9 @@ local csl_style_id = 'apa'
 local citation_counter = 0
 local occ_counter = 0
 local references_by_key = {}
+-- `prumo write export --final` manda `prumo_unlocked_citations`: sem trava, o
+-- plugin do Zotero consegue reescrever o campo no Refresh (G1, ADR-0037).
+local lock_citations = true
 
 local function xmlescape(s)
   return (tostring(s)
@@ -177,6 +180,9 @@ local function wrap_cite_in_field(cite)
   -- ou comentar. sdtContentLocked bloqueia edição do CONTEÚDO do sdt no
   -- Word (bookmark não travaria nada). Bibliografia (wrap_bibliography)
   -- NÃO é travada nesta fase.
+  if not lock_citations then
+    return pandoc.RawInline('openxml', field)
+  end
   local locked_field = table.concat({
     '<w:sdt><w:sdtPr><w:alias w:val="prumo-citation"/>',
     '<w:lock w:val="sdtContentLocked"/></w:sdtPr><w:sdtContent>',
@@ -214,6 +220,9 @@ function Pandoc(doc)
 
   if doc.meta.zotero_lookup_file then
     load_lookup_file(pandoc.utils.stringify(doc.meta.zotero_lookup_file))
+  end
+  if doc.meta.prumo_unlocked_citations then
+    lock_citations = false
   end
   if doc.meta.zotero_csl_style then
     csl_style_id = pandoc.utils.stringify(doc.meta.zotero_csl_style)
