@@ -119,6 +119,58 @@ def test_lua_uris_is_always_a_json_array(tmp_path: Path) -> None:
 
 
 @requires_pandoc
+def test_lua_item_data_is_plain_csl_json(tmp_path: Path) -> None:
+    """``itemData`` sai em CSL-JSON de strings, não em AST do pandoc.
+
+    ``pandoc.utils.references`` devolve título, revista etc. como ``Inlines``;
+    serializados crus viram listas ``[{"t":"Str","c":…}]`` e o Zotero quebra ao
+    usar os dados embutidos no Refresh (G1, Word real).
+    """
+    assert _PANDOC is not None
+    (tmp_path / "refs.bib").write_text(
+        "@article{a2020, author={Silva, Ana}, title={Total {Neoadjuvant} Therapy},"
+        " journal={JAMA Oncology}, volume={11}, number={9}, pages={1045--1050},"
+        " abstract={Importance. This was a study.}, year={2020}}\n"
+    )
+    (tmp_path / "style.csl").write_text(
+        subprocess.run(
+            [_PANDOC, "--print-default-data-file", "default.csl"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    )
+    (tmp_path / "in.md").write_text("Cita [@a2020].\n\n::: {#refs}\n:::\n")
+    cmd = export_mod._build_pandoc_cmd(
+        pandoc_bin=_PANDOC,
+        input_md=tmp_path / "in.md",
+        output=tmp_path / "out.docx",
+        bib=tmp_path / "refs.bib",
+        csl=tmp_path / "style.csl",
+        style="apa",
+        metadata_file=None,
+        template=None,
+        reference_doc=None,
+        to_format="docx",
+        zotero_lookup_file=None,
+        resource_path=tmp_path,
+    )
+    export_mod._run_pandoc_checked(cmd)
+    (payload,) = _field_payloads(tmp_path / "out.docx")
+    data = payload["citationItems"][0]["itemData"]
+    assert (
+        data["title"] == "Total Neoadjuvant therapy"
+    )  # o pandoc põe título BibTeX em sentence case
+    assert data["container-title"] == "JAMA Oncology"
+    assert data["volume"] == "11"
+    assert data["issue"] == "9"
+    assert data["page"] == "1045-1050"
+    assert data["abstract"] == "Importance. This was a study."
+    assert data["author"] == [{"family": "Silva", "given": "Ana"}]
+    assert data["issued"] == {"date-parts": [[2020]]}
+
+
+@requires_pandoc
 def test_lua_uris_ignores_non_string_uri(tmp_path: Path) -> None:
     """Lookup com ``"uri": null`` (lookup antigo/fora do contrato) sai ``uris: []``,
     e ``zoteroItemID`` só aparece quando é número."""

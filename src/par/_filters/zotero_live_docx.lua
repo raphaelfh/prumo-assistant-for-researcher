@@ -86,6 +86,25 @@ local function zotero_pref_xml()
   )
 end
 
+-- `pandoc.utils.references` devolve os campos de texto como `Inlines`;
+-- serializados crus viram AST (`[{"t":"Str","c":…}]`) e o Zotero quebra ao
+-- usar o item embutido. CSL-JSON quer strings: achata `Inlines`/`Inline`
+-- com `stringify` e percorre tabelas (autores, datas) recursivamente.
+local function to_csl_json(value)
+  local ptype = pandoc.utils.type(value)
+  if ptype == 'Inlines' or ptype == 'Inline' or ptype == 'Blocks' or ptype == 'Block' then
+    return pandoc.utils.stringify(value)
+  end
+  if type(value) == 'table' then
+    local out = {}
+    for k, v in pairs(value) do
+      out[k] = to_csl_json(v)
+    end
+    return setmetatable(out, getmetatable(value))
+  end
+  return value
+end
+
 local function build_csl_citation(cite)
   local plain_text = pandoc.utils.stringify(cite.content)
   local items = {}
@@ -204,7 +223,7 @@ function Pandoc(doc)
   -- carregou da bib — usamos para popular itemData de cada citationItem
   -- quando não temos URI do Zotero.
   for _, ref in ipairs(pandoc.utils.references(doc)) do
-    references_by_key[ref.id] = ref
+    references_by_key[ref.id] = to_csl_json(ref)
   end
 
   doc.blocks = doc.blocks:walk({
