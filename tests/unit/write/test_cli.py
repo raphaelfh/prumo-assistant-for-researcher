@@ -322,6 +322,44 @@ def test_write_export_docx_prints_first_use_note(
     assert "use Zotero → Refresh" not in saida
 
 
+def test_write_export_final_passa_final_e_troca_a_nota(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``--final`` gera o docx sem trava nas citações (para o Zotero no Word) e
+    troca a nota de primeiro uso pela do docx final."""
+    pj, page = _pj_with_bib(tmp_path)
+    fake_out = pj / "build" / "exports" / "p.docx"
+    seen: dict[str, Any] = {}
+
+    def fake(**kw: Any) -> Path:
+        seen.update(kw)
+        return fake_out
+
+    monkeypatch.setattr("par.domains.write.cli.export.export", fake)
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx", "--final"])
+    assert result.exit_code == 0, result.output
+    assert seen["final"] is True
+    saida = _flat(result.output)
+    assert "Docx final" in saida
+    assert "Primeiro uso no Word" not in saida
+
+
+def test_write_export_sem_final_trava_por_padrao(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj, page = _pj_with_bib(tmp_path)
+    seen: dict[str, Any] = {}
+
+    def fake(**kw: Any) -> Path:
+        seen.update(kw)
+        return pj / "build" / "exports" / "p.docx"
+
+    monkeypatch.setattr("par.domains.write.cli.export.export", fake)
+    result = runner.invoke(app, ["write", "export", str(page), "--to", "docx"])
+    assert result.exit_code == 0, result.output
+    assert seen["final"] is False
+
+
 def test_write_export_warning_goes_to_console(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
