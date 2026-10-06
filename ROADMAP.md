@@ -35,7 +35,7 @@
 | F2 | Golden path Desktop/Cowork: preflight uniforme ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)), instalação guiada via skill `start`, docs em duas trilhas (`docs/onboarding-pesquisador.md`) | implementada, arquivada (verified 2026-07-25); piloto com 1 colega real **bateu o critério ≤15 min até o primeiro output**; publicada na v0.63.0 |
 | F3 | Ponte docx↔CriticMarkup — sub-programa próprio de 5 fases (spike/adeu, substrato, review ingest/apply, MCP reconciliador, verificação de referências) | implementada, arquivada ([ADR-0016](docs/adr/adr-0016-criticmarkup-conservacao-ooxml.md), [ADR-0017](docs/adr/adr-0017-prumo-mcp-reconciliador.md), [ADR-0018](docs/adr/adr-0018-verificacao-referencias-apis-publicas.md)) |
 | F4 | Colapso de dependências, escopo A: `prumo paper connect <coleção>` liga o bib do projeto a uma coleção do Zotero via `autoexport.add` do BBT, com guardas anti-fantasma; qmd→MCPB avaliado e refutado (fallback lexical vira caminho normal documentado) | implementada e arquivada ([ADR-0020](docs/adr/adr-0020-connect-autoexport-bbt.md); plano em `docs/superpowers/plans/archive/2026-07-25-zero-friction-fase4-colapso-deps.md`) |
-| F5 | Empacotamento do CLI Python pro Desktop (que não embute Python) | **encerrada fechada** — o trigger (colega travado apesar da instalação guiada) não disparou: o piloto da F2 passou sem travar (YAGNI aplicado, sem trabalho feito) |
+| F5 | Empacotamento do CLI Python pro Desktop (que não embute Python) | encerrada fechada na 0.63.0 (o trigger 'colega travado apesar da instalação guiada' não disparou); **reaberta na 0.71.0 por trigger novo**: drift CLI×plugin reincidente depois do preflight da F2 — CLI global 0.67.2 sem `validate`/`status` (5eb2c6b, 2026-09-12; três contornos em skills, CHANGELOG 0.70.0 › Corrigido) — e o item de drift da ADR-0019 comprovadamente inerte; entregue na 0.71.0: o plugin executa o CLI travado no `uv.lock` ([ADR-0038](docs/adr/adr-0038-plugin-unica-distribuicao.md)); o `uv` segue pré-requisito, instalado pelo `/par:start`. |
 
 ## Em curso
 
@@ -82,7 +82,8 @@
 - **Sem hooks system.** Trace e provenance são chamadas explícitas em `domains/`, não decoradores plugáveis. Quando ≥3 cross-cutting forem competir, refatora.
 - **Sem cache de LLM.** Idempotência por hash do input fica para quando algum caller real precisar.
 - **Sem lockfile.** Faz sentido quando packs externos virarem realidade.
-- **Sem multi-host.** Um adapter (`claude_code`) prova a interface; expandir é trivial depois (não é refactor, é adição).
+- **Sem multi-host.** O plugin do Claude Code é o único host ([ADR-0038](docs/adr/adr-0038-plugin-unica-distribuicao.md)); o adapter fino nasce junto com o 1º host novo (trigger 3.0).
+- **Sem Windows** (nativo e WSL). Trigger: a 1ª pesquisadora real no Windows ([ADR-0038](docs/adr/adr-0038-plugin-unica-distribuicao.md)).
 - **Sem packs externos.** Único pack hoje é o implícito da raiz (`skills/` na raiz). Estrutura `packs/<name>/` está prevista mas vazia.
 - **Sem MkDocs publicado.** Documentação vive no repo em Markdown. Site só quando `prumo --version` justificar (volume de usuários externos).
 - **Sem `unknown_type` no wiki lint.** O lint cobra a presença do frontmatter, não o valor de `type:` — um typo (`type: decisions`) passa em silêncio. Os cinco tipos válidos estão nomeados ([ADR-0025](docs/adr/adr-0025-tipo-de-pagina-no-frontmatter.md), [ADR-0030](docs/adr/adr-0030-tipo-decision.md)). Trigger: um typo que cause dano observável — página que some de um relatório ou de um índice por causa do valor errado.

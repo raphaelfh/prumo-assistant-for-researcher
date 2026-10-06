@@ -8,6 +8,7 @@ no CI, depois que os marcadores existem nos alvos).
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -281,3 +282,92 @@ def test_kb_index_lista_os_guias_de_docs(gen: ModuleType) -> None:
     body = gen.render_kb_index()
     assert "- [[positioning]] · Posicionamento e claims do PAR" in body
     assert "[[_index]]" not in body
+
+
+def test_preflight_cli_tem_dois_itens(gen: ModuleType, registry: Any) -> None:
+    out = gen.render_preflight(_mode(registry, "paper", "extract"))
+    assert "> 1. " in out and "> 2. " in out
+    assert "> 3. " not in out
+    assert "Drift CLI×plugin" not in out
+
+
+def test_gerador_sem_pf_drift(gen: ModuleType) -> None:
+    assert not hasattr(gen, "_PF_DRIFT")
+
+
+def test_pf_qmd_checa_o_cli(gen: ModuleType, registry: Any) -> None:
+    """O preflight do qmd checa o CLI com `qmd --version`, coberto por `Bash(qmd *)` (A9)."""
+    assert "qmd --version" in gen._PF_QMD
+    assert "command -v" not in gen._PF_QMD
+    assert "tools MCP" not in gen._PF_QMD
+    assert "/par:start" in gen.render_preflight(_mode(registry, "wiki", "query"))
+
+
+def test_frontmatter_derivado_libera_prumo_version_com_modo_cli(
+    gen: ModuleType, registry: Any
+) -> None:
+    """O preflight `cli` manda rodar `prumo --version`: a porta pré-aprova o comando exato."""
+    for name in registry.names():
+        skill = registry.get(name)
+        if not skill.modes:
+            continue
+        rendered = gen.derived_frontmatter(skill)["allowed-tools"]
+        tools = _TOOL_TOKEN_RE.findall(rendered.removeprefix("allowed-tools: "))
+        tem_cli = any("cli" in m.requires for m in skill.modes)
+        assert ("Bash(prumo --version)" in tools) == tem_cli, name
+
+
+@pytest.mark.parametrize("const", ["_PF_CLI", "_PF_INIT", "_PF_QMD", "_PF_ZOTERO"])
+def test_preflight_nao_quebra_linha_dentro_de_crases(gen: ModuleType, const: str) -> None:
+    for line in getattr(gen, const).split("\n"):
+        assert line.count("`") % 2 == 0, line
+
+
+_RUNTIME_TARGETS = [
+    "skills/paper/SKILL.md",
+    "skills/protocol/SKILL.md",
+    "skills/review/SKILL.md",
+    "skills/wiki/SKILL.md",
+    "skills/write/SKILL.md",
+    "skills/start/SKILL.md",
+    "agents/reader.md",
+]
+
+
+def test_render_runtime_carimba_versao_e_raiz(gen: ModuleType) -> None:
+    from par._version import __version__
+
+    out = gen.render_runtime()
+    assert f"**PAR {__version__}**" in out
+    assert "${CLAUDE_PLUGIN_ROOT}" in out
+    assert "/shims/prumo" in out
+
+
+def test_os_sete_alvos_tem_o_bloco_runtime(gen: ModuleType) -> None:
+    from par._version import __version__
+
+    for rel in _RUNTIME_TARGETS:
+        text = (gen.REPO / rel).read_text(encoding="utf-8")
+        assert "<!-- prumo:runtime:begin -->" in text, rel
+        assert f"**PAR {__version__}**" in text, rel
+
+
+def test_check_acusa_runtime_desatualizado(
+    gen: ModuleType, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(gen, "__version__", "9.9.9")
+    monkeypatch.setattr(sys, "argv", ["gen_indexes.py", "--check"])
+    assert gen.main() == 1
+    out = capsys.readouterr().out
+    assert "skills/paper/SKILL.md" in out
+    assert "agents/reader.md" in out
+
+
+def test_preflight_cli_novo(gen: ModuleType, registry: Any) -> None:
+    out = gen.render_preflight(_mode(registry, "paper", "extract"))
+    assert "> 1. " in out and "> 2. " in out and "> 3. " not in out
+    for needle in ("PAR: falta o uv", "forma `sh", "fora do sandbox", "/par:start", "Windows"):
+        assert needle in out, needle
+    # A árvore completa (CLI antigo, outra raiz) mora só no `/par:start`.
+    for banned in ("Drift CLI×plugin", "uv tool", "ADR-0019", "monorepo"):
+        assert banned not in out, banned

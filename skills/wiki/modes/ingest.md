@@ -2,7 +2,7 @@
 name: ingest
 description: "Ingere fonte nova (paper, blog, tutorial, doc, slide, video, transcript, decisão) no wiki de um pj_* ativo. Cria a nota da fonte (type: source) em docs/studies/<escopo>/notes/, atualiza docs/_index.md, anexa em docs/_log.md, reindexa qmd. Para papers DOI/arXiv delega a /par:paper library."
 argument-hint: "[url | path | doi]"
-allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) mcp__qmd__embed mcp__qmd__query
+allowed-tools: Read Write Edit Glob Grep WebFetch Bash(qmd *) Bash(prumo wiki *)
 prumo:
   version: 1.0.0
   schema: WikiSource/v1
@@ -22,20 +22,17 @@ prumo:
 # Wiki Ingest — adicionar fonte ao wiki de um `pj_*`
 
 <!-- prumo:preflight:begin -->
-> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+> **Preflight — antes de qualquer operação deste modo:**
 >
-> 1. **Busca semântica (qmd):** se as tools MCP do `qmd` não estiverem no seu
->    inventário NESTA sessão, diga isso explicitamente ("busca semântica
+> 1. **Busca semântica (qmd):** rode `qmd --version`; só
+>    `command not found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica
 >    indisponível — resultados via leitura direta, mais lentos/parciais") e
 >    prossiga só no fallback documentado por esta skill; sem fallback, recuse a
 >    operação com o hint do `prumo doctor`. Se precisar do stack completo, roteie para `/par:start`.
->
-> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
-> operação exata nunca é simulada.
 <!-- prumo:preflight:end -->
 
 Toda página do wiki é uma nota de `docs/studies/<escopo>/notes/` distinguida pelo `type:` do
-frontmatter — não existe diretório por tipo (ADR-0022/0023). O frontmatter canônico de cada
+frontmatter — não existe diretório por tipo. O frontmatter canônico de cada
 tipo está nos passos 4 e 5 desta skill.
 
 ## Pressupostos
@@ -70,14 +67,14 @@ Se houver dúvida, perguntar ao usuário uma vez antes de escolher o caminho.
 Antes de escrever qualquer arquivo, responder com:
 
 1. **3–5 pontos-chave** da fonte.
-2. **Páginas candidatas a tocar**: usar `Glob docs/studies/<escopo>/notes/*.md` + `qmd search "<termo>"` (via `mcp__qmd__*` se disponível, senão `Bash("qmd search ...")`) para checar o que já existe.
+2. **Páginas candidatas a tocar**: usar `Glob docs/studies/<escopo>/notes/*.md` + `qmd query "<termo>"` pelo Bash para checar o que já existe.
 3. **Páginas novas sugeridas**: conceitos centrais da fonte que ainda não têm arquivo.
 
 Esperar confirmação/direcionamento do usuário antes do passo 4.
 
 ### 4. Criar a nota da fonte em `docs/studies/<escopo>/notes/<slug>.md`
 
-Slug: kebab-case do título, ASCII minúsculo, sem stopwords. Colisão → sufixo numérico.
+Slug: kebab-case do título, ASCII minúsculo, sem stopwords. Colisão → sufixo `-2`, `-3`…
 
 Frontmatter:
 
@@ -121,7 +118,7 @@ Corpo (seções fixas):
 
 ### 5. Criar/atualizar páginas relacionadas
 
-Até **10–15 páginas** por ingest. Para cada conceito/entidade central:
+Até **15 páginas** por ingest; se mais forem necessárias, quebrar em ingests separados e deixar claro no log que é parte N/M. Para cada conceito/entidade central:
 
 - Se já existe nota com `type: concept` ou `type: entity` para o termo (mesmo `notes/` do escopo): `Edit` para acrescentar a fonte em `sources:` e um bullet em `## Evidências`.
 - Se não existe e o usuário confirmou no passo 3: criar `docs/studies/<escopo>/notes/<slug>.md` com o mesmo frontmatter do passo 4, trocando `type:` para `concept` (métodos, abordagens, ideias) ou `entity` (modelos, datasets, coortes, ferramentas, instituições) e omitindo `url`/`kind`; seção `## Evidências` com bullet apontando para `[[<slug-da-fonte>]]`.
@@ -153,16 +150,9 @@ Atualizar rodapé: `**Última atualização:** YYYY-MM-DD`.
 
 ### 8. Reindexar qmd
 
-Se o MCP `mcp__qmd__*` estiver ativo: chamar `qmd embed` via tool.
+O agente roda `qmd embed` pelo Bash (na 1ª vez, `prumo wiki index`).
 
-Caso contrário, mostrar ao usuário o comando para rodar:
-
-```bash
-qmd embed                                     # incremental
-# ou na primeira vez:
-qmd collection add . --name <pj_nome>
-qmd embed
-```
+Para o `prumo wiki index`, use `prumo`; se ele não existir nesta sessão, use a forma `sh` do bloco PAR da porta. Se a saída trouxer uma linha `PAR:`, repasse-a e siga sem este passo.
 
 ### 9. Resumo final ao usuário
 
@@ -172,19 +162,15 @@ qmd embed
   Páginas: docs/studies/<escopo>/notes/{x,y}.md   (+N novas)
   Log:     docs/_log.md (entrada de YYYY-MM-DD)
   Index:   docs/_index.md (+1 em Sources, +N em Concepts/Entities)
-  qmd:     reindexado (ou: rode `qmd embed`)
+  qmd:     reindexado (ou: qmd indisponível — o agente roda prumo wiki index depois de instalado)
 ```
 
 ## Boundaries
 
-- **Nunca baixa PDF automaticamente** (copyright). Para paper, o usuário coloca o PDF em `docs/references/pdfs/<citekey>.pdf` manualmente.
-- **Não mexe em** `content/`, `pyproject.toml`, notebooks.
-- **Paper científico** nunca entra direto pelo `/par:wiki ingest`. Orientar o usuário: (1) adicionar no Zotero; (2) `/par:paper library sync`; (3) voltar aqui para costurar a fonte a outras páginas do wiki se quiser.
-- **Máximo de 15 páginas tocadas** por ingest. Se mais forem necessárias, quebrar em ingests separados e deixar claro no log que é parte N/M.
+- **Nunca baixa PDF automaticamente** (copyright). PDFs de paper vêm do Zotero via `prumo paper sync-pdfs`.
+- **Não mexe em** notebooks.
 
 ## Erros comuns
 
-- **Slug colide com arquivo existente** → sufixo `-2`, `-3`…
 - **Usuário cola URL de paper mas DOI não resolve** → orientar a adicionar no Zotero via URL ou arXiv ID; senão salvar como `source` genérico com `kind: doc` até o usuário conseguir o DOI.
-- **qmd indisponível** → fluxo não trava; só documenta no output que a reindexação não aconteceu e pede ao usuário para rodar depois.
 - **Páginas relacionadas em conflito com ingest anterior** → mostrar o diff proposto antes de escrever; nunca sobrescrever seções de autoria humana sem perguntar.

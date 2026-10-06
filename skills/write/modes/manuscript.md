@@ -30,27 +30,24 @@ prumo:
 # Write Paper — IMRaD venue-aware
 
 <!-- prumo:preflight:begin -->
-> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+> **Preflight — antes de qualquer operação deste modo:**
 >
-> 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
->    operação desta skill; roteie para `/par:start` (instalação guiada com
->    consentimento) e pare aqui.
-> 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
->    definido, compare a versão do CLI com o campo `version` de
->    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
->    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
->    `uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,
->    pule este passo em silêncio.
-> 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
->    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
->    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
->
-> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
-> operação exata nunca é simulada.
+> 1. **Superfície e CLI:** fora do app Claude na aba Code (Mac) ou do Claude Code no terminal
+>    (Mac ou Linux), isto é, numa tarefa do Cowork, num chat, numa sessão SSH, no Windows ou no
+>    WSL, diga em uma frase que este modo não roda aqui e pare. Senão, rode `prumo --version`
+>    (sem `prumo`, a forma `sh … --version` do bloco PAR; cada comando pedirá permissão). O
+>    esperado é `prumo <versão do bloco PAR da porta>`.
+>    - Linha `PAR:` do sandbox (saída 77): ofereça repetir o comando fora do sandbox, pedindo
+>      permissão.
+>    - Qualquer outra saída (outra versão, `PAR: falta o uv`, outra linha `PAR:`, nada): roteie
+>      para `/par:start`, que resolve, e pare.
+>    Nunca simule a operação.
+> 2. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
+>    oriente `prumo init pj_<nome>`; nunca crie o scaffold à mão.
 <!-- prumo:preflight:end -->
 
 <!-- prumo:prose:begin -->
-> **Contrato de prosa (gerado de `.github/scripts/prose_conventions.md` — não edite este bloco).**
+> **Contrato de prosa.**
 > 1. **Idioma.** Já vem resolvido: `prumo write prep --json` devolve `language` e
 >    `language_source` (`flag`, `pj_config` ou `default`). Use esse valor e
 >    **declare-o ao usuário com a origem** — não releia `pj_config.toml` nem
@@ -99,7 +96,6 @@ template, usando os inputs estruturados do projeto.
    **Figura e tabela nunca têm número digitado.** Marque `![Legenda](figures/x.png){#fig:x}` e `: Legenda {#tbl:x}` sob a tabela; no texto, `@fig:x`/`@tbl:x` solto, nunca entre colchetes. O export numera e resolve.
 3. **Use PicotSpec do projeto** se existir (`.claude/picot.toml`). Population = coorte; Intervention = método; Comparison = baseline; Outcome = métrica primária; Hypothesis.statement = hipótese formal.
 4. **Use callouts `_extract.md`** dos papers como insumo. Extract content tem PICOT/Método/Resultados/Limitações estruturados.
-5. **Modo de output**: default `drafts` (grava em `writing/` do escopo); `--into` requer `--section`; `--out` ad-hoc.
 
 ## Fluxo
 
@@ -126,7 +122,7 @@ Ler `template_path` do JSON gerado no passo 1 (`/tmp/compose_prep.json`). Usar a
 Para cada section do template (ou só `--section` se passado), formule prose seguindo:
 - Instruções dos HTML comments dentro do template
 - Inputs estruturados (PicotSpec, papers extract_content, protocol, project)
-- Citação strict (validar contra `inputs.citekeys` antes de escrever)
+- Citação strict: cada `[@<key>]` deve estar em `inputs.citekeys`; senão, `[REF FALTANTE: <descrição>]`
 
 Tom de cada section:
 - **Title**: declarativo, ≤180 chars
@@ -138,11 +134,7 @@ Tom de cada section:
 - **Discussion**: presente pra interpretação, comparação com literatura
 - **Limitations**: lista numerada, derivada de `protocol.md § Limitações` ou ADRs
 
-### 4. Validar citação antes de gravar
-
-Cada `[@<key>]` deve estar em `inputs.citekeys` (conforme JSON do passo 1). Se não está, substituir por `[REF FALTANTE: <descrição>]`.
-
-### 5. Escrever output
+### 4. Escrever output
 
 Modos:
 - **drafts** (default): `docs/studies/<escopo>/writing/paper-<data>-<slug>.md`
@@ -163,7 +155,7 @@ DRAFT
 
 (Para `--mode into`, acrescente `--into <path>` e `--section <nome>` — insere um bloco delimitado num arquivo existente. Para `--mode out`, acrescente `--out <path>` (com `--force` para sobrescrever).)
 
-### 6. Reportar
+### 5. Reportar
 
 ```
 ✓ Paper draft gerado em <output_path>
@@ -178,8 +170,6 @@ DRAFT
 
 ## Boundaries
 
-- **Não invente citekey.** Use `[REF FALTANTE]` quando incerto.
-- **Não toque** em `## References`.
-- **Não rode** Pandoc nem export — outras skills cuidam.
+- **Não rode** Pandoc nem export — papel do `/par:write export`.
 - **Não corrija** estilo editorial — papel do `write style` (depois).
 - **Não critique** conteúdo — papel do `review critique` (depois).

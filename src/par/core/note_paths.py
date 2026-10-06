@@ -4,11 +4,12 @@ Layout α: cada paper tem uma pasta `docs/references/papers/<citekey>/` contendo
 
 - `_meta.md` — gerado por `prumo paper sync` (YAML CSL-JSON + body humano)
 - `_extract.md` — gerado por `/par:paper extract` (callout estruturado)
-- `_annotations.md` — gerado por `prumo paper sync-annotations` (highlights+notes)
-- `note__<itemKey>__<slug>.md` — gerado por `prumo paper sync-notes` (NOVO em PR-N2)
+- `_annotations.md` — legado: só o `prumo paper migrate-layout` grava, ao separar o bloco
+  de anotações de uma nota plana antiga
+- `note__*.md` — legado, só leitura
 
 Centralizar a montagem de path aqui evita drift entre módulos. Spec:
-docs/superpowers/specs/2026-05-03-zotero-notes-integration-design.md
+docs/superpowers/specs/2026-05-03-zotero-notes-integration-design.md (superseded pela ADR-0037).
 """
 
 from __future__ import annotations
@@ -40,11 +41,6 @@ def extract_path(pj_path: Path, citekey: str) -> Path:
 def annotations_path(pj_path: Path, citekey: str) -> Path:
     """Retorna `<pj>/docs/references/papers/<citekey>/_annotations.md`."""
     return note_dir(pj_path, citekey) / "_annotations.md"
-
-
-def child_note_path(pj_path: Path, citekey: str, item_key: str, slug: str) -> Path:
-    """Retorna `<pj>/docs/references/papers/<citekey>/note__<itemKey>__<slug>.md`."""
-    return note_dir(pj_path, citekey) / f"note__{item_key}__{slug}.md"
 
 
 def iter_note_meta_files(pj_path: Path) -> list[Path]:

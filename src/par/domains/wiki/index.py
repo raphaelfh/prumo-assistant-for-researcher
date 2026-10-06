@@ -1,7 +1,7 @@
-"""Wrapper sobre o MCP/CLI ``qmd`` pra (re)indexar o wiki.
+"""Wrapper sobre o CLI ``qmd`` pra (re)indexar o wiki.
 
 Não embute ``qmd`` no pacote — só shell-out. Se ``qmd`` não estiver no PATH,
-falha cedo com mensagem clara e link de instalação.
+falha cedo com mensagem clara e o comando de instalação.
 """
 
 from __future__ import annotations
@@ -29,8 +29,8 @@ def reindex(pj_path: Path, *, name: str | None = None) -> dict[str, Any]:
     qmd = shutil.which("qmd")
     if not qmd:
         raise QmdNotFoundError(
-            "qmd não está no PATH. Instale conforme docs do projeto "
-            "(github.com/raphaelfh/qmd ou similar)."
+            "qmd não está no PATH. Instale: npm install -g @tobilu/qmd "
+            "(ou bun install -g @tobilu/qmd) e repita: prumo wiki index"
         )
 
     collection = name or pj_path.resolve().name

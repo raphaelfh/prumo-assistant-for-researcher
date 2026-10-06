@@ -29,6 +29,9 @@ jobs:
       - name: Install project + dev deps (pelo uv.lock — determinístico)
         run: uv sync --frozen --extra dev --python ${{ matrix.python-version }}
 
+      - name: Lockfile em dia
+        run: uv lock --check
+
       - name: Ruff lint
         run: uv run ruff check .
 
@@ -49,3 +52,75 @@ jobs:
 
       - name: Versão sincronizada nos manifests
         run: uv run python .github/scripts/sync_manifest_version.py --check
+
+  launcher-smoke:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Ambiente do smoke
+        run: |
+          echo "PRUMO_CACHE_DIR=$RUNNER_TEMP/pc" >> "$GITHUB_ENV"
+          echo "ROOT=$RUNNER_TEMP/root" >> "$GITHUB_ENV"
+          echo "WANT=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/par/_version.py)" >> "$GITHUB_ENV"
+      - name: ShellCheck
+        if: runner.os == 'Linux'
+        run: shellcheck -s sh shims/prumo hooks/session-start.sh
+      - name: Raiz do plugin só de leitura (arquivos versionados, modo preservado)
+        run: |
+          mkdir -p "$ROOT"
+          git archive --format=tar HEAD | tar -x -C "$ROOT"
+          chmod -R a-w "$ROOT"
+      - name: --version em sh (frio e quente)
+        run: |
+          test "$(sh "$ROOT/shims/prumo" --version)" = "prumo $WANT"
+          test "$(sh "$ROOT/shims/prumo" --version)" = "prumo $WANT"
+      - name: --version no outro shell POSIX
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then alt="bash --posix"; else alt=/bin/dash; fi
+          test "$($alt "$ROOT/shims/prumo" --version)" = "prumo $WANT"
+      - name: Remonta offline
+        run: |
+          rm -rf "$PRUMO_CACHE_DIR"/venv-*
+          test "$(UV_OFFLINE=1 sh "$ROOT/shims/prumo" --version)" = "prumo $WANT"
+      - name: Handshake MCP (serverInfo.version)
+        timeout-minutes: 3
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          p = subprocess.Popen(["sh", os.environ["ROOT"] + "/shims/prumo", "mcp", "serve"],
+                               stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+          req = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                 "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                            "clientInfo": {"name": "smoke", "version": "0"}}}
+          p.stdin.write(json.dumps(req) + "\n"); p.stdin.flush()
+          got = json.loads(p.stdout.readline())["result"]["serverInfo"]["version"]
+          p.kill()
+          assert got == os.environ["WANT"], (got, os.environ["WANT"])
+          print("serverInfo.version =", got)
+          PY
+      - name: init cria settings.json e nenhuma cópia
+        # Pelo lançador do checkout gravável, não pelo $ROOT: o init copia o template com
+        # shutil.copytree (copy2 preserva o modo), e um template 0444/0555 faria o
+        # apply_project_name falhar com PermissionError. Mesmo uv.lock e mesmo shim, logo a
+        # mesma chave e o mesmo venv já montado acima (caminho quente).
+        run: |
+          cd "$RUNNER_TEMP"
+          sh "$GITHUB_WORKSPACE/shims/prumo" init pj_smoke --yes
+          test -f pj_smoke/.claude/settings.json
+          test ! -e pj_smoke/.claude/skills
+          test ! -e pj_smoke/.claude/agents
+      - name: Hook põe o lançador no PATH
+        run: |
+          : >"$RUNNER_TEMP/env"
+          CLAUDE_PLUGIN_ROOT="$ROOT" CLAUDE_ENV_FILE="$RUNNER_TEMP/env" sh "$ROOT/hooks/session-start.sh"
+          test "$(bash -c '. "$1"; command -v prumo' _ "$RUNNER_TEMP/env")" = "$ROOT/shims/prumo"
+      - name: Devolve escrita à raiz (limpeza do runner)
+        if: always()
+        run: chmod -R u+w "$RUNNER_TEMP/root" || true

@@ -35,6 +35,8 @@ def test_gitignore_do_pj_base_protege_o_essencial() -> None:
     assert "~$*" in texto
     assert "__marimo__/" in texto  # cache/export de notebook marimo
     assert "uv.lock" not in texto  # lockfile passa a ser versionado
+    # perfil do Zettlr: caminhos absolutos desta máquina (Spec A, A10)
+    assert "docs/templates/prumo-docx.yaml" in texto.splitlines()
 
 
 def test_gitignore_da_bibliografia_e_local_e_nao_ancorado() -> None:
@@ -55,9 +57,6 @@ def test_projeto_novo_nao_nasce_com_link_morto(tmp_path: Path) -> None:
 
     quebrados: list[str] = []
     for md in target.rglob("*.md"):
-        # `.claude/skills/` vem do plugin, não do template — escopo alheio.
-        if ".claude/skills" in md.relative_to(target).as_posix():
-            continue
         for alvo in _MD_LINK_RE.findall(md.read_text(encoding="utf-8")):
             if alvo.startswith(("http://", "https://", "mailto:", "#")):
                 continue
@@ -78,6 +77,7 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
     for rel in [
         "CLAUDE.md",
         "README.md",
+        ".claude/settings.json",
         "docs/project_guide.md",
         "docs/templates/reference.docx",
         "docs/references/_references.bib",
@@ -135,3 +135,41 @@ def test_scaffold_nao_carrega_invocacao_antiga() -> None:
     for base in ("pj_base", "modules"):
         raiz = resolve_resource("templates") / base
         assert scan_skill_refs(raiz, registry.legacy_map()) == [], base
+
+
+#: Trecho entre crases (inline code) — placeholder ali dentro renderiza.
+_INLINE_CODE_RE = re.compile(r"`[^`]*`")
+#: Placeholder `<palavra>` solto: o renderizador Markdown o lê como tag HTML
+#: desconhecida e o apaga (GitHub, preview do Zettlr).
+_BARE_PLACEHOLDER_RE = re.compile(r"<[a-zà-ú_.-]+>")
+
+
+def test_project_guide_nao_tem_placeholder_solto() -> None:
+    guide = resolve_resource("templates") / "pj_base" / "docs" / "project_guide.md"
+    soltos = [
+        (n, m.group(0))
+        for n, line in enumerate(guide.read_text(encoding="utf-8").splitlines(), 1)
+        for m in _BARE_PLACEHOLDER_RE.finditer(_INLINE_CODE_RE.sub("", line))
+    ]
+    assert soltos == [], f"placeholder fora de crases some no render: {soltos}"
+
+
+def test_bib_do_template_segue_placeholder_e_aponta_o_connect(tmp_path: Path) -> None:
+    """O `.bib` do scaffold continua placeholder e manda para o `connect` (0.71.0)."""
+    from par.core import pj_layout
+    from par.domains.paper import connect
+
+    target = tmp_path / "pj_bib"
+    assert runner.invoke(app, ["init", str(target), "--json"]).exit_code == 0
+    assert connect.bib_is_placeholder(target) is True
+    texto = pj_layout.bib_path(target).read_text(encoding="utf-8")
+    assert texto.splitlines()[0] == "% Bibliografia do projeto — formato Better BibTeX (BBT)."
+    assert "9.0.65" in texto
+    assert "prumo paper connect" in texto
+    assert "Keep updated" not in texto
+    assert "Zotero 7" not in texto
+
+
+def test_project_guide_do_template_nao_manda_keep_updated() -> None:
+    guide = resolve_resource("templates") / "pj_base" / "docs" / "project_guide.md"
+    assert "Keep updated" not in guide.read_text(encoding="utf-8")

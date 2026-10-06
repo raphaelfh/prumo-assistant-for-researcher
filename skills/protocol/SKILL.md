@@ -7,13 +7,19 @@ when_to_use: |
   - picot: "fecha a PICOT"; "formaliza a pergunta de pesquisa"; "a PICOT mudou"
   - sap: "gera o plano de análise estatística"; "justifica o tamanho amostral"; "planeja as análises de sensibilidade"
 argument-hint: "[cep|picot|sap] [argumentos do modo]"
-allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *) Bash(prumo protocol *)
+allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *) Bash(prumo protocol *) Bash(prumo --version)
 prumo:
   version: 2.0.0
   agent_compat: [claude-code]
 ---
 
 # protocol — protocolo do estudo
+
+<!-- prumo:runtime:begin -->
+**PAR 0.70.2** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}`
+- CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas cada comando pede permissão.
+- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`.
+<!-- prumo:runtime:end -->
 
 Escolha o modo antes de agir:
 

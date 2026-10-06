@@ -6,6 +6,8 @@ Fontes (constitution, princípio VII):
 - docs/superpowers/{specs,plans,plans/archive}/*.md (frontmatter) → docs/_index.md
 - docs/adr/adr-*.md → docs/adr/_index.md
 - .github/scripts/prose_conventions.md → bloco `prumo:prose` das skills de prosa (ADR-0021)
+- src/par/_version.py → bloco prumo:runtime das 5 portas com modos, do `start` e de
+  `agents/reader.md` (este gerador é o único escritor do bloco; ADR-0038)
 
 Uso:
     uv run python .github/scripts/gen_indexes.py          # reescreve os blocos
@@ -22,6 +24,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
+from par._version import __version__  # noqa: E402
 from par.core.skills import SkillManifest, SkillRegistry, load_skill_registry  # noqa: E402
 
 _FRONT_RE = re.compile(r"\A---\n(.*?)\n---", re.DOTALL)
@@ -93,15 +96,23 @@ def render_modes_table(skill: SkillManifest) -> str:
     return "\n".join(lines)
 
 
+# Regra exata (não curinga): pré-aprova só o item 1 do preflight `cli`.
+_PF_VERSION_RULE = "Bash(prumo --version)"
+
+
 def derived_frontmatter(skill: SkillManifest) -> dict[str, str]:
     """Chaves do frontmatter de uma skill com modos, derivadas dos modos (Princípio VII).
 
-    ``when_to_use`` sai das frases; ``allowed-tools`` é a união ordenada dos modos;
-    ``argument-hint`` lista os modos. Cada valor já vem serializado como YAML.
+    ``when_to_use`` sai das frases; ``allowed-tools`` é a união ordenada dos modos,
+    mais ``Bash(prumo --version)`` quando algum modo exige ``cli`` (o preflight manda
+    rodar esse comando primeiro); ``argument-hint`` lista os modos. Cada valor já vem
+    serializado como YAML.
     """
     tools: list[str] = []
     for mode in skill.modes:
         tools.extend(tool for tool in mode.allowed_tools if tool not in tools)
+    if any("cli" in m.requires for m in skill.modes) and _PF_VERSION_RULE not in tools:
+        tools.append(_PF_VERSION_RULE)
     names = [m.name for m in skill.modes]
     when = ["when_to_use: |", f"  Modos: {', '.join(names)}. Frases típicas:"]
     for mode in skill.modes:
@@ -188,34 +199,31 @@ def render_adr_index() -> str:
     return "\n".join(lines)
 
 
-_PREFLIGHT_HEADER = (
-    "> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**\n>"
-)
+_PREFLIGHT_HEADER = "> **Preflight — antes de qualquer operação deste modo:**\n>"
 
-_PF_CLI = (
-    "**CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA\n"
-    "operação desta skill; roteie para `/par:start` (instalação guiada com\n"
-    "consentimento) e pare aqui."
-)
-
-_PF_DRIFT = (
-    "**Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver\n"
-    "definido, compare a versão do CLI com o campo `version` de\n"
-    "`$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise\n"
-    '("CLI X < plugin Y — comandos novos podem não existir") e ofereça\n'
-    "`uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,\n"
-    "pule este passo em silêncio."
-)
+# Superfície e versão (A7), versão curta: a árvore completa (CLI antigo, outra
+# raiz do plugin, instalar o uv) mora só no passo 2 do `/par:start`. Reconhece as
+# falhas pela linha `PAR:`, nunca pelo exit 127 (ambíguo entre shells).
+_PF_CLI = """\
+**Superfície e CLI:** fora do app Claude na aba Code (Mac) ou do Claude Code no terminal
+(Mac ou Linux), isto é, numa tarefa do Cowork, num chat, numa sessão SSH, no Windows ou no
+WSL, diga em uma frase que este modo não roda aqui e pare. Senão, rode `prumo --version`
+(sem `prumo`, a forma `sh … --version` do bloco PAR; cada comando pedirá permissão). O
+esperado é `prumo <versão do bloco PAR da porta>`.
+- Linha `PAR:` do sandbox (saída 77): ofereça repetir o comando fora do sandbox, pedindo
+  permissão.
+- Qualquer outra saída (outra versão, `PAR: falta o uv`, outra linha `PAR:`, nada): roteie
+  para `/par:start`, que resolve, e pare.
+Nunca simule a operação."""
 
 _PF_INIT = (
     "**Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,\n"
-    "oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente\n"
-    "não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor."
+    "oriente `prumo init pj_<nome>`; nunca crie o scaffold à mão."
 )
 
 _PF_QMD = (
-    "**Busca semântica (qmd):** se as tools MCP do `qmd` não estiverem no seu\n"
-    'inventário NESTA sessão, diga isso explicitamente ("busca semântica\n'
+    "**Busca semântica (qmd):** rode `qmd --version`; só\n"
+    '`command not found` significa ausente. Se ausente, diga isso explicitamente ("busca semântica\n'
     'indisponível — resultados via leitura direta, mais lentos/parciais") e\n'
     "prossiga só no fallback documentado por esta skill; sem fallback, recuse a\n"
     "operação com o hint do `prumo doctor`."
@@ -231,14 +239,8 @@ _PF_ZOTERO = (
     "(abrir o Zotero; instalar Better BibTeX)."
 )
 
-_PREFLIGHT_FOOTER = (
-    ">\n"
-    "> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):\n"
-    "> operação exata nunca é simulada."
-)
-
 _PREFLIGHT_PURE = (
-    "> **Preflight (contrato ADR-0019):** esta skill é de julgamento puro — NÃO depende\n"
+    "> **Preflight:** esta skill é de julgamento puro — NÃO depende\n"
     "> de CLI, Zotero ou qmd e roda em qualquer superfície Claude. Não invente dados de\n"
     "> acervo/projeto: use apenas o que o usuário fornecer na conversa. Se a tarefa\n"
     "> pedir operação exata (citekey, contagem, export), roteie para a skill dedicada."
@@ -258,7 +260,7 @@ def render_preflight(manifest: SkillManifest) -> str:
 
     ``requires: []`` (julgamento puro) devolve a variante fixa ``_PREFLIGHT_PURE``.
     Caso contrário, concatena sub-blocos condicionados à classe de dependência
-    presente em ``requires`` — ``cli`` (itens 1-3), ``qmd`` (item seguinte) e
+    presente em ``requires`` — ``cli`` (itens 1-2), ``qmd`` (item seguinte) e
     ``zotero`` (item seguinte) — renumerando 1..N conforme o que se aplica.
     Skills com ``qmd`` mas sem ``cli`` não têm o item 1 (que já cobre "CLI
     ausente → roteie pro /start"), então o item de qmd assume essa frase.
@@ -269,8 +271,8 @@ def render_preflight(manifest: SkillManifest) -> str:
     parts = [_PREFLIGHT_HEADER]
     n = 1
     if "cli" in reqs:
-        parts += [_pf_item(n, _PF_CLI), _pf_item(n + 1, _PF_DRIFT), _pf_item(n + 2, _PF_INIT)]
-        n += 3
+        parts += [_pf_item(n, _PF_CLI), _pf_item(n + 1, _PF_INIT)]
+        n += 2
     if "qmd" in reqs:
         qmd_text = _PF_QMD if "cli" in reqs else _PF_QMD_SEM_CLI
         parts.append(_pf_item(n, qmd_text))
@@ -278,16 +280,13 @@ def render_preflight(manifest: SkillManifest) -> str:
     if "zotero" in reqs:
         parts.append(_pf_item(n, _PF_ZOTERO))
         n += 1
-    parts.append(_PREFLIGHT_FOOTER)
     return "\n".join(parts)
 
 
 CONVENTIONS = REPO / ".github" / "scripts" / "prose_conventions.md"
 
-_PROSE_HEADER = (
-    "> **Contrato de prosa (gerado de `.github/scripts/prose_conventions.md` — "
-    "não edite este bloco).**"
-)
+# A fonte é `.github/scripts/prose_conventions.md`; o bloco é regerado.
+_PROSE_HEADER = "> **Contrato de prosa.**"
 
 
 @cache
@@ -388,12 +387,41 @@ def render_skill_blocks(manifest: SkillManifest) -> list[tuple[str, str, str]]:
     ]
 
 
+def render_runtime() -> str:
+    """Bloco ``prumo:runtime``: versão esperada, raiz do plugin, forma `sh` e pasta dos agents.
+
+    Lê o ``__version__`` global do módulo na hora da chamada. O ``${CLAUDE_PLUGIN_ROOT}``
+    (com chaves) é substituído ao carregar o SKILL.md e o corpo do agent.
+    """
+    return (
+        f"**PAR {__version__}** · raiz do plugin: `${{CLAUDE_PLUGIN_ROOT}}`\n"
+        "- CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela "
+        'organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas '
+        "cada comando pede permissão.\n"
+        "- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`."
+    )
+
+
+# Alvos do bloco runtime: as portas com modos, o `start` e o único agent com Bash.
+_RUNTIME_TARGETS = (
+    "skills/paper/SKILL.md",
+    "skills/protocol/SKILL.md",
+    "skills/review/SKILL.md",
+    "skills/wiki/SKILL.md",
+    "skills/write/SKILL.md",
+    "skills/start/SKILL.md",
+    "agents/reader.md",
+)
+
+
 def _targets(registry: SkillRegistry) -> list[tuple[Path, str, str]]:
+    runtime = render_runtime()
     return [
         (REPO / "README.md", "skills-table", render_skills_table(registry)),
         (REPO / "skills" / "start" / "SKILL.md", "skills-catalog", render_skills_catalog(registry)),
         (REPO / "docs" / "_index.md", "kb-index", render_kb_index()),
         (REPO / "docs" / "adr" / "_index.md", "adr-index", render_adr_index()),
+        *((REPO / rel, "runtime", runtime) for rel in _RUNTIME_TARGETS),
     ]
 
 

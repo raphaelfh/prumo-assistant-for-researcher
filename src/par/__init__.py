@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from par._version import __version__
 
-__all__ = ["ConfigError", "IntegrationError", "ManifestError", "PrumoError", "__version__"]
+__all__ = ["ConfigError", "ManifestError", "PrumoError", "__version__"]
 
 
 class PrumoError(Exception):
@@ -20,7 +20,7 @@ class PrumoError(Exception):
 
     ``core/cli_op.cli_run`` captura qualquer ``PrumoError`` nas fachadas
     (mensagem limpa + exit code). Aqui na raiz vivem as cross-cutting
-    (ConfigError, ManifestError, IntegrationError); domínio com exceções
+    (ConfigError, ManifestError); domínio com exceções
     próprias define sua base em ``domains/<X>/errors.py`` (WriteError,
     PaperError)."""
 
@@ -31,7 +31,3 @@ class ConfigError(PrumoError):
 
 class ManifestError(PrumoError):
     """SKILL.md / pack.toml / manifest com frontmatter ou metadata inválido."""
-
-
-class IntegrationError(PrumoError):
-    """Falha ao instalar/configurar uma integration (claude_code, cursor, ...)."""

@@ -47,7 +47,13 @@ from par.core import pj_layout
 from par.core.citations import iter_marked_citation_spans, scan_citekeys
 from par.core.config import load_project_config
 from par.core.csl import list_zotero_styles, resolve_csl
-from par.core.deps import bbt_rpc_url, in_claude_sandbox, pandoc_path, zotero_base
+from par.core.deps import (
+    SANDBOX_EXCLUDE_HINT,
+    bbt_rpc_url,
+    in_claude_sandbox,
+    pandoc_path,
+    zotero_base,
+)
 from par.core.markdown import (
     SpanFragment,
     normalize_markdown,
@@ -669,8 +675,7 @@ _LINK_SANDBOX_MSG = (
     "O sandbox do Claude Code não deixou o export falar com o Zotero em {base}: {n} "
     "citekey(s) saíram sem vínculo com a sua biblioteca (o docx abre e o Refresh funciona). "
     "Para vincular, peça para repetir fora do sandbox (o Claude pede permissão): {redo}. "
-    'Para o `prumo` rodar sempre fora do sandbox, acrescente `"prumo *"` em '
-    "`sandbox.excludedCommands` no `~/.claude/settings.json`."
+    + SANDBOX_EXCLUDE_HINT
 )
 _LINK_RPC_ERROR_MSG = (
     "O Better BibTeX recusou a consulta ({detail}): {n} citekey(s) saíram sem vínculo com "

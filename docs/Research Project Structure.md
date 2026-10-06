@@ -26,7 +26,7 @@ pj_<nome>/
 │   ├── pj_config.toml           ← sentinela do projeto (`find_pj_root`)
 │   ├── paper_extraction.md
 │   ├── rules/{documentation.md, project_context.md}
-│   └── skills/                  ← cópia local das skills do plugin
+│   └── skills/                  ← só skills próprias do projeto, com nome que não seja do PAR
 ├── build/exports/               ← saída de `prumo write export` (docx/pdf), gitignorada
 ├── reviews/<slug>/              ← estado do ciclo `prumo write review` (review.md, events.yaml)
 └── docs/                        ← RAIZ ÚNICA DE LEITURA
@@ -58,7 +58,7 @@ pj_<nome>/
 | `docs/_index.md` | Catálogo do wiki — uma linha por página existente | Modo `wiki ingest` |
 | `docs/_log.md` | Diário append-only de eventos (ingest, decisão, query) | Modo `wiki ingest` + manual |
 | `docs/references/_references.bib` | Acervo bibliográfico — fonte única é o Zotero, BBT auto-export | Zotero + BBT |
-| `docs/references/papers/<key>/` | Pasta por paper, com `_meta.md` (callout estruturado: PICOT, método, …), `_extract.md`, `_annotations.md` | Modos `paper library`, `paper extract` |
+| `docs/references/papers/<key>/` | Pasta por paper, com `_meta.md` (callout estruturado: PICOT, método, …) e `_extract.md` (`_annotations.md`: legado, se existir) | Modos `paper library`, `paper extract` |
 | `docs/studies/<slug>/notes/` | Prosa humana do escopo, inclusive findings (nota com `type: finding` — ADR-0023) | Pesquisador + modos `wiki query`/`wiki study`/`paper extract` |
 | `docs/studies/<slug>/writing/` | O produto do escopo — drafts (`bibliography:` sempre `../../../references/_references.bib`) | Pesquisador + família `write-*` |
 | `docs/studies/<slug>/decisions/` | ADRs do escopo (`adr-NNNN-*.md`); imutável após aceito | Pesquisador |
@@ -68,12 +68,9 @@ pj_<nome>/
 
 ### `.claude/skills/` — infraestrutura, não área de trabalho
 
-`pj_x/.claude/skills/` é onde o **Claude Code** procura as skills pra disparar `/par:<nome>`. Tem dois usos:
+`pj_x/.claude/skills/` é lugar só de **skills próprias do projeto** (opcional): capabilities que só fazem sentido nesse `pj_*` e não vale promover pro plugin (ex.: `pj_x/.claude/skills/cpu-profile-rsl-2024/`), com nome que não seja de skill do PAR. As skills do PAR vêm do plugin (`/par:<nome>`), sem cópia no projeto. Vira módulo formal só quando a primeira skill local nascer.
 
-1. **Cópia local das skills universais** do plugin — preenchida automaticamente por `prumo init` e atualizada por `prumo doctor`. Pesquisador não toca.
-2. **Skills específicas do projeto** (opcional) — capabilities que só fazem sentido nesse `pj_*` e não vale promover pro plugin (ex.: `pj_x/.claude/skills/cpu-profile-rsl-2024/`). Vira módulo formal só quando a primeira skill local nascer.
-
-Não é um "fluxo" paralelo no sentido de área de trabalho do pesquisador — é o mesmo fluxo do plugin, materializado dentro do projeto.
+Não é área de trabalho do pesquisador: o diretório só guarda o que é do projeto, e o fluxo do PAR continua vindo do plugin.
 
 ---
 
@@ -187,4 +184,4 @@ Esses níveis não são prescritivos. São pontos de partida para você compor.
 - **Module novo** que não está nesta lista é candidato a ser proposto aqui. Se aparecer em ≥2 projetos, formaliza.
 - **Variantes do mínimo** (ex.: ativar o módulo `clinical` só quando o projeto for clínico) são aceitas — esta lista é guia, não lei.
 
-Ver também: [[actions-by-context|Contextos → ações]] e [[journey|Canvas de jornada]].
+Ver também: [[journey|Canvas de jornada]].

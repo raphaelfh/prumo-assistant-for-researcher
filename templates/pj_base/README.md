@@ -4,10 +4,7 @@ Projeto de pesquisa: bibliografia (Zotero), wiki e escrita.
 
 ## Setup
 
-```bash
-uv sync                        # ambiente Python base
-/plugin install par@prumo-assistant-for-researcher   # no Claude Code: skills + agents + MCP qmd
-```
+Abra este projeto no app Claude, aba Code (ou `claude` no terminal), e peça `/par:start`.
 
 Editor recomendado: [Zettlr](https://www.zettlr.com) recente (o export do PAR precisa de pandoc 3.8.2 ou mais novo; confira com `prumo doctor`) — preview vivo de citações; setup em `docs/project_guide.md`.
 
@@ -24,12 +21,12 @@ pj_<nome>/
 
 ## Evoluir o projeto
 
-```bash
-prumo add            # lista e ativa módulos (clinical, ml, ...)
-prumo add clinical   # protocolo, CEP, plano estatístico
-prumo add notebooks  # notebooks/<escopo>/ — marimo (.py) ou Jupyter (.ipynb)
-prumo add ml         # stack de ML/dados + notebook
-```
+Peça ao Claude:
+
+- "quais módulos posso ativar?" (roda `prumo add`): lista os módulos (clinical, ml, ...);
+- "ativa o módulo clínico" (roda `prumo add clinical`): protocolo, CEP, plano estatístico;
+- "ativa o módulo de notebooks" (roda `prumo add notebooks`): `notebooks/<escopo>/`, marimo (.py) ou Jupyter (.ipynb);
+- "ativa o módulo de ML" (roda `prumo add ml`): stack de ML/dados + notebook.
 
 ## Workflow (no Claude Code)
 

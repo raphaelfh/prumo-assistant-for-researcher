@@ -1,6 +1,6 @@
 ---
 name: write
-description: "Escrita do manuscrito: draft IMRaD, seção avulsa, convenções editoriais de escrita científica e declaração de uso de IA."
+description: "Escrita do manuscrito: draft IMRaD, seção avulsa, convenções editoriais de escrita científica, declaração de uso de IA e export para docx."
 when_to_use: |
   Modos: disclosure, export, manuscript, section, style. Frases típicas:
   - disclosure: "gera a declaração de uso de IA"; "disclosure de IA pro periódico"
@@ -9,13 +9,19 @@ when_to_use: |
   - section: "escreve essa seção"; "expande este parágrafo"
   - style: "aplica as convenções de escrita científica"; "tira os travessões"; "passa pro inglês americano"
 argument-hint: "[disclosure|export|manuscript|section|style] [argumentos do modo]"
-allowed-tools: Read Bash(prumo write disclosure *) Bash(prumo write export *) Write Edit Glob Grep Bash(prumo write *) Bash(cat *) Bash(git *) Bash(rg *)
+allowed-tools: Read Bash(prumo write disclosure *) Bash(prumo write export *) Write Edit Glob Grep Bash(prumo write *) Bash(cat *) Bash(git *) Bash(rg *) Bash(prumo --version)
 prumo:
   version: 2.0.0
   agent_compat: [claude-code]
 ---
 
 # write — escrita do manuscrito
+
+<!-- prumo:runtime:begin -->
+**PAR 0.70.2** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}`
+- CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas cada comando pede permissão.
+- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`.
+<!-- prumo:runtime:end -->
 
 Escolha o modo antes de agir:
 

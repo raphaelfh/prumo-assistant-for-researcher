@@ -16,7 +16,7 @@ quando há mudança rastreada/comentário numa região que o transplante por
 âncora de texto (Task 6/7, sobre a prosa linear do adeu) não sabe
 localizar — tabela, nota de rodapé/fim, ou equação (oMath).
 Task 4 entrega o seam do backend de PROSA (:func:`_run_adeu_extract`, adeu
-PINADO via ``uvx adeu==1.29.0`` — nunca versão flutuante) e o parser das
+1.29.0, pinado no pyproject — nunca versão flutuante) e o parser das
 marcas com autoria (:func:`parse_adeu_markdown`): pareia cada marca de
 conteúdo CriticMarkup com a anotação `[Chg:<id> insert|delete] <Autor>` que
 o adeu cola imediatamente depois, produzindo :class:`ReviewMark` com offsets
@@ -34,11 +34,13 @@ o leitor stateless nunca precisou saber.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import logging
 import re
 import shlex
-import shutil
+import subprocess
+import sys
 import zipfile
 from collections import Counter
 from collections.abc import Iterable, Iterator
@@ -58,7 +60,6 @@ from par.core.markdown import (
     normalize_markdown_with_map,
     split_frontmatter_raw,
 )
-from par.core.uvx import PinnedTool, run_pinned
 from par.domains.write.comments import extract_from_docx
 from par.domains.write.errors import WriteError
 from par.domains.write.export import (
@@ -157,7 +158,8 @@ class CitationConservationError(WriteError):
 
 
 class AdeuUnavailableError(WriteError):
-    """Backend pinado `uvx adeu==1.29.0` ausente ou terminou com exit != 0 (Task 4)."""
+    """Backend de prosa (adeu 1.29.0, pinado no pyproject) ausente, estourou o
+    tempo ou terminou com exit != 0 (Task 4)."""
 
 
 @dataclass
@@ -709,8 +711,8 @@ def assert_no_structural_changes(docx_path: Path) -> None:
 # --- Task 4: seam do adeu pinado + parser de marcas com autoria -------------
 #
 # Prosa (NUNCA citação — Fase 0, decisão (b); citação é sempre
-# `read_docx_citations_with_state` acima) vem do backend PINADO
-# `uvx adeu==1.29.0`: o formato de saída — marcas CriticMarkup com a
+# `read_docx_citations_with_state` acima) vem do backend PINADO — adeu
+# 1.29.0, pinado no pyproject: o formato de saída — marcas CriticMarkup com a
 # anotação `[Chg:<id> insert|delete] <Autor>` colada IMEDIATAMENTE depois de
 # cada marca de conteúdo, validado no spike — é contrato implícito com o
 # parser abaixo. Pinado de propósito (nunca `adeu` sem versão, nunca `>=`):
@@ -721,34 +723,26 @@ _ADEU_FOOTER_MARKER = "\n---\n## Footnotes"
 
 _UNKNOWN_AUTHOR = "(desconhecido)"
 
-# Guia de remediação compartilhado pelas duas falhas do seam (uvx ausente e
-# exit != 0) — o brief pede a MESMA orientação pt-BR nos dois casos: instalar
-# o uv e confirmar a versão pinada do adeu.
-_ADEU_INSTALL_HINT = (
-    "Instale o uv (https://docs.astral.sh/uv/), confirme com `uv --version` "
-    "e rode `uvx adeu==1.29.0 --version` para confirmar/baixar a versão "
-    "pinada do backend de PROSA."
-)
-
-# Identidade de erro do adeu para o motor comum de ferramenta pinada
-# (`core/uvx.run_pinned`) — rótulos byte-idênticos ao wording que este
-# módulo emitia antes da extração (travados pelos testes do seam).
-_ADEU_TOOL = PinnedTool(
-    error_cls=AdeuUnavailableError,
-    hint=_ADEU_INSTALL_HINT,
-    missing_label="adeu (backend de PROSA pinado, `uvx adeu==1.29.0`)",
-    timeout_label="adeu (backend de PROSA pinado, `uvx adeu==1.29.0`)",
-    timeout_detail="rede lenta no primeiro download do uvx? Re-rode.",
-    exit_label="adeu (backend de PROSA pinado, `uvx adeu==1.29.0`)",
-)
+_ADEU_TIMEOUT = 120
 
 
-def _check_uvx_on_path() -> None:
-    """Preflight 3a: o backend de prosa (adeu via uvx) precisa existir antes de começar."""
-    if shutil.which("uvx") is None:
+def _check_adeu_available() -> None:
+    """Preflight 3a: o backend de prosa (adeu 1.29.0, pinado no pyproject;
+    o uv.lock trava também as transitivas no caminho do plugin e do dev)
+    precisa estar instalado neste Python antes de começar.
+
+    Em Python 3.11 (perna dev/CI) o marker ``python_version >= '3.12'``
+    deixa o adeu de fora — daí a checagem por ``find_spec`` em vez de confiar
+    no lock. A mensagem cobre os dois caminhos suportados: plugin (venv em
+    ``~/.cache/prumo``) e dev; o CLI à parte não é oferecido (A15).
+    """
+    if importlib.util.find_spec("adeu") is None:
         raise AdeuUnavailableError(
-            "uvx não encontrado no PATH — o backend de prosa (adeu pinado) roda via uv. "
-            "Instale o uv (https://docs.astral.sh/uv/) e confirme: `uvx adeu==1.29.0 --version`."
+            "o backend de prosa (adeu) não está instalado neste ambiente Python. "
+            "Pelo plugin: abra uma sessão nova; se persistir, apague a pasta e "
+            "prepare de novo: rm -rf ~/.cache/prumo && prumo --version. "
+            "Em desenvolvimento: uv sync --extra dev --python 3.12 "
+            "(o adeu exige Python ≥ 3.12)."
         )
 
 
@@ -760,40 +754,64 @@ _CHG_ANNOTATION_RE = re.compile(r"\[Chg:(?P<chg_id>\d+) (?:insert|delete)\]\s+(?
 
 
 def _run_adeu_extract(docx_path: Path) -> str:
-    """Roda ``uvx adeu==1.29.0 extract --json <docx> -o -`` e devolve o
+    """Roda o adeu 1.29.0, pinado no pyproject, como
+    ``sys.executable -I -m adeu.cli extract --json <docx> -o -`` e devolve o
     campo ``markdown`` do JSON de stdout — cru, sem parse de marcas (isso é
     :func:`parse_adeu_markdown`).
 
     Seam isolado de propósito para mock nos testes (regra deste repo:
     dependência externa SEMPRE mockada no seam — `.claude/rules/code.md`).
     Versão PINADA (``adeu==1.29.0``, nunca flutuante) pelo motivo descrito no
-    comentário da seção acima.
+    comentário da seção acima. ``-I`` (implica ``-E -P -s``) isola o boot: um
+    diretório ``adeu/`` no cwd ou um ``PYTHONPATH``/``PYTHONHOME`` exportado
+    não sequestram o adeu e as dependências instaladas neste ambiente.
 
-    ``uvx`` ausente no PATH, timeout e exit != 0 (adeu resolvido mas falhou
-    — docx incompatível, versão incorreta, etc.) viram a MESMA
-    :class:`AdeuUnavailableError`, via o motor comum
-    :func:`par.core.uvx.run_pinned` (rótulos em ``_ADEU_TOOL``): o
-    chamador (Task 8, ``ingest``) só precisa tratar um único tipo de falha
-    do backend de prosa. O mesmo vale para stdout que não é o JSON esperado
-    (:class:`json.JSONDecodeError`) ou JSON válido sem o campo ``markdown``
-    (:class:`KeyError`) — achado do review da Task 4, endossado como
-    MUST-DO para a Task 8: sem este catch, as duas exceções vazavam cruas
-    (tipo Python interno, sem o comando de correção pt-BR que este módulo
-    garante em todo outro hard-fail).
+    Timeout e exit != 0 (docx incompatível, etc.) viram
+    :class:`AdeuUnavailableError`: o chamador (Task 8, ``ingest``) só
+    precisa tratar um único tipo de falha do backend de prosa. O mesmo vale
+    para stdout que não é o JSON esperado (:class:`json.JSONDecodeError`),
+    JSON válido sem o campo ``markdown`` (:class:`KeyError`) ou JSON que não
+    é objeto (:class:`TypeError`) — achado do review da Task 4: sem este
+    catch, as exceções vazavam cruas (tipo Python interno, sem o comando de
+    correção pt-BR que este módulo garante em todo outro hard-fail).
     """
-    proc = run_pinned(
-        _ADEU_TOOL,
-        ["uvx", "adeu==1.29.0", "extract", "--json", str(docx_path), "-o", "-"],
-        timeout=120,
-    )
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-m",
+                "adeu.cli",
+                "extract",
+                "--json",
+                str(docx_path),
+                "-o",
+                "-",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=_ADEU_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise AdeuUnavailableError(
+            f"o adeu passou de {_ADEU_TIMEOUT} s lendo {docx_path}; repita: "
+            f"prumo write review ingest {docx_path} --page <página.md>"
+        ) from exc
+    if proc.returncode != 0:
+        raise AdeuUnavailableError(
+            f"o adeu terminou com exit {proc.returncode} lendo {docx_path}. "
+            f"stderr:\n{proc.stderr.strip()[-2000:]}\n"
+            "confira se o arquivo abre no Word e repita o ingest: "
+            f"prumo write review ingest {docx_path} --page <página.md>"
+        )
 
     try:
         payload = cast(dict[str, Any], json.loads(proc.stdout))
         return str(payload["markdown"])
     except (json.JSONDecodeError, KeyError, TypeError) as exc:
         raise AdeuUnavailableError(
-            "saída do adeu não é o JSON esperado (campo 'markdown') — confirme "
-            "a versão pinada: `uvx adeu==1.29.0 --version`; detalhe: "
+            "saída do adeu não é o JSON esperado (campo 'markdown') — o formato "
+            "do adeu 1.29.0 mudou? rode: prumo --version e reporte; detalhe: "
             f"{exc!r}"
         ) from exc
 
@@ -2269,8 +2287,8 @@ def ingest(
     indisponível, 3g); :class:`MarkLostError` (Guarda B, dentro de
     `transplant_to_source`, 3g).
     """
-    # Preflight 3a: check uvx availability before any other work
-    _check_uvx_on_path()
+    # Preflight 3a: o adeu precisa estar instalado antes de qualquer outro trabalho
+    _check_adeu_available()
 
     # Preflight de estrutura (achado do review final da Fase 2, Important
     # #1, ANTES de 3a): reusa `export._validate_docx_structure` — o mesmo

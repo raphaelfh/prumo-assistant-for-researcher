@@ -4,16 +4,22 @@ description: "Acervo bibliográfico do pj_*: sincronizar com o Zotero, extrair P
 when_to_use: |
   Modos: extract, library, support. Frases típicas:
   - extract: "resuma o paper X"; "extraia os principais pontos do paper"; "processa todos os papers novos"
-  - library: "sincroniza minha bibliografia"; "importa minhas anotações do Zotero"; "encontra paper sobre Y"; "quem cita Z"; "marca o paper principal"; "liga o projeto à coleção do Zotero"
+  - library: "sincroniza minha bibliografia"; "o que eu anotei no Zotero sobre este paper"; "encontra paper sobre Y"; "quem cita Z"; "marca o paper principal"; "liga o projeto à coleção do Zotero"
   - support: "as referências batem com o que eu afirmo?"; "checa se as citações sustentam as frases"
 argument-hint: "[extract|library|support] [argumentos do modo]"
-allowed-tools: Read Write Edit Glob Grep Bash(prumo paper *) Bash(cat *) Agent Bash(rg *) Bash(prumo paper verify-refs *) Bash(prumo validate *)
+allowed-tools: Read Write Edit Glob Grep Bash(prumo paper extract-prep *) Bash(prumo paper extract *) Bash(prumo paper sync-pdfs *) Bash(cat *) Agent Bash(prumo paper sync *) Bash(prumo paper graph *) Bash(prumo paper find *) Bash(prumo paper lint *) Bash(prumo paper set-primary *) Bash(prumo paper migrate-layout *) Bash(rg *) Bash(prumo paper verify-refs *) Bash(prumo validate *) Bash(prumo --version)
 prumo:
   version: 2.0.0
   agent_compat: [claude-code]
 ---
 
 # paper — acervo bibliográfico
+
+<!-- prumo:runtime:begin -->
+**PAR 0.70.2** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}`
+- CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas cada comando pede permissão.
+- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`.
+<!-- prumo:runtime:end -->
 
 Escolha o modo antes de agir:
 
@@ -29,7 +35,7 @@ Escolha o modo antes de agir:
 | "extraia os principais pontos do paper" | `extract` |
 | "processa todos os papers novos" | `extract` |
 | "sincroniza minha bibliografia" | `library` |
-| "importa minhas anotações do Zotero" | `library` |
+| "o que eu anotei no Zotero sobre este paper" | `library` |
 | "encontra paper sobre Y" | `library` |
 | "quem cita Z" | `library` |
 | "marca o paper principal" | `library` |

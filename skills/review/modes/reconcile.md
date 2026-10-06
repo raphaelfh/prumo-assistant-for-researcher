@@ -1,6 +1,6 @@
 ---
 name: reconcile
-description: "Reconcilia eventos ambíguos do round-trip de revisão (unanchored/ambiguous/non-identity) propondo marcas CriticMarkup pendentes no worklist via prumo — o humano decide com `prumo write review apply`. NUNCA propõe/move/cunha citação (I1/I3b: eventos de citação são decisão humana)."
+description: "Reconcilia eventos ambíguos do round-trip de revisão (unanchored/ambiguous/non-identity) propondo marcas CriticMarkup pendentes no worklist via prumo — o humano decide com `prumo write review apply`. NUNCA propõe/move/cunha citação (citação é decisão humana)."
 argument-hint: "--page <page.md>"
 allowed-tools: Read Glob Grep Bash(prumo write review events *) Bash(prumo doctor *) mcp__plugin_par_prumo__review_status mcp__plugin_par_prumo__review_events mcp__plugin_par_prumo__review_worklist mcp__plugin_par_prumo__propose_prose_edit
 prumo:
@@ -20,23 +20,20 @@ prumo:
 # Review Reconcile — reconciliador de eventos ambíguos do round-trip
 
 <!-- prumo:preflight:begin -->
-> **Preflight (contrato ADR-0019) — execute ANTES de qualquer operação desta skill:**
+> **Preflight — antes de qualquer operação deste modo:**
 >
-> 1. **CLI:** rode `prumo --version`. Se o comando NÃO existir: não simule NENHUMA
->    operação desta skill; roteie para `/par:start` (instalação guiada com
->    consentimento) e pare aqui.
-> 2. **Drift CLI×plugin (evidência da Fase 0):** se `$CLAUDE_PLUGIN_ROOT` estiver
->    definido, compare a versão do CLI com o campo `version` de
->    `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`. CLI mais antigo → avise
->    ("CLI X < plugin Y — comandos novos podem não existir") e ofereça
->    `uv tool upgrade prumo-assistant-for-researcher` (rode SÓ com consentimento). Sem a variável,
->    pule este passo em silêncio.
-> 3. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
->    oriente `prumo init pj_<nome>` — NUNCA crie o scaffold manualmente (o agente
->    não simula trabalho do CLI) e NUNCA cite tooling do monorepo do autor.
->
-> Recusar-se a operar sem dependência NÃO é falha — é o contrato fail-closed (D1):
-> operação exata nunca é simulada.
+> 1. **Superfície e CLI:** fora do app Claude na aba Code (Mac) ou do Claude Code no terminal
+>    (Mac ou Linux), isto é, numa tarefa do Cowork, num chat, numa sessão SSH, no Windows ou no
+>    WSL, diga em uma frase que este modo não roda aqui e pare. Senão, rode `prumo --version`
+>    (sem `prumo`, a forma `sh … --version` do bloco PAR; cada comando pedirá permissão). O
+>    esperado é `prumo <versão do bloco PAR da porta>`.
+>    - Linha `PAR:` do sandbox (saída 77): ofereça repetir o comando fora do sandbox, pedindo
+>      permissão.
+>    - Qualquer outra saída (outra versão, `PAR: falta o uv`, outra linha `PAR:`, nada): roteie
+>      para `/par:start`, que resolve, e pare.
+>    Nunca simule a operação.
+> 2. **Estrutura:** se o diretório não tiver `docs/references/` de um `pj_*`,
+>    oriente `prumo init pj_<nome>`; nunca crie o scaffold à mão.
 <!-- prumo:preflight:end -->
 
 Opera sobre o ciclo de revisão docx↔CriticMarkup (`prumo write review ingest` →
@@ -53,15 +50,13 @@ skill — é sempre o humano, com `prumo write review apply`.
   <reviewed.docx> --page <page>` já rodou e gerou `reviews/<slug>/events.yaml`
   + `review.md`. Sem isso, todo comando abaixo falha com o hint embutido
   (`prumo write review ingest ...`).
-- O CLI `prumo` está no PATH (`prumo doctor`; senão `uv tool install
-  git+https://github.com/raphaelfh/prumo-assistant-for-researcher`).
-- O servidor MCP `prumo` (tools `review_status`, `review_events`,
-  `review_worklist`, `propose_prose_edit`) pode ou não estar conectado nesta
-  sessão (registrado em `.mcp.json` como `"prumo"`, roda via `prumo mcp
-  serve`). O fluxo abaixo usa MCP quando disponível e cai para `prumo write
-  review events --page <page> --json/--checklist` quando não — **`propose_prose_edit`
-  não tem equivalente CLI** (fora de escopo criar um); sem MCP, o Passo 2 vira
-  só orientação ao humano, nunca edição manual do worklist por esta skill.
+- O fluxo usa as tools MCP `review_status`, `review_events`,
+  `review_worklist` e `propose_prose_edit`. Sem as tools
+  `mcp__plugin_par_prumo__*` na sessão: peça para abrir uma sessão nova; até
+  lá, use o fallback CLI (`prumo write review events --page <page>
+  --json/--checklist`). **`propose_prose_edit` não tem equivalente CLI**: sem
+  MCP, o Passo 2 vira só orientação ao humano, nunca edição manual do
+  worklist por esta skill.
 
 ## Fluxo
 
@@ -74,21 +69,10 @@ skill — é sempre o humano, com `prumo write review apply`.
   dentro de `{schema_version, page, events}`) — `--checklist` também é útil
   aqui: mesma lista numerada em pt-BR com a AÇÃO por kind, boa referência para
   o resumo do Passo 4.
-- Cada evento tem `kind`, `detail` (mensagem pt-BR já pronta explicando a
-  causa). Os campos `author` (o **coautor do Word** que fez a mudança original
-  — nunca "agente") e `mark_excerpt` (o texto afetado: `a` para `del`/`sub`/`highlight`, `b` para `ins`/`comment`) estão presentes nos 4 kinds de marca
-  (`unanchored-mark`, `ambiguous-anchor`, `non-identity-span`,
-  `citation-touched-prose`); `citation-drop` tem `author: null` (o leitor
-  OOXML não captura o autor da deleção, mas `mark_excerpt` continua presente
-  — a citação formatada, `formattedCitation`) e `applied` não carrega nenhum
-  dos dois (é histórico). Só em eventos de citação, `occ_id`/`citekeys`.
+- Cada evento tem `kind` e `detail` (causa em pt-BR); os de marca trazem `author` (o coautor do
+  Word, nunca "agente") e `mark_excerpt`; os de citação, `occ_id`/`citekeys` (`citation-drop` tem `author: null`).
 
 ### 2. Para cada evento `unanchored-mark` / `ambiguous-anchor` / `non-identity-span`
-
-Os três kinds compartilham a mesma causa raiz — o transplante determinístico
-não achou (ou achou ambíguo, ou achou sobre um átomo) onde a mudança do
-coautor pousa na página fonte — e a mesma saída: alguém tem que ler o
-contexto real e decidir o ponto certo.
 
 1. Leia `detail` + `mark_excerpt` + `author` do evento para entender a
    intenção do coautor.
@@ -119,7 +103,7 @@ contexto real e decidir o ponto certo.
 ### 3. Eventos de citação: nunca propor
 
 `citation-touched-prose` e `citation-drop` **nunca** recebem proposta —
-citação é átomo, decisão sempre humana (I1/I3b). Liste-os com a AÇÃO exata
+citação é átomo, decisão sempre humana. Liste-os com a AÇÃO exata
 (mesma do `events --checklist`):
 
 - `citation-drop` → confirme com `--confirm-citation-drops <occ_id>` (aceita
@@ -143,7 +127,9 @@ Reporte ao usuário — nunca aplique nada sozinho:
   enquanto sobrar qualquer evento fora de `citation-drop`/`applied`, mesmo
   já proposto. Avise o humano: ele precisa abrir `events.yaml` e apagar a
   entrada de cada evento já resolvido (por proposta sua ou por edição manual
-  dele) antes de rodar o `apply` abaixo.
+  dele) antes de rodar o `apply` abaixo. NUNCA sugira re-rodar `prumo write
+  review ingest` para "limpar" eventos: ele reescreve `review.md` do zero e
+  destrói as propostas ainda não decididas.
 - O comando sugerido para o humano decidir:
 
   ```bash
@@ -152,12 +138,6 @@ Reporte ao usuário — nunca aplique nada sozinho:
   ```
 
 Esta skill nunca roda `apply` — só sugere o comando.
-
-> **AVISO:** nunca sugira re-rodar `prumo write review ingest` para "limpar"
-> eventos pendentes que já têm proposta no worklist — o ingest reescreve
-> `review.md` do zero e destrói as propostas ainda não decididas. Um
-> mecanismo de 1ª classe pra isso (`--resolve-events`, ou equivalente) está
-> na fila; até lá, remover a entrada de `events.yaml` é sempre manual.
 
 ## Guardas e recusas — antecipe, não force
 
@@ -169,11 +149,11 @@ qualquer coisa. Trate cada recusa como esperada, não como bug a contornar:
   exato.
 - **Âncora ambígua** (2+ ocorrências) → amplie o excerto com mais contexto
   (frase inteira, não 3 palavras) até virar único.
-- **Payload contém citekey/sintaxe de citação** (I3b) → PARE; não tente
+- **Payload contém citekey/sintaxe de citação** → PARE; não tente
   mascarar. Reduza o payload para não incluir citekey/colchete, ou deixe o
   evento inteiro para o humano se a intenção do coautor era mexer na
   citação.
-- **Âncora encosta em ou intersecta citação (`[@key]` ou `@key`)** (I1) → PARE; escolha
+- **Âncora encosta em ou intersecta citação (`[@key]` ou `@key`)** → PARE; escolha
   uma âncora que não toque a citação, ou escale.
 - **`author` inválido** → sempre `author="agente"` (default); nunca copie o
   nome do coautor nem invente string com `{`, `}`, `[`, `]`.
@@ -185,7 +165,7 @@ qualquer coisa. Trate cada recusa como esperada, não como bug a contornar:
   humano com o payload tentado.
 - **`non-identity-span` cuja causa é o alvo cair sobre um átomo que NÃO é
   citação** (wikilink, callout, bloco de código, embed) → o guard técnico
-  (I1) só bloqueia citação; o mesmo cuidado se aplica por julgamento: se a
+  só bloqueia citação; o mesmo cuidado se aplica por julgamento: se a
   única âncora fiel toca esse átomo, escale em vez de forçar.
 
 > **Regra de ouro:** Se a âncora for ambígua ou o evento tocar citação, PARE
@@ -193,32 +173,18 @@ qualquer coisa. Trate cada recusa como esperada, não como bug a contornar:
 
 ## Boundaries
 
-- Nunca decide — só propõe marcas pendentes com `author="agente"`;
-  aceitar/rejeitar (inclusive as próprias propostas) é sempre `prumo write
-  review apply`, rodado pelo humano.
-- Nunca propõe, move ou cunha citação — todo evento de citação vai para o
-  humano, sem exceção (I1/I3b).
 - Nunca edita `review.md`, `events.yaml` ou a página original diretamente —
   toda escrita passa por `propose_prose_edit`, que valida antes de gravar.
   Sem MCP, a skill não escreve nada, só orienta.
-- Nunca roda `prumo write review apply` — mesmo sugerindo o comando.
 
 ## Erros comuns
 
-- **Evento com proposta ainda bloqueia o `apply`** → `propose_prose_edit` só
-  grava a marca em `review.md`; o evento continua "pendente" em
-  `events.yaml` até o humano remover a entrada inteira dele — sem isso,
-  `prumo write review apply` recusa com `ValueError` mesmo já tendo a marca
-  resolvida no worklist. NUNCA sugira `ingest` de novo pra resolver isso:
-  reescreve `review.md` do zero e destrói o worklist com as propostas ainda
-  pendentes.
 - **`events.yaml`/`review.md` ausentes** → o ciclo de revisão ainda não foi
   iniciado para essa página; rode `prumo write review ingest <reviewed.docx>
   --page <page>` primeiro.
-- **Ferramentas `mcp__plugin_par_prumo__*` não aparecem disponíveis** → o
-  servidor precisa estar registrado em `.mcp.json` (roda via `prumo mcp
-  serve`) e conectado nesta sessão; sem ele, use o fallback CLI do Passo 1 e
-  a orientação em prosa do Passo 2 (item 5).
+- **Sem as tools `mcp__plugin_par_prumo__*` na sessão** → peça para abrir uma
+  sessão nova; até lá, use o fallback CLI do Passo 1 e a orientação em prosa
+  do Passo 2 (item 5).
 - **Todos os eventos são `citation-*`/`applied`** → nada para propor; liste
   o checklist humano (Passo 3) e feche o resumo (Passo 4) sem chamar
   `propose_prose_edit`.

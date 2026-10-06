@@ -1,8 +1,6 @@
 # Operações avançadas — propagate & diff
 
-Carregue este arquivo quando ``prumo protocol detect-mode`` retornar ``propagate`` ou
-``diff``. Para o modo ``init``/``formalize`` o conteúdo em ``SKILL.md`` já
-basta — não precisa abrir este arquivo.
+Carregue quando ``prumo protocol detect-mode`` retornar ``propagate`` ou ``diff``; ``init``/``formalize`` estão em ``modes/picot.md``.
 
 ## Operação 3 — ``propagate``
 

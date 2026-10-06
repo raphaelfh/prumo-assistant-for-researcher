@@ -35,19 +35,46 @@ def test_init_creates_project_structure(tmp_path: Path) -> None:
     target = tmp_path / "pj_demo"
     result = runner.invoke(
         app,
-        ["init", str(target), "--integration", "claude_code", "--json"],
+        ["init", str(target), "--json"],
     )
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
     assert payload["project"] == str(target.resolve())
     assert payload["version"]
-    assert any(i["integration"] == "claude_code" for i in payload["integrations"])
+    assert "integrations" not in payload
+    # Skills e agents vêm do plugin; o init não copia nada para o pj (A11).
+    assert not (target / ".claude" / "skills").exists()
+    assert not (target / ".claude" / "agents").exists()
 
     # Estrutura essencial existe
     assert (target / "CLAUDE.md").is_file()
     assert (target / "docs" / "_index.md").is_file()
     assert (target / "docs" / "references" / "_references.bib").is_file()
     assert (target / ".claude" / "pj_config.toml").is_file()
+
+
+def test_init_rejeita_flag_integration(tmp_path: Path) -> None:
+    """A11/A12: `--integration` saiu junto com o pacote `integrations/`."""
+    target = tmp_path / "pj_demo"
+    result = runner.invoke(app, ["init", str(target), "--integration", "claude_code"])
+    assert result.exit_code == 2
+
+
+def test_init_proximos_passos_pedem_sessao_nova(tmp_path: Path) -> None:
+    target = tmp_path / "pj_demo"
+    result = runner.invoke(app, ["init", str(target), "--yes"])
+    assert result.exit_code == 0, result.output
+    out = " ".join(result.output.split())
+    assert "Abra uma sessão nova do Claude Code dentro de" in out
+    assert "/par:start" in out
+    assert "No Claude Code, comece por" not in out
+
+
+def test_par_nao_exporta_integration_error() -> None:
+    import par
+
+    assert not hasattr(par, "IntegrationError")
+    assert "IntegrationError" not in par.__all__
 
 
 def test_init_substitutes_name_placeholders(tmp_path: Path) -> None:
@@ -237,11 +264,6 @@ def test_init_scaffold_is_pandoc_pure(tmp_path: Path) -> None:
     offenders: list[str] = []
     for md in target.rglob("*.md"):
         rel = md.relative_to(target)
-        # .claude/skills/ vem do registry de skills do plugin (Task 11), não
-        # do template pj_base; algumas skills mantêm menções deliberadas ao
-        # wikilink legado e não são escopo desta checagem de pureza.
-        if rel.parts[:2] == (".claude", "skills"):
-            continue
         text = md.read_text(encoding="utf-8")
         if "[[@" in text or "![[" in text or "> [!" in text:
             offenders.append(str(rel))
@@ -290,3 +312,12 @@ def test_init_cria_rule_safe_outputs(tmp_path: Path) -> None:
     texto = rule.read_text(encoding="utf-8")
     assert not texto.startswith("---")
     assert "5" in texto and ".prumo/" in texto
+
+
+def test_init_traz_settings_do_template(tmp_path: Path) -> None:
+    """O overlay leva o `.claude/settings.json` do template, byte a byte (D4, A13)."""
+    target = tmp_path / "pj_demo"
+    res = runner.invoke(app, ["init", str(target), "--json"])
+    assert res.exit_code == 0, res.output
+    template = resolve_resource("templates") / "pj_base" / ".claude" / "settings.json"
+    assert (target / ".claude" / "settings.json").read_bytes() == template.read_bytes()

@@ -27,7 +27,7 @@ pt-BR do domínio (sidecar ausente ou raiz de projeto não localizada) como
 `ValueError`, unificando o contrato de erro das tools; `ValueError` de
 sidecar corrompido já sai pronto do domínio.
 
-Desde 2026-08-23 o servidor cobre também o domínio `paper` (7 tools, uma
+Desde 2026-08-23 o servidor cobre também o domínio `paper` (6 tools, uma
 delas mutante — ver `MUTATING_TOOLS`), e por isso deixou de se chamar
 `prumo-review`: o nome é o prefixo das tools no agent-host —
 `mcp__plugin_par_prumo__paper_find` quando servido pelo plugin (ADR-0037,
@@ -218,22 +218,12 @@ def paper_verify_refs(pj_path: str, page: str | None = None) -> dict[str, Any]:
     (Crossref/PubMed) e título.
 
     ``page`` restringe às citekeys de uma página ``.md`` — recomendado, porque
-    o acervo inteiro é lento. A verificação profunda (``--deep``, que dispara
-    ``uvx``) fica fora desta tool de propósito: subprocess externo não é
-    fachada fina."""
+    o acervo inteiro é lento."""
     return _paper_call(
         paper_api.verify_refs,
         Path(pj_path).resolve(),
         page=Path(page).resolve() if page is not None else None,
     )
-
-
-@server.tool()
-def paper_sync_all(pj_path: str) -> dict[str, Any]:
-    """``sync`` + ``sync-pdfs`` + ``sync-annotations`` + ``sync-notes`` numa
-    passada. Anotações e notas degradam para warning se o Zotero estiver
-    fechado ou com a API local desligada; o resto segue."""
-    return _paper_call(paper_api.sync_all, Path(pj_path).resolve())
 
 
 @server.tool()

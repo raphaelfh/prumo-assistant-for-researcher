@@ -26,12 +26,12 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
 │ verify-refs  │ │              │ │            │ │              │ │              │
 │ set-primary  │ │              │ │            │ │              │ │ list-styles  │
 │ sync-pdfs    │ │              │ │            │ │              │ │ extract-     │
-│ sync-        │ │              │ │            │ │              │ │   comments   │
-│  annotations │ │              │ │            │ │              │ │ disclosure   │
-│ sync-notes   │ │              │ │            │ │              │ │ list-        │
-│ sync-all     │ │              │ │            │ │              │ │   templates  │
-│ migrate-     │ │              │ │            │ │              │ │zettlr-profile│
-│  layout      │ │              │ │            │ │              │ │              │
+│ migrate-     │ │              │ │            │ │              │ │   comments   │
+│  layout      │ │              │ │            │ │              │ │ disclosure   │
+│              │ │              │ │            │ │              │ │ list-        │
+│              │ │              │ │            │ │              │ │   templates  │
+│              │ │              │ │            │ │              │ │zettlr-profile│
+│              │ │              │ │            │ │              │ │              │
 └──────┬───────┘ └──────┬───────┘ └─────┬──────┘ └──────┬───────┘ └──────┬───────┘
        └────────────────┴───────────────┼────────────────┴────────────────┘
                                  ┌──────▼──────┐
@@ -44,7 +44,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
                                  │ citations · skills · paths ·│
                                  │ cli_op · output · deps ·    │
                                  │ note_paths · scaffold ·     │
-                                 │ config · uvx · provenance*  │
+                                 │ config · provenance*        │
                                  └─────────────────────────────┘
 ```
 
@@ -64,7 +64,9 @@ prumo-assistant-for-researcher/
 ├── ROADMAP.md · CHANGELOG.md · RELEASING.md · README.md · CITATION.cff · LICENSE
 │
 ├── .claude-plugin/            ← plugin.json + marketplace.json (self-hosting, ADR-0010)
-├── .mcp.json                  ← MCP qmd + prumo — config do projeto E do plugin distribuído
+├── .mcp.json                  ← servidor MCP `prumo` do plugin, via `shims/prumo`
+├── shims/                     ← lançador do CLI, único arquivo
+├── hooks/                     ← SessionStart: PATH do lançador
 ├── .github/
 │   ├── workflows/             ← ci.yml (lint+types+test+índices) · validate-manifests.yml
 │   ├── schemas/               ← schemas vivos do validador de plugin (ADR-0010)
@@ -84,16 +86,15 @@ prumo-assistant-for-researcher/
 │   ├── contracts.py           ← `prumo validate`: registry dos contratos devolvidos por subagents
 │   ├── _filters/              ← filtros Lua vendorados do Pandoc (crossref.lua, zotero_live_docx.lua)
 │   ├── core/                  ← transversal; NUNCA importa domains/ (ADR-0005)
-│   ├── domains/               ← paper · wiki · capture · protocol · write
-│   │   └── <X>/               ← cli.py + api.py + <op>.py + schemas/v1.py
-│   │                             + errors.py (write, paper) (ADR-0006);
-│   │                             exceção: capture é mínimo (cli.py + route.py, sem api/schemas)
-│   └── integrations/          ← adapters por agent-host (claude_code)
+│   └── domains/               ← paper · wiki · capture · protocol · write
+│       └── <X>/               ← cli.py + api.py + <op>.py + schemas/v1.py
+│                                 + errors.py (write, paper) (ADR-0006);
+│                                 exceção: capture é mínimo (cli.py + route.py, sem api/schemas)
 │
 ├── skills/                    ← start + 5 skills por domínio; cada uma com modes/<modo>.md
 │                                 (frontmatter = única metadata, ADR-0003, ADR-0032)
 ├── agents/                    ← subagents read-only: reader · verifier · reviewer (ADR-0033);
-│                                 force-include no wheel; `prumo init` copia p/ .claude/agents/
+│                                 force-include no wheel; lido da raiz do plugin; `init` não copia
 ├── templates/
 │   ├── pj_base/               ← núcleo mínimo copiado por `prumo init`
 │   └── modules/             ← overlays opt-in (`prumo add`), self-describing (_module.toml):
@@ -125,15 +126,14 @@ _meta.md ganha extracted_* (staleness por hash) e o bloco `_meta` de proveniênc
 
 1. **Modo novo:** crie `skills/<skill>/modes/<modo>.md` com frontmatter rico (`prumo:`, inclusive `phrases`); não precisa tocar Python. Rode `uv run python .github/scripts/gen_indexes.py` — ele deriva o frontmatter e a tabela frase → modo da skill. Renomear um modo exige manter o nome anterior em `prumo.legacy` (ADR-0032).
 2. **Comando determinístico novo:** `domains/<X>/<op>.py` + exposição em `domains/<X>/cli.py` (via `cli_run`) + re-export em `domains/<X>/api.py` + teste em `tests/unit/<X>/test_<op>.py`.
-3. **Host novo (Cursor, Codex, ...):** subclasse `BaseIntegration` em `integrations/<host>/installer.py`. Skills universais: zero mudança. (Trigger no ROADMAP, fase 3.0.)
+3. **Host novo (Cursor, Codex, ...):** adapter fino criado junto com o 1º host novo (trigger 3.0). Skills universais: zero mudança.
 4. **Decisão estrutural:** registre em `docs/adr/adr-NNNN-slug.md` e cite no PR.
 
 ## Glossário rápido
 
 - **Skill** — porta de um domínio (`paper`, `wiki`, `protocol`, `write`, `review`) empacotada como `SKILL.md` universal; `start` é o roteador.
 - **Modo** — uma capability dentro da skill (`paper extract`), em `modes/<modo>.md`; é o que o pesquisador invoca.
-- **Integration** — adapter do formato canônico pro layout de um agent-host.
 - **`pj_*`** — projeto de pesquisa do usuário; vault Zettlr + `.claude/` scaffoldado por `prumo init`.
 - **Determinismo** — `agentic` | `deterministic` | `hybrid` (frontmatter `prumo.determinism`).
-- **Layout α** — `docs/references/papers/<citekey>/` com `_meta/_extract/_annotations/note__*` (ADR-0008).
+- **Layout α** — `docs/references/papers/<citekey>/` com `_meta` e `_extract` (ADR-0008); `_annotations` e `note__*` como legado legível (ADR-0037).
 - **Bloco delimitado** — região machine-owned `<!-- x:begin -->…<!-- x:end -->` (ADR-0009).

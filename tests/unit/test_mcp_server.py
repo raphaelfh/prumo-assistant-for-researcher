@@ -202,9 +202,9 @@ def test_server_registers_exactly_the_review_and_paper_tools() -> None:
         "paper_lint",
         "paper_graph",
         "paper_verify_refs",
-        "paper_sync_all",
         "paper_connect",
     }
+    assert len(tools) == 10
 
 
 def test_paper_connect_is_the_only_mutating_paper_tool() -> None:

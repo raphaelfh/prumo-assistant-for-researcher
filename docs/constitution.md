@@ -1,6 +1,13 @@
 <!--
 Sync impact report:
-  Version: 1.2.2 (2026-09-12) — emenda PATCH: a stack externa do projeto-cliente
+  Version: 1.2.3 (2026-10-06) — emenda PATCH: distribuição pelo plugin com CLI
+    travado no `uv.lock` (ADR-0038); stack externa com piso do Pandoc e qmd como
+    CLI opcional; Princípio III sem a menção a `BaseIntegration`, que deixou de
+    existir. Nenhuma norma alterada: os termos 'hooks plugáveis' e 'lockfile' do
+    Princípio VI continuam designando o sistema de hooks interno e o lockfile de
+    packs que o ROADMAP posterga; o hook `SessionStart` é config do agent-host e
+    o `uv.lock` já existia.
+  Anterior: 1.2.2 (2026-09-12) — emenda PATCH: a stack externa do projeto-cliente
     cita o Zettlr como front do wiki; o Obsidian, legado desde a v0.62.1, sai do
     texto. Nenhuma norma alterada.
   Anterior: 1.2.1 (2026-09-12) — emenda PATCH: renomeação do projeto para
@@ -79,7 +86,7 @@ Quando o resultado pode ser produzido com regex, AST, subprocess ou consulta a u
 
 - Não existe `manifest.yaml` paralelo, nem `description` duplicada em `plugin.json`.
 - Versão da skill mora apenas em `prumo.version` no frontmatter.
-- O catálogo do plugin Claude Code é montado por `core/skills.py::load_skill_registry`; outros hosts pegam o mesmo arquivo via seu `BaseIntegration`.
+- O catálogo do plugin Claude Code é montado por `core/skills.py::load_skill_registry`; um host novo consumirá o mesmo arquivo (Princípio I).
 - Quem contribui uma skill nova NÃO precisa tocar Python.
 
 ### IV · Forward-only schemas
@@ -135,8 +142,8 @@ O custo de uma adição se mede em **conceitos que o pesquisador precisa aprende
 - **CLI**: Typer + `core/cli_op.cli_run` (context manager que injeta `Console` e captura `PrumoError`). Nada de `print()` direto fora de `core/output.py`.
 - **Qualidade**: `ruff check` e `mypy strict` zerados em `main`. CI roda matrix Python 3.11/3.12.
 - **Build**: hatchling; versão única em `src/par/_version.py`. `_templates/` empacotado via `force-include`.
-- **Distribuição**: `uv tool install prumo-assistant-for-researcher`, `pipx install prumo-assistant-for-researcher`, ou plugin marketplace do Claude Code.
-- **Stack externa do projeto-cliente** (`pj_*`): Zotero + Better BibTeX (bibliografia), Zettlr (front do wiki Markdown), Pandoc + Typst + CSL (export), MCP `qmd` (busca BM25 + vector + rerank local).
+- **Distribuição**: plugin do Claude Code (marketplace), que executa o próprio CLI `prumo` travado no `uv.lock` da versão instalada (pré-requisito: `uv`). `uv tool install`/`uv run` só para desenvolvimento.
+- **Stack externa do projeto-cliente** (`pj_*`): Zotero + Better BibTeX (bibliografia), Zettlr (front do wiki Markdown), Pandoc ≥ 3.8.2 + Typst (opcional) + CSL (export), `qmd` opcional (CLI de busca BM25 + vector + rerank local, instalado pelo pesquisador).
 - **Sem dependência de SaaS para operação core**: tudo que importa para reproduzir uma análise existe localmente no `pj_*`.
 
 ## Fluxo de Desenvolvimento
@@ -155,6 +162,6 @@ Esta constitution é o documento de mais alta autoridade para decisões de desig
 - Emendas DEVEM passar por PR explícito que atualiza este arquivo + a tabela "Sync impact report" no topo.
 - Bump de versão da constitution segue [SemVer](https://semver.org/lang/pt-BR/) aplicado a *princípios*: `MAJOR` quando um princípio é removido ou redefinido, `MINOR` quando um princípio é adicionado, `PATCH` para clarificação textual.
 - Decisões estruturais pontuais são registradas em `docs/adr/` (MADR minimal, `adr-NNNN-slug.md`, imutáveis após aceitas — revisão = ADR novo). Princípios (normas vivas) moram aqui; o que muda por emenda nunca mora num ADR.
-- Versão atual: **1.2.2** (2026-09-12).
+- Versão atual: **1.2.3** (2026-10-06).
 - Princípios novos DEVEM ter trigger concreto (não "pode ser útil no futuro") — coerência com o princípio VI.
 - O agent-host (Claude Code, Cursor, Codex, Gemini) NÃO pode reescrever esta constitution sem revisão humana.

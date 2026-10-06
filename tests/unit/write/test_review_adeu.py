@@ -1,9 +1,10 @@
 """Seam do adeu pinado (`_run_adeu_extract`) + parser de marcas com autoria
 (`parse_adeu_markdown`) — Task 4 da ponte Fase 2.
 
-`_run_adeu_extract` roda `uvx adeu==1.29.0 extract --json <docx> -o -`;
-subprocess SEMPRE mockado aqui (regra deste repo — `.claude/rules/code.md`)
-via `patch("par.core.uvx.subprocess.run")`.
+`_run_adeu_extract` roda o adeu 1.29.0, travado no uv.lock, por
+`sys.executable -I -m adeu.cli extract --json <docx> -o -`; subprocess
+SEMPRE mockado aqui (regra deste repo — `.claude/rules/code.md`) via
+`patch("par.domains.write.review.subprocess.run")`.
 `parse_adeu_markdown` é parse puro de string sobre o markdown já devolvido
 pelo seam — não precisa mockar nada.
 
@@ -15,8 +16,10 @@ adeu no CI.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
+import sys
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -157,26 +160,34 @@ def test_diff_format_annotation_pairs_and_defaults_to_unknown_author() -> None:
 
 # --- seam: _run_adeu_extract (subprocess sempre mockado) --------------------
 
+_RUN = "par.domains.write.review.subprocess.run"
+
+
+def _adeu_argv(docx: Path) -> list[str]:
+    return [sys.executable, "-I", "-m", "adeu.cli", "extract", "--json", str(docx), "-o", "-"]
+
 
 def _completed(
     *, returncode: int, stdout: str = "", stderr: str = ""
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.CompletedProcess(
-        args=["uvx", "adeu==1.29.0"], returncode=returncode, stdout=stdout, stderr=stderr
+        args=_adeu_argv(Path("revisado.docx")),
+        returncode=returncode,
+        stdout=stdout,
+        stderr=stderr,
     )
 
 
-def test_run_adeu_extract_invokes_pinned_uvx_command(tmp_path: Path) -> None:
+def test_run_adeu_extract_roda_o_adeu_do_lock_isolado(tmp_path: Path) -> None:
     docx = tmp_path / "revisado.docx"
 
     with patch(
-        "par.core.uvx.subprocess.run",
-        return_value=_completed(returncode=0, stdout='{"markdown": "ok"}'),
+        _RUN, return_value=_completed(returncode=0, stdout='{"markdown": "ok"}')
     ) as mock_run:
         _run_adeu_extract(docx)
 
     mock_run.assert_called_once_with(
-        ["uvx", "adeu==1.29.0", "extract", "--json", str(docx), "-o", "-"],
+        _adeu_argv(docx),
         capture_output=True,
         text=True,
         timeout=120,
@@ -187,50 +198,32 @@ def test_run_adeu_extract_parses_markdown_field_from_stdout_json(tmp_path: Path)
     docx = tmp_path / "revisado.docx"
     stdout = json.dumps({"markdown": "# titulo\n\ncorpo com {++marca++}", "other": 123})
 
-    with patch(
-        "par.core.uvx.subprocess.run",
-        return_value=_completed(returncode=0, stdout=stdout),
-    ):
+    with patch(_RUN, return_value=_completed(returncode=0, stdout=stdout)):
         markdown = _run_adeu_extract(docx)
 
     assert markdown == "# titulo\n\ncorpo com {++marca++}"
 
 
-def test_run_adeu_extract_invalid_json_stdout_raises_adeu_unavailable(tmp_path: Path) -> None:
-    """Achado da review da Task 4 (endossado para a Task 8, MUST-DO): stdout
-    que não é JSON válido vazava `json.JSONDecodeError` cru — vira
-    `AdeuUnavailableError` pt-BR nomeando o contrato esperado (campo
-    `markdown`) e o comando de verificação da versão pinada."""
-    docx = tmp_path / "revisado.docx"
-
-    with (
-        patch(
-            "par.core.uvx.subprocess.run",
-            return_value=_completed(returncode=0, stdout="isto nao e json valido"),
-        ),
-        pytest.raises(AdeuUnavailableError) as exc,
-    ):
-        _run_adeu_extract(docx)
-
-    message = str(exc.value)
-    assert "JSON esperado" in message
-    assert "uvx adeu==1.29.0 --version" in message
-
-
-def test_run_adeu_extract_json_without_markdown_field_raises_adeu_unavailable(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    "stdout",
+    [
+        pytest.param("isto nao e json valido", id="json-invalido"),
+        pytest.param(json.dumps({"other": 123}), id="sem-campo-markdown"),
+        pytest.param(json.dumps([1, 2, 3]), id="nao-objeto"),
+    ],
+)
+def test_run_adeu_extract_saida_inesperada_vira_adeu_unavailable(
+    tmp_path: Path, stdout: str
 ) -> None:
-    """Mesmo achado: JSON válido mas sem o campo `markdown` esperado
-    (`payload["markdown"]` vazava `KeyError` cru) — mesma
-    `AdeuUnavailableError` do stdout inválido."""
+    """Achado da review da Task 4 (endossado para a Task 8, MUST-DO): stdout
+    que não é JSON válido, JSON sem `markdown` ou JSON que não é objeto
+    vazavam `JSONDecodeError`/`KeyError`/`TypeError` crus — viram
+    `AdeuUnavailableError` pt-BR nomeando o contrato esperado (campo
+    `markdown`) e o comando para reportar."""
     docx = tmp_path / "revisado.docx"
-    stdout = json.dumps({"other": 123})
 
     with (
-        patch(
-            "par.core.uvx.subprocess.run",
-            return_value=_completed(returncode=0, stdout=stdout),
-        ),
+        patch(_RUN, return_value=_completed(returncode=0, stdout=stdout)),
         pytest.raises(AdeuUnavailableError) as exc,
     ):
         _run_adeu_extract(docx)
@@ -238,62 +231,76 @@ def test_run_adeu_extract_json_without_markdown_field_raises_adeu_unavailable(
     message = str(exc.value)
     assert "JSON esperado" in message
     assert "campo 'markdown'" in message
+    assert "o formato do adeu 1.29.0 mudou? rode: prumo --version e reporte" in message
 
 
-def test_run_adeu_extract_nonzero_exit_raises_adeu_unavailable(tmp_path: Path) -> None:
+def test_run_adeu_extract_exit_nao_zero(tmp_path: Path) -> None:
     docx = tmp_path / "revisado.docx"
 
     with (
-        patch(
-            "par.core.uvx.subprocess.run",
-            return_value=_completed(returncode=1, stderr="erro fatal do adeu"),
-        ),
+        patch(_RUN, return_value=_completed(returncode=1, stderr="boom")),
         pytest.raises(AdeuUnavailableError) as exc,
     ):
         _run_adeu_extract(docx)
 
     message = str(exc.value)
-    assert "uv --version" in message
-    assert "uvx adeu==1.29.0 --version" in message
-    assert "backend de PROSA" in message
+    assert "exit 1" in message
+    assert str(docx) in message
+    assert "boom" in message
+    assert "confira se o arquivo abre no Word e repita o ingest" in message
+    assert f"prumo write review ingest {docx} --page <página.md>" in message
 
 
-def test_run_adeu_extract_uvx_not_found_raises_adeu_unavailable(tmp_path: Path) -> None:
+def test_run_adeu_extract_timeout(tmp_path: Path) -> None:
     docx = tmp_path / "revisado.docx"
 
     with (
-        patch(
-            "par.core.uvx.subprocess.run",
-            side_effect=FileNotFoundError("uvx não encontrado"),
-        ),
+        patch(_RUN, side_effect=subprocess.TimeoutExpired(cmd=_adeu_argv(docx), timeout=120)),
         pytest.raises(AdeuUnavailableError) as exc,
     ):
         _run_adeu_extract(docx)
 
     message = str(exc.value)
-    assert "uv --version" in message
-    assert "uvx adeu==1.29.0 --version" in message
+    assert f"o adeu passou de 120 s lendo {docx}" in message
+    assert f"prumo write review ingest {docx} --page <página.md>" in message
+    assert "…" not in message
 
 
-def test_run_adeu_extract_non_object_json_raises_adeu_unavailable(tmp_path: Path) -> None:
-    """Fix após review (Task 8): JSON válido mas não-objeto (`[1, 2, 3]`)
-    vazava TypeError cru — vira `AdeuUnavailableError` pt-BR nomeando o
-    contrato esperado (campo 'markdown') como nos demais casos."""
-    docx = tmp_path / "revisado.docx"
-    stdout = json.dumps([1, 2, 3])
+def test_check_adeu_available_sem_adeu(monkeypatch: pytest.MonkeyPatch) -> None:
+    real = importlib.util.find_spec
 
-    with (
-        patch(
-            "par.core.uvx.subprocess.run",
-            return_value=_completed(returncode=0, stdout=stdout),
-        ),
-        pytest.raises(AdeuUnavailableError) as exc,
-    ):
-        _run_adeu_extract(docx)
+    def fake(name: str, package: str | None = None) -> object:
+        return None if name == "adeu" else real(name, package)
+
+    monkeypatch.setattr(importlib.util, "find_spec", fake)
+
+    with pytest.raises(AdeuUnavailableError) as exc:
+        review._check_adeu_available()
 
     message = str(exc.value)
-    assert "JSON esperado" in message
-    assert "uvx adeu==1.29.0 --version" in message
+    assert "adeu" in message
+    assert "rm -rf ~/.cache/prumo && prumo --version" in message
+    assert "uv sync --extra dev --python 3.12" in message
+    # A15: o CLI à parte não é caminho suportado — a mensagem nunca o oferece.
+    assert "uv tool" not in message
+    assert message == (
+        "o backend de prosa (adeu) não está instalado neste ambiente Python. "
+        "Pelo plugin: abra uma sessão nova; se persistir, apague a pasta e "
+        "prepare de novo: rm -rf ~/.cache/prumo && prumo --version. "
+        "Em desenvolvimento: uv sync --extra dev --python 3.12 "
+        "(o adeu exige Python ≥ 3.12)."
+    )
+
+
+def test_check_adeu_available_com_adeu(monkeypatch: pytest.MonkeyPatch) -> None:
+    real = importlib.util.find_spec
+
+    def fake(name: str, package: str | None = None) -> object:
+        return object() if name == "adeu" else real(name, package)
+
+    monkeypatch.setattr(importlib.util, "find_spec", fake)
+
+    review._check_adeu_available()
 
 
 # --- Task 5: coleta de comentários (ReviewCommentsFile) ----------------------
@@ -420,7 +427,7 @@ def test_run_adeu_extract_passa_timeout(monkeypatch: pytest.MonkeyPatch) -> None
         captured.update(kwargs)
         return subprocess.CompletedProcess(cmd, 0, stdout='{"markdown": "ok"}', stderr="")
 
-    monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
+    monkeypatch.setattr(_RUN, fake_run)
     assert review._run_adeu_extract(Path("x.docx")) == "ok"
     assert captured["timeout"] == 120
 
@@ -429,8 +436,8 @@ def test_run_adeu_extract_timeout_vira_adeu_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        raise subprocess.TimeoutExpired(cmd="uvx", timeout=120)
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=120)
 
-    monkeypatch.setattr("par.core.uvx.subprocess.run", fake_run)
+    monkeypatch.setattr(_RUN, fake_run)
     with pytest.raises(review.AdeuUnavailableError, match="120"):
         review._run_adeu_extract(Path("x.docx"))

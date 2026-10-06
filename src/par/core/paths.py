@@ -23,8 +23,11 @@ def resolve_resource(name: str) -> Path:
     found = find_resource(name)
     if found is None:
         raise ConfigError(
-            f"Recurso '{name}' não encontrado (nem empacotado nem no worktree). "
-            "Reinstale o pacote ou rode a partir do repo de desenvolvimento."
+            f"Recurso '{name}' não encontrado (nem empacotado nem na raiz do "
+            "plugin). Reinstale o plugin (no app: + → Plugins → Gerenciar plugins; "
+            "no terminal: /plugin uninstall par e /plugin install "
+            "par@prumo-assistant-for-researcher) e abra uma sessão nova. Em "
+            "desenvolvimento, rode a partir do repositório: uv run prumo …"
         )
     return found
 

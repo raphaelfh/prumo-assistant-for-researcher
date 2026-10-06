@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from pathlib import Path
 
@@ -446,29 +447,167 @@ def test_skills_use_plugin_mcp_prefix() -> None:
     assert offenders == []
 
 
-def _bodies_calling(subcommand: str) -> dict[str, str]:
-    """Corpo (sem frontmatter) de cada skill/modo real que manda rodar ``subcommand``."""
+def test_skills_sem_contorno_de_subcomando_ausente() -> None:
+    """Com o lançador, o CLI vem pinado na versão do plugin: sem contorno de drift (A7)."""
+    agents = _REPO_SKILLS.parent / "agents"
+    files = sorted(_REPO_SKILLS.rglob("*.md")) + sorted(agents.glob("*.md"))
+    offenders = [
+        str(p.relative_to(_REPO_SKILLS.parent))
+        for p in files
+        if "No such command" in p.read_text(encoding="utf-8")
+    ]
+    assert offenders == []
+
+
+def test_skills_nao_citam_tools_mcp_do_qmd() -> None:
+    """O qmd é só CLI: nenhuma skill nem agent cita as tools MCP dele (A9)."""
+    agents = _REPO_SKILLS.parent / "agents"
+    files = sorted(_REPO_SKILLS.rglob("*.md")) + sorted(agents.glob("*.md"))
+    offenders = [
+        str(p.relative_to(_REPO_SKILLS.parent))
+        for p in files
+        if "mcp__qmd__" in p.read_text(encoding="utf-8")
+    ]
+    assert offenders == []
+
+
+# ---------------------------------------------------------------------------
+# Curingas Bash estreitos (D5, A14)
+# ---------------------------------------------------------------------------
+
+
+def _bash_rule_matches(token: str, command: str) -> bool:
+    """Semântica documentada das regras `Bash(...)` do Claude Code.
+
+    Token que não é Bash → False; `Bash` puro casa tudo; `Bash(<p> *)` e
+    `Bash(<p>:*)` casam `<p>` e `<p> …` (o espaço é fronteira); `Bash(<p>*)`
+    casa qualquer prefixo `<p>`; `Bash(<cmd>)` casa só o comando exato.
+    """
+    if token == "Bash":
+        return True
+    if not (token.startswith("Bash(") and token.endswith(")")):
+        return False
+    rule = token[len("Bash(") : -1]
+    for suffix in (" *", ":*"):
+        if rule.endswith(suffix):
+            prefix = rule[: -len(suffix)]
+            return command == prefix or command.startswith(prefix + " ")
+    if rule.endswith("*"):
+        return command.startswith(rule[:-1])
+    return command == rule
+
+
+def _all_allowed_tools() -> list[str]:
+    """Tokens de `allowed-tools` de toda porta e todo modo do repo."""
     reg, _ = load_skill_registry(_REPO_SKILLS, strict=True)
-    bodies = {name: reg.get(name).body for name in reg.names()}
-    bodies |= {ref.slug: mode.body for ref, mode in reg.iter_modes()}
-    return {slug: body for slug, body in bodies.items() if subcommand in body}
+    manifests = [reg.get(n) for n in reg.names()] + [m for _, m in reg.iter_modes()]
+    return [tok for m in manifests for tok in m.allowed_tools]
+
+
+def test_semantica_do_curinga_bash() -> None:
+    rule = "Bash(prumo paper sync *)"
+    assert _bash_rule_matches(rule, "prumo paper sync")
+    assert _bash_rule_matches(rule, "prumo paper sync --x")
+    assert not _bash_rule_matches(rule, "prumo paper sync-pdfs")
+    assert _bash_rule_matches("Bash(prumo paper sync:*)", "prumo paper sync --x")
+    assert _bash_rule_matches("Bash(prumo paper sync*)", "prumo paper sync-pdfs")
+    assert _bash_rule_matches("Bash(git status)", "git status")
+    assert not _bash_rule_matches("Bash(git status)", "git status -s")
+    assert _bash_rule_matches("Bash", "qualquer coisa")
+
+
+def test_semantica_do_curinga_bash_ignora_outras_tools() -> None:
+    assert not _bash_rule_matches("Read", "prumo init x --force")
+    assert not _bash_rule_matches("mcp__plugin_par_prumo__paper_sync", "prumo paper sync")
 
 
 @pytest.mark.parametrize(
-    ("subcommand", "expected"),
+    "command",
     [
-        ("prumo validate", {"paper/support", "review/critique"}),
-        ("prumo status", {"start"}),
+        "prumo paper connect x --create --yes",
+        "prumo init x --force",
+        "prumo update --yes",
     ],
 )
-def test_subcomando_recente_tem_fallback_de_subcomando_ausente(
-    subcommand: str, expected: set[str]
-) -> None:
-    """`prumo --version` passar não garante o subcomando: CLI 0.67.2 não tem `validate`."""
-    callers = _bodies_calling(subcommand)
-    assert set(callers) == expected
-    missing = subcommand.split()[1]
-    for slug, body in callers.items():
-        assert f"No such command '{missing}'" in body, slug
-        assert "uv tool upgrade prumo-assistant-for-researcher" in body, slug
-        assert "consentimento" in body, slug
+def test_nenhuma_regra_casa_comando_que_muda_estado_fora_do_fluxo(command: str) -> None:
+    offenders = [tok for tok in _all_allowed_tools() if _bash_rule_matches(tok, command)]
+    assert offenders == []
+
+
+def test_paper_connect_fora_de_todo_frontmatter() -> None:
+    assert [tok for tok in _all_allowed_tools() if "paper_connect" in tok] == []
+
+
+def test_porta_com_modo_cli_libera_prumo_version() -> None:
+    """O preflight `cli` manda rodar `prumo --version` primeiro: a porta pré-aprova (D5)."""
+    reg, _ = load_skill_registry(_REPO_SKILLS, strict=True)
+    offenders = [
+        n
+        for n in reg.names()
+        if any("cli" in m.requires for m in (reg.get(n), *reg.skills[n].modes))
+        and not any(_bash_rule_matches(t, "prumo --version") for t in reg.get(n).allowed_tools)
+    ]
+    assert offenders == []
+
+
+_REPO = Path(__file__).resolve().parents[3]
+_RETIRED_ZOTERO_TERMS = ("sync-annotations", "sync-notes", "sync-all", "paper_sync_all")
+
+
+def test_nenhum_texto_do_plugin_cita_comando_zotero_aposentado() -> None:
+    hits: list[str] = []
+    for root in ("skills", "agents", "templates"):
+        for md in sorted((_REPO / root).rglob("*.md")):
+            text = md.read_text(encoding="utf-8")
+            hits += [f"{md.relative_to(_REPO)}: {t}" for t in _RETIRED_ZOTERO_TERMS if t in text]
+    assert hits == [], hits
+
+
+def test_library_roteia_anotacoes_para_fora_do_par() -> None:
+    text = (_REPO / "skills" / "paper" / "modes" / "library.md").read_text(encoding="utf-8")
+    assert "### Anotações, notas e a biblioteca inteira do Zotero (fora do PAR)" in text
+    assert "Isso fica fora do PAR: o PAR não lê destaques nem notas do Zotero." in text
+    reg, _ = load_skill_registry(_REPO / "skills", strict=True)
+    mode = reg.find_mode(SkillRef("paper", "library"))
+    assert mode is not None
+    assert "o que eu anotei no Zotero sobre este paper" in mode.phrases
+    assert "importa minhas anotações do Zotero" not in mode.phrases
+
+
+def test_plugin_root_sempre_com_chaves() -> None:
+    """Só `${CLAUDE_PLUGIN_ROOT}` é substituído ao carregar; a forma sem chaves fica literal."""
+    files = [*(_REPO / "skills").rglob("*.md"), *(_REPO / "agents").glob("*.md")]
+    offenders = [
+        str(p.relative_to(_REPO))
+        for p in files
+        if re.search(r"\$CLAUDE_PLUGIN_ROOT", p.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []
+
+
+def test_skills_nao_mandam_instalar_cli_a_parte() -> None:
+    """O CLI vem no plugin: nenhuma skill manda instalar/atualizar à parte (A15)."""
+    files = [*(_REPO / "skills").rglob("*.md"), *(_REPO / "agents").glob("*.md")]
+    offenders = [
+        str(p.relative_to(_REPO))
+        for p in files
+        for banned in ("uv tool install", "uv tool upgrade")
+        if banned in p.read_text(encoding="utf-8")
+    ]
+    assert offenders == []
+
+
+def test_start_cobre_superficie_uv_e_tools() -> None:
+    """O `/par:start` checa superfície, versão, uv e as tools do plugin (§Fluxo)."""
+    body = parse_skill_file(_REPO / "skills" / "start" / "SKILL.md").body
+    text = " ".join(body.split())
+    for needle in (
+        "PAR: falta o uv",
+        "mcp__plugin_par_prumo__",
+        "uv tool uninstall prumo-assistant-for-researcher",
+        "curl -LsSf https://astral.sh/uv/install.sh | sh",
+        "Better BibTeX ≥ 9.0.65",
+        "npm install -g @tobilu/qmd",
+        "nunca ofereça instalar o CLI à parte",
+    ):
+        assert needle in text, needle
