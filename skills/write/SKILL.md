@@ -2,13 +2,14 @@
 name: write
 description: "Escrita do manuscrito: draft IMRaD, seção avulsa, convenções editoriais de escrita científica e declaração de uso de IA."
 when_to_use: |
-  Modos: disclosure, manuscript, section, style. Frases típicas:
+  Modos: disclosure, export, manuscript, section, style. Frases típicas:
   - disclosure: "gera a declaração de uso de IA"; "disclosure de IA pro periódico"
+  - export: "exporta o docx para o coautor revisar"; "gera a versão final em Word"; "quero usar o Zotero no Word"
   - manuscript: "escreve um draft do meu paper"; "rascunho IMRaD sobre X"
   - section: "escreve essa seção"; "expande este parágrafo"
   - style: "aplica as convenções de escrita científica"; "tira os travessões"; "passa pro inglês americano"
-argument-hint: "[disclosure|manuscript|section|style] [argumentos do modo]"
-allowed-tools: Read Bash(prumo write disclosure *) Write Edit Glob Grep Bash(prumo write *) Bash(cat *) Bash(git *) Bash(rg *) Bash(prumo --version)
+argument-hint: "[disclosure|export|manuscript|section|style] [argumentos do modo]"
+allowed-tools: Read Bash(prumo write disclosure *) Bash(prumo write export *) Write Edit Glob Grep Bash(prumo write *) Bash(cat *) Bash(git *) Bash(rg *) Bash(prumo --version)
 prumo:
   version: 2.0.0
   agent_compat: [claude-code]
@@ -34,6 +35,9 @@ Escolha o modo antes de agir:
 |---|---|
 | "gera a declaração de uso de IA" | `disclosure` |
 | "disclosure de IA pro periódico" | `disclosure` |
+| "exporta o docx para o coautor revisar" | `export` |
+| "gera a versão final em Word" | `export` |
+| "quero usar o Zotero no Word" | `export` |
 | "escreve um draft do meu paper" | `manuscript` |
 | "rascunho IMRaD sobre X" | `manuscript` |
 | "escreve essa seção" | `section` |

@@ -552,7 +552,7 @@ def _assert_fields_locked(document_xml: str) -> None:
         )
 
 
-def _finalize_docx(cmd: list[str], out: Path) -> None:
+def _finalize_docx(cmd: list[str], out: Path, *, locked: bool = True) -> None:
     """Roda o pandoc para docx e aplica a cadeia completa de guardas pós-build.
 
     Cadeia única compartilhada por :func:`export` e :func:`compose` (era
@@ -565,7 +565,8 @@ def _finalize_docx(cmd: list[str], out: Path) -> None:
     document_xml, custom_xml = _docx_texts(out)
     _assert_bibliography_present(document_xml)
     _assert_zotero_prefs_present(document_xml, custom_xml)
-    _assert_fields_locked(document_xml)
+    if locked:
+        _assert_fields_locked(document_xml)
 
 
 _INSTR_TEXT_RE = re.compile(r"<w:instrText[^>]*>(.*?)</w:instrText>", re.DOTALL)
@@ -759,6 +760,7 @@ def _redo_command(
     bib: Path | None = None,
     out_dir: Path | None = None,
     reference_doc: Path | None = None,
+    final: bool = False,
 ) -> str:
     """Comando ``prumo`` que refaz o docx com as mesmas opções da chamada (``{redo}``, B1).
 
@@ -779,6 +781,8 @@ def _redo_command(
     for flag, path in (("--bib", bib), ("--out-dir", out_dir), ("--reference-doc", reference_doc)):
         if path is not None:
             parts.append(f"{flag} {q(str(path))}")
+    if final:
+        parts.append("--final")
     return " ".join(parts)
 
 
@@ -925,6 +929,7 @@ def _build_pandoc_cmd(
     zotero_lookup_file: Path | None = None,
     resource_path: Path | str | None = None,
     lang: str | None = None,
+    lock_citations: bool = True,
 ) -> list[str]:
     """Monta o comando do pandoc.
 
@@ -972,6 +977,8 @@ def _build_pandoc_cmd(
         ]
         if zotero_lookup_file:
             cmd += [f"--metadata=zotero_lookup_file:{zotero_lookup_file}"]
+        if not lock_citations:
+            cmd += ["--metadata=prumo_unlocked_citations:true"]
         if reference_doc:
             cmd += [f"--reference-doc={reference_doc}"]
     elif to_format == "html":
@@ -1008,6 +1015,7 @@ def export(
     project_root: Path | None = None,
     force: bool = False,
     on_warning: Callable[[str], None] | None = None,
+    final: bool = False,
 ) -> Path:
     """Exporta uma página `.md` para o formato escolhido. Retorna caminho do output.
 
@@ -1024,6 +1032,11 @@ def export(
     """
     if to not in EXT_BY_FORMAT:
         raise ValueError(f"--to deve ser um de {list(EXT_BY_FORMAT)}, recebeu {to}")
+    if final and to != "docx":
+        raise ValueError(
+            f"--final só vale para docx (recebeu --to {to}). Rode: "
+            f"prumo write export {page} --to docx --final"
+        )
 
     # Raiz do projeto ANTES das checagens de dependência — preserva a
     # precedência de erro da fachada antiga (que resolvia a raiz antes de
@@ -1086,10 +1099,11 @@ def export(
             zotero_lookup_file=zotero_lookup_file,
             resource_path=page.parent,
             lang=_project_language(project_root),
+            lock_citations=not final,
         )
         logger.info("pandoc cmd: %s", " ".join(cmd))
         if to == "docx":
-            _finalize_docx(cmd, out)
+            _finalize_docx(cmd, out, locked=not final)
             _emit_review_sidecars(
                 page=page,
                 project_root=project_root,
@@ -1106,6 +1120,7 @@ def export(
                 bib=bib_arg,
                 out_dir=out_dir,
                 reference_doc=reference_doc,
+                final=final,
             )
             if aviso := docx_link_warning(out, lookup, redo):
                 (on_warning or logger.warning)(aviso)

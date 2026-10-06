@@ -41,6 +41,9 @@ local csl_style_id = 'apa'
 local citation_counter = 0
 local occ_counter = 0
 local references_by_key = {}
+-- `prumo write export --final` manda `prumo_unlocked_citations`: sem trava, o
+-- plugin do Zotero consegue reescrever o campo no Refresh (G1, ADR-0037).
+local lock_citations = true
 
 local function xmlescape(s)
   return (tostring(s)
@@ -84,6 +87,25 @@ local function zotero_pref_xml()
     .. '<pref name="noteType" value="0"/></prefs></data>',
     csl_style_id
   )
+end
+
+-- `pandoc.utils.references` devolve os campos de texto como `Inlines`;
+-- serializados crus viram AST (`[{"t":"Str","c":…}]`) e o Zotero quebra ao
+-- usar o item embutido. CSL-JSON quer strings: achata `Inlines`/`Inline`
+-- com `stringify` e percorre tabelas (autores, datas) recursivamente.
+local function to_csl_json(value)
+  local ptype = pandoc.utils.type(value)
+  if ptype == 'Inlines' or ptype == 'Inline' or ptype == 'Blocks' or ptype == 'Block' then
+    return pandoc.utils.stringify(value)
+  end
+  if type(value) == 'table' then
+    local out = {}
+    for k, v in pairs(value) do
+      out[k] = to_csl_json(v)
+    end
+    return setmetatable(out, getmetatable(value))
+  end
+  return value
 end
 
 local function build_csl_citation(cite)
@@ -158,6 +180,9 @@ local function wrap_cite_in_field(cite)
   -- ou comentar. sdtContentLocked bloqueia edição do CONTEÚDO do sdt no
   -- Word (bookmark não travaria nada). Bibliografia (wrap_bibliography)
   -- NÃO é travada nesta fase.
+  if not lock_citations then
+    return pandoc.RawInline('openxml', field)
+  end
   local locked_field = table.concat({
     '<w:sdt><w:sdtPr><w:alias w:val="prumo-citation"/>',
     '<w:lock w:val="sdtContentLocked"/></w:sdtPr><w:sdtContent>',
@@ -196,6 +221,9 @@ function Pandoc(doc)
   if doc.meta.zotero_lookup_file then
     load_lookup_file(pandoc.utils.stringify(doc.meta.zotero_lookup_file))
   end
+  if doc.meta.prumo_unlocked_citations then
+    lock_citations = false
+  end
   if doc.meta.zotero_csl_style then
     csl_style_id = pandoc.utils.stringify(doc.meta.zotero_csl_style)
   end
@@ -204,7 +232,7 @@ function Pandoc(doc)
   -- carregou da bib — usamos para popular itemData de cada citationItem
   -- quando não temos URI do Zotero.
   for _, ref in ipairs(pandoc.utils.references(doc)) do
-    references_by_key[ref.id] = ref
+    references_by_key[ref.id] = to_csl_json(ref)
   end
 
   doc.blocks = doc.blocks:walk({
