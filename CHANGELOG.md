@@ -15,11 +15,22 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - O export passa a respeitar `PRUMO_ZOTERO_BASE` (dívida da ADR-0007 quitada).
 - `prumo write review ingest` diz o que aconteceu quando o coautor usou os botões do Zotero (Refresh, Add/Edit Citation) no docx, em vez de acusar "occ_id duplicado" (Princípio VIII).
 - O modo `review reconcile` pré-aprova as ferramentas do PAR pelo nome que elas têm no plugin (`mcp__plugin_par_prumo__*`). Acabam os pedidos de permissão a cada chamada.
+- O drift CLI×plugin (0.67.2 sem `validate`/`status`) deixa de ser possível; sai o
+  `_PF_DRIFT`, que nunca disparava
+  ([ADR-0019](docs/adr/adr-0019-preflight-uniforme-skills.md)).
+- O adeu passa a ser travado com as dependências transitivas e funciona offline. Antes, o
+  `uvx adeu==1.29.0` resolvia fastmcp 4.0.10 + mcp 2.2.0, nunca testados.
+- Mac Intel: `cryptography` < 49 nessa plataforma, porque a 49 não publica wheel Intel.
+- A mensagem de qmd ausente apontava um repositório errado.
 
 ### Adicionado
 
 - **Modo `/par:write export`**: guia a pesquisadora até o docx certo sem precisar saber o comando. Pergunta se é para o coautor revisar (citações travadas, volta com `review ingest`) ou a versão final (`--final`, para usar o Zotero no Word), roda o export e repassa os avisos (ADR-0037).
 - **`prumo write export --to docx --final`**: docx sem trava nas citações, para usar o Zotero no Word depois (Refresh, trocar estilo, editar citações). O docx padrão continua travado para a rodada de revisão, e por isso o Refresh do Zotero não reescreve as citações dele (ADR-0037).
+- `.claude/settings.json` no template: o PAR se atualiza sozinho no projeto e é oferecido aos
+  coautores. `prumo update` o traz aos projetos existentes.
+- Mensagem própria para o sandbox do Claude Code na preparação do ambiente (saída 77, com a
+  oferta de repetir fora do sandbox).
 
 ### Alterado
 
@@ -29,13 +40,78 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - Dentro do sandbox do Claude Code, o aviso do docx diz que o sandbox bloqueou o acesso ao Zotero e como repetir fora dele. O `--json` de `write export` e `write compose` ganha a chave `warnings` (aditiva).
 - `prumo doctor` não exige mais a opção "Allow other applications…" do Zotero. Uma única sonda ao Better BibTeX diz se o Zotero está aberto e se o Better BibTeX está instalado (ou ainda iniciando). A linha `zotero` passa a valer para `paper connect` e o vínculo do docx. Dentro do sandbox do Claude Code, o `doctor` e o `paper connect` dizem que o sandbox bloqueou o acesso ao Zotero, em vez de "Zotero fechado".
 - `prumo paper connect`: a recusa de `.bib` já conectado e a dica de export pendente passam a dizer a causa real (o Better BibTeX anterior a 9.0.65 não exporta itens novos com a janela do Zotero fechada).
+- **⚠ Breaking — o CLI `prumo` vem dentro do plugin e roda exatamente a versão dele**, travado
+  no `uv.lock` ([ADR-0038](docs/adr/adr-0038-plugin-unica-distribuicao.md); Princípios I, VII e
+  VIII). Acabam a instalação à parte e o `uv tool upgrade`. O único pré-requisito é o `uv` (o
+  `/par:start` instala). A 1ª chamada de cada versão que muda dependências prepara o ambiente
+  (internet, cerca de 60 MB, uma vez).
+- **⚠ Breaking — `prumo init` não copia mais skills e agents para `.claude/`.** `prumo update`
+  move as cópias antigas para `.prumo/legacy-copies/<AAAAMMDD-HHMMSS>/`, sem apagar nada, porque
+  elas sombreavam o plugin ([ADR-0038](docs/adr/adr-0038-plugin-unica-distribuicao.md) supersede
+  em parte a [ADR-0032](docs/adr/adr-0032-superficie-por-dominio-e-modos.md) e a
+  [ADR-0033](docs/adr/adr-0033-subagents-nomeados.md)).
+- **⚠ Breaking — `prumo paper connect`, `prumo init` e `prumo update` deixam de ser
+  pré-aprovados pelas skills** e pedem confirmação
+  ([ADR-0026](docs/adr/adr-0026-mcp-prumo-dominio-paper.md)).
+- **⚠ Breaking — o perfil do Zettlr passa a usar uma cópia do filtro em `docs/templates/`:**
+  regenere o perfil e reimporte-o uma vez. O `prumo write zettlr-profile` acrescenta o perfil ao
+  `.gitignore` do projeto, porque ele traz caminhos desta máquina.
+- **⚠ Breaking — regressão honesta: Windows (nativo e WSL) declarado sem suporte**, com
+  mensagem fixa. O onboarding citava instaladores nativos não validados.
 
 ### Removido
 
 - **⚠ Breaking — anotações e notas do Zotero saem do PAR** (ADR-0037). Saem `prumo paper sync-annotations`, `sync-notes` e `sync-all`; a tool MCP `paper_sync_all` (o servidor passa de 11 para 10 tools); os re-exports `sync_all`, `sync_annotations` e `sync_notes` de `par.domains.paper.api`; a exceção `ZoteroApiError`; e a regra `duplicate_item_key` do `paper lint`. Em 15 projetos auditados, nenhum desses comandos tinha gerado arquivo. Os `_annotations.md` e `note__*.md` que existirem continuam onde estão e legíveis (Princípio IV). Para "o que eu anotei no paper X", o modo `paper library` aponta uma ferramenta opcional de terceiros. Quem usava `sync-all` passa a usar `prumo paper sync` (Princípios VI e VIII).
 - Os filtros Lua do pipeline antigo (`zotero.lua` e `zotero_bibliography_docx.lua`, 2.195 linhas), sem uso desde o filtro atual (Princípio VI).
+- **⚠ Breaking — `prumo init --integration/-i`**, a chave `integrations` do `prumo init --json`
+  e a exceção pública `par.IntegrationError` (Princípio VI).
+- **⚠ Breaking — o console script `prumo-zettlr-export`.** O docx canônico se pede ao Claude
+  ("exporta o docx canônico de <arquivo>").
+- **⚠ Breaking — `prumo paper verify-refs --deep`**, e com ele o parâmetro `deep` de
+  `verify_refs` e a exceção `RefcheckerUnavailableError`. A chave `deep` do JSON continua,
+  sempre `false` (Princípio IV).
+- **⚠ Breaking — o servidor MCP `qmd` sai do plugin.** O qmd vira CLI opcional
+  (`npm install -g @tobilu/qmd`).
 
-Para atualizar: além do plugin, rode `uv tool upgrade prumo-assistant-for-researcher`. O filtro corrigido vem com o CLI, e o perfil do Zettlr pega a correção sem ser regerado.
+### Documentação
+
+- README e onboarding: trilha pela aba Code; Cowork e chat só com julgamento; desinstalação
+  limpa.
+- RELEASING: versão carimbada pelo `gen_indexes` (passos 3, 4 e 6); "abra uma sessão nova" no
+  lugar de `/reload-plugins`.
+
+### Para atualizar (uma vez, na 0.71.0)
+
+A ordem importa: o perfil do
+Zettlr é regenerado antes de remover o CLI antigo, porque o perfil importado hoje aponta para o
+filtro dentro desse CLI.
+
+1. **Atualize o PAR e abra uma sessão nova.** A 1ª chamada prepara o ambiente.
+2. **Em cada `pj_*`:** peça "atualiza o projeto" (`prumo update`). As cópias de `.claude/skills`
+   e `.claude/agents` com nome do PAR vão para `.prumo/legacy-copies/<AAAAMMDD-HHMMSS>/`, e entra
+   `.claude/settings.json` se faltar.
+3. **Zettlr:**
+   - peça "regenera o perfil do Zettlr" (`prumo write zettlr-profile`) e reimporte
+     `docs/templates/prumo-docx.yaml` uma última vez; o comando também acrescenta o perfil ao
+     `.gitignore` do projeto;
+   - apague o comando custom "prumo docx (canônico)" (Settings → Import/Export → Custom export
+     commands);
+   - o `doctor` acusa um perfil que ainda aponte o caminho do `uv tool`.
+4. **CLI global antigo** (`uv tool install`, que o dono e o colega do piloto têm): o preflight e
+   o `/par:start` oferecem uma vez `uv tool uninstall prumo-assistant-for-researcher`, ou rode
+   você mesmo, depois do item 3. Enquanto ele existir, o hook garante que o `prumo` da sessão é o
+   do plugin.
+5. **qmd:** quem usava a busca semântica confere `qmd --version`; sem ele,
+   `npm install -g @tobilu/qmd`. Não há o que registrar como MCP.
+6. **Dono (dev):**
+   - o `.claude/settings.json` do repo já traz `disabledMcpjsonServers`;
+   - desenvolva com `claude --plugin-dir .`;
+   - o qmd como MCP é opcional e fica fora do produto: `claude mcp add --scope user qmd -- qmd mcp`.
+7. **Zotero (Spec B, ADR-0037):**
+   - atualize o Better BibTeX para 9.0.65 ou mais novo (Tools → Plugins);
+   - quem ligou "Allow other applications" só pelo PAR pode desligar, a menos que use o 54yyyu;
+   - scripts com `prumo paper sync-all` passam a `prumo paper sync`;
+   - nada a fazer nos arquivos: `_annotations.md` e `note__*.md` ficam.
 
 ## [0.70.2] - 2026-09-13
 
