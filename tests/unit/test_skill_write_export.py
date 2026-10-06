@@ -7,10 +7,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from typer.testing import CliRunner
+import click
+import typer
 
-from par.cli import app
 from par.core.skills import parse_skill_file
+from par.domains.write.cli import write_app
 
 _SKILLS = Path(__file__).resolve().parents[2] / "skills"
 _MODE = _SKILLS / "write" / "modes" / "export.md"
@@ -60,5 +61,8 @@ def test_porta_lista_o_modo() -> None:
 
 
 def test_cli_tem_a_flag_que_a_skill_cita() -> None:
-    result = CliRunner().invoke(app, ["write", "export", "--help"])
-    assert "--final" in result.output
+    # Introspecção, não `--help`: o Rich colore o help no CI e parte o texto.
+    group = typer.main.get_command(write_app)
+    assert isinstance(group, click.Group)
+    export = group.commands["export"]
+    assert "--final" in {opt for param in export.params for opt in param.opts}
