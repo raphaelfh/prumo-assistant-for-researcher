@@ -16,14 +16,17 @@ não funcionam no plano gratuito.
 ## 1. Instalar o plugin, direto na conversa
 
 1. Abra o app Claude → aba **Code**.
-2. Cole:
+2. Cole, um de cada vez:
 
    ```
-   /plugin install par --marketplace raphaelfh/prumo-assistant-for-researcher
+   /plugin marketplace add raphaelfh/prumo-assistant-for-researcher
+   /plugin install par@prumo-assistant-for-researcher
    ```
 
-   e escolha **Instalar para você**. (Se o comando não for aceito, use o
-   caminho pela interface: **+** → **Plugins** → **Add plugin**.)
+   e escolha **Instalar para você**. O primeiro comando registra o catálogo do
+   PAR (uma vez só); o segundo instala o plugin. (Se o comando não for aceito,
+   use o caminho pela interface: **+** → **Plugins** → **Add plugin**, com o
+   endereço `raphaelfh/prumo-assistant-for-researcher`.)
 3. Abra uma sessão nova e peça `/par:start`.
 
 O catálogo mostra o nome do plugin (`PAR`) e a versão publicada no momento —

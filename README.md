@@ -15,9 +15,14 @@ Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de
 Você não precisa de terminal para usar o PAR. Três passos:
 
 1. Abra o app Claude (plano pago — Pro ou Max) → aba **Code**.
-2. Cole `/plugin install par --marketplace raphaelfh/prumo-assistant-for-researcher`
-   → **Instalar para você**. (Se o comando não for aceito, use o caminho pela
-   interface: **+** → **Plugins** → **Add plugin**.)
+2. Cole, um de cada vez:
+   ```
+   /plugin marketplace add raphaelfh/prumo-assistant-for-researcher
+   /plugin install par@prumo-assistant-for-researcher
+   ```
+   e escolha **Instalar para você**. (Se o comando não for aceito, use o caminho
+   pela interface: **+** → **Plugins** → **Add plugin**, com o endereço
+   `raphaelfh/prumo-assistant-for-researcher`.)
 3. Abra uma sessão nova e peça `/par:start`.
 
 O `/par:start` confere o que falta e pede seu consentimento a cada comando. O
