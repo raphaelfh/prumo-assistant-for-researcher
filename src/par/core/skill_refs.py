@@ -17,13 +17,17 @@ from pathlib import Path
 from par.core.skills import SkillRef
 
 __all__ = [
+    "ObsoleteRef",
     "RefChange",
     "backup_plugin_copies",
     "exclude_paths",
     "migrate_skill_names",
     "move_plugin_copies",
+    "obsolete_ref_issues",
+    "obsolete_refs",
     "plugin_copies",
     "rewrite_invocations",
+    "scan_obsolete_refs",
     "scan_skill_refs",
 ]
 
@@ -95,6 +99,106 @@ def scan_skill_refs(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[RefCh
 def migrate_skill_names(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[RefChange]:
     """Reescreve as invocações antigas do projeto. Idempotente."""
     return _walk(pj_root, legacy, write=True)
+
+
+#: Arquivos que o agente lê como instrução. Histórico (``docs/_log.md``, ``decisions/``,
+#: ``_archive/``) fica de fora por desenho: registra o passado, não ensina o presente.
+_INSTRUCTION_FILES = ("CLAUDE.md", "AGENTS.md", "README.md", "docs/project_guide.md", "Makefile")
+_INSTRUCTION_GLOB = ".claude/rules/*.md"
+
+#: O que o PAR não usa mais → o que vale hoje, na ordem em que a issue fala.
+#: Menção ao CLI ``qmd`` vale (ADR-0038, item 7); só o servidor MCP dele saiu.
+_OBSOLETE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "`prumo-assist` (o plugin hoje é `par`)",
+        re.compile(r"(?<![\w-])prumo-assist(?![A-Za-z])"),
+    ),
+    (
+        "MCP do qmd (o qmd hoje é só CLI: `qmd query`)",
+        re.compile(r"mcp__qmd__|\bMCP\b[^\n]{0,10}?\bqmd\b|\bqmd\b[^\n]{0,10}?\bMCP\b"),
+    ),
+    (
+        "`prumo-zettlr-export` (saiu; o docx vem de `/par:write export`)",
+        re.compile(r"prumo-zettlr-export"),
+    ),
+    (
+        "`uv tool install` do PAR (o CLI vem com o plugin)",
+        re.compile(r"uv tool install\b[^\n]*prumo-assistant-for-researcher"),
+    ),
+    ("`.Codex/` (o caminho é `.claude/`)", re.compile(r"\.Codex/")),
+)
+
+
+@dataclass(frozen=True)
+class ObsoleteRef:
+    """Linha ``line`` de ``path`` cita o que o PAR não usa mais (``label`` diz o que vale)."""
+
+    path: str
+    line: int
+    label: str
+
+
+def obsolete_refs(text: str) -> list[tuple[int, str]]:
+    """``(linha, rótulo)`` de cada referência obsoleta em ``text``; linha conta de 1."""
+    return [
+        (n, label)
+        for n, line in enumerate(text.splitlines(), start=1)
+        for label, pattern in _OBSOLETE_PATTERNS
+        if pattern.search(line)
+    ]
+
+
+def _instruction_files(pj_root: Path) -> list[Path]:
+    """Arquivos de instrução do pj; link para um arquivo já listado não repete."""
+    candidates = [pj_root / rel for rel in _INSTRUCTION_FILES]
+    candidates += sorted(pj_root.glob(_INSTRUCTION_GLOB))
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for path in candidates:
+        if not path.is_file() or path.resolve() in seen:
+            continue
+        seen.add(path.resolve())
+        out.append(path)
+    return out
+
+
+def scan_obsolete_refs(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[ObsoleteRef]:
+    """Referências obsoletas nos arquivos de instrução do pj, sem escrever nada.
+
+    O texto é lido como fica depois do ``prumo update``: invocação antiga
+    (``prumo-assist:<antigo>``) o update reescreve sozinho e é do ``[skill_obsoleta]``.
+    """
+    out: list[ObsoleteRef] = []
+    for path in _instruction_files(pj_root):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        rel = path.relative_to(pj_root).as_posix()
+        text, _ = rewrite_invocations(text, legacy)
+        out.extend(ObsoleteRef(rel, n, label) for n, label in obsolete_refs(text))
+    return out
+
+
+def obsolete_ref_issues(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[str]:
+    """Issue ÚNICA ``[referencia_obsoleta]`` (ou lista vazia): um remédio, editar as linhas.
+
+    As linhas vêm agrupadas pelo que mudou, para cada correção ser dita uma vez.
+    """
+    refs = scan_obsolete_refs(pj_root, legacy)
+    if not refs:
+        return []
+    groups: dict[str, list[str]] = {}
+    for r in refs:
+        groups.setdefault(r.label, []).append(f"{r.path}:{r.line}")
+    partes = [
+        f"{label}: {', '.join(groups[label])}" for label, _ in _OBSOLETE_PATTERNS if label in groups
+    ]
+    return [
+        "[referencia_obsoleta] instruções do projeto citam o que o PAR não usa mais — "
+        + "; ".join(partes)
+        + ". Edite estas linhas (o `prumo update` não as corrige)."
+    ]
 
 
 #: Scripts do CLI antigo que projetos de antes do pacote ``prumo`` guardavam em
