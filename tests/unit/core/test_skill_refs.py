@@ -248,3 +248,102 @@ def test_backup_plugin_copies_move_para_legacy_copies(tmp_path: Path) -> None:
 def test_backup_plugin_copies_sem_rels_devolve_none(tmp_path: Path) -> None:
     assert backup_plugin_copies(tmp_path, [], "t") is None
     assert not (tmp_path / ".prumo").exists()
+
+
+# --- cópias fora de .claude/skills e .claude/agents (scripts, Codex, make) ------
+
+
+def _pj_com_vendorizados(tmp_path: Path) -> Path:
+    scripts = tmp_path / ".claude" / "scripts"
+    scripts.mkdir(parents=True)
+    for name in ("_bib.py", "cite_graph.py", "README_zotero_annotations.md", "meu_script.py"):
+        (scripts / name).write_text(f"# {name}\n", encoding="utf-8")
+    (tmp_path / ".claude" / "make").mkdir()
+    (tmp_path / ".claude" / "make" / ".gitkeep").write_text("", encoding="utf-8")
+    codex = tmp_path / ".codex" / "agents"
+    codex.mkdir(parents=True)
+    for name in ("reader.toml", "meu-agent.toml"):
+        (codex / name).write_text(f"# {name}\n", encoding="utf-8")
+    (tmp_path / ".codex" / "config.toml").write_text("model = 'x'\n", encoding="utf-8")
+    for name in ("paper", "wiki-query", "minha-skill"):
+        d = tmp_path / ".agents" / "skills" / name
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_text(f"# {name}\n", encoding="utf-8")
+    return tmp_path
+
+
+def test_plugin_copies_lista_scripts_antigos_espelhos_do_codex_e_make_vazio(
+    tmp_path: Path,
+) -> None:
+    pj = _pj_com_vendorizados(tmp_path)
+    assert plugin_copies(pj, SKILL_NAMES, AGENT_FILES) == [
+        ".claude/scripts/README_zotero_annotations.md",
+        ".claude/scripts/_bib.py",
+        ".claude/scripts/cite_graph.py",
+        ".claude/make",
+        ".codex/agents/reader.toml",
+        ".agents/skills/paper",
+        ".agents/skills/wiki-query",
+    ]
+
+
+def test_plugin_copies_ignora_make_com_arquivo_do_pesquisador(tmp_path: Path) -> None:
+    make = tmp_path / ".claude" / "make"
+    make.mkdir(parents=True)
+    (make / "meu.mk").write_text("x:\n", encoding="utf-8")
+    assert plugin_copies(tmp_path, SKILL_NAMES, AGENT_FILES) == []
+
+
+def test_plugin_copies_aceita_make_sem_nada(tmp_path: Path) -> None:
+    (tmp_path / ".claude" / "make").mkdir(parents=True)
+    assert plugin_copies(tmp_path, SKILL_NAMES, AGENT_FILES) == [".claude/make"]
+
+
+def test_move_vendorizados_vai_para_o_backup_e_poupa_o_resto(tmp_path: Path) -> None:
+    pj = _pj_com_vendorizados(tmp_path)
+    rels = plugin_copies(pj, SKILL_NAMES, AGENT_FILES)
+
+    assert backup_plugin_copies(pj, rels, "t") == ".prumo/legacy-copies/t"
+
+    bk = pj / ".prumo" / "legacy-copies" / "t"
+    assert (bk / "scripts" / "_bib.py").read_text(encoding="utf-8") == "# _bib.py\n"
+    assert (bk / "make" / ".gitkeep").is_file()
+    assert (bk / ".codex" / "agents" / "reader.toml").is_file()
+    assert (bk / ".agents" / "skills" / "paper" / "SKILL.md").is_file()
+    assert (pj / ".claude" / "scripts" / "meu_script.py").is_file()
+    assert not (pj / ".claude" / "scripts" / "_bib.py").exists()
+    assert not (pj / ".claude" / "make").exists()
+    assert (pj / ".codex" / "agents" / "meu-agent.toml").is_file()
+    assert (pj / ".codex" / "config.toml").is_file()
+    assert (pj / ".agents" / "skills" / "minha-skill" / "SKILL.md").is_file()
+    assert plugin_copies(pj, SKILL_NAMES, AGENT_FILES) == []
+
+
+def test_move_vendorizados_apaga_so_diretorios_que_ficam_vazios(tmp_path: Path) -> None:
+    (tmp_path / ".claude" / "scripts").mkdir(parents=True)
+    (tmp_path / ".claude" / "scripts" / "_csl.py").write_text("x\n", encoding="utf-8")
+    (tmp_path / ".codex" / "agents").mkdir(parents=True)
+    (tmp_path / ".codex" / "agents" / "verifier.toml").write_text("x\n", encoding="utf-8")
+    (tmp_path / ".agents" / "skills" / "wiki").mkdir(parents=True)
+    rels = plugin_copies(tmp_path, SKILL_NAMES | {"wiki"}, AGENT_FILES | {"verifier.md"})
+
+    move_plugin_copies(tmp_path, rels, tmp_path / ".prumo" / "legacy-copies" / "t")
+
+    assert not (tmp_path / ".claude" / "scripts").exists()
+    assert not (tmp_path / ".codex").exists()
+    assert not (tmp_path / ".agents").exists()
+    assert (tmp_path / ".claude").is_dir()
+
+
+def test_plugin_copies_ignora_codex_e_agents_que_sao_link(tmp_path: Path) -> None:
+    fora = _pj_com_vendorizados(tmp_path / "fora")
+    pj = tmp_path / "pj"
+    pj.mkdir()
+    (pj / ".codex").symlink_to(fora / ".codex", target_is_directory=True)
+    (pj / ".agents").mkdir()
+    (pj / ".agents" / "skills").symlink_to(fora / ".agents" / "skills", target_is_directory=True)
+    (pj / ".claude").mkdir()
+    (pj / ".claude" / "scripts").symlink_to(fora / ".claude" / "scripts", target_is_directory=True)
+
+    assert plugin_copies(pj, SKILL_NAMES, AGENT_FILES) == []
+    assert (fora / ".codex" / "agents" / "reader.toml").is_file()

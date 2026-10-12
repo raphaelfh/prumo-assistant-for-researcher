@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 import shutil
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -97,63 +97,105 @@ def migrate_skill_names(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[R
     return _walk(pj_root, legacy, write=True)
 
 
+#: Scripts do CLI antigo que projetos de antes do pacote ``prumo`` guardavam em
+#: ``.claude/scripts/``. Lista FECHADA: script de outro nome é do pesquisador.
+_LEGACY_SCRIPTS: frozenset[str] = frozenset(
+    {
+        "README_zotero_annotations.md",
+        "_bib.py",
+        "_csl.py",
+        "_obsidian_md.py",
+        "cite_graph.py",
+        "cite_lookup.py",
+        "export_page.py",
+        "extract_comments.py",
+        "paper_sync.py",
+        "sync_zotero_annotations.py",
+        "sync_zotero_pdfs.py",
+    }
+)
+
+#: O que o ``.claude/make/`` do ``pj_base`` antigo tinha quando ninguém o usou.
+_EMPTY_MAKE = frozenset({".gitkeep", ".DS_Store"})
+
+#: Diretórios que só guardavam cópias do PAR; saem do pj se o move os esvaziar.
+_COPY_CONTAINERS = (
+    ".claude/skills",
+    ".claude/agents",
+    ".claude/scripts",
+    ".codex/agents",
+    ".codex",
+    ".agents/skills",
+    ".agents",
+)
+
+
 def _owned_dir(pj_root: Path, d: Path) -> bool:
-    """``d`` é diretório real do pj: nem ele nem ``.claude`` são link, e resolve dentro do pj."""
-    claude = pj_root / ".claude"
-    if claude.is_symlink() or d.is_symlink() or not d.is_dir():
-        return False
-    return d.resolve().is_relative_to(pj_root.resolve())
+    """``d`` é diretório real do pj: nenhum segmento do pj até ele é link, e resolve dentro do pj."""
+    cur = pj_root
+    for part in d.relative_to(pj_root).parts:
+        cur = cur / part
+        if cur.is_symlink():
+            return False
+    return d.is_dir() and d.resolve().is_relative_to(pj_root.resolve())
+
+
+def _entries(pj_root: Path, rel_dir: str, keep: Callable[[Path], bool]) -> list[str]:
+    """Filhos de ``rel_dir`` que ``keep`` aceita, em ordem alfabética (vazio se não é do pj)."""
+    d = pj_root / rel_dir
+    if not _owned_dir(pj_root, d):
+        return []
+    return [f"{rel_dir}/{p.name}" for p in sorted(d.iterdir(), key=lambda p: p.name) if keep(p)]
 
 
 def plugin_copies(
     pj_root: Path, skill_names: Iterable[str], agent_files: Iterable[str]
 ) -> list[str]:
-    """Cópias de skills/agents do PAR deixadas no ``pj_*`` por um ``prumo init`` antigo (A11).
+    """Cópias do que o plugin provê, deixadas no ``pj_*`` por versões antigas do PAR (A11).
 
-    Devolve caminhos POSIX relativos ao pj: primeiro ``.claude/skills/<n>`` (diretório,
-    inclusive link para diretório, com ``n`` em ``skill_names``), depois
-    ``.claude/agents/<f>`` (arquivo com ``f`` em ``agent_files``); cada grupo em ordem
-    alfabética. Nomes fora dessas listas nunca entram. Só lista: nada é movido nem apagado.
+    Devolve caminhos POSIX relativos ao pj, nesta ordem e cada grupo em ordem
+    alfabética: ``.claude/skills/<n>`` (diretório, inclusive link para diretório, com
+    ``n`` em ``skill_names``), ``.claude/agents/<f>`` (``f`` em ``agent_files``),
+    ``.claude/scripts/<s>`` (``s`` em :data:`_LEGACY_SCRIPTS`), ``.claude/make`` (só se
+    vazio), os espelhos do Codex ``.codex/agents/<agent>.toml`` e ``.agents/skills/<n>``.
+    Nomes fora dessas listas nunca entram. Só lista: nada é movido nem apagado.
 
-    ``.claude``, ``.claude/skills`` ou ``.claude/agents`` que seja link (ou resolva fora
-    do pj) não é do pj: o conteúdo pertence a outra árvore e nunca é listado — senão o
-    ``prumo update`` arrancaria diretórios de fora do projeto.
+    Diretório que seja link (ou resolva fora do pj) em qualquer segmento não é do pj: o
+    conteúdo pertence a outra árvore e nunca é listado — senão o ``prumo update``
+    arrancaria diretórios de fora do projeto.
     """
     skills = frozenset(skill_names)
     agents = frozenset(agent_files)
-    out: list[str] = []
-    skills_dir = pj_root / ".claude" / "skills"
-    if _owned_dir(pj_root, skills_dir):
-        out.extend(
-            f".claude/skills/{d.name}"
-            for d in sorted(skills_dir.iterdir(), key=lambda p: p.name)
-            if d.name in skills and d.is_dir()
-        )
-    agents_dir = pj_root / ".claude" / "agents"
-    if _owned_dir(pj_root, agents_dir):
-        out.extend(
-            f".claude/agents/{f.name}"
-            for f in sorted(agents_dir.iterdir(), key=lambda p: p.name)
-            if f.name in agents and f.is_file()
-        )
-    return out
+    codex_agents = frozenset(f"{Path(a).stem}.toml" for a in agents)
+    make = pj_root / ".claude" / "make"
+    empty_make = _owned_dir(pj_root, make) and all(p.name in _EMPTY_MAKE for p in make.iterdir())
+    return [
+        *_entries(pj_root, ".claude/skills", lambda p: p.name in skills and p.is_dir()),
+        *_entries(pj_root, ".claude/agents", lambda p: p.name in agents and p.is_file()),
+        *_entries(pj_root, ".claude/scripts", lambda p: p.name in _LEGACY_SCRIPTS and p.is_file()),
+        *([".claude/make"] if empty_make else []),
+        *_entries(pj_root, ".codex/agents", lambda p: p.name in codex_agents and p.is_file()),
+        *_entries(pj_root, ".agents/skills", lambda p: p.name in skills and p.is_dir()),
+    ]
 
 
 def move_plugin_copies(pj_root: Path, rels: Sequence[str], dest: Path) -> list[str]:
-    """Move as cópias listadas por :func:`plugin_copies` para ``dest/{skills,agents}/``.
+    """Move as cópias listadas por :func:`plugin_copies` para ``dest/``.
 
+    O que vinha de ``.claude/`` cai em ``dest/{skills,agents,scripts,make}``; os
+    espelhos do Codex guardam o caminho inteiro (``dest/.codex/...``, ``dest/.agents/...``).
     Nada é apagado: cada cópia vai inteira para o backup (``.prumo/legacy-copies/...``),
-    e nomes fora de ``rels`` nunca são tocados. Depois do move, ``.claude/skills`` e
-    ``.claude/agents`` saem só se ficarem vazios. Com ``rels`` vazio, ``dest`` não é criado.
+    e nomes fora de ``rels`` nunca são tocados. Depois do move, os diretórios que só
+    guardavam cópias saem se ficarem vazios. Com ``rels`` vazio, ``dest`` não é criado.
     """
     for rel in rels:
-        target = dest / Path(rel).relative_to(".claude")
+        target = dest / rel.removeprefix(".claude/")
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(pj_root / rel), str(target))
     if rels:
-        for sub in ("skills", "agents"):
-            d = pj_root / ".claude" / sub
-            if d.is_dir() and not d.is_symlink() and not any(d.iterdir()):
+        for container in _COPY_CONTAINERS:
+            d = pj_root / container
+            if _owned_dir(pj_root, d) and not any(d.iterdir()):
                 d.rmdir()
     return list(rels)
 

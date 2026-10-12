@@ -191,8 +191,20 @@ def _plugin_agent_files() -> set[str]:
 
 
 def _plugin_copies(pj_root: Path) -> list[str]:
-    """Cópias do PAR deixadas em ``.claude/`` do pj por um ``prumo init`` antigo."""
+    """Cópias do que o plugin provê, deixadas no pj por versões antigas do PAR (A11)."""
     return plugin_copies(pj_root, _plugin_skill_names(), _plugin_agent_files())
+
+
+def _group_paths(rels: list[str]) -> str:
+    """``a/x, a/y, b/z`` vira ``a/{x, y}, b/z``: cada diretório é dito uma vez (Princípio VIII)."""
+    groups: dict[str, list[str]] = {}
+    for rel in rels:
+        parent, _, name = rel.rpartition("/")
+        groups.setdefault(parent, []).append(name)
+    return ", ".join(
+        f"{parent}/{names[0]}" if len(names) == 1 else f"{parent}/{{{', '.join(names)}}}"
+        for parent, names in groups.items()
+    )
 
 
 def _legacy_stamp() -> str:
@@ -609,15 +621,16 @@ def doctor_command(
     # MESMO remédio, e remédio igual é mensagem única (Princípio VIII).
     issues.extend(standard_issues(target, _resolve_template_dir()))
 
-    # Superfície por domínio (ADR-0032, A11): cópias antigas do PAR em .claude/
-    # e invocações antigas no projeto. Remédio único → issue única (Princípio VIII).
-    # A invocação DENTRO de uma cópia não conta: a cópia vai ser movida, não reescrita.
+    # Superfície por domínio (ADR-0032, A11): cópias antigas do que o plugin provê
+    # (skills, agents, scripts do CLI antigo, espelhos do Codex) e invocações antigas
+    # no projeto. Remédio único → issue única (Princípio VIII). A invocação DENTRO de
+    # uma cópia não conta: a cópia vai ser movida, não reescrita.
     copias = _plugin_copies(target)
     antigos = [c.path for c in exclude_paths(scan_skill_refs(target, _legacy_skill_map()), copias)]
     if copias:
         issues.append(
-            "[skill_obsoleta] cópias antigas das skills/agents do PAR em .claude/ ("
-            + ", ".join(copias)
+            "[skill_obsoleta] cópias antigas do que o plugin já traz ("
+            + _group_paths(copias)
             + ") sombreiam o plugin. Rode: prumo update — elas vão para "
             ".prumo/legacy-copies/<AAAAMMDD-HHMMSS>/, nada é apagado; se você customizou "
             "alguma, recrie-a em .claude/skills/<um-nome-seu>/"
@@ -832,12 +845,12 @@ def _update_summary(
         copias = ""
     elif dry_run:
         copias = (
-            f"{copies} cópia(s) antiga(s) do PAR a mover de .claude/ para "
+            f"{copies} cópia(s) antiga(s) do PAR a mover para "
             ".prumo/legacy-copies/ (nada é apagado). "
         )
     else:
         copias = (
-            f"{copies} cópia(s) antiga(s) do PAR saíram de .claude/ para {backup}/ "
+            f"{copies} cópia(s) antiga(s) do PAR saíram do projeto para {backup}/ "
             "(nada foi apagado; o plugin passa a valer). Se você tinha customizado alguma, "
             "recrie-a com outro nome em .claude/skills/<um-nome-seu>/. "
         )
