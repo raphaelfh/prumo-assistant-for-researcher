@@ -609,5 +609,7 @@ def test_start_cobre_superficie_uv_e_tools() -> None:
         "Better BibTeX ≥ 9.0.65",
         "npm install -g @tobilu/qmd",
         "nunca ofereça instalar o CLI à parte",
+        "[skill_obsoleta]",
+        "[referencia_obsoleta]",
     ):
         assert needle in text, needle
