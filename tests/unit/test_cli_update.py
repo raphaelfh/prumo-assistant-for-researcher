@@ -265,8 +265,45 @@ def test_update_resumo_cita_o_backup(tmp_path: Path) -> None:
 
     assert res.exit_code == 0, res.output
     out = " ".join(res.output.split())
-    assert "cópia(s) antiga(s) do PAR saíram de .claude/ para .prumo/legacy-copies/" in out
+    assert "cópia(s) antiga(s) do PAR saíram do projeto para .prumo/legacy-copies/" in out
     assert "nada foi apagado" in out
+
+
+def test_update_move_scripts_antigos_e_espelhos_do_codex(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    scripts = pj / ".claude" / "scripts"
+    scripts.mkdir()
+    (scripts / "cite_lookup.py").write_text("antigo\n", encoding="utf-8")
+    (scripts / "meu_script.py").write_text("meu\n", encoding="utf-8")
+    (pj / ".claude" / "make").mkdir()
+    (pj / ".claude" / "make" / ".gitkeep").write_text("", encoding="utf-8")
+    (pj / ".codex" / "agents").mkdir(parents=True)
+    (pj / ".codex" / "agents" / "verifier.toml").write_text("v\n", encoding="utf-8")
+    (pj / ".agents" / "skills" / "wiki").mkdir(parents=True)
+    (pj / ".agents" / "skills" / "wiki" / "SKILL.md").write_text("w\n", encoding="utf-8")
+    (pj / "AGENTS.md").write_text("# meu AGENTS\n", encoding="utf-8")
+
+    res = runner.invoke(app, ["update", str(pj), "--json"])
+
+    assert res.exit_code == 0, res.output
+    payload = json.loads(res.output)
+    assert payload["plugin_copies"] == [
+        ".claude/scripts/cite_lookup.py",
+        ".claude/make",
+        ".codex/agents/verifier.toml",
+        ".agents/skills/wiki",
+    ]
+    (bk,) = _backups(pj)
+    assert (bk / "scripts" / "cite_lookup.py").read_text(encoding="utf-8") == "antigo\n"
+    assert (bk / "make" / ".gitkeep").is_file()
+    assert (bk / ".codex" / "agents" / "verifier.toml").is_file()
+    assert (bk / ".agents" / "skills" / "wiki" / "SKILL.md").is_file()
+    assert (scripts / "meu_script.py").read_text(encoding="utf-8") == "meu\n"
+    assert not (pj / ".claude" / "make").exists()
+    assert not (pj / ".codex").exists()
+    assert not (pj / ".agents").exists()
+    assert (pj / "AGENTS.md").read_text(encoding="utf-8") == "# meu AGENTS\n"
 
 
 # --- D4/A13: `.claude/settings.json` do template --------------------------------

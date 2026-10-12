@@ -245,6 +245,34 @@ def test_doctor_aponta_copias_e_invocacao_numa_issue_so(tmp_path: Path) -> None:
     assert ".claude/skills/paper/SKILL.md" not in depois
 
 
+def test_doctor_aponta_scripts_antigos_e_espelhos_do_codex_na_mesma_issue(
+    tmp_path: Path,
+) -> None:
+    pj = _project(tmp_path)
+    scripts = pj / ".claude" / "scripts"
+    scripts.mkdir()
+    for name in ("_bib.py", "paper_sync.py", "meu_script.py"):
+        (scripts / name).write_text("x\n", encoding="utf-8")
+    (pj / ".codex" / "agents").mkdir(parents=True)
+    (pj / ".codex" / "agents" / "reader.toml").write_text("x\n", encoding="utf-8")
+    (pj / ".agents" / "skills" / "paper-manager").mkdir(parents=True)
+    (pj / "AGENTS.md").write_text("# espelho do CLAUDE.md\n", encoding="utf-8")
+
+    obsoleta = _obsoletas(pj)
+
+    assert len(obsoleta) == 1, obsoleta
+    msg = obsoleta[0]
+    for trecho in (
+        ".claude/scripts/{_bib.py, paper_sync.py}",
+        ".codex/agents/reader.toml",
+        ".agents/skills/paper-manager",
+        "prumo update",
+    ):
+        assert trecho in msg, msg
+    assert "meu_script.py" not in msg
+    assert "AGENTS.md" not in msg
+
+
 def test_doctor_ignora_invocacao_dentro_das_copias(tmp_path: Path) -> None:
     pj = _project(tmp_path)
     _copia_paper(pj, "/par:peer-review\n")
