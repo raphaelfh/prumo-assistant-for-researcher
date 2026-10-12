@@ -761,6 +761,8 @@ def update_command(
             migrated = migrate_project_context(pj_root)
             skill_refs = migrate_skill_names(pj_root, legacy)
             copied = apply_template_update(pj_root, template, drift.missing)
+            # Mesmo tratamento do `init`: o que veio do template leva o nome do projeto.
+            apply_project_name(pj_root, pj_root.name, copied)
             confirmados = _confirm_diverged(console, drift.diverged, yes=yes)
             updated = apply_template_update(pj_root, template, confirmados)
 
