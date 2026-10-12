@@ -4,14 +4,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from par.core.skill_refs import (
+    ObsoleteRef,
     RefChange,
     backup_plugin_copies,
     exclude_paths,
     migrate_skill_names,
     move_plugin_copies,
+    obsolete_ref_issues,
+    obsolete_refs,
     plugin_copies,
     rewrite_invocations,
+    scan_obsolete_refs,
     scan_skill_refs,
 )
 from par.core.skills import SkillRef
@@ -347,3 +353,104 @@ def test_plugin_copies_ignora_codex_e_agents_que_sao_link(tmp_path: Path) -> Non
 
     assert plugin_copies(pj, SKILL_NAMES, AGENT_FILES) == []
     assert (fora / ".codex" / "agents" / "reader.toml").is_file()
+
+
+# --- [referencia_obsoleta]: linhas de instrução que ensinam o que saiu ----------
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "/plugin install prumo-assist",
+        "rode /prumo-assist:start",
+        "plugin prumo-assist.",
+        "use mcp__qmd__query para buscar",
+        "o MCP `qmd` indexa o wiki",
+        "busque pelo MCP qmd",
+        "o qmd (MCP) responde",
+        "exporte com prumo-zettlr-export doc.md",
+        "uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher",
+        "veja .Codex/rules/safe_outputs.md",
+    ],
+)
+def test_obsolete_refs_acha_referencia_que_saiu(line: str) -> None:
+    hits = obsolete_refs(f"# título\n{line}\n")
+    assert [n for n, _ in hits] == [2], hits
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "/plugin install par@prumo-assistant-for-researcher",
+        "github.com/raphaelfh/prumo-assistant-for-researcher",
+        "texto prumo-assisted pelo agente",
+        'qmd query "fator de risco"',
+        "busca semântica: qmd search, qmd embed",
+        "tools mcp__plugin_par_prumo__paper_find",
+        "uv tool install ruff",
+        ".codex/config.toml é do Codex",
+        "o servidor MCP do PAR sobe pelo lançador; o CLI qmd é opcional",
+    ],
+)
+def test_obsolete_refs_poupa_o_que_vale_hoje(line: str) -> None:
+    assert obsolete_refs(line) == []
+
+
+def test_obsolete_refs_mesma_linha_com_dois_motivos() -> None:
+    hits = obsolete_refs("prumo-assist com mcp__qmd__search\n")
+    assert [n for n, _ in hits] == [1, 1]
+    assert len({label for _, label in hits}) == 2
+
+
+def _pj_com_referencias(tmp_path: Path) -> Path:
+    (tmp_path / ".claude" / "rules").mkdir(parents=True)
+    (tmp_path / "CLAUDE.md").write_text("# pj\n\nqmd via MCP `qmd`\n", encoding="utf-8")
+    (tmp_path / ".claude" / "rules" / "wiki.md").write_text(
+        "use .Codex/rules/x.md\n", encoding="utf-8"
+    )
+    (tmp_path / "README.md").write_text(
+        "/prumo-assist:paper-manager sync\n/plugin install prumo-assist\n", encoding="utf-8"
+    )
+    (tmp_path / "Makefile").write_text("x:\n\tprumo-zettlr-export a.md\n", encoding="utf-8")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "_log.md").write_text("mcp__qmd__query (histórico)\n", encoding="utf-8")
+    (tmp_path / "notas.md").write_text("mcp__qmd__query\n", encoding="utf-8")
+    return tmp_path
+
+
+def test_scan_obsolete_refs_so_olha_arquivos_de_instrucao(tmp_path: Path) -> None:
+    pj = _pj_com_referencias(tmp_path)
+    refs = scan_obsolete_refs(pj, LEGACY)
+    assert [(r.path, r.line) for r in refs] == [
+        ("CLAUDE.md", 3),
+        ("README.md", 2),
+        ("Makefile", 2),
+        (".claude/rules/wiki.md", 1),
+    ]
+    assert all(isinstance(r, ObsoleteRef) for r in refs)
+
+
+def test_scan_obsolete_refs_le_link_para_o_mesmo_arquivo_uma_vez(tmp_path: Path) -> None:
+    (tmp_path / "CLAUDE.md").write_text("mcp__qmd__query\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").symlink_to(tmp_path / "CLAUDE.md")
+    assert [(r.path, r.line) for r in scan_obsolete_refs(tmp_path, LEGACY)] == [("CLAUDE.md", 1)]
+
+
+def test_obsolete_ref_issues_uma_issue_agrupada_por_motivo(tmp_path: Path) -> None:
+    pj = _pj_com_referencias(tmp_path)
+    (pj / "AGENTS.md").write_text("veja .Codex/agents/\n", encoding="utf-8")
+
+    (issue,) = obsolete_ref_issues(pj, LEGACY)
+
+    assert issue.startswith("[referencia_obsoleta]")
+    assert "AGENTS.md:1, .claude/rules/wiki.md:1" in issue
+    for trecho in ("CLAUDE.md:3", "README.md:2", "Makefile:2", "Edite estas linhas"):
+        assert trecho in issue, issue
+    assert "README.md:1" not in issue
+    assert "_log.md" not in issue
+    assert issue.count(".Codex/") == 1
+
+
+def test_obsolete_ref_issues_sem_referencia_eh_vazio(tmp_path: Path) -> None:
+    (tmp_path / "CLAUDE.md").write_text('rode `qmd query "x"` e /par:start\n', encoding="utf-8")
+    assert obsolete_ref_issues(tmp_path, LEGACY) == []

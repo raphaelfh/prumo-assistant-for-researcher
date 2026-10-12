@@ -317,3 +317,33 @@ def test_doctor_reprova_dado_versionavel(tmp_path: Path) -> None:
         result = runner.invoke(app, ["doctor", str(pj), "--json"])
     assert result.exit_code == 1, result.output
     assert issue in json.loads(result.stdout)["issues"]
+
+
+def _referencias(pj: Path) -> list[str]:
+    with patch("par.cli.check_external_deps", return_value=[]):
+        res = runner.invoke(app, ["doctor", str(pj), "--json"])
+    issues: list[str] = json.loads(res.stdout)["issues"]
+    return [i for i in issues if i.startswith("[referencia_obsoleta]")]
+
+
+def test_doctor_aponta_referencia_obsoleta_com_arquivo_e_linha(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    (pj / "CLAUDE.md").write_text(
+        "# pj_x\n/plugin install prumo-assist\nbusca: qmd query\n", encoding="utf-8"
+    )
+
+    (issue,) = _referencias(pj)
+
+    assert "CLAUDE.md:2" in issue
+    assert "CLAUDE.md:3" not in issue
+    assert "Edite estas linhas" in issue
+
+
+def test_doctor_projeto_recem_criado_nao_tem_referencia_obsoleta(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_novo"
+    res = runner.invoke(
+        app, ["init", str(pj), "--with", "code,data,ml,notebooks,clinical", "--no-git", "--json"]
+    )
+    assert res.exit_code == 0, res.output
+
+    assert _referencias(pj) == []

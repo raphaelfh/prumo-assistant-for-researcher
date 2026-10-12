@@ -67,6 +67,7 @@ from par.core.skill_refs import (
     backup_plugin_copies,
     exclude_paths,
     migrate_skill_names,
+    obsolete_ref_issues,
     plugin_copies,
     scan_skill_refs,
 )
@@ -626,7 +627,8 @@ def doctor_command(
     # no projeto. Remédio único → issue única (Princípio VIII). A invocação DENTRO de
     # uma cópia não conta: a cópia vai ser movida, não reescrita.
     copias = _plugin_copies(target)
-    antigos = [c.path for c in exclude_paths(scan_skill_refs(target, _legacy_skill_map()), copias)]
+    legacy = _legacy_skill_map()
+    antigos = [c.path for c in exclude_paths(scan_skill_refs(target, legacy), copias)]
     if copias:
         issues.append(
             "[skill_obsoleta] cópias antigas do que o plugin já traz ("
@@ -649,6 +651,10 @@ def doctor_command(
             f"invocações antigas em {', '.join(antigos)}"
             ". Rode `prumo update` para reescrever as invocações."
         )
+
+    # Instrução que ensina o que saiu (plugin antigo, MCP do qmd, CLI à parte): o remédio
+    # é editar a linha, e o `update` não toca texto do pesquisador — issue própria.
+    issues.extend(obsolete_ref_issues(target, legacy))
 
     if (target / "references").is_dir() and not pj_layout.is_legacy_layout(target):
         issues.append(
