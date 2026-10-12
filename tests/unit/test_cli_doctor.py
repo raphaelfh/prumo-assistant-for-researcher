@@ -254,8 +254,13 @@ def test_doctor_aponta_scripts_antigos_e_espelhos_do_codex_na_mesma_issue(
     for name in ("_bib.py", "paper_sync.py", "meu_script.py"):
         (scripts / name).write_text("x\n", encoding="utf-8")
     (pj / ".codex" / "agents").mkdir(parents=True)
-    (pj / ".codex" / "agents" / "reader.toml").write_text("x\n", encoding="utf-8")
+    (pj / ".codex" / "agents" / "reader.toml").write_text(
+        'developer_instructions = "via `prumo paper extract`"\n', encoding="utf-8"
+    )
     (pj / ".agents" / "skills" / "paper-manager").mkdir(parents=True)
+    (pj / ".agents" / "skills" / "paper-manager" / "SKILL.md").write_text(
+        "Rode `prumo paper sync` no pj_*.\n", encoding="utf-8"
+    )
     (pj / "AGENTS.md").write_text("# espelho do CLAUDE.md\n", encoding="utf-8")
 
     obsoleta = _obsoletas(pj)
@@ -271,6 +276,42 @@ def test_doctor_aponta_scripts_antigos_e_espelhos_do_codex_na_mesma_issue(
         assert trecho in msg, msg
     assert "meu_script.py" not in msg
     assert "AGENTS.md" not in msg
+
+
+def test_doctor_explicacao_das_copias_vale_para_script(tmp_path: Path) -> None:
+    """Script solto não sombreia nada, e não há skill para recriar: a mensagem não diz isso."""
+    pj = _project(tmp_path)
+    (pj / ".claude" / "scripts").mkdir()
+    (pj / ".claude" / "scripts" / "cite_graph.py").write_text("x\n", encoding="utf-8")
+
+    (msg,) = _obsoletas(pj)
+
+    assert ".claude/scripts/cite_graph.py" in msg
+    assert "o plugin vale no lugar delas" in msg
+    assert "sombreiam" not in msg
+    assert "customizou" not in msg
+
+
+def test_doctor_conselho_de_customizacao_so_com_copia_de_skill(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    _copia_paper(pj, "x\n")
+
+    (msg,) = _obsoletas(pj)
+
+    assert "se você customizou uma skill, recrie-a em .claude/skills/<um-nome-seu>/" in msg
+
+
+def test_doctor_poupa_skill_de_terceiros_e_agent_do_pesquisador_com_nome_do_par(
+    tmp_path: Path,
+) -> None:
+    pj = _project(tmp_path)
+    d = pj / ".agents" / "skills" / "peer-review"
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text("---\ndescription: third-party\n---\n", encoding="utf-8")
+    (pj / ".codex" / "agents").mkdir(parents=True)
+    (pj / ".codex" / "agents" / "reviewer.toml").write_text('name = "reviewer"\n', encoding="utf-8")
+
+    assert _obsoletas(pj) == []
 
 
 def test_doctor_ignora_invocacao_dentro_das_copias(tmp_path: Path) -> None:
@@ -337,6 +378,17 @@ def test_doctor_aponta_referencia_obsoleta_com_arquivo_e_linha(tmp_path: Path) -
     assert "CLAUDE.md:2" in issue
     assert "CLAUDE.md:3" not in issue
     assert "Edite estas linhas" in issue
+
+
+def test_doctor_nao_acusa_linha_que_nega_o_mcp_do_qmd(tmp_path: Path) -> None:
+    """A linha que o próprio remédio produz não pode voltar como issue (sem laço)."""
+    pj = _project(tmp_path)
+    (pj / "CLAUDE.md").write_text(
+        "# pj_x\nqmd é CLI; não há servidor MCP do qmd.\nqmd é só CLI, sem MCP.\n",
+        encoding="utf-8",
+    )
+
+    assert _referencias(pj) == []
 
 
 def test_doctor_projeto_recem_criado_nao_tem_referencia_obsoleta(tmp_path: Path) -> None:

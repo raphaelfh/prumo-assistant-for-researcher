@@ -268,14 +268,23 @@ def _pj_com_vendorizados(tmp_path: Path) -> Path:
     (tmp_path / ".claude" / "make" / ".gitkeep").write_text("", encoding="utf-8")
     codex = tmp_path / ".codex" / "agents"
     codex.mkdir(parents=True)
-    for name in ("reader.toml", "meu-agent.toml"):
-        (codex / name).write_text(f"# {name}\n", encoding="utf-8")
+    (codex / "reader.toml").write_text(_PAR_AGENT_TOML, encoding="utf-8")
+    (codex / "meu-agent.toml").write_text("# meu-agent.toml\n", encoding="utf-8")
     (tmp_path / ".codex" / "config.toml").write_text("model = 'x'\n", encoding="utf-8")
     for name in ("paper", "wiki-query", "minha-skill"):
         d = tmp_path / ".agents" / "skills" / name
         d.mkdir(parents=True)
-        (d / "SKILL.md").write_text(f"# {name}\n", encoding="utf-8")
+        body = "# minha skill\n" if name == "minha-skill" else _par_skill_md(name)
+        (d / "SKILL.md").write_text(body, encoding="utf-8")
     return tmp_path
+
+
+#: Espelho do Codex como as versões antigas do PAR o deixavam: cita o CLI e o pj.
+_PAR_AGENT_TOML = 'name = "reader"\ndeveloper_instructions = "Grave via `prumo paper extract`."\n'
+
+
+def _par_skill_md(name: str) -> str:
+    return f"---\nname: {name}\n---\n# {name}\nRode `prumo paper sync` no `pj_*`.\n"
 
 
 def test_plugin_copies_lista_scripts_antigos_espelhos_do_codex_e_make_vazio(
@@ -329,9 +338,13 @@ def test_move_vendorizados_apaga_so_diretorios_que_ficam_vazios(tmp_path: Path) 
     (tmp_path / ".claude" / "scripts").mkdir(parents=True)
     (tmp_path / ".claude" / "scripts" / "_csl.py").write_text("x\n", encoding="utf-8")
     (tmp_path / ".codex" / "agents").mkdir(parents=True)
-    (tmp_path / ".codex" / "agents" / "verifier.toml").write_text("x\n", encoding="utf-8")
+    (tmp_path / ".codex" / "agents" / "verifier.toml").write_text(_PAR_AGENT_TOML, encoding="utf-8")
     (tmp_path / ".agents" / "skills" / "wiki").mkdir(parents=True)
+    (tmp_path / ".agents" / "skills" / "wiki" / "SKILL.md").write_text(
+        _par_skill_md("wiki"), encoding="utf-8"
+    )
     rels = plugin_copies(tmp_path, SKILL_NAMES | {"wiki"}, AGENT_FILES | {"verifier.md"})
+    assert len(rels) == 3, rels
 
     move_plugin_copies(tmp_path, rels, tmp_path / ".prumo" / "legacy-copies" / "t")
 
@@ -339,6 +352,61 @@ def test_move_vendorizados_apaga_so_diretorios_que_ficam_vazios(tmp_path: Path) 
     assert not (tmp_path / ".codex").exists()
     assert not (tmp_path / ".agents").exists()
     assert (tmp_path / ".claude").is_dir()
+
+
+def _terceiros_com_nome_do_par(pj: Path) -> Path:
+    """Skills de um pacote de terceiros (instaladas em ``.agents/skills/``) e um agent do
+    pesquisador, todos com nomes que o PAR já usou e nenhuma marca do PAR."""
+    for name in ("peer-review", "scientific-writing"):
+        d = pj / ".agents" / "skills" / name
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_text(
+            f"---\nname: {name}\ndescription: third-party\n---\n# {name}\n", encoding="utf-8"
+        )
+    (pj / ".agents" / "skills" / "wiki").mkdir()  # sem SKILL.md: nada a reconhecer
+    (pj / ".codex" / "agents").mkdir(parents=True)
+    (pj / ".codex" / "agents" / "reviewer.toml").write_text(
+        'name = "reviewer"\ndeveloper_instructions = "Revise o diff do código."\n',
+        encoding="utf-8",
+    )
+    return pj
+
+
+_NOMES_DE_TERCEIROS = SKILL_NAMES | {"peer-review", "scientific-writing"}
+
+
+def test_plugin_copies_poupa_espelho_sem_a_marca_do_par(tmp_path: Path) -> None:
+    """O Claude Code não lê ``.agents/`` nem ``.codex/``: um homônimo de outro pacote não
+    sombreia nada, então só o conteúdo do PAR faz de um espelho uma cópia."""
+    pj = _terceiros_com_nome_do_par(tmp_path)
+
+    rels = plugin_copies(pj, _NOMES_DE_TERCEIROS, AGENT_FILES)
+    assert rels == []
+    assert backup_plugin_copies(pj, rels, "t") is None
+    assert (pj / ".agents" / "skills" / "peer-review" / "SKILL.md").is_file()
+    assert (pj / ".codex" / "agents" / "reviewer.toml").is_file()
+
+
+@pytest.mark.parametrize(
+    "corpo",
+    [
+        "Despachado pelo `prumo review`.\n",
+        "Use /prumo-assist:peer-review.\n",
+        "Leia o draft do `pj_*`.\n",
+        'devolva o JSON no contrato "PeerReviewReport/v1"\n',
+    ],
+)
+def test_plugin_copies_reconhece_espelho_com_a_marca_do_par(tmp_path: Path, corpo: str) -> None:
+    (tmp_path / ".codex" / "agents").mkdir(parents=True)
+    (tmp_path / ".codex" / "agents" / "reviewer.toml").write_text(corpo, encoding="utf-8")
+    d = tmp_path / ".agents" / "skills" / "peer-review"
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text(corpo, encoding="utf-8")
+
+    assert plugin_copies(tmp_path, _NOMES_DE_TERCEIROS, AGENT_FILES) == [
+        ".codex/agents/reviewer.toml",
+        ".agents/skills/peer-review",
+    ]
 
 
 def test_plugin_copies_ignora_codex_e_agents_que_sao_link(tmp_path: Path) -> None:
@@ -368,9 +436,19 @@ def test_plugin_copies_ignora_codex_e_agents_que_sao_link(tmp_path: Path) -> Non
         "o MCP `qmd` indexa o wiki",
         "busque pelo MCP qmd",
         "o qmd (MCP) responde",
+        "qmd via MCP",
+        "use o MCP do qmd",
+        "Plugin: skills + agents + MCP qmd",
+        "os agents e o MCP `qmd` (busca no wiki).",
+        "MCP qmd (busca no wiki)",
+        "não use Grep: chame mcp__qmd__search",
         "exporte com prumo-zettlr-export doc.md",
         "uv tool install git+https://github.com/raphaelfh/prumo-assistant-for-researcher",
         "veja .Codex/rules/safe_outputs.md",
+        "\t@python3 .claude/scripts/paper_sync.py .",
+        'rode python3 .claude/scripts/cite_lookup.py . "termo"',
+        "python3 ../.claude/scripts/cite_graph.py <pj_path_absoluto>",
+        "anotações: .claude/scripts/README_zotero_annotations.md",
     ],
 )
 def test_obsolete_refs_acha_referencia_que_saiu(line: str) -> None:
@@ -390,10 +468,32 @@ def test_obsolete_refs_acha_referencia_que_saiu(line: str) -> None:
         "uv tool install ruff",
         ".codex/config.toml é do Codex",
         "o servidor MCP do PAR sobe pelo lançador; o CLI qmd é opcional",
+        # dizem o certo sobre o qmd (a própria redação do README do plugin entre elas)
+        "qmd é CLI opcional (ver Pré-requisitos); não há servidor MCP do qmd no plugin.",
+        "É CLI: não há servidor MCP do qmd no plugin.",
+        "o qmd não é MCP",
+        "qmd não usa MCP",
+        "Busca com qmd (não há MCP)",
+        "qmd é só CLI, sem MCP",
+        "Não há MCP do qmd; use o CLI.",
+        "o MCP do qmd saiu",
+        "MCP prumo + qmd CLI",
+        "Use as ferramentas MCP e o qmd",
+        "- MCP `prumo`; qmd pelo terminal",
+        "Tools: MCP, qmd, pandoc",
+        "| qmd | CLI | MCP |",
+        "Bash(qmd *)",
+        "python3 .claude/scripts/meu_script.py",
+        ".claude/scripts/paper_sync.pyc é lixo",
     ],
 )
 def test_obsolete_refs_poupa_o_que_vale_hoje(line: str) -> None:
     assert obsolete_refs(line) == []
+
+
+def test_obsolete_refs_poupa_a_redacao_do_readme_do_plugin() -> None:
+    readme = Path(__file__).resolve().parents[3] / "README.md"
+    assert obsolete_refs(readme.read_text(encoding="utf-8")) == []
 
 
 def test_obsolete_refs_mesma_linha_com_dois_motivos() -> None:
@@ -449,6 +549,23 @@ def test_obsolete_ref_issues_uma_issue_agrupada_por_motivo(tmp_path: Path) -> No
     assert "README.md:1" not in issue
     assert "_log.md" not in issue
     assert issue.count(".Codex/") == 1
+
+
+def test_obsolete_ref_issues_aponta_receita_que_chama_script_antigo(tmp_path: Path) -> None:
+    """O ``prumo update`` move o script; a receita que o chama quebraria calada."""
+    (tmp_path / "Makefile").write_text(
+        "sync-paper:\n\t@python3 .claude/scripts/paper_sync.py .\n"
+        "\t@python3 .claude/scripts/cite_graph.py .\n"
+        "meu:\n\t@python3 .claude/scripts/meu_script.py\n",
+        encoding="utf-8",
+    )
+
+    (issue,) = obsolete_ref_issues(tmp_path, LEGACY)
+
+    assert "Makefile:2, Makefile:3" in issue, issue
+    assert "Makefile:5" not in issue
+    assert "`.claude/scripts/`" in issue
+    assert "prumo update" in issue
 
 
 def test_obsolete_ref_issues_sem_referencia_eh_vazio(tmp_path: Path) -> None:
