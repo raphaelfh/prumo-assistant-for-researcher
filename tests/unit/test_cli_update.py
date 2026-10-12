@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from unittest.mock import patch
 
 from typer.testing import CliRunner
 
@@ -279,9 +280,13 @@ def test_update_move_scripts_antigos_e_espelhos_do_codex(tmp_path: Path) -> None
     (pj / ".claude" / "make").mkdir()
     (pj / ".claude" / "make" / ".gitkeep").write_text("", encoding="utf-8")
     (pj / ".codex" / "agents").mkdir(parents=True)
-    (pj / ".codex" / "agents" / "verifier.toml").write_text("v\n", encoding="utf-8")
+    (pj / ".codex" / "agents" / "verifier.toml").write_text(
+        'developer_instructions = "confira o pj_*"\n', encoding="utf-8"
+    )
     (pj / ".agents" / "skills" / "wiki").mkdir(parents=True)
-    (pj / ".agents" / "skills" / "wiki" / "SKILL.md").write_text("w\n", encoding="utf-8")
+    (pj / ".agents" / "skills" / "wiki" / "SKILL.md").write_text(
+        "Rode `prumo wiki lint`.\n", encoding="utf-8"
+    )
     (pj / "AGENTS.md").write_text("# meu AGENTS\n", encoding="utf-8")
 
     res = runner.invoke(app, ["update", str(pj), "--json"])
@@ -304,6 +309,82 @@ def test_update_move_scripts_antigos_e_espelhos_do_codex(tmp_path: Path) -> None
     assert not (pj / ".codex").exists()
     assert not (pj / ".agents").exists()
     assert (pj / "AGENTS.md").read_text(encoding="utf-8") == "# meu AGENTS\n"
+
+
+def test_update_poupa_skill_de_terceiros_e_agent_do_pesquisador_com_nome_do_par(
+    tmp_path: Path,
+) -> None:
+    """Um pacote de terceiros instala `.agents/skills/peer-review/`, nome que o PAR já usou.
+    Sem a marca do PAR no conteúdo, não é cópia: o update não o tira do projeto."""
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    terceiros = pj / ".agents" / "skills" / "peer-review" / "SKILL.md"
+    terceiros.parent.mkdir(parents=True)
+    terceiros.write_text("---\ndescription: third-party\n---\n", encoding="utf-8")
+    meu = pj / ".codex" / "agents" / "reviewer.toml"
+    meu.parent.mkdir(parents=True)
+    meu.write_text('name = "reviewer"\n', encoding="utf-8")
+
+    res = runner.invoke(app, ["update", str(pj), "--json"])
+
+    assert res.exit_code == 0, res.output
+    assert json.loads(res.output)["plugin_copies"] == []
+    assert terceiros.read_text(encoding="utf-8") == "---\ndescription: third-party\n---\n"
+    assert meu.is_file()
+    assert _backups(pj) == []
+
+
+def test_update_resumo_so_fala_de_skill_quando_moveu_skill(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    (pj / ".claude" / "scripts").mkdir()
+    (pj / ".claude" / "scripts" / "export_page.py").write_text("x\n", encoding="utf-8")
+
+    res = runner.invoke(app, ["update", str(pj)])
+
+    assert res.exit_code == 0, res.output
+    out = " ".join(res.output.split())
+    assert "1 cópia(s) antiga(s) do PAR saíram do projeto" in out
+    assert "customizado" not in out
+
+
+def test_update_resumo_aconselha_recriar_skill_customizada(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    _com_copias(pj)
+
+    res = runner.invoke(app, ["update", str(pj)])
+
+    assert res.exit_code == 0, res.output
+    out = " ".join(res.output.split())
+    assert "Se você tinha customizado uma skill, recrie-a com outro nome" in out
+
+
+def test_doctor_aponta_receita_que_chamava_script_movido_antes_e_depois_do_update(
+    tmp_path: Path,
+) -> None:
+    """O update move `.claude/scripts/paper_sync.py`; o Makefile que o chamava não pode
+    quebrar calado: a linha aparece no `[referencia_obsoleta]` antes e depois."""
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    (pj / ".claude" / "scripts").mkdir()
+    (pj / ".claude" / "scripts" / "paper_sync.py").write_text("x\n", encoding="utf-8")
+    (pj / "Makefile").write_text(
+        "sync-paper:\n\t@python3 .claude/scripts/paper_sync.py .\n", encoding="utf-8"
+    )
+
+    def referencias() -> list[str]:
+        with patch("par.cli.check_external_deps", return_value=[]):
+            res = runner.invoke(app, ["doctor", str(pj), "--json"])
+        issues: list[str] = json.loads(res.stdout)["issues"]
+        return [i for i in issues if i.startswith("[referencia_obsoleta]")]
+
+    (antes,) = referencias()
+    assert "Makefile:2" in antes
+    assert runner.invoke(app, ["update", str(pj), "--json"]).exit_code == 0
+    assert not (pj / ".claude" / "scripts" / "paper_sync.py").exists()
+    (depois,) = referencias()
+    assert "Makefile:2" in depois
 
 
 # --- D4/A13: `.claude/settings.json` do template --------------------------------

@@ -208,6 +208,11 @@ def _group_paths(rels: list[str]) -> str:
     )
 
 
+def _has_skill_copy(rels: list[str]) -> bool:
+    """Alguma cópia é skill em ``.claude/skills/``: só então cabe o conselho de recriá-la."""
+    return any(rel.startswith(".claude/skills/") for rel in rels)
+
+
 def _legacy_stamp() -> str:
     """Carimbo do diretório de backup das cópias (seam de teste)."""
     return datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -631,11 +636,16 @@ def doctor_command(
     antigos = [c.path for c in exclude_paths(scan_skill_refs(target, legacy), copias)]
     if copias:
         issues.append(
-            "[skill_obsoleta] cópias antigas do que o plugin já traz ("
+            "[skill_obsoleta] cópias do que o plugin já traz, deixadas por versões antigas do "
+            "PAR ("
             + _group_paths(copias)
-            + ") sombreiam o plugin. Rode: prumo update — elas vão para "
-            ".prumo/legacy-copies/<AAAAMMDD-HHMMSS>/, nada é apagado; se você customizou "
-            "alguma, recrie-a em .claude/skills/<um-nome-seu>/"
+            + "); o plugin vale no lugar delas. Rode: prumo update — elas vão para "
+            ".prumo/legacy-copies/<AAAAMMDD-HHMMSS>/, nada é apagado"
+            + (
+                "; se você customizou uma skill, recrie-a em .claude/skills/<um-nome-seu>/"
+                if _has_skill_copy(copias)
+                else ""
+            )
             + (
                 "; invocações antigas em "
                 + ", ".join(antigos)
@@ -793,7 +803,7 @@ def update_command(
                 dry_run=dry_run,
                 migrated=migrated,
                 skill_refs=len(skill_refs),
-                copies=len(copias),
+                copies=copias,
                 backup=backup,
             ),
             {
@@ -844,21 +854,27 @@ def _update_summary(
     dry_run: bool,
     migrated: str | None = None,
     skill_refs: int = 0,
-    copies: int = 0,
+    copies: list[str] | None = None,
     backup: str | None = None,
 ) -> str:
+    copies = copies or []
     if not copies:
         copias = ""
     elif dry_run:
         copias = (
-            f"{copies} cópia(s) antiga(s) do PAR a mover para "
+            f"{len(copies)} cópia(s) antiga(s) do PAR a mover para "
             ".prumo/legacy-copies/ (nada é apagado). "
         )
     else:
         copias = (
-            f"{copies} cópia(s) antiga(s) do PAR saíram do projeto para {backup}/ "
-            "(nada foi apagado; o plugin passa a valer). Se você tinha customizado alguma, "
-            "recrie-a com outro nome em .claude/skills/<um-nome-seu>/. "
+            f"{len(copies)} cópia(s) antiga(s) do PAR saíram do projeto para {backup}/ "
+            "(nada foi apagado; o plugin passa a valer). "
+            + (
+                "Se você tinha customizado uma skill, recrie-a com outro nome em "
+                ".claude/skills/<um-nome-seu>/. "
+                if _has_skill_copy(copies)
+                else ""
+            )
         )
     refs = (
         f"{skill_refs} arquivo(s) com invocação de skill antiga "

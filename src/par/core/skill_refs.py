@@ -106,26 +106,77 @@ def migrate_skill_names(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[R
 _INSTRUCTION_FILES = ("CLAUDE.md", "AGENTS.md", "README.md", "docs/project_guide.md", "Makefile")
 _INSTRUCTION_GLOB = ".claude/rules/*.md"
 
-#: O que o PAR não usa mais → o que vale hoje, na ordem em que a issue fala.
-#: Menção ao CLI ``qmd`` vale (ADR-0038, item 7); só o servidor MCP dele saiu.
-_OBSOLETE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    (
+#: Scripts do CLI antigo que projetos de antes do pacote ``prumo`` guardavam em
+#: ``.claude/scripts/``. Lista FECHADA: script de outro nome é do pesquisador.
+_LEGACY_SCRIPTS: frozenset[str] = frozenset(
+    {
+        "README_zotero_annotations.md",
+        "_bib.py",
+        "_csl.py",
+        "_obsidian_md.py",
+        "cite_graph.py",
+        "cite_lookup.py",
+        "export_page.py",
+        "extract_comments.py",
+        "paper_sync.py",
+        "sync_zotero_annotations.py",
+        "sync_zotero_pdfs.py",
+    }
+)
+
+
+@dataclass(frozen=True)
+class _Obsolete:
+    """O que o PAR não usa mais: ``pattern`` acha a linha, ``label`` diz o que vale hoje.
+
+    Linha que casa ``unless`` diz o certo sobre o assunto ("não há MCP do qmd") e não conta.
+    """
+
+    label: str
+    pattern: re.Pattern[str]
+    unless: re.Pattern[str] | None = None
+
+    def hit(self, line: str) -> bool:
+        if self.pattern.search(line) is None:
+            return False
+        return self.unless is None or self.unless.search(line) is None
+
+
+#: O que o PAR não usa mais, na ordem em que a issue fala.
+#: Menção ao CLI ``qmd`` vale (ADR-0038, item 7); só o servidor MCP dele saiu. Por isso o
+#: MCP do qmd só conta no nome de tool (``mcp__qmd__*``) ou colado ao qmd ("MCP `qmd`",
+#: "MCP do qmd", "qmd (MCP)"), e a linha com negação ("não", "sem", "nunca", "saiu") diz o
+#: certo, salvo se ainda trouxer o nome de tool. Sem "no"/"not": "no" é "em o" em pt-BR.
+_OBSOLETE: tuple[_Obsolete, ...] = (
+    _Obsolete(
         "`prumo-assist` (o plugin hoje é `par`)",
         re.compile(r"(?<![\w-])prumo-assist(?![A-Za-z])"),
     ),
-    (
-        "MCP do qmd (o qmd hoje é só CLI: `qmd query`)",
-        re.compile(r"mcp__qmd__|\bMCP\b[^\n]{0,10}?\bqmd\b|\bqmd\b[^\n]{0,10}?\bMCP\b"),
+    _Obsolete(
+        "MCP do qmd (saiu: a busca no wiki é pelo CLI, `qmd query`)",
+        re.compile(
+            r"mcp__qmd__|\bMCP\s+(?:d[oe]\s+)?[`'\"]?qmd\b|\bqmd[`'\"]?\s+\(?(?:via\s+)?MCP\b"
+        ),
+        unless=re.compile(r"^(?!.*mcp__qmd__).*(?<!\w)(?:não|sem|nunca|saiu)(?!\w)", re.IGNORECASE),
     ),
-    (
+    _Obsolete(
         "`prumo-zettlr-export` (saiu; o docx vem de `/par:write export`)",
         re.compile(r"prumo-zettlr-export"),
     ),
-    (
+    _Obsolete(
         "`uv tool install` do PAR (o CLI vem com o plugin)",
         re.compile(r"uv tool install\b[^\n]*prumo-assistant-for-researcher"),
     ),
-    ("`.Codex/` (o caminho é `.claude/`)", re.compile(r"\.Codex/")),
+    _Obsolete(
+        "script do CLI antigo em `.claude/scripts/` (o `prumo update` o tira do projeto; "
+        "o comando hoje é `prumo paper …` ou `prumo write …`)",
+        re.compile(
+            r"\.claude/scripts/(?:"
+            + "|".join(re.escape(s) for s in sorted(_LEGACY_SCRIPTS))
+            + r")(?!\w)"
+        ),
+    ),
+    _Obsolete("`.Codex/` (o caminho é `.claude/`)", re.compile(r"\.Codex/")),
 )
 
 
@@ -141,10 +192,10 @@ class ObsoleteRef:
 def obsolete_refs(text: str) -> list[tuple[int, str]]:
     """``(linha, rótulo)`` de cada referência obsoleta em ``text``; linha conta de 1."""
     return [
-        (n, label)
+        (n, rule.label)
         for n, line in enumerate(text.splitlines(), start=1)
-        for label, pattern in _OBSOLETE_PATTERNS
-        if pattern.search(line)
+        for rule in _OBSOLETE
+        if rule.hit(line)
     ]
 
 
@@ -192,7 +243,9 @@ def obsolete_ref_issues(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[s
     for r in refs:
         groups.setdefault(r.label, []).append(f"{r.path}:{r.line}")
     partes = [
-        f"{label}: {', '.join(groups[label])}" for label, _ in _OBSOLETE_PATTERNS if label in groups
+        f"{rule.label}: {', '.join(groups[rule.label])}"
+        for rule in _OBSOLETE
+        if rule.label in groups
     ]
     return [
         "[referencia_obsoleta] instruções do projeto citam o que o PAR não usa mais — "
@@ -201,26 +254,14 @@ def obsolete_ref_issues(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[s
     ]
 
 
-#: Scripts do CLI antigo que projetos de antes do pacote ``prumo`` guardavam em
-#: ``.claude/scripts/``. Lista FECHADA: script de outro nome é do pesquisador.
-_LEGACY_SCRIPTS: frozenset[str] = frozenset(
-    {
-        "README_zotero_annotations.md",
-        "_bib.py",
-        "_csl.py",
-        "_obsidian_md.py",
-        "cite_graph.py",
-        "cite_lookup.py",
-        "export_page.py",
-        "extract_comments.py",
-        "paper_sync.py",
-        "sync_zotero_annotations.py",
-        "sync_zotero_pdfs.py",
-    }
-)
-
 #: O que o ``.claude/make/`` do ``pj_base`` antigo tinha quando ninguém o usou.
 _EMPTY_MAKE = frozenset({".gitkeep", ".DS_Store"})
+
+#: Marca do PAR no conteúdo de um espelho do Codex: o CLI ou o id antigo (``prumo``,
+#: ``prumo-assist``), os projetos (``pj_*``) e o contrato do agent ``reviewer``
+#: (``PeerReviewReport/v1``, única marca das versões dele que não citam o ``prumo``).
+#: Todo SKILL.md e todo agent que o PAR já publicou traz ao menos uma.
+_PAR_MARK = re.compile(r"prumo|\bpj_|PeerReviewReport/v\d", re.IGNORECASE)
 
 #: Diretórios que só guardavam cópias do PAR; saem do pj se o move os esvaziar.
 _COPY_CONTAINERS = (
@@ -244,6 +285,15 @@ def _owned_dir(pj_root: Path, d: Path) -> bool:
     return d.is_dir() and d.resolve().is_relative_to(pj_root.resolve())
 
 
+def _has_par_mark(path: Path) -> bool:
+    """``path`` é arquivo com a :data:`_PAR_MARK` (ausente ou ilegível: não tem)."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return _PAR_MARK.search(text) is not None
+
+
 def _entries(pj_root: Path, rel_dir: str, keep: Callable[[Path], bool]) -> list[str]:
     """Filhos de ``rel_dir`` que ``keep`` aceita, em ordem alfabética (vazio se não é do pj)."""
     d = pj_root / rel_dir
@@ -264,6 +314,11 @@ def plugin_copies(
     vazio), os espelhos do Codex ``.codex/agents/<agent>.toml`` e ``.agents/skills/<n>``.
     Nomes fora dessas listas nunca entram. Só lista: nada é movido nem apagado.
 
+    Espelho do Codex só entra com a marca do PAR no conteúdo (:data:`_PAR_MARK`; na skill,
+    no ``SKILL.md``). O Claude Code não lê ``.agents/`` nem ``.codex/``: um homônimo ali
+    não sombreia o plugin, e com nome como ``peer-review`` costuma ser de outro pacote
+    ou do pesquisador — sem a marca, fica onde está.
+
     Diretório que seja link (ou resolva fora do pj) em qualquer segmento não é do pj: o
     conteúdo pertence a outra árvore e nunca é listado — senão o ``prumo update``
     arrancaria diretórios de fora do projeto.
@@ -278,8 +333,16 @@ def plugin_copies(
         *_entries(pj_root, ".claude/agents", lambda p: p.name in agents and p.is_file()),
         *_entries(pj_root, ".claude/scripts", lambda p: p.name in _LEGACY_SCRIPTS and p.is_file()),
         *([".claude/make"] if empty_make else []),
-        *_entries(pj_root, ".codex/agents", lambda p: p.name in codex_agents and p.is_file()),
-        *_entries(pj_root, ".agents/skills", lambda p: p.name in skills and p.is_dir()),
+        *_entries(
+            pj_root,
+            ".codex/agents",
+            lambda p: p.name in codex_agents and p.is_file() and _has_par_mark(p),
+        ),
+        *_entries(
+            pj_root,
+            ".agents/skills",
+            lambda p: p.name in skills and p.is_dir() and _has_par_mark(p / "SKILL.md"),
+        ),
     ]
 
 
