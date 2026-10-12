@@ -21,13 +21,18 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   `.claude/scripts/` (só os nomes conhecidos; script de outro nome é seu), os espelhos do Codex
   (`.codex/agents/<agent>.toml` e `.agents/skills/<skill>/`) e o `.claude/make/` vazio. Entram no
   mesmo `[skill_obsoleta]`, com o mesmo remédio (Princípio VIII): o `prumo update` os move para
-  `.prumo/legacy-copies/<AAAAMMDD-HHMMSS>/`, sem apagar nada. O `AGENTS.md` é seu e fica.
+  `.prumo/legacy-copies/<AAAAMMDD-HHMMSS>/`, sem apagar nada. O `AGENTS.md` é seu e fica. Um
+  espelho do Codex só conta como cópia se o conteúdo for do PAR (cita o `prumo`, por exemplo):
+  uma skill de outro pacote com nome que o PAR já usou (`peer-review`, `scientific-writing`) ou um
+  agent seu ficam onde estão.
 - **`prumo doctor` aponta `[referencia_obsoleta]`:** linhas de `CLAUDE.md`, `AGENTS.md`,
   `README.md`, `docs/project_guide.md`, `.claude/rules/*.md` e `Makefile` que ainda citam o id
-  antigo `prumo-assist`, o MCP do qmd (`mcp__qmd__*`; o CLI `qmd` continua valendo), o
-  `prumo-zettlr-export`, o `uv tool install` do CLI à parte ou caminhos `.Codex/`. Uma issue só,
-  com `arquivo:linha` agrupado pelo que mudou; o remédio é editar as linhas. Histórico
-  (`docs/_log.md`, `decisions/`) fica de fora.
+  antigo `prumo-assist`, o MCP do qmd (`mcp__qmd__*`, "MCP `qmd`", "qmd (MCP)"; o CLI `qmd`
+  continua valendo, e a linha que nega o MCP, como "não há MCP do qmd", não conta), o
+  `prumo-zettlr-export`, o `uv tool install` do CLI à parte, os scripts do CLI antigo em
+  `.claude/scripts/` (a receita do `Makefile` que os chama quebra quando o `prumo update` os move)
+  ou caminhos `.Codex/`. Uma issue só, com `arquivo:linha` agrupado pelo que mudou; o remédio é
+  editar as linhas. Histórico (`docs/_log.md`, `decisions/`) fica de fora.
 - O `/par:start` oferece o remédio das duas issues no diagnóstico: `prumo update` para as cópias
   e a edição das linhas listadas, com consentimento.
 
