@@ -31,6 +31,20 @@ def test_update_restaura_arquivo_do_nucleo_apagado(tmp_path: Path) -> None:
     assert "docs/project_guide.md" in payload["copied"]
 
 
+def test_update_aplica_o_nome_do_projeto_no_que_copia(tmp_path: Path) -> None:
+    """Mesmo tratamento do `init`: o README recriado leva o nome real, não `pj_<NOME>`."""
+    pj = tmp_path / "pj_xyz"
+    _init(pj)
+    (pj / "README.md").unlink()
+
+    res = runner.invoke(app, ["update", str(pj), "--json"])
+
+    assert res.exit_code == 0, res.output
+    readme = (pj / "README.md").read_text(encoding="utf-8")
+    assert "pj_xyz" in readme
+    assert "pj_<NOME>" not in readme
+
+
 def test_update_nao_injeta_escopo_do_template(tmp_path: Path) -> None:
     """A armadilha do desenho: o `pj_base` traz `docs/studies/principal/`, e
     recopiá-lo num projeto que renomeou o escopo criaria um segundo escopo
