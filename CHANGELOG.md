@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.71.1] - 2026-10-12
+
 ### Corrigido
 
 - **`prumo update` dá o nome do projeto ao que recria do template.** Um `README.md` ausente
@@ -1529,7 +1531,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.1...HEAD
+[0.71.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.0...v0.71.1
 [0.71.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.2...v0.71.0
 [0.70.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.1...v0.70.2
 [0.70.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.0...v0.70.1
