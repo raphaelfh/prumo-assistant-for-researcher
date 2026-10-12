@@ -7,6 +7,39 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Corrigido
+
+- **`prumo update` dá o nome do projeto ao que recria do template.** Um `README.md` ausente
+  voltava com o placeholder literal `pj_<NOME>`; agora recebe o mesmo tratamento do `prumo init`.
+
+### Adicionado
+
+- **`prumo doctor` e `prumo update` acham mais cópias antigas do PAR no projeto** (A11 da
+  [ADR-0038](docs/adr/adr-0038-plugin-unica-distribuicao.md)): os scripts do CLI antigo em
+  `.claude/scripts/` (só os nomes conhecidos; script de outro nome é seu), os espelhos do Codex
+  (`.codex/agents/<agent>.toml` e `.agents/skills/<skill>/`) e o `.claude/make/` vazio. Entram no
+  mesmo `[skill_obsoleta]`, com o mesmo remédio (Princípio VIII): o `prumo update` os move para
+  `.prumo/legacy-copies/<AAAAMMDD-HHMMSS>/`, sem apagar nada. O `AGENTS.md` é seu e fica.
+- **`prumo doctor` aponta `[referencia_obsoleta]`:** linhas de `CLAUDE.md`, `AGENTS.md`,
+  `README.md`, `docs/project_guide.md`, `.claude/rules/*.md` e `Makefile` que ainda citam o id
+  antigo `prumo-assist`, o MCP do qmd (`mcp__qmd__*`; o CLI `qmd` continua valendo), o
+  `prumo-zettlr-export`, o `uv tool install` do CLI à parte ou caminhos `.Codex/`. Uma issue só,
+  com `arquivo:linha` agrupado pelo que mudou; o remédio é editar as linhas. Histórico
+  (`docs/_log.md`, `decisions/`) fica de fora.
+- O `/par:start` oferece o remédio das duas issues no diagnóstico: `prumo update` para as cópias
+  e a edição das linhas listadas, com consentimento.
+
+### Alterado
+
+- O `.gitignore` do `pj_base` ignora `docs/templates/zotero_live_docx.lua`, a cópia do filtro que
+  o `prumo write zettlr-profile` refaz junto com o perfil. O `prumo update` não mexe num
+  `.gitignore` que já existe: nos projetos antigos, acrescente a linha se quiser.
+
+### Documentação
+
+- README: um projeto `pj_*` não guarda cópia de nada que o plugin traz, e o `/par:start` e o
+  `prumo update` cuidam do que sobrou de versões antigas.
+
 ## [0.71.0] - 2026-10-06
 
 ### Corrigido
