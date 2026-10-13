@@ -13,7 +13,7 @@ from par.core.skill_refs import (
     exclude_paths,
     migrate_skill_names,
     move_plugin_copies,
-    obsolete_ref_issues,
+    obsolete_ref_warnings,
     obsolete_refs,
     plugin_copies,
     rewrite_invocations,
@@ -520,6 +520,16 @@ def test_plugin_copies_ignora_codex_e_agents_que_sao_link(tmp_path: Path) -> Non
         'rode python3 .claude/scripts/cite_lookup.py . "termo"',
         "python3 ../.claude/scripts/cite_graph.py <pj_path_absoluto>",
         "anotações: .claude/scripts/README_zotero_annotations.md",
+        # formas que o pj_base e o README do plugin já publicaram
+        "MCP: `qmd` (busca BM25 + vector + rerank local no wiki).",
+        "/plugin install par@prumo-assistant-for-researcher   # no Claude Code: skills + agents + MCP qmd",
+        "Atualizar: `uv tool upgrade prumo-assistant-for-researcher`",
+        "MCP server do qmd",
+        "use o MCP do QMD",
+        "- **MCP**: qmd",
+        "o qmd MCP server indexa o wiki",
+        "Antes de tudo, instale o plugin prumo-assist",
+        "Antes de rodar /prumo-assist:start, abra o Zotero",
     ],
 )
 def test_obsolete_refs_acha_referencia_que_saiu(line: str) -> None:
@@ -556,6 +566,18 @@ def test_obsolete_refs_acha_referencia_que_saiu(line: str) -> None:
         "Bash(qmd *)",
         "python3 .claude/scripts/meu_script.py",
         ".claude/scripts/paper_sync.pyc é lixo",
+        "Se instalou o CLI à parte: `uv tool uninstall prumo-assistant-for-researcher`",
+        # dizem o certo sobre o que saiu, com outras palavras
+        "Busca: CLI `qmd query`; o MCP do qmd foi removido na 0.70.",
+        "o servidor MCP `qmd` sai do plugin",
+        "the qmd MCP server is no longer used",
+        "the qmd MCP server was removed; use the CLI",
+        "o MCP `qmd` deixou de existir",
+        "o MCP do qmd foi substituído pelo CLI",
+        # o remédio do próprio rótulo ("o plugin hoje é `par`") não volta como referência
+        "O plugin hoje é `par` (antes `prumo-assist`).",
+        "O plugin se chamava prumo-assist; hoje é par.",
+        "`par` (antigo `prumo-assist`)",
     ],
 )
 def test_obsolete_refs_poupa_o_que_vale_hoje(line: str) -> None:
@@ -607,11 +629,11 @@ def test_scan_obsolete_refs_le_link_para_o_mesmo_arquivo_uma_vez(tmp_path: Path)
     assert [(r.path, r.line) for r in scan_obsolete_refs(tmp_path, LEGACY)] == [("CLAUDE.md", 1)]
 
 
-def test_obsolete_ref_issues_uma_issue_agrupada_por_motivo(tmp_path: Path) -> None:
+def test_obsolete_ref_warnings_um_aviso_agrupado_por_motivo(tmp_path: Path) -> None:
     pj = _pj_com_referencias(tmp_path)
     (pj / "AGENTS.md").write_text("veja .Codex/agents/\n", encoding="utf-8")
 
-    (issue,) = obsolete_ref_issues(pj, LEGACY)
+    (issue,) = obsolete_ref_warnings(pj, LEGACY)
 
     assert issue.startswith("[referencia_obsoleta]")
     assert "AGENTS.md:1, .claude/rules/wiki.md:1" in issue
@@ -622,7 +644,7 @@ def test_obsolete_ref_issues_uma_issue_agrupada_por_motivo(tmp_path: Path) -> No
     assert issue.count(".Codex/") == 1
 
 
-def test_obsolete_ref_issues_aponta_receita_que_chama_script_antigo(tmp_path: Path) -> None:
+def test_obsolete_ref_warnings_aponta_receita_que_chama_script_antigo(tmp_path: Path) -> None:
     """O ``prumo update`` move o script; a receita que o chama quebraria calada."""
     (tmp_path / "Makefile").write_text(
         "sync-paper:\n\t@python3 .claude/scripts/paper_sync.py .\n"
@@ -631,7 +653,7 @@ def test_obsolete_ref_issues_aponta_receita_que_chama_script_antigo(tmp_path: Pa
         encoding="utf-8",
     )
 
-    (issue,) = obsolete_ref_issues(tmp_path, LEGACY)
+    (issue,) = obsolete_ref_warnings(tmp_path, LEGACY)
 
     assert "Makefile:2, Makefile:3" in issue, issue
     assert "Makefile:5" not in issue
@@ -639,6 +661,6 @@ def test_obsolete_ref_issues_aponta_receita_que_chama_script_antigo(tmp_path: Pa
     assert "prumo update" in issue
 
 
-def test_obsolete_ref_issues_sem_referencia_eh_vazio(tmp_path: Path) -> None:
+def test_obsolete_ref_warnings_sem_referencia_eh_vazio(tmp_path: Path) -> None:
     (tmp_path / "CLAUDE.md").write_text('rode `qmd query "x"` e /par:start\n', encoding="utf-8")
-    assert obsolete_ref_issues(tmp_path, LEGACY) == []
+    assert obsolete_ref_warnings(tmp_path, LEGACY) == []

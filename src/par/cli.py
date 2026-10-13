@@ -67,7 +67,7 @@ from par.core.skill_refs import (
     backup_plugin_copies,
     exclude_paths,
     migrate_skill_names,
-    obsolete_ref_issues,
+    obsolete_ref_warnings,
     plugin_copies,
     scan_skill_refs,
 )
@@ -664,7 +664,7 @@ def doctor_command(
 
     # Instrução que ensina o que saiu (plugin antigo, MCP do qmd, CLI à parte): o remédio
     # é editar a linha, e o `update` não toca texto do pesquisador — issue própria.
-    issues.extend(obsolete_ref_issues(target, legacy))
+    issues.extend(obsolete_ref_warnings(target, legacy))
 
     if (target / "references").is_dir() and not pj_layout.is_legacy_layout(target):
         issues.append(
