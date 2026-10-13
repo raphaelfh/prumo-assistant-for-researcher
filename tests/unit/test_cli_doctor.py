@@ -298,7 +298,10 @@ def test_doctor_conselho_de_customizacao_so_com_copia_de_skill(tmp_path: Path) -
 
     (msg,) = _obsoletas(pj)
 
-    assert "se você customizou uma skill, recrie-a em .claude/skills/<um-nome-seu>/" in msg
+    assert (
+        "se você customizou uma skill, recrie-a com outro nome em .claude/skills/<um-nome-seu>/"
+        in msg
+    )
 
 
 def test_doctor_poupa_skill_de_terceiros_e_agent_do_pesquisador_com_nome_do_par(

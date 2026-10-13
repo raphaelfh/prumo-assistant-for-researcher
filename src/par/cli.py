@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 import shutil
 import sys
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -208,9 +209,11 @@ def _group_paths(rels: list[str]) -> str:
     )
 
 
-def _has_skill_copy(rels: list[str]) -> bool:
-    """Alguma cópia é skill em ``.claude/skills/``: só então cabe o conselho de recriá-la."""
-    return any(rel.startswith(".claude/skills/") for rel in rels)
+def _recreate_hint(rels: Sequence[str]) -> str:
+    """Conselho de recriar a skill customizada, só se alguma cópia é skill (ou ``""``)."""
+    if not any(rel.startswith(".claude/skills/") for rel in rels):
+        return ""
+    return "se você customizou uma skill, recrie-a com outro nome em .claude/skills/<um-nome-seu>/"
 
 
 def _legacy_stamp() -> str:
@@ -636,25 +639,16 @@ def doctor_command(
     legacy = _legacy_skill_map()
     antigos = [c.path for c in exclude_paths(scan_skill_refs(target, legacy), copias)]
     if copias:
-        issues.append(
-            "[skill_obsoleta] cópias do que o plugin já traz, deixadas por versões antigas do "
-            "PAR ("
-            + _group_paths(copias)
-            + "); o plugin vale no lugar delas. Rode: prumo update — elas vão para "
-            ".prumo/legacy-copies/<AAAAMMDD-HHMMSS>/, nada é apagado"
-            + (
-                "; se você customizou uma skill, recrie-a em .claude/skills/<um-nome-seu>/"
-                if _has_skill_copy(copias)
-                else ""
-            )
-            + (
-                "; invocações antigas em "
-                + ", ".join(antigos)
-                + ", que o mesmo `prumo update` reescreve."
-                if antigos
-                else "."
-            )
-        )
+        partes = [
+            f"cópias do que o plugin já traz, deixadas por versões antigas do PAR "
+            f"({_group_paths(copias)}); o plugin vale no lugar delas. Rode: prumo update — "
+            "elas vão para .prumo/legacy-copies/<AAAAMMDD-HHMMSS>/, nada é apagado",
+            _recreate_hint(copias),
+            f"invocações antigas em {', '.join(antigos)}, que o mesmo `prumo update` reescreve"
+            if antigos
+            else "",
+        ]
+        issues.append("[skill_obsoleta] " + "; ".join(p for p in partes if p) + ".")
     elif antigos:
         issues.append(
             "[skill_obsoleta] o PAR agora tem 5 skills com modos "
@@ -790,8 +784,6 @@ def update_command(
             migrated = migrate_project_context(pj_root)
             skill_refs = migrate_skill_names(pj_root, legacy)
             copied = apply_template_update(pj_root, template, drift.missing)
-            # Mesmo tratamento do `init`: o que veio do template leva o nome do projeto.
-            apply_project_name(pj_root, pj_root.name, copied)
             confirmados = _confirm_diverged(console, drift.diverged, yes=yes)
             updated = apply_template_update(pj_root, template, confirmados)
 
@@ -854,10 +846,9 @@ def _update_summary(
     dry_run: bool,
     migrated: str | None = None,
     skill_refs: int = 0,
-    copies: list[str] | None = None,
+    copies: Sequence[str] = (),
     backup: str | None = None,
 ) -> str:
-    copies = copies or []
     if not copies:
         copias = ""
     elif dry_run:
@@ -869,13 +860,9 @@ def _update_summary(
         copias = (
             f"{len(copies)} cópia(s) antiga(s) do PAR saíram do projeto para {backup}/ "
             "(nada foi apagado; o plugin passa a valer). "
-            + (
-                "Se você tinha customizado uma skill, recrie-a com outro nome em "
-                ".claude/skills/<um-nome-seu>/. "
-                if _has_skill_copy(copies)
-                else ""
-            )
         )
+        if hint := _recreate_hint(copies):
+            copias += hint[0].upper() + hint[1:] + ". "
     refs = (
         f"{skill_refs} arquivo(s) com invocação de skill antiga "
         + ("a reescrever. " if dry_run else "reescrito(s). ")
