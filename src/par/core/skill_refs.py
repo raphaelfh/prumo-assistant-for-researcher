@@ -23,7 +23,7 @@ __all__ = [
     "exclude_paths",
     "migrate_skill_names",
     "move_plugin_copies",
-    "obsolete_ref_issues",
+    "obsolete_ref_warnings",
     "obsolete_refs",
     "plugin_copies",
     "rewrite_invocations",
@@ -142,30 +142,54 @@ class _Obsolete:
         return self.unless is None or self.unless.search(line) is None
 
 
-#: O que o PAR não usa mais, na ordem em que a issue fala.
+#: Nome antigo dito como passado ("antes `prumo-assist`", "se chamava prumo-assist"): é o
+#: texto que o remédio produz e não volta como referência. Invocação (``prumo-assist:``) e
+#: ``install prumo-assist`` ensinam o antigo em qualquer linha e sempre contam.
+_PRUMO_ASSIST_HISTORY = re.compile(
+    r"^(?!.*prumo-assist:)(?!.*install\s+prumo-assist)"
+    r".*(?<!\w)(?:antes|antig[oa]|chamava|era|formerly|previously|renamed)\W+(?:\w+\W+)?"
+    r"prumo-assist(?![\w:])",
+    re.IGNORECASE,
+)
+
+#: Linha que diz que o MCP do qmd não existe mais ("não há", "foi removido", "no longer").
+#: Lista aberta por natureza; o que escapar dela é aviso, não muda o exit do doctor.
+_NEGATION = re.compile(
+    r"^(?!.*mcp__qmd__).*(?<!\w)(?:n[ãa]o|sem|nunca|sai|saiu|deixou|removid[oa]s?"
+    r"|substitu[íi]d[oa]s?|antig[oa]s?|no\s+longer|not|without|removed|replaced|deprecated)"
+    r"(?!\w)",
+    re.IGNORECASE,
+)
+
+#: O que o PAR não usa mais, na ordem em que o aviso fala.
 #: Menção ao CLI ``qmd`` vale (ADR-0038, item 7); só o servidor MCP dele saiu. Por isso o
-#: MCP do qmd só conta no nome de tool (``mcp__qmd__*``) ou colado ao qmd ("MCP `qmd`",
-#: "MCP do qmd", "qmd (MCP)"), e a linha com negação ("não", "sem", "nunca", "saiu") diz o
-#: certo, salvo se ainda trouxer o nome de tool. Sem "no"/"not": "no" é "em o" em pt-BR.
+#: MCP do qmd só conta no nome de tool (``mcp__qmd__*``) ou colado ao qmd, nas formas que
+#: o pj_base publicou e nas vizinhas ("MCP `qmd`", "MCP: `qmd`", "**MCP**: qmd", "MCP do
+#: QMD", "MCP server do qmd", "qmd (MCP)", "qmd MCP server"), e a linha com negação diz o
+#: certo, salvo se ainda trouxer o nome de tool. Sem "no" sozinho: em pt-BR é "em o".
 _OBSOLETE: tuple[_Obsolete, ...] = (
     _Obsolete(
         "`prumo-assist` (o plugin hoje é `par`)",
         re.compile(r"(?<![\w-])prumo-assist(?![A-Za-z])"),
+        unless=_PRUMO_ASSIST_HISTORY,
     ),
     _Obsolete(
         "MCP do qmd (saiu: a busca no wiki é pelo CLI, `qmd query`)",
         re.compile(
-            r"mcp__qmd__|\bMCP\s+(?:d[oe]\s+)?[`'\"]?qmd\b|\bqmd[`'\"]?\s+\(?(?:via\s+)?MCP\b"
+            r"mcp__qmd__"
+            r"|\bMCP\b[*`'\"]*\s*:?[*`'\"]*\s*(?:(?:server|servidor)\s+)?(?:d[oe]\s+)?[*`'\"]*qmd\b"
+            r"|\bqmd\b[*`'\"]*\s*\(?(?:via\s+)?MCP\b",
+            re.IGNORECASE,
         ),
-        unless=re.compile(r"^(?!.*mcp__qmd__).*(?<!\w)(?:não|sem|nunca|saiu)(?!\w)", re.IGNORECASE),
+        unless=_NEGATION,
     ),
     _Obsolete(
         "`prumo-zettlr-export` (saiu; o docx vem de `/par:write export`)",
         re.compile(r"prumo-zettlr-export"),
     ),
     _Obsolete(
-        "`uv tool install` do PAR (o CLI vem com o plugin)",
-        re.compile(r"uv tool install\b[^\n]*prumo-assistant-for-researcher"),
+        "`uv tool install`/`upgrade` do PAR (o CLI vem com o plugin)",
+        re.compile(r"uv tool (?:install|upgrade)\b[^\n]*prumo-assistant-for-researcher"),
     ),
     _Obsolete(
         "script do CLI antigo em `.claude/scripts/` (o `prumo update` o tira do projeto; "
@@ -231,10 +255,11 @@ def scan_obsolete_refs(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[Ob
     return out
 
 
-def obsolete_ref_issues(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[str]:
-    """Issue ÚNICA ``[referencia_obsoleta]`` (ou lista vazia): um remédio, editar as linhas.
+def obsolete_ref_warnings(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[str]:
+    """Aviso ÚNICO ``[referencia_obsoleta]`` (ou lista vazia): um remédio, editar as linhas.
 
-    As linhas vêm agrupadas pelo que mudou, para cada correção ser dita uma vez.
+    As linhas vêm agrupadas pelo que mudou, para cada correção ser dita uma vez. É aviso,
+    não issue do doctor: a leitura de prosa é heurística e não muda o exit code.
     """
     refs = scan_obsolete_refs(pj_root, legacy)
     if not refs:
