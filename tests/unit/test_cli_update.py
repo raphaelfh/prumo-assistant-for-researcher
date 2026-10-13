@@ -351,7 +351,7 @@ def test_update_resumo_so_fala_de_skill_quando_moveu_skill(tmp_path: Path) -> No
     assert res.exit_code == 0, res.output
     out = " ".join(res.output.split())
     assert "1 cópia(s) antiga(s) do PAR saíram do projeto" in out
-    assert "customizado" not in out
+    assert "customizou" not in out
 
 
 def test_update_resumo_aconselha_recriar_skill_customizada(tmp_path: Path) -> None:
@@ -363,7 +363,7 @@ def test_update_resumo_aconselha_recriar_skill_customizada(tmp_path: Path) -> No
 
     assert res.exit_code == 0, res.output
     out = " ".join(res.output.split())
-    assert "Se você tinha customizado uma skill, recrie-a com outro nome" in out
+    assert "Se você customizou uma skill, recrie-a com outro nome" in out
 
 
 def test_doctor_aponta_receita_que_chamava_script_movido_antes_e_depois_do_update(

@@ -14,6 +14,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from par.core.scaffold import COMPARE_PREFIX
 from par.core.skills import SkillRef
 
 __all__ = [
@@ -73,14 +74,21 @@ def _candidates(pj_root: Path) -> list[Path]:
     return out
 
 
+def _read(path: Path) -> str | None:
+    """Texto UTF-8 de ``path``, ou ``None`` se ilegível (o arquivo é pulado)."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
 def _walk(pj_root: Path, legacy: Mapping[str, SkillRef], *, write: bool) -> list[RefChange]:
     changes: list[RefChange] = []
     if not legacy:
         return changes
     for path in _candidates(pj_root):
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        text = _read(path)
+        if text is None:
             continue
         new, count = rewrite_invocations(text, legacy)
         if not count:
@@ -104,7 +112,7 @@ def migrate_skill_names(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[R
 #: Arquivos que o agente lê como instrução. Histórico (``docs/_log.md``, ``decisions/``,
 #: ``_archive/``) fica de fora por desenho: registra o passado, não ensina o presente.
 _INSTRUCTION_FILES = ("CLAUDE.md", "AGENTS.md", "README.md", "docs/project_guide.md", "Makefile")
-_INSTRUCTION_GLOB = ".claude/rules/*.md"
+_INSTRUCTION_GLOB = f"{COMPARE_PREFIX}/*.md"
 
 #: Scripts do CLI antigo que projetos de antes do pacote ``prumo`` guardavam em
 #: ``.claude/scripts/``. Lista FECHADA: script de outro nome é do pesquisador.
@@ -129,25 +137,27 @@ _LEGACY_SCRIPTS: frozenset[str] = frozenset(
 class _Obsolete:
     """O que o PAR não usa mais: ``pattern`` acha a linha, ``label`` diz o que vale hoje.
 
-    Linha que casa ``unless`` diz o certo sobre o assunto ("não há MCP do qmd") e não conta.
+    Linha que casa ``unless`` diz o certo sobre o assunto ("não há MCP do qmd") e não conta,
+    salvo se casar ``always``: o que ensina o antigo em qualquer frase.
     """
 
     label: str
     pattern: re.Pattern[str]
     unless: re.Pattern[str] | None = None
+    always: re.Pattern[str] | None = None
 
     def hit(self, line: str) -> bool:
+        if self.always is not None and self.always.search(line):
+            return True
         if self.pattern.search(line) is None:
             return False
         return self.unless is None or self.unless.search(line) is None
 
 
 #: Nome antigo dito como passado ("antes `prumo-assist`", "se chamava prumo-assist"): é o
-#: texto que o remédio produz e não volta como referência. Invocação (``prumo-assist:``) e
-#: ``install prumo-assist`` ensinam o antigo em qualquer linha e sempre contam.
+#: texto que o remédio produz e não volta como referência.
 _PRUMO_ASSIST_HISTORY = re.compile(
-    r"^(?!.*prumo-assist:)(?!.*install\s+prumo-assist)"
-    r".*(?<!\w)(?:antes|antig[oa]|chamava|era|formerly|previously|renamed)\W+(?:\w+\W+)?"
+    r"(?<!\w)(?:antes|antig[oa]|chamava|era|formerly|previously|renamed)\W+(?:\w+\W+)?"
     r"prumo-assist(?![\w:])",
     re.IGNORECASE,
 )
@@ -155,7 +165,7 @@ _PRUMO_ASSIST_HISTORY = re.compile(
 #: Linha que diz que o MCP do qmd não existe mais ("não há", "foi removido", "no longer").
 #: Lista aberta por natureza; o que escapar dela é aviso, não muda o exit do doctor.
 _NEGATION = re.compile(
-    r"^(?!.*mcp__qmd__).*(?<!\w)(?:n[ãa]o|sem|nunca|sai|saiu|deixou|removid[oa]s?"
+    r"(?<!\w)(?:n[ãa]o|sem|nunca|sai|saiu|deixou|removid[oa]s?"
     r"|substitu[íi]d[oa]s?|antig[oa]s?|no\s+longer|not|without|removed|replaced|deprecated)"
     r"(?!\w)",
     re.IGNORECASE,
@@ -172,6 +182,10 @@ _OBSOLETE: tuple[_Obsolete, ...] = (
         "`prumo-assist` (o plugin hoje é `par`)",
         re.compile(r"(?<![\w-])prumo-assist(?![A-Za-z])"),
         unless=_PRUMO_ASSIST_HISTORY,
+        # Invocação e instalação ensinam o antigo mesmo numa frase no passado.
+        always=re.compile(
+            r"(?<![\w-])prumo-assist:|install\s+prumo-assist(?![A-Za-z])", re.IGNORECASE
+        ),
     ),
     _Obsolete(
         "MCP do qmd (saiu: a busca no wiki é pelo CLI, `qmd query`)",
@@ -182,6 +196,7 @@ _OBSOLETE: tuple[_Obsolete, ...] = (
             re.IGNORECASE,
         ),
         unless=_NEGATION,
+        always=re.compile(r"mcp__qmd__", re.IGNORECASE),
     ),
     _Obsolete(
         "`prumo-zettlr-export` (saiu; o docx vem de `/par:write export`)",
@@ -230,9 +245,10 @@ def _instruction_files(pj_root: Path) -> list[Path]:
     seen: set[Path] = set()
     out: list[Path] = []
     for path in candidates:
-        if not path.is_file() or path.resolve() in seen:
+        resolved = path.resolve()
+        if not path.is_file() or resolved in seen:
             continue
-        seen.add(path.resolve())
+        seen.add(resolved)
         out.append(path)
     return out
 
@@ -245,9 +261,8 @@ def scan_obsolete_refs(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[Ob
     """
     out: list[ObsoleteRef] = []
     for path in _instruction_files(pj_root):
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        text = _read(path)
+        if text is None:
             continue
         rel = path.relative_to(pj_root).as_posix()
         text, _ = rewrite_invocations(text, legacy)
@@ -264,14 +279,10 @@ def obsolete_ref_warnings(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list
     refs = scan_obsolete_refs(pj_root, legacy)
     if not refs:
         return []
-    groups: dict[str, list[str]] = {}
+    groups: dict[str, list[str]] = {rule.label: [] for rule in _OBSOLETE}
     for r in refs:
-        groups.setdefault(r.label, []).append(f"{r.path}:{r.line}")
-    partes = [
-        f"{rule.label}: {', '.join(groups[rule.label])}"
-        for rule in _OBSOLETE
-        if rule.label in groups
-    ]
+        groups[r.label].append(f"{r.path}:{r.line}")
+    partes = [f"{label}: {', '.join(where)}" for label, where in groups.items() if where]
     return [
         "[referencia_obsoleta] instruções do projeto citam o que o PAR não usa mais — "
         + "; ".join(partes)
@@ -294,18 +305,6 @@ _PAR_MARK = re.compile(
     r"|\b(?:PaperCallout|PaperExtract|PeerReviewReport|PicotSpec|ScientificWritingPass"
     r"|SessionLog|SupportReport|WikiLintReport|WikiQueryResponse|WikiSource|WriteOutput)/v\d",
     re.MULTILINE,
-)
-
-#: Diretórios onde moram as cópias, o mais fundo antes do que o contém; cada um sai do pj
-#: só se guardava uma cópia movida e ficou vazio.
-_COPY_CONTAINERS = (
-    ".claude/skills",
-    ".claude/agents",
-    ".claude/scripts",
-    ".codex/agents",
-    ".codex",
-    ".agents/skills",
-    ".agents",
 )
 
 
@@ -386,18 +385,18 @@ def move_plugin_copies(pj_root: Path, rels: Sequence[str], dest: Path) -> list[s
     O que vinha de ``.claude/`` cai em ``dest/{skills,agents,scripts,make}``; os
     espelhos do Codex guardam o caminho inteiro (``dest/.codex/...``, ``dest/.agents/...``).
     Nada é apagado: cada cópia vai inteira para o backup (``.prumo/legacy-copies/...``),
-    e nomes fora de ``rels`` nunca são tocados. Depois do move, sai o diretório de
-    :data:`_COPY_CONTAINERS` que guardava uma cópia movida e ficou vazio; o vazio que não
+    e nomes fora de ``rels`` nunca são tocados. Depois do move, sai cada diretório que
+    guardava uma cópia movida e ficou vazio (``.claude`` e a raiz nunca); o vazio que não
     guardava nenhuma (criado pelo pesquisador) fica. Com ``rels`` vazio, ``dest`` não é criado.
     """
     for rel in rels:
         target = dest / rel.removeprefix(".claude/")
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(pj_root / rel), str(target))
-    # Mais fundo primeiro (ordem de _COPY_CONTAINERS): ``.codex/agents`` antes de ``.codex``.
-    for container in _COPY_CONTAINERS:
-        if not any(rel.startswith(container + "/") for rel in rels):
-            continue
+    # Os diretórios que guardavam cópia, o mais fundo primeiro: ``.codex/agents`` antes de ``.codex``.
+    containers = {str(parent) for rel in rels for parent in Path(rel).parents}
+    containers -= {".", ".claude"}
+    for container in sorted(containers, key=lambda c: c.count("/"), reverse=True):
         d = pj_root / container
         if _owned_dir(pj_root, d) and not any(d.iterdir()):
             d.rmdir()
