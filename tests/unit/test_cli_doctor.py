@@ -369,8 +369,30 @@ def test_doctor_reprova_dado_versionavel(tmp_path: Path) -> None:
 def _referencias(pj: Path) -> list[str]:
     with patch("par.cli.check_external_deps", return_value=[]):
         res = runner.invoke(app, ["doctor", str(pj), "--json"])
-    issues: list[str] = json.loads(res.stdout)["issues"]
-    return [i for i in issues if i.startswith("[referencia_obsoleta]")]
+    avisos: list[str] = json.loads(res.stdout)["warnings"]
+    return [w for w in avisos if w.startswith("[referencia_obsoleta]")]
+
+
+def test_doctor_referencia_obsoleta_eh_aviso_e_nao_muda_o_exit(tmp_path: Path) -> None:
+    """Achado heurístico sobre prosa é aviso: só problema estrutural devolve 1, e um falso
+    positivo não pode deixar o doctor em 1 a cada /par:start."""
+    pj = _project(tmp_path)
+    (pj / "CLAUDE.md").write_text(
+        "# pj_x\nMCP: `qmd` (busca BM25 + vector + rerank local no wiki).\n", encoding="utf-8"
+    )
+
+    with patch("par.cli.check_external_deps", return_value=[]):
+        res = runner.invoke(app, ["doctor", str(pj), "--json"])
+        texto = runner.invoke(app, ["doctor", str(pj)])
+
+    assert res.exit_code == 0, res.output
+    payload = json.loads(res.stdout)
+    assert payload["ok"] is True
+    assert payload["issues"] == []
+    (aviso,) = [w for w in payload["warnings"] if w.startswith("[referencia_obsoleta]")]
+    assert "CLAUDE.md:2" in aviso
+    assert texto.exit_code == 0, texto.output
+    assert "[referencia_obsoleta]" in texto.output
 
 
 def test_doctor_aponta_referencia_obsoleta_com_arquivo_e_linha(tmp_path: Path) -> None:
@@ -390,7 +412,11 @@ def test_doctor_nao_acusa_linha_que_nega_o_mcp_do_qmd(tmp_path: Path) -> None:
     """A linha que o próprio remédio produz não pode voltar como issue (sem laço)."""
     pj = _project(tmp_path)
     (pj / "CLAUDE.md").write_text(
-        "# pj_x\nqmd é CLI; não há servidor MCP do qmd.\nqmd é só CLI, sem MCP.\n",
+        "# pj_x\nqmd é CLI; não há servidor MCP do qmd.\nqmd é só CLI, sem MCP.\n"
+        "Busca: CLI `qmd query`; o MCP do qmd foi removido na 0.70.\n"
+        "o servidor MCP `qmd` sai do plugin\n"
+        "the qmd MCP server is no longer used\n"
+        "O plugin hoje é `par` (antes `prumo-assist`).\n",
         encoding="utf-8",
     )
 

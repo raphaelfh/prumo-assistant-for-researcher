@@ -370,7 +370,7 @@ def test_doctor_aponta_receita_que_chamava_script_movido_antes_e_depois_do_updat
     tmp_path: Path,
 ) -> None:
     """O update move `.claude/scripts/paper_sync.py`; o Makefile que o chamava não pode
-    quebrar calado: a linha aparece no `[referencia_obsoleta]` antes e depois."""
+    quebrar calado: a linha aparece no aviso `[referencia_obsoleta]` antes e depois."""
     pj = tmp_path / "pj_demo"
     _init(pj)
     (pj / ".claude" / "scripts").mkdir()
@@ -382,8 +382,8 @@ def test_doctor_aponta_receita_que_chamava_script_movido_antes_e_depois_do_updat
     def referencias() -> list[str]:
         with patch("par.cli.check_external_deps", return_value=[]):
             res = runner.invoke(app, ["doctor", str(pj), "--json"])
-        issues: list[str] = json.loads(res.stdout)["issues"]
-        return [i for i in issues if i.startswith("[referencia_obsoleta]")]
+        avisos: list[str] = json.loads(res.stdout)["warnings"]
+        return [w for w in avisos if w.startswith("[referencia_obsoleta]")]
 
     (antes,) = referencias()
     assert "Makefile:2" in antes
