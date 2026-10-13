@@ -68,8 +68,9 @@ Você é a porta de entrada E o instalador guiado. Primeiro descubra o estado:
      revisão → `review`), usando o catálogo abaixo. Não execute a tarefa você mesmo.
    - Fora de um `pj_*` → siga a **Trilha guiada**.
    - Dependência externa ausente → mostre o `hint` do doctor (ele traz o comando).
-   - `issues` com `[skill_obsoleta]` → ofereça `prumo update` (move as cópias, nada é apagado);
-     com `[referencia_obsoleta]` → ofereça editar as linhas listadas, só com um "sim".
+   - `issues` com `[skill_obsoleta]` → ofereça `prumo update` (move as cópias, nada é apagado).
+   - `warnings` com `[referencia_obsoleta]` → ofereça editar as linhas listadas, só com um
+     "sim"; a linha que já diz o certo (por exemplo, que algo saiu) fica como está.
 
 ## Instalar o uv (com consentimento — nunca rode sem um "sim")
 

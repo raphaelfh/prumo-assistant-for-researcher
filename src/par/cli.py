@@ -610,7 +610,8 @@ def doctor_command(
     """Health-check do projeto: estrutura, cópias antigas do PAR e dependências externas.
 
     Também reporta dependências externas (qmd, Zotero). Dependência externa
-    ausente é informativa — não muda o exit code; só problemas estruturais
+    ausente e referência obsoleta nas instruções (heurística sobre prosa) são
+    informativas — não mudam o exit code; só problemas estruturais
     (diretórios/skills faltando) retornam 1.
     """
     console = Console(json_mode=json_mode)
@@ -662,10 +663,6 @@ def doctor_command(
             ". Rode `prumo update` para reescrever as invocações."
         )
 
-    # Instrução que ensina o que saiu (plugin antigo, MCP do qmd, CLI à parte): o remédio
-    # é editar a linha, e o `update` não toca texto do pesquisador — issue própria.
-    issues.extend(obsolete_ref_warnings(target, legacy))
-
     if (target / "references").is_dir() and not pj_layout.is_legacy_layout(target):
         issues.append(
             "[references_ressuscitado] `docs/references/` existe E `references/` reapareceu "
@@ -695,7 +692,10 @@ def doctor_command(
 
     # Warnings fecham ANTES do payload — nada de popular a lista por
     # aliasing depois que o dict já foi montado.
-    warnings: list[str] = []
+    # Instrução que ensina o que saiu (plugin antigo, MCP do qmd, CLI à parte): o remédio
+    # é editar a linha, e o `update` não toca texto do pesquisador. É aviso, não issue: a
+    # leitura de prosa é heurística, e um falso positivo não pode prender o exit em 1.
+    warnings: list[str] = obsolete_ref_warnings(target, legacy)
     if not issues and bib_is_placeholder(target):
         warnings.append(
             "docs/references/_references.bib ainda é o placeholder do scaffold — "
