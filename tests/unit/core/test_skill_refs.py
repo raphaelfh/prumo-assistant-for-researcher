@@ -279,12 +279,16 @@ def _pj_com_vendorizados(tmp_path: Path) -> Path:
     return tmp_path
 
 
-#: Espelho do Codex como as versões antigas do PAR o deixavam: cita o CLI e o pj.
-_PAR_AGENT_TOML = 'name = "reader"\ndeveloper_instructions = "Grave via `prumo paper extract`."\n'
+#: Espelho do Codex de um agent do PAR: o corpo traz o bloco gerado ``prumo:runtime``.
+_PAR_AGENT_TOML = (
+    'name = "reader"\ndeveloper_instructions = """\n<!-- prumo:runtime:begin -->\n'
+    'CLI: `prumo`.\n<!-- prumo:runtime:end -->\n"""\n'
+)
 
 
 def _par_skill_md(name: str) -> str:
-    return f"---\nname: {name}\n---\n# {name}\nRode `prumo paper sync` no `pj_*`.\n"
+    """SKILL.md como o PAR publica: frontmatter com o bloco ``prumo:``."""
+    return f"---\nname: {name}\nprumo:\n  version: 2.0.0\n---\n# {name}\nRode `prumo paper sync`.\n"
 
 
 def test_plugin_copies_lista_scripts_antigos_espelhos_do_codex_e_make_vazio(
@@ -405,10 +409,10 @@ def test_plugin_copies_poupa_espelho_sem_a_marca_do_par(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "corpo",
     [
-        "Despachado pelo `prumo review`.\n",
-        "Use /prumo-assist:peer-review.\n",
-        "Leia o draft do `pj_*`.\n",
+        "---\nname: peer-review\nprumo:\n  version: 1.2.0\n---\n",
+        "<!-- prumo:runtime:begin -->\n**PAR 0.70.0**\n<!-- prumo:runtime:end -->\n",
         'devolva o JSON no contrato "PeerReviewReport/v1"\n',
+        "Devolve SupportReport/v1.\n",
     ],
 )
 def test_plugin_copies_reconhece_espelho_com_a_marca_do_par(tmp_path: Path, corpo: str) -> None:
@@ -421,6 +425,58 @@ def test_plugin_copies_reconhece_espelho_com_a_marca_do_par(tmp_path: Path, corp
     assert plugin_copies(tmp_path, _NOMES_DE_TERCEIROS, AGENT_FILES) == [
         ".codex/agents/reviewer.toml",
         ".agents/skills/peer-review",
+    ]
+
+
+@pytest.mark.parametrize(
+    "corpo",
+    [
+        "Revise o manuscrito em pj_estudo/docs.\n",
+        "Antes de tudo, rode `prumo status`.\n",
+        "Mantenha o prumo da arquitetura.\n",
+        "Escreva com aprumo.\n",
+        "Use prumo paper find antes.\n",
+        "Rode `prumo paper sync` no pj_leg1.\n",
+        "Depois rode /prumo-assist:peer-review e /par:review critique.\n",
+        "---\nname: review\ndescription: revisa o pj_alpha com o PAR\n---\n",
+    ],
+)
+def test_plugin_copies_poupa_espelho_do_pesquisador_que_cita_o_par(
+    tmp_path: Path, corpo: str
+) -> None:
+    """Skill ou agent escrito pelo pesquisador num ``pj_*`` cita o projeto, o CLI ``prumo``
+    ou a palavra "prumo" sem ser cópia: só o que o PAR publica (bloco ``prumo:`` do
+    frontmatter, bloco ``prumo:runtime``, contrato ``<Schema>/vN``) marca um espelho."""
+    (tmp_path / ".codex" / "agents").mkdir(parents=True)
+    (tmp_path / ".codex" / "agents" / "reviewer.toml").write_text(corpo, encoding="utf-8")
+    for name in ("review", "start", "write"):
+        d = tmp_path / ".agents" / "skills" / name
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_text(corpo, encoding="utf-8")
+
+    assert plugin_copies(tmp_path, SKILL_NAMES | {"review", "start", "write"}, AGENT_FILES) == []
+
+
+def test_plugin_copies_reconhece_espelho_de_cada_skill_e_agent_do_plugin(tmp_path: Path) -> None:
+    """A marca não pode sumir do que o PAR publica hoje: o espelho de cada um é reconhecido."""
+    raiz = Path(__file__).resolve().parents[3]
+    skills = sorted(p.parent.name for p in (raiz / "skills").glob("*/SKILL.md"))
+    agents = sorted(p.name for p in (raiz / "agents").glob("*.md"))
+    for name in skills:
+        (tmp_path / ".agents" / "skills" / name).mkdir(parents=True)
+        texto = (raiz / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
+        (tmp_path / ".agents" / "skills" / name / "SKILL.md").write_text(texto, encoding="utf-8")
+    (tmp_path / ".codex" / "agents").mkdir(parents=True)
+    for name in agents:
+        texto = (raiz / "agents" / name).read_text(encoding="utf-8")
+        (tmp_path / ".codex" / "agents" / f"{Path(name).stem}.toml").write_text(
+            f"developer_instructions = {texto!r}\n", encoding="utf-8"
+        )
+
+    assert skills and agents
+    assert plugin_copies(tmp_path, set(skills), set(agents)) == [
+        *(f".codex/agents/{Path(a).stem}.toml" for a in agents),
+        *(f".agents/skills/{s}" for s in skills),
     ]
 
 

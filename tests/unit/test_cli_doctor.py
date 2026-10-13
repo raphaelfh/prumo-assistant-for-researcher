@@ -255,11 +255,11 @@ def test_doctor_aponta_scripts_antigos_e_espelhos_do_codex_na_mesma_issue(
         (scripts / name).write_text("x\n", encoding="utf-8")
     (pj / ".codex" / "agents").mkdir(parents=True)
     (pj / ".codex" / "agents" / "reader.toml").write_text(
-        'developer_instructions = "via `prumo paper extract`"\n', encoding="utf-8"
+        'developer_instructions = "<!-- prumo:runtime:begin -->"\n', encoding="utf-8"
     )
     (pj / ".agents" / "skills" / "paper-manager").mkdir(parents=True)
     (pj / ".agents" / "skills" / "paper-manager" / "SKILL.md").write_text(
-        "Rode `prumo paper sync` no pj_*.\n", encoding="utf-8"
+        "---\nname: paper-manager\nprumo:\n  version: 1.0.0\n---\n", encoding="utf-8"
     )
     (pj / "AGENTS.md").write_text("# espelho do CLAUDE.md\n", encoding="utf-8")
 
@@ -308,8 +308,14 @@ def test_doctor_poupa_skill_de_terceiros_e_agent_do_pesquisador_com_nome_do_par(
     d = pj / ".agents" / "skills" / "peer-review"
     d.mkdir(parents=True)
     (d / "SKILL.md").write_text("---\ndescription: third-party\n---\n", encoding="utf-8")
+    meu = pj / ".agents" / "skills" / "review" / "SKILL.md"
+    meu.parent.mkdir(parents=True)
+    meu.write_text("Revise os docs do pj_x com `prumo paper find`.\n", encoding="utf-8")
     (pj / ".codex" / "agents").mkdir(parents=True)
-    (pj / ".codex" / "agents" / "reviewer.toml").write_text('name = "reviewer"\n', encoding="utf-8")
+    (pj / ".codex" / "agents" / "reviewer.toml").write_text(
+        'name = "reviewer"\ndeveloper_instructions = "Use prumo paper find antes."\n',
+        encoding="utf-8",
+    )
 
     assert _obsoletas(pj) == []
 
