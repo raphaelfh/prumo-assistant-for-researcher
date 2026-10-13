@@ -151,6 +151,16 @@ sozinho nos projetos criados ou atualizados a partir da 0.71.0; senão, aceite a
 atualização em + → Plugins (ou `/plugin marketplace update
 prumo-assistant-for-researcher` no terminal). Depois, abra uma sessão nova.
 
+### Projetos criados por versões antigas
+
+Atualizar o PAR é só aceitar a atualização do plugin (automática, ou em + →
+Plugins). Um projeto `pj_*` não guarda cópia de nada que o plugin traz:
+skills, agents, scripts do CLI e instruções do plugin vêm sempre da versão
+instalada. O `/par:start` (via `prumo doctor`) aponta as cópias que sobraram de
+versões antigas e as referências obsoletas nas instruções do projeto; o `prumo
+update` move as cópias para `.prumo/legacy-copies/`, sem apagar nada, e as
+linhas obsoletas o agente oferece editar.
+
 ## Desinstalar
 
 ```

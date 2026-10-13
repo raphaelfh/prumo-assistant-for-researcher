@@ -7,6 +7,51 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.71.1] - 2026-10-12
+
+### Corrigido
+
+- **`prumo update` dá o nome do projeto ao que recria do template.** Um `README.md` ausente
+  voltava com o placeholder literal `pj_<NOME>`; agora recebe o mesmo tratamento do `prumo init`.
+
+### Adicionado
+
+- **`prumo doctor` e `prumo update` acham mais cópias antigas do PAR no projeto** (A11 da
+  [ADR-0038](docs/adr/adr-0038-plugin-unica-distribuicao.md)): os scripts do CLI antigo em
+  `.claude/scripts/` (só os nomes conhecidos; script de outro nome é seu), os espelhos do Codex
+  (`.codex/agents/<agent>.toml` e `.agents/skills/<skill>/`) e o `.claude/make/` vazio. Entram no
+  mesmo `[skill_obsoleta]`, com o mesmo remédio (Princípio VIII): o `prumo update` os move para
+  `.prumo/legacy-copies/<AAAAMMDD-HHMMSS>/`, sem apagar nada. O `AGENTS.md` é seu e fica. Um
+  espelho do Codex só conta como cópia se trouxer o que só o PAR publica (o bloco `prumo:` do
+  frontmatter, o bloco `prumo:runtime` ou um contrato como `SupportReport/v1`): uma skill de outro
+  pacote com nome que o PAR já usou (`peer-review`, `scientific-writing`), ou uma skill ou agent
+  seu, mesmo que cite o `pj_*` ou o `prumo`, ficam onde estão. Depois do move, só sai o
+  diretório que guardava uma cópia e ficou vazio; um `.codex/` ou `.agents/` vazio que você criou
+  fica.
+- **`prumo doctor` avisa `[referencia_obsoleta]`:** linhas de `CLAUDE.md`, `AGENTS.md`,
+  `README.md`, `docs/project_guide.md`, `.claude/rules/*.md` e `Makefile` que ainda citam o id
+  antigo `prumo-assist` (a linha que o dá como nome antigo, "antes `prumo-assist`", não conta), o
+  MCP do qmd (`mcp__qmd__*`, "MCP: `qmd`", "MCP do qmd", "qmd (MCP)"; o CLI `qmd` continua
+  valendo, e a linha que diz que o MCP saiu, como "não há MCP do qmd" ou "foi removido", não
+  conta), o `prumo-zettlr-export`, o `uv tool install`/`upgrade` do CLI à parte, os scripts do
+  CLI antigo em `.claude/scripts/` (a receita do `Makefile` que os chama quebra quando o `prumo
+  update` os move) ou caminhos `.Codex/`. Um aviso só, em `warnings`, com `arquivo:linha`
+  agrupado pelo que mudou; o remédio é editar as linhas. A leitura de prosa é heurística, então
+  o aviso não muda o exit code do doctor. Histórico (`docs/_log.md`, `decisions/`) fica de fora.
+- O `/par:start` oferece os remédios no diagnóstico: `prumo update` para o `[skill_obsoleta]` e,
+  com consentimento, a edição das linhas do `[referencia_obsoleta]`.
+
+### Alterado
+
+- O `.gitignore` do `pj_base` ignora `docs/templates/zotero_live_docx.lua`, a cópia do filtro que
+  o `prumo write zettlr-profile` refaz junto com o perfil. O `prumo update` não mexe num
+  `.gitignore` que já existe: nos projetos antigos, acrescente a linha se quiser.
+
+### Documentação
+
+- README: um projeto `pj_*` não guarda cópia de nada que o plugin traz, e o `/par:start` e o
+  `prumo update` cuidam do que sobrou de versões antigas.
+
 ## [0.71.0] - 2026-10-06
 
 ### Corrigido
@@ -1496,7 +1541,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.0...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.1...HEAD
+[0.71.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.0...v0.71.1
 [0.71.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.2...v0.71.0
 [0.70.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.1...v0.70.2
 [0.70.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.0...v0.70.1

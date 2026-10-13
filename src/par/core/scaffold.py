@@ -190,7 +190,8 @@ def apply_template_update(pj_root: Path, template: Path, rels: Iterable[str]) ->
 
     Contraparte deliberada de :func:`overlay`, que nunca sobrescreve: aqui o
     chamador já decidiu (arquivo ausente, ou divergente com confirmação
-    humana). Devolve os caminhos efetivamente escritos.
+    humana). O que vem do template leva o nome do projeto, como no ``init``.
+    Devolve os caminhos efetivamente escritos.
     """
     escritos: list[str] = []
     for rel in rels:
@@ -201,6 +202,7 @@ def apply_template_update(pj_root: Path, template: Path, rels: Iterable[str]) ->
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
         escritos.append(rel)
+    apply_project_name(pj_root, pj_root.name, escritos)
     return escritos
 
 
