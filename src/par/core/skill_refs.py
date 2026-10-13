@@ -263,7 +263,8 @@ _EMPTY_MAKE = frozenset({".gitkeep", ".DS_Store"})
 #: Todo SKILL.md e todo agent que o PAR já publicou traz ao menos uma.
 _PAR_MARK = re.compile(r"prumo|\bpj_|PeerReviewReport/v\d", re.IGNORECASE)
 
-#: Diretórios que só guardavam cópias do PAR; saem do pj se o move os esvaziar.
+#: Diretórios onde moram as cópias, o mais fundo antes do que o contém; cada um sai do pj
+#: só se guardava uma cópia movida e ficou vazio.
 _COPY_CONTAINERS = (
     ".claude/skills",
     ".claude/agents",
@@ -352,18 +353,21 @@ def move_plugin_copies(pj_root: Path, rels: Sequence[str], dest: Path) -> list[s
     O que vinha de ``.claude/`` cai em ``dest/{skills,agents,scripts,make}``; os
     espelhos do Codex guardam o caminho inteiro (``dest/.codex/...``, ``dest/.agents/...``).
     Nada é apagado: cada cópia vai inteira para o backup (``.prumo/legacy-copies/...``),
-    e nomes fora de ``rels`` nunca são tocados. Depois do move, os diretórios que só
-    guardavam cópias saem se ficarem vazios. Com ``rels`` vazio, ``dest`` não é criado.
+    e nomes fora de ``rels`` nunca são tocados. Depois do move, sai o diretório de
+    :data:`_COPY_CONTAINERS` que guardava uma cópia movida e ficou vazio; o vazio que não
+    guardava nenhuma (criado pelo pesquisador) fica. Com ``rels`` vazio, ``dest`` não é criado.
     """
     for rel in rels:
         target = dest / rel.removeprefix(".claude/")
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(pj_root / rel), str(target))
-    if rels:
-        for container in _COPY_CONTAINERS:
-            d = pj_root / container
-            if _owned_dir(pj_root, d) and not any(d.iterdir()):
-                d.rmdir()
+    # Mais fundo primeiro (ordem de _COPY_CONTAINERS): ``.codex/agents`` antes de ``.codex``.
+    for container in _COPY_CONTAINERS:
+        if not any(rel.startswith(container + "/") for rel in rels):
+            continue
+        d = pj_root / container
+        if _owned_dir(pj_root, d) and not any(d.iterdir()):
+            d.rmdir()
     return list(rels)
 
 
