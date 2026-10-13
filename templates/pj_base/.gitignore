@@ -45,3 +45,5 @@ mlruns/
 
 # perfil do Zettlr: caminhos absolutos desta máquina; regenere com `prumo write zettlr-profile`
 docs/templates/prumo-docx.yaml
+# cópia do filtro do plugin que o perfil usa; `prumo write zettlr-profile` a refaz
+docs/templates/zotero_live_docx.lua

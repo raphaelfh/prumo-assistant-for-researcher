@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from unittest.mock import patch
 
 from typer.testing import CliRunner
 
@@ -29,6 +30,20 @@ def test_update_restaura_arquivo_do_nucleo_apagado(tmp_path: Path) -> None:
     assert (pj / "docs" / "project_guide.md").is_file()
     payload = json.loads(res.output)
     assert "docs/project_guide.md" in payload["copied"]
+
+
+def test_update_aplica_o_nome_do_projeto_no_que_copia(tmp_path: Path) -> None:
+    """Mesmo tratamento do `init`: o README recriado leva o nome real, não `pj_<NOME>`."""
+    pj = tmp_path / "pj_xyz"
+    _init(pj)
+    (pj / "README.md").unlink()
+
+    res = runner.invoke(app, ["update", str(pj), "--json"])
+
+    assert res.exit_code == 0, res.output
+    readme = (pj / "README.md").read_text(encoding="utf-8")
+    assert "pj_xyz" in readme
+    assert "pj_<NOME>" not in readme
 
 
 def test_update_nao_injeta_escopo_do_template(tmp_path: Path) -> None:
@@ -251,8 +266,131 @@ def test_update_resumo_cita_o_backup(tmp_path: Path) -> None:
 
     assert res.exit_code == 0, res.output
     out = " ".join(res.output.split())
-    assert "cópia(s) antiga(s) do PAR saíram de .claude/ para .prumo/legacy-copies/" in out
+    assert "cópia(s) antiga(s) do PAR saíram do projeto para .prumo/legacy-copies/" in out
     assert "nada foi apagado" in out
+
+
+def test_update_move_scripts_antigos_e_espelhos_do_codex(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    scripts = pj / ".claude" / "scripts"
+    scripts.mkdir()
+    (scripts / "cite_lookup.py").write_text("antigo\n", encoding="utf-8")
+    (scripts / "meu_script.py").write_text("meu\n", encoding="utf-8")
+    (pj / ".claude" / "make").mkdir()
+    (pj / ".claude" / "make" / ".gitkeep").write_text("", encoding="utf-8")
+    (pj / ".codex" / "agents").mkdir(parents=True)
+    (pj / ".codex" / "agents" / "verifier.toml").write_text(
+        'developer_instructions = "Devolve SupportReport/v1."\n', encoding="utf-8"
+    )
+    (pj / ".agents" / "skills" / "wiki").mkdir(parents=True)
+    (pj / ".agents" / "skills" / "wiki" / "SKILL.md").write_text(
+        "---\nname: wiki\nprumo:\n  version: 2.0.0\n---\n", encoding="utf-8"
+    )
+    (pj / "AGENTS.md").write_text("# meu AGENTS\n", encoding="utf-8")
+
+    res = runner.invoke(app, ["update", str(pj), "--json"])
+
+    assert res.exit_code == 0, res.output
+    payload = json.loads(res.output)
+    assert payload["plugin_copies"] == [
+        ".claude/scripts/cite_lookup.py",
+        ".claude/make",
+        ".codex/agents/verifier.toml",
+        ".agents/skills/wiki",
+    ]
+    (bk,) = _backups(pj)
+    assert (bk / "scripts" / "cite_lookup.py").read_text(encoding="utf-8") == "antigo\n"
+    assert (bk / "make" / ".gitkeep").is_file()
+    assert (bk / ".codex" / "agents" / "verifier.toml").is_file()
+    assert (bk / ".agents" / "skills" / "wiki" / "SKILL.md").is_file()
+    assert (scripts / "meu_script.py").read_text(encoding="utf-8") == "meu\n"
+    assert not (pj / ".claude" / "make").exists()
+    assert not (pj / ".codex").exists()
+    assert not (pj / ".agents").exists()
+    assert (pj / "AGENTS.md").read_text(encoding="utf-8") == "# meu AGENTS\n"
+
+
+def test_update_poupa_skill_de_terceiros_e_agent_do_pesquisador_com_nome_do_par(
+    tmp_path: Path,
+) -> None:
+    """Um pacote de terceiros instala `.agents/skills/peer-review/`, nome que o PAR já usou.
+    Sem a marca do PAR no conteúdo, não é cópia: o update não o tira do projeto."""
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    terceiros = pj / ".agents" / "skills" / "peer-review" / "SKILL.md"
+    terceiros.parent.mkdir(parents=True)
+    terceiros.write_text("---\ndescription: third-party\n---\n", encoding="utf-8")
+    minha = pj / ".agents" / "skills" / "write" / "SKILL.md"
+    minha.parent.mkdir(parents=True)
+    minha.write_text("Escreva o draft do pj_leg1; rode `prumo status`.\n", encoding="utf-8")
+    meu = pj / ".codex" / "agents" / "reviewer.toml"
+    meu.parent.mkdir(parents=True)
+    meu.write_text(
+        'name = "reviewer"\ndeveloper_instructions = "o prumo do pj_demo"\n', encoding="utf-8"
+    )
+
+    res = runner.invoke(app, ["update", str(pj), "--yes", "--json"])
+
+    assert res.exit_code == 0, res.output
+    assert json.loads(res.output)["plugin_copies"] == []
+    assert terceiros.read_text(encoding="utf-8") == "---\ndescription: third-party\n---\n"
+    assert minha.is_file()
+    assert meu.is_file()
+    assert _backups(pj) == []
+
+
+def test_update_resumo_so_fala_de_skill_quando_moveu_skill(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    (pj / ".claude" / "scripts").mkdir()
+    (pj / ".claude" / "scripts" / "export_page.py").write_text("x\n", encoding="utf-8")
+
+    res = runner.invoke(app, ["update", str(pj)])
+
+    assert res.exit_code == 0, res.output
+    out = " ".join(res.output.split())
+    assert "1 cópia(s) antiga(s) do PAR saíram do projeto" in out
+    assert "customizou" not in out
+
+
+def test_update_resumo_aconselha_recriar_skill_customizada(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    _com_copias(pj)
+
+    res = runner.invoke(app, ["update", str(pj)])
+
+    assert res.exit_code == 0, res.output
+    out = " ".join(res.output.split())
+    assert "Se você customizou uma skill, recrie-a com outro nome" in out
+
+
+def test_doctor_aponta_receita_que_chamava_script_movido_antes_e_depois_do_update(
+    tmp_path: Path,
+) -> None:
+    """O update move `.claude/scripts/paper_sync.py`; o Makefile que o chamava não pode
+    quebrar calado: a linha aparece no aviso `[referencia_obsoleta]` antes e depois."""
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    (pj / ".claude" / "scripts").mkdir()
+    (pj / ".claude" / "scripts" / "paper_sync.py").write_text("x\n", encoding="utf-8")
+    (pj / "Makefile").write_text(
+        "sync-paper:\n\t@python3 .claude/scripts/paper_sync.py .\n", encoding="utf-8"
+    )
+
+    def referencias() -> list[str]:
+        with patch("par.cli.check_external_deps", return_value=[]):
+            res = runner.invoke(app, ["doctor", str(pj), "--json"])
+        avisos: list[str] = json.loads(res.stdout)["warnings"]
+        return [w for w in avisos if w.startswith("[referencia_obsoleta]")]
+
+    (antes,) = referencias()
+    assert "Makefile:2" in antes
+    assert runner.invoke(app, ["update", str(pj), "--json"]).exit_code == 0
+    assert not (pj / ".claude" / "scripts" / "paper_sync.py").exists()
+    (depois,) = referencias()
+    assert "Makefile:2" in depois
 
 
 # --- D4/A13: `.claude/settings.json` do template --------------------------------

@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 import shutil
 import sys
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -67,6 +68,7 @@ from par.core.skill_refs import (
     backup_plugin_copies,
     exclude_paths,
     migrate_skill_names,
+    obsolete_ref_warnings,
     plugin_copies,
     scan_skill_refs,
 )
@@ -191,8 +193,27 @@ def _plugin_agent_files() -> set[str]:
 
 
 def _plugin_copies(pj_root: Path) -> list[str]:
-    """Cópias do PAR deixadas em ``.claude/`` do pj por um ``prumo init`` antigo."""
+    """Cópias do que o plugin provê, deixadas no pj por versões antigas do PAR (A11)."""
     return plugin_copies(pj_root, _plugin_skill_names(), _plugin_agent_files())
+
+
+def _group_paths(rels: list[str]) -> str:
+    """``a/x, a/y, b/z`` vira ``a/{x, y}, b/z``: cada diretório é dito uma vez (Princípio VIII)."""
+    groups: dict[str, list[str]] = {}
+    for rel in rels:
+        parent, _, name = rel.rpartition("/")
+        groups.setdefault(parent, []).append(name)
+    return ", ".join(
+        f"{parent}/{names[0]}" if len(names) == 1 else f"{parent}/{{{', '.join(names)}}}"
+        for parent, names in groups.items()
+    )
+
+
+def _recreate_hint(rels: Sequence[str]) -> str:
+    """Conselho de recriar a skill customizada, só se alguma cópia é skill (ou ``""``)."""
+    if not any(rel.startswith(".claude/skills/") for rel in rels):
+        return ""
+    return "se você customizou uma skill, recrie-a com outro nome em .claude/skills/<um-nome-seu>/"
 
 
 def _legacy_stamp() -> str:
@@ -592,7 +613,8 @@ def doctor_command(
     """Health-check do projeto: estrutura, cópias antigas do PAR e dependências externas.
 
     Também reporta dependências externas (qmd, Zotero). Dependência externa
-    ausente é informativa — não muda o exit code; só problemas estruturais
+    ausente e referência obsoleta nas instruções (heurística sobre prosa) são
+    informativas — não mudam o exit code; só problemas estruturais
     (diretórios/skills faltando) retornam 1.
     """
     console = Console(json_mode=json_mode)
@@ -609,26 +631,24 @@ def doctor_command(
     # MESMO remédio, e remédio igual é mensagem única (Princípio VIII).
     issues.extend(standard_issues(target, _resolve_template_dir()))
 
-    # Superfície por domínio (ADR-0032, A11): cópias antigas do PAR em .claude/
-    # e invocações antigas no projeto. Remédio único → issue única (Princípio VIII).
-    # A invocação DENTRO de uma cópia não conta: a cópia vai ser movida, não reescrita.
+    # Superfície por domínio (ADR-0032, A11): cópias antigas do que o plugin provê
+    # (skills, agents, scripts do CLI antigo, espelhos do Codex) e invocações antigas
+    # no projeto. Remédio único → issue única (Princípio VIII). A invocação DENTRO de
+    # uma cópia não conta: a cópia vai ser movida, não reescrita.
     copias = _plugin_copies(target)
-    antigos = [c.path for c in exclude_paths(scan_skill_refs(target, _legacy_skill_map()), copias)]
+    legacy = _legacy_skill_map()
+    antigos = [c.path for c in exclude_paths(scan_skill_refs(target, legacy), copias)]
     if copias:
-        issues.append(
-            "[skill_obsoleta] cópias antigas das skills/agents do PAR em .claude/ ("
-            + ", ".join(copias)
-            + ") sombreiam o plugin. Rode: prumo update — elas vão para "
-            ".prumo/legacy-copies/<AAAAMMDD-HHMMSS>/, nada é apagado; se você customizou "
-            "alguma, recrie-a em .claude/skills/<um-nome-seu>/"
-            + (
-                "; invocações antigas em "
-                + ", ".join(antigos)
-                + ", que o mesmo `prumo update` reescreve."
-                if antigos
-                else "."
-            )
-        )
+        partes = [
+            f"cópias do que o plugin já traz, deixadas por versões antigas do PAR "
+            f"({_group_paths(copias)}); o plugin vale no lugar delas. Rode: prumo update — "
+            "elas vão para .prumo/legacy-copies/<AAAAMMDD-HHMMSS>/, nada é apagado",
+            _recreate_hint(copias),
+            f"invocações antigas em {', '.join(antigos)}, que o mesmo `prumo update` reescreve"
+            if antigos
+            else "",
+        ]
+        issues.append("[skill_obsoleta] " + "; ".join(p for p in partes if p) + ".")
     elif antigos:
         issues.append(
             "[skill_obsoleta] o PAR agora tem 5 skills com modos "
@@ -666,7 +686,10 @@ def doctor_command(
 
     # Warnings fecham ANTES do payload — nada de popular a lista por
     # aliasing depois que o dict já foi montado.
-    warnings: list[str] = []
+    # Instrução que ensina o que saiu (plugin antigo, MCP do qmd, CLI à parte): o remédio
+    # é editar a linha, e o `update` não toca texto do pesquisador. É aviso, não issue: a
+    # leitura de prosa é heurística, e um falso positivo não pode prender o exit em 1.
+    warnings: list[str] = obsolete_ref_warnings(target, legacy)
     if not issues and bib_is_placeholder(target):
         warnings.append(
             "docs/references/_references.bib ainda é o placeholder do scaffold — "
@@ -772,7 +795,7 @@ def update_command(
                 dry_run=dry_run,
                 migrated=migrated,
                 skill_refs=len(skill_refs),
-                copies=len(copias),
+                copies=copias,
                 backup=backup,
             ),
             {
@@ -823,22 +846,23 @@ def _update_summary(
     dry_run: bool,
     migrated: str | None = None,
     skill_refs: int = 0,
-    copies: int = 0,
+    copies: Sequence[str] = (),
     backup: str | None = None,
 ) -> str:
     if not copies:
         copias = ""
     elif dry_run:
         copias = (
-            f"{copies} cópia(s) antiga(s) do PAR a mover de .claude/ para "
+            f"{len(copies)} cópia(s) antiga(s) do PAR a mover para "
             ".prumo/legacy-copies/ (nada é apagado). "
         )
     else:
         copias = (
-            f"{copies} cópia(s) antiga(s) do PAR saíram de .claude/ para {backup}/ "
-            "(nada foi apagado; o plugin passa a valer). Se você tinha customizado alguma, "
-            "recrie-a com outro nome em .claude/skills/<um-nome-seu>/. "
+            f"{len(copies)} cópia(s) antiga(s) do PAR saíram do projeto para {backup}/ "
+            "(nada foi apagado; o plugin passa a valer). "
         )
+        if hint := _recreate_hint(copies):
+            copias += hint[0].upper() + hint[1:] + ". "
     refs = (
         f"{skill_refs} arquivo(s) com invocação de skill antiga "
         + ("a reescrever. " if dry_run else "reescrito(s). ")

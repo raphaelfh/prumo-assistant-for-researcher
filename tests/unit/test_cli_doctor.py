@@ -245,6 +245,84 @@ def test_doctor_aponta_copias_e_invocacao_numa_issue_so(tmp_path: Path) -> None:
     assert ".claude/skills/paper/SKILL.md" not in depois
 
 
+def test_doctor_aponta_scripts_antigos_e_espelhos_do_codex_na_mesma_issue(
+    tmp_path: Path,
+) -> None:
+    pj = _project(tmp_path)
+    scripts = pj / ".claude" / "scripts"
+    scripts.mkdir()
+    for name in ("_bib.py", "paper_sync.py", "meu_script.py"):
+        (scripts / name).write_text("x\n", encoding="utf-8")
+    (pj / ".codex" / "agents").mkdir(parents=True)
+    (pj / ".codex" / "agents" / "reader.toml").write_text(
+        'developer_instructions = "<!-- prumo:runtime:begin -->"\n', encoding="utf-8"
+    )
+    (pj / ".agents" / "skills" / "paper-manager").mkdir(parents=True)
+    (pj / ".agents" / "skills" / "paper-manager" / "SKILL.md").write_text(
+        "---\nname: paper-manager\nprumo:\n  version: 1.0.0\n---\n", encoding="utf-8"
+    )
+    (pj / "AGENTS.md").write_text("# espelho do CLAUDE.md\n", encoding="utf-8")
+
+    obsoleta = _obsoletas(pj)
+
+    assert len(obsoleta) == 1, obsoleta
+    msg = obsoleta[0]
+    for trecho in (
+        ".claude/scripts/{_bib.py, paper_sync.py}",
+        ".codex/agents/reader.toml",
+        ".agents/skills/paper-manager",
+        "prumo update",
+    ):
+        assert trecho in msg, msg
+    assert "meu_script.py" not in msg
+    assert "AGENTS.md" not in msg
+
+
+def test_doctor_explicacao_das_copias_vale_para_script(tmp_path: Path) -> None:
+    """Script solto não sombreia nada, e não há skill para recriar: a mensagem não diz isso."""
+    pj = _project(tmp_path)
+    (pj / ".claude" / "scripts").mkdir()
+    (pj / ".claude" / "scripts" / "cite_graph.py").write_text("x\n", encoding="utf-8")
+
+    (msg,) = _obsoletas(pj)
+
+    assert ".claude/scripts/cite_graph.py" in msg
+    assert "o plugin vale no lugar delas" in msg
+    assert "sombreiam" not in msg
+    assert "customizou" not in msg
+
+
+def test_doctor_conselho_de_customizacao_so_com_copia_de_skill(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    _copia_paper(pj, "x\n")
+
+    (msg,) = _obsoletas(pj)
+
+    assert (
+        "se você customizou uma skill, recrie-a com outro nome em .claude/skills/<um-nome-seu>/"
+        in msg
+    )
+
+
+def test_doctor_poupa_skill_de_terceiros_e_agent_do_pesquisador_com_nome_do_par(
+    tmp_path: Path,
+) -> None:
+    pj = _project(tmp_path)
+    d = pj / ".agents" / "skills" / "peer-review"
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text("---\ndescription: third-party\n---\n", encoding="utf-8")
+    meu = pj / ".agents" / "skills" / "review" / "SKILL.md"
+    meu.parent.mkdir(parents=True)
+    meu.write_text("Revise os docs do pj_x com `prumo paper find`.\n", encoding="utf-8")
+    (pj / ".codex" / "agents").mkdir(parents=True)
+    (pj / ".codex" / "agents" / "reviewer.toml").write_text(
+        'name = "reviewer"\ndeveloper_instructions = "Use prumo paper find antes."\n',
+        encoding="utf-8",
+    )
+
+    assert _obsoletas(pj) == []
+
+
 def test_doctor_ignora_invocacao_dentro_das_copias(tmp_path: Path) -> None:
     pj = _project(tmp_path)
     _copia_paper(pj, "/par:peer-review\n")
@@ -289,3 +367,70 @@ def test_doctor_reprova_dado_versionavel(tmp_path: Path) -> None:
         result = runner.invoke(app, ["doctor", str(pj), "--json"])
     assert result.exit_code == 1, result.output
     assert issue in json.loads(result.stdout)["issues"]
+
+
+def _referencias(pj: Path) -> list[str]:
+    with patch("par.cli.check_external_deps", return_value=[]):
+        res = runner.invoke(app, ["doctor", str(pj), "--json"])
+    avisos: list[str] = json.loads(res.stdout)["warnings"]
+    return [w for w in avisos if w.startswith("[referencia_obsoleta]")]
+
+
+def test_doctor_referencia_obsoleta_eh_aviso_e_nao_muda_o_exit(tmp_path: Path) -> None:
+    """Achado heurístico sobre prosa é aviso: só problema estrutural devolve 1, e um falso
+    positivo não pode deixar o doctor em 1 a cada /par:start."""
+    pj = _project(tmp_path)
+    (pj / "CLAUDE.md").write_text(
+        "# pj_x\nMCP: `qmd` (busca BM25 + vector + rerank local no wiki).\n", encoding="utf-8"
+    )
+
+    with patch("par.cli.check_external_deps", return_value=[]):
+        res = runner.invoke(app, ["doctor", str(pj), "--json"])
+        texto = runner.invoke(app, ["doctor", str(pj)])
+
+    assert res.exit_code == 0, res.output
+    payload = json.loads(res.stdout)
+    assert payload["ok"] is True
+    assert payload["issues"] == []
+    (aviso,) = [w for w in payload["warnings"] if w.startswith("[referencia_obsoleta]")]
+    assert "CLAUDE.md:2" in aviso
+    assert texto.exit_code == 0, texto.output
+    assert "[referencia_obsoleta]" in texto.output
+
+
+def test_doctor_aponta_referencia_obsoleta_com_arquivo_e_linha(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    (pj / "CLAUDE.md").write_text(
+        "# pj_x\n/plugin install prumo-assist\nbusca: qmd query\n", encoding="utf-8"
+    )
+
+    (issue,) = _referencias(pj)
+
+    assert "CLAUDE.md:2" in issue
+    assert "CLAUDE.md:3" not in issue
+    assert "Edite estas linhas" in issue
+
+
+def test_doctor_nao_acusa_linha_que_nega_o_mcp_do_qmd(tmp_path: Path) -> None:
+    """A linha que o próprio remédio produz não pode voltar como issue (sem laço)."""
+    pj = _project(tmp_path)
+    (pj / "CLAUDE.md").write_text(
+        "# pj_x\nqmd é CLI; não há servidor MCP do qmd.\nqmd é só CLI, sem MCP.\n"
+        "Busca: CLI `qmd query`; o MCP do qmd foi removido na 0.70.\n"
+        "o servidor MCP `qmd` sai do plugin\n"
+        "the qmd MCP server is no longer used\n"
+        "O plugin hoje é `par` (antes `prumo-assist`).\n",
+        encoding="utf-8",
+    )
+
+    assert _referencias(pj) == []
+
+
+def test_doctor_projeto_recem_criado_nao_tem_referencia_obsoleta(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_novo"
+    res = runner.invoke(
+        app, ["init", str(pj), "--with", "code,data,ml,notebooks,clinical", "--no-git", "--json"]
+    )
+    assert res.exit_code == 0, res.output
+
+    assert _referencias(pj) == []
