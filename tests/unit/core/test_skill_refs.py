@@ -354,6 +354,21 @@ def test_move_vendorizados_apaga_so_diretorios_que_ficam_vazios(tmp_path: Path) 
     assert (tmp_path / ".claude").is_dir()
 
 
+def test_move_poupa_diretorio_vazio_que_nao_guardava_copia(tmp_path: Path) -> None:
+    """Só sai o diretório que guardava uma cópia movida; vazio criado pelo pesquisador fica."""
+    (tmp_path / ".claude" / "skills" / "paper").mkdir(parents=True)
+    (tmp_path / ".claude" / "skills" / "paper" / "SKILL.md").write_text("x\n", encoding="utf-8")
+    vazios = (".codex/agents", ".agents/skills", ".claude/scripts", ".claude/agents")
+    for rel in vazios:
+        (tmp_path / rel).mkdir(parents=True)
+
+    move_plugin_copies(tmp_path, [".claude/skills/paper"], tmp_path / ".prumo" / "lc" / "t")
+
+    assert not (tmp_path / ".claude" / "skills").exists()
+    for rel in vazios:
+        assert (tmp_path / rel).is_dir(), rel
+
+
 def _terceiros_com_nome_do_par(pj: Path) -> Path:
     """Skills de um pacote de terceiros (instaladas em ``.agents/skills/``) e um agent do
     pesquisador, todos com nomes que o PAR já usou e nenhuma marca do PAR."""
