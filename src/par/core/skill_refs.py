@@ -257,11 +257,19 @@ def obsolete_ref_issues(pj_root: Path, legacy: Mapping[str, SkillRef]) -> list[s
 #: O que o ``.claude/make/`` do ``pj_base`` antigo tinha quando ninguém o usou.
 _EMPTY_MAKE = frozenset({".gitkeep", ".DS_Store"})
 
-#: Marca do PAR no conteúdo de um espelho do Codex: o CLI ou o id antigo (``prumo``,
-#: ``prumo-assist``), os projetos (``pj_*``) e o contrato do agent ``reviewer``
-#: (``PeerReviewReport/v1``, única marca das versões dele que não citam o ``prumo``).
-#: Todo SKILL.md e todo agent que o PAR já publicou traz ao menos uma.
-_PAR_MARK = re.compile(r"prumo|\bpj_|PeerReviewReport/v\d", re.IGNORECASE)
+#: Marca do PAR no conteúdo de um espelho do Codex: só o que o PAR publica e o pesquisador
+#: não escreve. O bloco ``prumo:`` do frontmatter das skills, o bloco gerado
+#: ``prumo:runtime`` e o contrato JSON dos agents e modos (``SupportReport/v1``). Citar o
+#: projeto (``pj_*``), o CLI (``prumo status``) ou a palavra "prumo" não basta: uma skill
+#: do pesquisador num ``pj_*`` faz isso. Versões muito antigas sem marca nenhuma ficam onde
+#: estão, o que é inofensivo: o Claude Code não lê ``.agents/`` nem ``.codex/``.
+_PAR_MARK = re.compile(
+    r"^prumo:[ \t]*$"
+    r"|prumo:runtime"
+    r"|\b(?:PaperCallout|PaperExtract|PeerReviewReport|PicotSpec|ScientificWritingPass"
+    r"|SessionLog|SupportReport|WikiLintReport|WikiQueryResponse|WikiSource|WriteOutput)/v\d",
+    re.MULTILINE,
+)
 
 #: Diretórios onde moram as cópias, o mais fundo antes do que o contém; cada um sai do pj
 #: só se guardava uma cópia movida e ficou vazio.

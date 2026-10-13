@@ -281,11 +281,11 @@ def test_update_move_scripts_antigos_e_espelhos_do_codex(tmp_path: Path) -> None
     (pj / ".claude" / "make" / ".gitkeep").write_text("", encoding="utf-8")
     (pj / ".codex" / "agents").mkdir(parents=True)
     (pj / ".codex" / "agents" / "verifier.toml").write_text(
-        'developer_instructions = "confira o pj_*"\n', encoding="utf-8"
+        'developer_instructions = "Devolve SupportReport/v1."\n', encoding="utf-8"
     )
     (pj / ".agents" / "skills" / "wiki").mkdir(parents=True)
     (pj / ".agents" / "skills" / "wiki" / "SKILL.md").write_text(
-        "Rode `prumo wiki lint`.\n", encoding="utf-8"
+        "---\nname: wiki\nprumo:\n  version: 2.0.0\n---\n", encoding="utf-8"
     )
     (pj / "AGENTS.md").write_text("# meu AGENTS\n", encoding="utf-8")
 
@@ -321,15 +321,21 @@ def test_update_poupa_skill_de_terceiros_e_agent_do_pesquisador_com_nome_do_par(
     terceiros = pj / ".agents" / "skills" / "peer-review" / "SKILL.md"
     terceiros.parent.mkdir(parents=True)
     terceiros.write_text("---\ndescription: third-party\n---\n", encoding="utf-8")
+    minha = pj / ".agents" / "skills" / "write" / "SKILL.md"
+    minha.parent.mkdir(parents=True)
+    minha.write_text("Escreva o draft do pj_leg1; rode `prumo status`.\n", encoding="utf-8")
     meu = pj / ".codex" / "agents" / "reviewer.toml"
     meu.parent.mkdir(parents=True)
-    meu.write_text('name = "reviewer"\n', encoding="utf-8")
+    meu.write_text(
+        'name = "reviewer"\ndeveloper_instructions = "o prumo do pj_demo"\n', encoding="utf-8"
+    )
 
-    res = runner.invoke(app, ["update", str(pj), "--json"])
+    res = runner.invoke(app, ["update", str(pj), "--yes", "--json"])
 
     assert res.exit_code == 0, res.output
     assert json.loads(res.output)["plugin_copies"] == []
     assert terceiros.read_text(encoding="utf-8") == "---\ndescription: third-party\n---\n"
+    assert minha.is_file()
     assert meu.is_file()
     assert _backups(pj) == []
 
