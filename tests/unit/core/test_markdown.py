@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from par.core.markdown import (
     normalize_markdown,
     set_frontmatter_key,
@@ -114,6 +116,29 @@ def test_block_id_anchor_is_stripped() -> None:
     out = normalize_markdown("Some claim. ^abc123\nNext line.")
     assert "^abc123" not in out
     assert "Some claim." in out
+
+
+def test_trailing_block_id_is_stripped_from_paragraph() -> None:
+    assert normalize_markdown("para text ^abc123\n\nNext.") == "para text\n\nNext."
+
+
+def test_block_id_on_its_own_line_is_stripped() -> None:
+    out = normalize_markdown("| a | b |\n|---|---|\n| 1 | 2 |\n\n^tabela-1\n\nNext.")
+    assert "^tabela-1" not in out
+    assert "| 1 | 2 |" in out
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Autora A^1^, Autor B^2^\n\n^1^School of Medicine\n^2^Department of Surgery\n",
+        "The model explained R^2^ = 0.81 of the variance.\n",
+        "Rates were higher after prolapse. ^a^Ethnicity was self-reported.\n",
+        "Valor final ^a^\n",
+    ],
+)
+def test_pandoc_superscript_is_not_a_block_id(text: str) -> None:
+    assert normalize_markdown(text) == text
 
 
 def test_code_block_is_preserved() -> None:
