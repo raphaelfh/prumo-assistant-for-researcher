@@ -7,6 +7,26 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Corrigido
+
+- **Superscript do Pandoc sobrevive ao export.** O normalizador do wiki tomava por block ID
+  (`^id`) todo `^` depois de espaço, inclusive o superscript que abre a linha ou vem no meio da
+  frase: numa linha de afiliação `^1^Escola de ...` ou numa nota de tabela `... prolapso.
+  ^a^Etnia ...`, apagava o `\n^1` ou o ` ^a`, e no docx a afiliação colava no parágrafo anterior
+  com um `^` solto. Agora o block ID só conta no fim da linha (`texto ^id`, ou `^id` sozinho
+  numa linha); `^1^`, `R^2^` e ` ^a^Nota` passam intactos.
+- **Audit do `/par:write style` volta a buscar.** As linhas C4+C8 e C4 (sinalização) usavam
+  `rg -iE`, mas no ripgrep `-E` é `--encoding`: o comando abortava (exit 2) sem buscar nada, e o
+  "0 ocorrências" dessas convenções era falso. Agora usam `rg -i`. O C1a ganhou uma linha para a
+  citação que fecha a linha sem terminador, e o C2 deixa de acusar o colchete escapado
+  (`\[texto\] [@key]`).
+
+### Documentação
+
+- O `/par:write export` avisa que CriticMarkup na página (`{>>comentário<<}`) sai como texto
+  literal no docx, porque o Pandoc não lê CriticMarkup: pergunta ao coautor não mora na página
+  como comentário.
+
 ## [0.71.1] - 2026-10-12
 
 ### Corrigido

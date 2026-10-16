@@ -11,7 +11,8 @@ pipeline):
 - ``![[img.png]]`` → ``![](caminho_resolvido)`` (busca relativa)
 - ``![[paper.pdf#page=N]]`` → ``""`` + warning (Pandoc não suporta)
 - ``> [!tipo] [titulo]`` / ``> corpo`` → ``> **titulo**`` / ``> corpo``
-- ``^anchor`` (block ID) → removido
+- ``^anchor`` (block ID, no fim da linha) → removido; superscript Pandoc
+  (``^1^``, ``R^2^``) passa intacto
 - Code blocks, footnotes, tags: passthrough.
 
 ``normalize_markdown_with_map`` roda um motor de edits (coleta única sobre o
@@ -47,7 +48,11 @@ _INLINE_CODE_RE = re.compile(r"(`[^`\n]+`)")
 # passa a ser uma citação correta em vez de docx corrompido.
 _WIKILINK_RE = re.compile(r"\[\[([^\]\|]+)(?:\|([^\]]+))?\]\]")
 _IMAGE_EMBED_RE = re.compile(r"!\[\[([^\]]+)\]\]")
-_BLOCK_ID_RE = re.compile(r"\s\^[A-Za-z0-9-]+\b")
+# Block ID só vale no FIM da linha (`texto ^id` ou `^id` sozinho numa linha,
+# a forma das listas e tabelas). Sem essa âncora, o superscript Pandoc depois
+# de espaço (`^1^Afiliação`, `... prolapso. ^a^Nota`) também casava, e o export
+# apagava o `\n^1` ou o ` ^a`: a afiliação colava no parágrafo anterior.
+_BLOCK_ID_RE = re.compile(r"(?:^|[ \t])\^[A-Za-z0-9-]+(?=[ \t]*$)", re.MULTILINE)
 _CALLOUT_HEADER_RE = re.compile(r"^>\s*\[!(\w+)\](?:\s+(.+))?\s*$")
 
 
