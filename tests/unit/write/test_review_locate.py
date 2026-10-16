@@ -980,7 +980,7 @@ def test_ins_after_atom_with_zero_width_block_id_transplants() -> None:
     "permite ins logo DEPOIS de um átomo") — a implementação faltosa travava
     em `starting` no PRIMEIRO match (o block-id, zero-width) e nunca via a
     identity real, emitindo `non-identity-span` por engano."""
-    source_body = "Isso [[abc2020]] ^anchor1 continua com mais prosa normal aqui."
+    source_body = "Isso [[abc2020]] ^anchor1\ncontinua com mais prosa normal aqui."
     _norm_text, span_frags = normalize_markdown_with_map(source_body)
 
     # sanity: reproduz EXATAMENTE a forma do span-map do reviewer (senão o
