@@ -65,6 +65,19 @@ def _outside_claude_sandbox(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SANDBOX_RUNTIME", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _wide_rich_console(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A saída do ``CliRunner`` não depende da largura do terminal de quem roda a suíte.
+
+    Sem TTY, o Rich mede a largura pelo terminal herdado (ou cai em 80): num
+    terminal estreito, uma mensagem com o ``tmp_path`` longo quebra no meio do
+    comando de correção (``prumo \\nadd study``) e o ``assert ... in output``
+    falha. ``COLUMNS`` é lido a cada ``core/output.Console`` construído, então
+    vale para todo comando invocado no teste.
+    """
+    monkeypatch.setenv("COLUMNS", "300")
+
+
 class InitProject(Protocol):
     """Tipo do factory devolvido pela fixture `init_project` (mypy --strict)."""
 
