@@ -681,7 +681,6 @@ def test_write_review_ingest_happy_path(tmp_path: Path, monkeypatch: pytest.Monk
         return _fake_ingest_result(review_md)
 
     monkeypatch.setattr("par.domains.write.cli.review.ingest", fake_ingest)
-    monkeypatch.setenv("COLUMNS", "300")  # evita quebra de linha do Rich no path longo
 
     plain = runner.invoke(app, ["write", "review", "ingest", str(docx), "--page", str(page)])
     assert plain.exit_code == 0, plain.output
@@ -784,7 +783,7 @@ def test_write_review_apply_mark_without_decision_exits_cleanly(
     assert "Traceback" not in result.output
 
 
-def test_write_review_events_list_plain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_write_review_events_list_plain(tmp_path: Path) -> None:
     _pj, page, review_dir = _pj_with_review_dir(tmp_path)
     # Kinds REAIS gravados por `review.py` (Fix pós-review, Crítico #1) —
     # NUNCA "unanchored"/"citation-touched" fabricados; ver grep `kind="` em
@@ -792,7 +791,6 @@ def test_write_review_events_list_plain(tmp_path: Path, monkeypatch: pytest.Monk
     (review_dir / "events.yaml").write_text(
         "page: docs/p.md\nevents:\n  - kind: citation-drop\n    detail: 'citação (occ occ1, citekeys k2020) deletada no Word — confirme no apply.'\n    occ_id: occ1\n    citekeys: [k2020]\n  - kind: unanchored-mark\n    detail: 'marca não localizada no corpo normalizado — edite manualmente ou aguarde'\n  - kind: citation-touched-prose\n    detail: 'decisão humana: edite a fonte'\n"
     )
-    monkeypatch.setenv("COLUMNS", "300")
 
     result = runner.invoke(app, ["write", "review", "events", "--page", str(page)])
     assert result.exit_code == 0, result.output
@@ -804,7 +802,7 @@ def test_write_review_events_list_plain(tmp_path: Path, monkeypatch: pytest.Monk
     assert "não localizada" in result.output
 
 
-def test_write_review_events_checklist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_write_review_events_checklist(tmp_path: Path) -> None:
     _pj, page, review_dir = _pj_with_review_dir(tmp_path)
     # Cobertura dos 6 kinds REAIS que `review.py` persiste (Fix pós-review,
     # Crítico #1 — grep `kind="` em `review.py`): "unanchored"/"ambiguous"/
@@ -829,7 +827,6 @@ def test_write_review_events_checklist(tmp_path: Path, monkeypatch: pytest.Monke
         "  - kind: applied\n"
         "    detail: '2 citekey(s) confirmadas em 2026-07-23'\n"
     )
-    monkeypatch.setenv("COLUMNS", "300")
 
     result = runner.invoke(app, ["write", "review", "events", "--page", str(page), "--checklist"])
     assert result.exit_code == 0, result.output
@@ -846,12 +843,9 @@ def test_write_review_events_checklist(tmp_path: Path, monkeypatch: pytest.Monke
     assert "AÇÃO: nenhuma ação — histórico" in result.output
 
 
-def test_write_review_events_missing_sidecars_exits_cleanly(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_write_review_events_missing_sidecars_exits_cleanly(tmp_path: Path) -> None:
     _pj, page = _pj_with_root(tmp_path)
     # No review dir created, so events.yaml is missing
-    monkeypatch.setenv("COLUMNS", "300")
 
     result = runner.invoke(app, ["write", "review", "events", "--page", str(page)])
     assert result.exit_code == 1
@@ -865,9 +859,7 @@ def test_write_review_events_missing_sidecars_exits_cleanly(
 #     ponto de leitura+validação, usado por `cli.py` e `mcp_server.py`. -----
 
 
-def test_write_review_events_corrupt_sidecar_shows_pt_br_message(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_write_review_events_corrupt_sidecar_shows_pt_br_message(tmp_path: Path) -> None:
     _pj, page, review_dir = _pj_with_review_dir(tmp_path)
     # `detail` é obrigatório em `ReviewEvent` (schemas/v1.py) — ausência viola
     # o schema (`pydantic.ValidationError`), simulando events.yaml corrompido
@@ -875,7 +867,6 @@ def test_write_review_events_corrupt_sidecar_shows_pt_br_message(
     (review_dir / "events.yaml").write_text(
         "page: docs/p.md\nevents:\n  - kind: unanchored-mark\n", encoding="utf-8"
     )
-    monkeypatch.setenv("COLUMNS", "300")
 
     result = runner.invoke(app, ["write", "review", "events", "--page", str(page)])
 
@@ -919,9 +910,7 @@ def test_review_read_events_file_with_malformed_yaml_raises_value_error_pt_br(
 #     nunca pode ser reinterpretado como marcação Rich. -------------------
 
 
-def test_write_review_events_preserves_citation_brackets_literal(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_write_review_events_preserves_citation_brackets_literal(tmp_path: Path) -> None:
     _pj, page, review_dir = _pj_with_review_dir(tmp_path)
     (review_dir / "events.yaml").write_text(
         "page: docs/p.md\n"
@@ -930,7 +919,6 @@ def test_write_review_events_preserves_citation_brackets_literal(
         '    detail: "prosa perto de [[@smith2020]] mudou sob track changes"\n',
         encoding="utf-8",
     )
-    monkeypatch.setenv("COLUMNS", "300")
 
     plain = runner.invoke(app, ["write", "review", "events", "--page", str(page)])
     assert plain.exit_code == 0, plain.output
