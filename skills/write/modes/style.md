@@ -202,16 +202,20 @@ Resolver o idioma, rodar audit e só então editar. Reportar contagem de cada vi
 ```bash
 # C1a: citação marcada não seguida imediatamente de terminador — superconjunto
 # conservador. Triagem manual descarta as preservações (legenda, item de lista,
-# lista de referências).
+# lista de referências). A segunda linha pega a citação que fecha a linha sem
+# terminador, que a primeira não vê.
 rg -n "\[@[^]]+\][^.]" <draft>
+rg -n "\[@[^]]+\]$" <draft>
 
 # C1b: citação narrativa (@key fora de colchete) — mid-período por construção.
 # O `(*SKIP)(*F)` do PCRE2 pula o miolo dos colchetes, então `[@a; @b]` não vira
 # falso positivo; o `[^@...]` à esquerda descarta e-mail (`nome@dominio`).
 rg -nP "\[[^\]]*\](*SKIP)(*F)|(^|[^@[:alnum:]._-])@[[:alpha:]][[:alnum:].+_-]*" <draft>
 
-# C2: colchetes de citação adjacentes ([@a] [@b]) ou vírgula entre citações ([@a], [@b])
-rg -n "\]\s*,?\s*\[@" <draft>
+# C2: colchetes de citação adjacentes ([@a] [@b]) ou vírgula entre citações ([@a], [@b]).
+# O `[^\\]` descarta o colchete escapado (`\[texto\] [@key]`); as aspas simples
+# preservam a barra no shell (com aspas duplas o rg recusa: "unclosed character class").
+rg -n '[^\\]\]\s*,?\s*\[@' <draft>
 
 # C3a: travessões em texto corrido (excluir tabelas e refs)
 rg -n " — " <draft>
@@ -226,11 +230,12 @@ rg -n "; " <draft>
 rg -n ":" <draft>
 # Inspeção manual obrigatória.
 
-# C4 + C8: superlativos, hype e frases mortas nos dois idiomas
-rg -n -iE "highly|extremely|dramatically|drastically|radically|crucial|vital|essential|robust|novel|unprecedented|seminal|state-of-the-art|revolutioniz|pave the way|in order to|it is (well known|worth noting)|altamente|particularmente|extremamente|drasticamente|fundamental|inédito|sem precedentes|nos últimos anos" <draft>
+# C4 + C8: superlativos, hype e frases mortas nos dois idiomas. Nunca `-E` no rg:
+# é `--encoding`, não regex estendida; o comando aborta (exit 2) sem buscar nada.
+rg -n -i "highly|extremely|dramatically|drastically|radically|crucial|vital|essential|robust|novel|unprecedented|seminal|state-of-the-art|revolutioniz|pave the way|in order to|it is (well known|worth noting)|altamente|particularmente|extremamente|drasticamente|fundamental|inédito|sem precedentes|nos últimos anos" <draft>
 
 # C4 (sinalização): causalidade, hedging forte e antropomorfismo
-rg -n -iE "causes|caused by|leads to|proves|demonstrates conclusively|the model (understands|believes|thinks|learns to reason)|comprova|confirma que" <draft>
+rg -n -i "causes|caused by|leads to|proves|demonstrates conclusively|the model (understands|believes|thinks|learns to reason)|comprova|confirma que" <draft>
 ```
 
 Apresentar contagem por convenção e os 5 primeiros exemplos de cada antes de editar.

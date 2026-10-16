@@ -39,6 +39,24 @@ def test_wikilink_alias_and_blockid_anchor() -> None:
     assert anchor.norm_start == anchor.norm_end  # âncora de largura zero
 
 
+def test_superscript_after_whitespace_is_identity() -> None:
+    src = "Texto. ^a^Nota da tabela\n^1^Afiliação, R^2^ alto\n"
+    norm, frags = normalize_markdown_with_map(src)
+    assert norm == src
+    _check_invariants(src, norm, frags)
+    assert [f.kind for f in frags] == ["identity"]
+
+
+def test_trailing_and_standalone_block_ids_keep_invariants() -> None:
+    src = "para text ^abc123\n\n- item\n\n^lista-1\nR^2^ fim ^b2\n"
+    norm, frags = normalize_markdown_with_map(src)
+    assert norm == "para text\n\n- item\n\n\nR^2^ fim\n"
+    _check_invariants(src, norm, frags)
+    anchors = [f for f in frags if f.kind == "block-id"]
+    assert len(anchors) == 3
+    assert all(f.norm_start == f.norm_end for f in anchors)
+
+
 def test_code_block_is_atomic_and_untouched() -> None:
     src = "a\n```\n[@nao_toca] [[nem_isto]]\n```\nb"
     norm, frags = normalize_markdown_with_map(src)
