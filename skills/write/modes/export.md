@@ -56,4 +56,5 @@ Há dois docx, e trocar um pelo outro estraga o trabalho da pessoa.
 | "Vou gerar o docx com pandoc direto, é mais rápido" | Nunca gere o docx por outro caminho: as citações saem mortas e a revisão não volta. Sem o `prumo`, pare e roteie para `/par:start`. |
 | "O coautor quer só dar uma olhada, mando o final" | Se o arquivo vai voltar com comentários, é revisão. |
 | "O Refresh deu erro no docx de revisão" | É a trava funcionando. Para usar o Zotero no Word, exporte o final. |
+| "Deixo a pergunta ao coautor como `{>>comentário<<}` na página" | O export não lê CriticMarkup: `{>>…<<}`, `{++…++}` e afins saem como texto literal no docx. A pergunta vai como frase no texto ou na mensagem ao coautor; as marcas da revisão vivem em `reviews/<slug>/review.md` e se resolvem com `prumo write review apply`, nunca na página. |
 | "Vou ingerir o docx final" | O final não volta para o PAR: o Zotero reescreve os campos e o ingest recusa. |
