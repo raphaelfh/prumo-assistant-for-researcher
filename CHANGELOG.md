@@ -9,6 +9,11 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Corrigido
 
+- **`prumo write review ingest` lê o docx inteiro.** O adeu era chamado sem `--page`, e o padrão
+  dele é devolver só a página 1, que é um bloco sintético por tamanho (cerca de 19 mil caracteres),
+  não uma página do Word. Num docx revisado mais longo que isso, as alterações e comentários do
+  coautor depois do primeiro bloco sumiam do ingest sem aviso. Agora o extract roda com
+  `--page all` (ADR-0016).
 - **Superscript do Pandoc sobrevive ao export.** O normalizador do wiki tomava por block ID
   (`^id`) todo `^` depois de espaço, inclusive o superscript que abre a linha ou vem no meio da
   frase: numa linha de afiliação `^1^Escola de ...` ou numa nota de tabela `... prolapso.
