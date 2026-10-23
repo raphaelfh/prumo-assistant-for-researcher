@@ -164,7 +164,19 @@ _RUN = "par.domains.write.review.subprocess.run"
 
 
 def _adeu_argv(docx: Path) -> list[str]:
-    return [sys.executable, "-I", "-m", "adeu.cli", "extract", "--json", str(docx), "-o", "-"]
+    return [
+        sys.executable,
+        "-I",
+        "-m",
+        "adeu.cli",
+        "extract",
+        "--page",
+        "all",
+        "--json",
+        str(docx),
+        "-o",
+        "-",
+    ]
 
 
 def _completed(
@@ -192,6 +204,21 @@ def test_run_adeu_extract_roda_o_adeu_do_lock_isolado(tmp_path: Path) -> None:
         text=True,
         timeout=120,
     )
+
+
+def test_run_adeu_extract_le_o_documento_inteiro(tmp_path: Path) -> None:
+    """Sem `--page all` o adeu devolve só a página sintética 1 (blocos de ~N
+    caracteres, não páginas do Word): as marcas do coautor depois dela sumiam
+    do ingest sem aviso."""
+    docx = tmp_path / "revisado.docx"
+
+    with patch(
+        _RUN, return_value=_completed(returncode=0, stdout='{"markdown": "ok"}')
+    ) as mock_run:
+        _run_adeu_extract(docx)
+
+    argv = mock_run.call_args.args[0]
+    assert argv[argv.index("--page") + 1] == "all"
 
 
 def test_run_adeu_extract_parses_markdown_field_from_stdout_json(tmp_path: Path) -> None:

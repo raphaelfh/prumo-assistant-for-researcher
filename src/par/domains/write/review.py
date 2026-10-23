@@ -755,9 +755,14 @@ _CHG_ANNOTATION_RE = re.compile(r"\[Chg:(?P<chg_id>\d+) (?:insert|delete)\]\s+(?
 
 def _run_adeu_extract(docx_path: Path) -> str:
     """Roda o adeu 1.29.0, pinado no pyproject, como
-    ``sys.executable -I -m adeu.cli extract --json <docx> -o -`` e devolve o
-    campo ``markdown`` do JSON de stdout — cru, sem parse de marcas (isso é
-    :func:`parse_adeu_markdown`).
+    ``sys.executable -I -m adeu.cli extract --page all --json <docx> -o -`` e
+    devolve o campo ``markdown`` do JSON de stdout — cru, sem parse de marcas
+    (isso é :func:`parse_adeu_markdown`).
+
+    ``--page all`` é obrigatório: sem ele o adeu devolve só a página 1, e as
+    páginas dele são blocos sintéticos por tamanho (não as do Word). Num docx
+    com mais de uma página, as marcas do coautor depois da primeira sumiam do
+    ingest sem nenhum aviso.
 
     Seam isolado de propósito para mock nos testes (regra deste repo:
     dependência externa SEMPRE mockada no seam — `.claude/rules/code.md`).
@@ -783,6 +788,8 @@ def _run_adeu_extract(docx_path: Path) -> str:
                 "-m",
                 "adeu.cli",
                 "extract",
+                "--page",
+                "all",
                 "--json",
                 str(docx_path),
                 "-o",

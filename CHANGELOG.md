@@ -7,8 +7,15 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.71.2] - 2026-10-22
+
 ### Corrigido
 
+- **`prumo write review ingest` lê o docx inteiro.** O adeu era chamado sem `--page`, e o padrão
+  dele é devolver só a página 1, que é um bloco sintético por tamanho (cerca de 19 mil caracteres),
+  não uma página do Word. Num docx revisado mais longo que isso, as alterações e comentários do
+  coautor depois do primeiro bloco sumiam do ingest sem aviso. Agora o extract roda com
+  `--page all` (ADR-0016).
 - **Superscript do Pandoc sobrevive ao export.** O normalizador do wiki tomava por block ID
   (`^id`) todo `^` depois de espaço, inclusive o superscript que abre a linha ou vem no meio da
   frase: numa linha de afiliação `^1^Escola de ...` ou numa nota de tabela `... prolapso.
@@ -1561,7 +1568,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.1...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.2...HEAD
+[0.71.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.1...v0.71.2
 [0.71.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.0...v0.71.1
 [0.71.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.2...v0.71.0
 [0.70.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.70.1...v0.70.2
