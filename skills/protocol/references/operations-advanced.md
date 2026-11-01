@@ -85,7 +85,7 @@ A saída em stdout é JSON com ``adr_path`` e ``propagate``.
 
 ## Caso especial — mudança de ``type``
 
-Se ``type`` mudou (``clinical`` → ``methodological`` ou vice-versa), o ADR
+Se ``type`` mudou (entre ``clinical``, ``prediction`` e ``methodological``), o ADR
 deve trazer warning explícito sobre os campos abandonados na seção
 **Notas**. Esse caso é raro e sempre vale confirmação extra com o usuário
 antes de prosseguir.
