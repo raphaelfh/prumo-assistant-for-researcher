@@ -73,7 +73,7 @@ Passos:
 1. **Reunir contexto via `wiki query`**: invocar `/par:wiki query` (ou `Read` em `docs/_index.md`/`_log.md`) pra entender o que já existe de tema. Citações livres ok.
 
 2. **Perguntar `type`** (escolha):
-   - "É um estudo **clínico** (PICOT padrão: Population/Intervention/Comparison/Outcome/Time) ou **metodológico** (Contribution + Hypothesis-validity-condition)?"
+   - "É um estudo **clínico** de intervenção (PICOT padrão: Population/Intervention/Comparison/Outcome/Time), de **predição** (modelo, escore, biomarcador ou teste que prevê um desfecho; o comparador é opcional) ou **metodológico** (Contribution + Hypothesis-validity-condition)?"
 
 3. **Para `clinical`**, perguntar uma de cada vez (sugerindo do wiki sempre que possível):
    - **P (Population)**: "Quem é a coorte/dataset principal?" Ex.: "TCGA-BRCA + CPTAC-BRCA, ~1500 pacientes, mama primária."
@@ -81,6 +81,13 @@ Passos:
    - **C (Comparison)**: "Qual o baseline canônico?" Ex.: "Melhor unimodal por modalidade (radiologia-only, clínico-only, omics-only)."
    - **O (Outcome)**: "Métrica primária + threshold?" Ex.: "AUROC ≥ 0.85, IC bootstrap; ECE ≤ 0.05 como secundária."
    - **T (Time)**: "Janela temporal?" Ex.: "Retrospectivo, sem janela prospectiva; cross-cohort split."
+
+   **Para `prediction`**, os campos são os mesmos, lidos como predição (uma pergunta de cada vez):
+   - **P (População, paciente ou problema)**: "Em quem o preditor será aplicado?" Defina critérios de inclusão, estágio da doença e cenário. Ex.: "Adultos com dor torácica no pronto-socorro, sem IAM com supra de ST."
+   - **I (Index: preditor ou fator de risco)**: "Qual teste, biomarcador, escore, sinal de imagem ou modelo prevê o desfecho?" Vai no campo `intervention`. Ex.: "Troponina ultrassensível na admissão."
+   - **C (Comparador, opcional)**: "Há um comparador, como o padrão atual, o julgamento clínico isolado ou um escore tradicional?" Se não houver, omita `comparison` do JSON. Ex.: "Escore HEART isolado."
+   - **O (Desfecho previsto)**: "Qual evento clínico está sendo previsto?" Ex.: "Infarto agudo do miocárdio."
+   - **T (Horizonte temporal)**: "Em que horizonte o desfecho deve ocorrer?" Ex.: "30 dias."
 
 4. **Para `methodological`**, perguntar:
    - **Contribution**: "Qual a contribuição teórica/metodológica?" Ex.: "Predição conformal sensível à modalidade com IPW."
@@ -114,6 +121,8 @@ Passos:
    }
    ```
 
+   Para ``prediction``: ``"type": "prediction"``, os mesmos campos, com
+   ``comparison`` omitido quando não houver comparador.
    Para ``methodological``: substituir P/I/C/O/T por ``contribution`` +
    ``hypothesis_validity_condition``. Pedir "OK assim?".
 

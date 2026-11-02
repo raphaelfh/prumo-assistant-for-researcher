@@ -106,3 +106,43 @@ def test_hypothesis_statement_required() -> None:
     h = {"statement": "", "rationale": "x", "metrics": ["m"]}
     with pytest.raises(ValidationError):
         Hypothesis.model_validate(h)
+
+
+def _valid_prediction() -> dict[str, Any]:
+    return {
+        "type": "prediction",
+        "created_at": "2026-11-01",
+        "last_updated": "2026-11-01",
+        "version": 1,
+        "population": "adultos atendidos com dor torácica no pronto-socorro",
+        "intervention": "troponina ultrassensível na admissão",
+        "outcome": "infarto agudo do miocárdio",
+        "time": "30 dias",
+        "hypothesis": {
+            "statement": "a troponina na admissão discrimina IAM em 30 dias com AUROC ≥ 0.85",
+            "rationale": "estudos de derivação relatam boa discriminação",
+            "metrics": ["AUROC", "calibration slope"],
+        },
+    }
+
+
+def test_prediction_picot_valid_without_comparison() -> None:
+    spec = PicotSpec.model_validate(_valid_prediction())
+    assert spec.type == "prediction"
+    assert spec.comparison is None
+
+
+def test_prediction_picot_accepts_optional_comparison() -> None:
+    data = _valid_prediction()
+    data["comparison"] = "escore HEART isolado"
+    spec = PicotSpec.model_validate(data)
+    assert spec.comparison == "escore HEART isolado"
+
+
+@pytest.mark.parametrize("field", ["population", "intervention", "outcome", "time"])
+def test_prediction_picot_requires_p_i_o_t(field: str) -> None:
+    data = _valid_prediction()
+    del data[field]
+    with pytest.raises(ValidationError) as exc:
+        PicotSpec.model_validate(data)
+    assert field in str(exc.value)

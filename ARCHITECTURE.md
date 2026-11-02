@@ -66,7 +66,8 @@ prumo-assistant-for-researcher/
 ├── .claude-plugin/            ← plugin.json + marketplace.json (self-hosting, ADR-0010)
 ├── .mcp.json                  ← servidor MCP `prumo` do plugin, via `shims/prumo`
 ├── shims/                     ← lançador do CLI, único arquivo
-├── hooks/                     ← SessionStart: PATH do lançador
+├── hooks/                     ← SessionStart: PATH do lançador · mods/: painel de revisão e PICOT no system prompt (ADR-0039)
+├── types/                     ← contrato de $.state dos mods (plugin.json "types")
 ├── .github/
 │   ├── workflows/             ← ci.yml (lint+types+test+índices) · validate-manifests.yml
 │   ├── schemas/               ← schemas vivos do validador de plugin (ADR-0010)

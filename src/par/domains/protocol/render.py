@@ -44,6 +44,24 @@ def render_protocol_block(spec: PicotSpec, *, hash8: str) -> str:
             f"**Janela temporal.** {spec.time}",
             "",
         ]
+    elif spec.type == "prediction":
+        comparison = (
+            f"**Comparador.** {spec.comparison}"
+            if spec.comparison
+            else "**Comparador.** Sem comparador ativo (predição pura)."
+        )
+        lines += [
+            f"**População.** {spec.population}",
+            "",
+            f"**Preditor (index).** {spec.intervention}",
+            "",
+            comparison,
+            "",
+            f"**Desfecho previsto.** {spec.outcome}",
+            "",
+            f"**Horizonte temporal.** {spec.time}",
+            "",
+        ]
     else:
         lines += [
             f"**Contribuição.** {spec.contribution}",
@@ -69,6 +87,12 @@ def render_project_block(spec: PicotSpec, *, hash8: str) -> str:
         lines.append(
             f"Em **{spec.population}**, a aplicação de **{spec.intervention}** comparada a "
             f"**{spec.comparison}** produz **{spec.outcome}**, no horizonte de **{spec.time}**?"
+        )
+    elif spec.type == "prediction":
+        compared = f", comparado a **{spec.comparison}**," if spec.comparison else ""
+        lines.append(
+            f"Em **{spec.population}**, **{spec.intervention}**{compared} prevê "
+            f"**{spec.outcome}** no horizonte de **{spec.time}**?"
         )
     else:
         lines += [
