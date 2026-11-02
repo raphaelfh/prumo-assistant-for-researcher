@@ -18,5 +18,6 @@
     "academic-writing",
     "wiki",
     "zotero"
-  ]
+  ],
+  "types": "./types/index.d.ts"
 }

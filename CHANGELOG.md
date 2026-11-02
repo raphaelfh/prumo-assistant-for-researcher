@@ -7,6 +7,19 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **PICOT de predição.** `PicotSpec/v1` aceita `type = "prediction"` para modelos, escores,
+  biomarcadores e testes que preveem um desfecho: P, I (o index ou preditor, no campo
+  `intervention`), O e T são obrigatórios e o comparador é opcional. Os renders de `protocol.md` e
+  `project_guide.md` usam os rótulos de predição ("Preditor (index)", "Desfecho previsto",
+  "Horizonte temporal"), e o `/par:protocol picot` pergunta o tipo e conduz os campos nessa
+  leitura. Schema forward-only: PICOTs `clinical` e `methodological` não mudam (ADR-0006).
+- **Mods do Claude Code** (ADR-0039). A PICOT vigente de `.claude/picot.toml` entra no system
+  prompt de toda sessão aberta num projeto, e o painel "Revisão do manuscrito" (comando
+  `/revisao`) lista as páginas com revisão ingerida, as marcas pendentes de cada uma e um botão
+  que prepara o `/par:review reconcile`. Exige Claude Code com suporte a mods.
+
 ## [0.71.2] - 2026-10-22
 
 ### Corrigido
