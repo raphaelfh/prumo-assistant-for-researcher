@@ -1,0 +1,28 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "par",
+  "displayName": "Prumo Assistant for Researcher",
+  "version": "0.71.3",
+  "description": "Do Zotero ao manuscrito na pesquisa clínica, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (PICOT, plano de análise, CEP), rascunhos IMRaD e revisão crítica.",
+  "author": {
+    "name": "Raphael Federicci",
+    "email": "rfh.federicci@gmail.com",
+    "url": "https://github.com/raphaelfh"
+  },
+  "homepage": "https://github.com/raphaelfh/prumo-assistant-for-researcher",
+  "repository": "https://github.com/raphaelfh/prumo-assistant-for-researcher.git",
+  "license": "MIT",
+  "keywords": [
+    "clinical-research",
+    "knowledge-management",
+    "bibliography",
+    "academic-writing",
+    "wiki",
+    "zotero"
+  ],
+  "suggestedPrompts": [
+    "Por onde eu começo com o PAR?",
+    "Revisa este draft com olhar de revisor",
+    "Sincroniza minha bibliografia do Zotero"
+  ]
+}

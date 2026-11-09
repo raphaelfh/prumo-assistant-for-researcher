@@ -47,4 +47,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0037-ponte-zotero-minima]] — Ponte Zotero mínima: anotações e notas saem do PAR; Better BibTeX só no connect e no lookup do docx · aceito
 - [[adr/adr-0038-plugin-unica-distribuicao]] — O plugin é a única distribuição: launcher roda o CLI desta raiz, travado no uv.lock · aceito
 - [[adr/adr-0039-mods-no-plugin]] — Mods de Claude Code no plugin: módulo TypeScript em `hooks/mods/` · proposto
+- [[adr/adr-0040-multi-host-por-manifesto-nativo]] — Antigravity e ChatGPT (Codex) por manifesto nativo na mesma raiz · proposto
 <!-- prumo:adr-index:end -->

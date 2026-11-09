@@ -17,31 +17,37 @@ prumo:
 # par: por onde começar
 
 <!-- prumo:runtime:begin -->
-**PAR 0.71.3** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}`
-- CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas cada comando pede permissão.
-- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`.
+**PAR 0.71.3** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}` (se ali aparecer a variável `CLAUDE_PLUGIN_ROOT` em vez de um caminho, você está no Antigravity ou no Codex: a raiz é a pasta que contém o `skills/` ou o `agents/` deste arquivo)
+- CLI: `prumo`. Se `prumo` não existir nesta sessão (fora do Claude, ou hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"` com a raiz acima: funciona igual, mas cada comando pode pedir permissão.
+- Tools MCP do PAR (servidor `prumo`): `mcp__plugin_par_prumo__*` no Claude, `mcp__prumo__*` no Codex, servidor `par_prumo` no Antigravity.
+- Invocação: o texto escreve `/par:<skill>` (Claude); no Codex e no app ChatGPT é `$par:<skill>`, no Antigravity `/<skill>`.
+- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`. Sem tool de subagent no host, leia o agent e siga-o você mesmo.
 <!-- prumo:runtime:end -->
 
 <!-- prumo:preflight:begin -->
 > **Preflight:** esta skill é de julgamento puro — NÃO depende
-> de CLI, Zotero ou qmd e roda em qualquer superfície Claude. Não invente dados de
+> de CLI, Zotero ou qmd e roda em qualquer host, até num chat. Não invente dados de
 > acervo/projeto: use apenas o que o usuário fornecer na conversa. Se a tarefa
 > pedir operação exata (citekey, contagem, export), roteie para a skill dedicada.
 <!-- prumo:preflight:end -->
 
 Você é a porta de entrada E o instalador guiado. Primeiro descubra o estado:
 
-1. **Superfície.** Se esta conversa for uma tarefa do Cowork, um chat do claude.ai, uma sessão
-   SSH ou rodar no Windows ou no WSL, responda só com isto e pare:
-   "Aqui o PAR só julga texto que você colar — por exemplo, `/par:review critique`. Bibliografia
-   do Zotero, projeto no disco e exportação para Word não são suportados nem testados nesta
-   superfície. Abra o app Claude na aba **Code** (Mac) ou o Claude Code no terminal (Mac ou
-   Linux), escolha a pasta dos seus projetos e peça `/par:start` lá. No Windows (inclusive no
-   WSL), o PAR ainda não funciona."
+1. **Superfície.** O PAR completo roda num agente com terminal no Mac ou no Linux: Claude Code
+   (app Claude na aba **Code**, ou terminal), Antigravity, ou Codex (app ChatGPT ou terminal).
+   Se esta conversa for uma tarefa do Cowork, um chat web (claude.ai ou chatgpt.com), uma sessão
+   SSH, ou rodar no Windows ou no WSL, responda só isto e pare:
+   "Aqui o PAR só julga texto que você colar — por exemplo, a revisão crítica de um trecho
+   (`/par:review critique`). Bibliografia do Zotero, projeto no disco e exportação para Word
+   precisam de um agente no seu computador: o app Claude na aba **Code**, o Antigravity ou o
+   Codex no app ChatGPT (Mac), ou um deles no terminal (Mac ou Linux). Abra a pasta dos seus
+   projetos lá e peça para começar com o PAR. No Windows (inclusive no WSL), o PAR ainda não
+   funciona."
 2. **CLI.** Rode `prumo --version`. O esperado é `prumo <versão do bloco PAR acima>`.
    - `prumo` não existe → rode a forma `sh … --version` do bloco PAR e aplique os casos abaixo
-     à saída dela. Avise uma vez que os hooks do plugin não rodaram nesta sessão, então cada
-     comando pedirá permissão. Só se a saída não trouxer nem a versão nem uma linha `PAR:`, diga
+     à saída dela. No Antigravity e no Codex isso é o normal: use a forma `sh` sem avisar. No
+     Claude, avise uma vez que os hooks do plugin não rodaram nesta sessão, então cada comando
+     pedirá permissão. Só se a saída não trouxer nem a versão nem uma linha `PAR:`, diga
      "abra uma sessão nova" e pare.
    - A saída contém `PAR: falta o uv` → vá para **Instalar o uv**.
    - Outra versão → rode `command -v prumo`.
@@ -57,8 +63,8 @@ Você é a porta de entrada E o instalador guiado. Primeiro descubra o estado:
    - Qualquer outra linha `PAR:` → repasse-a (ela traz o comando de correção) e pare.
    - Versão certa, mas `type -a prumo` lista um `prumo` fora de `/shims/prumo` → ofereça UMA
      vez a mesma remoção, com o cuidado do Zettlr. Outros `…/shims/prumo` não pedem nada.
-3. **Ferramentas do PAR.** Se as ferramentas `mcp__plugin_par_prumo__*` não estiverem no seu
-   inventário, diga: "As ferramentas do PAR não subiram nesta sessão (a 1ª preparação pode ter
+3. **Ferramentas do PAR.** Se as tools MCP do servidor `prumo` (nomes no bloco PAR) não
+   estiverem no seu inventário, diga: "As ferramentas do PAR não subiram nesta sessão (a 1ª preparação pode ter
    demorado). Abra uma sessão nova." Siga pelo CLI enquanto isso.
 4. **Diagnóstico.** Rode `prumo doctor --json`.
    - Dentro de um `pj_*` → rode `prumo status --json`. Com `next` preenchido, ofereça em 1 linha
@@ -79,16 +85,17 @@ Explique antes: o uv é o gerenciador de Python que o PAR usa para preparar o pr
 
 `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
-Se falhar com `Operation not permitted` ou `Read-only file system` (sandbox do Claude Code),
-peça para repetir fora do sandbox. Depois rode `prumo --version` de novo: não precisa reiniciar
+Se falhar com `Operation not permitted`, `Read-only file system` ou erro de rede (sandbox do
+agente), peça para repetir fora do sandbox. Depois rode `prumo --version` de novo: não precisa reiniciar
 nada (o PAR acha o uv em `~/.local/bin`). A primeira vez baixa cerca de 60 MB, uma vez só.
 
 ## Trilha guiada (um comando por vez, com consentimento)
 
 1. **Projeto:** `prumo init pj_<nome>` na pasta que a pessoa indicar. O projeto já sai com a
    atualização automática do PAR ligada.
-2. **Sessão no projeto:** "Abra uma sessão nova dentro de `pj_<nome>` (no app: aba Code →
-   escolher a pasta; no terminal: `cd pj_<nome> && claude`) e peça `/par:start` de novo."
+2. **Sessão no projeto:** "Abra uma sessão nova com a pasta `pj_<nome>` (app Claude: aba Code →
+   escolher a pasta; Antigravity: abrir a pasta; app ChatGPT: Codex → escolher a pasta; terminal:
+   `cd pj_<nome>` e o seu agente) e peça para começar com o PAR de novo."
 3. **Zotero:** Zotero 9 ou mais novo com o Better BibTeX ≥ 9.0.65 (`.xpi`), app aberto. Serve para conectar a coleção (uma vez) e manter o `.bib` atualizado; no export docx, vincula as citações se estiver aberto. Não bloqueia escrita nem julgamento, e não é preciso ligar "Allow other applications".
 4. **Conectar a biblioteca:** com o Zotero aberto, `prumo paper connect "<coleção>"` liga o
    `.bib` do projeto à coleção. Se a coleção ainda não existir, `--create` cria e liga num

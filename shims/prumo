@@ -14,7 +14,7 @@
 # por link simbólico não é suportado (a raiz sairia errada).
 #
 # Saídas: 127 sem uv · 69 sem rede · 73 sem espaço/escrita · 77 sandbox do
-# Claude Code · 78 uv antigo ou sem permissão de baixar Python · 70 venv sem
+# agente (Claude Code ou Codex) · 78 uv antigo ou sem permissão de baixar Python · 70 venv sem
 # Python · 71 Windows ou WSL · 1 plugin incompleto. Toda mensagem começa com
 # "PAR:" e traz o comando de correção.
 
@@ -52,8 +52,8 @@ _sync() { # "$@": VAR=valor extras, só para esta chamada do uv
 }
 
 _sandbox() {
-  _die 77 "o sandbox do Claude Code bloqueou a preparação do PAR (só acontece na 1ª vez de cada versão)." \
-    "Repita este comando fora do sandbox (o Claude pede sua permissão) ou abra uma sessão nova: o servidor do PAR prepara tudo ao iniciar, fora do sandbox." \
+  _die 77 "o sandbox do agente bloqueou a preparação do PAR (só acontece na 1ª vez de cada versão)." \
+    "Repita este comando fora do sandbox (o agente pede sua permissão) ou abra uma sessão nova: o servidor do PAR prepara tudo ao iniciar, fora do sandbox." \
     "Detalhe: $_t"
 }
 
@@ -69,8 +69,8 @@ _fail() {
         "Instale-o uma vez e repita: uv python install $_py && prumo --version (se o uv recusar, troque python-downloads de \"never\" para \"manual\" no seu uv.toml)" \
         "Detalhe: $_t" ;;
   esac
-  # O Claude Code marca os comandos que roda dentro do sandbox (macOS e Linux).
-  [ "${SANDBOX_RUNTIME:-}" != 1 ] || _sandbox
+  # Claude Code e Codex marcam os comandos que rodam dentro do sandbox (macOS e Linux).
+  if [ "${SANDBOX_RUNTIME:-}" = 1 ] || [ -n "${CODEX_SANDBOX:-}" ]; then _sandbox; fi
   case $1 in
     *"Operation not permitted"* | *dynamic_store*) _sandbox ;;
     *"No space left"* | *"Disk quota"* | *"ermission denied"* | *"Read-only file system"*)

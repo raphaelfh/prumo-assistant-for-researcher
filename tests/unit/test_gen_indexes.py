@@ -343,6 +343,19 @@ def test_render_runtime_carimba_versao_e_raiz(gen: ModuleType) -> None:
     assert "/shims/prumo" in out
 
 
+def test_render_runtime_cobre_os_tres_hosts(gen: ModuleType) -> None:
+    """Fora do Claude a variável não é trocada: o bloco diz como achar a raiz,
+    o nome das tools MCP e a invocação em cada host (ADR-0040)."""
+    out = gen.render_runtime()
+    for needle in ("Antigravity", "Codex", "mcp__plugin_par_prumo__", "mcp__prumo__", "$par:"):
+        assert needle in out, needle
+
+
+def test_preflight_cli_aceita_os_tres_hosts(gen: ModuleType) -> None:
+    for needle in ("Claude Code", "Antigravity", "Codex"):
+        assert needle in gen._PF_CLI, needle
+
+
 def test_os_sete_alvos_tem_o_bloco_runtime(gen: ModuleType) -> None:
     from par._version import __version__
 

@@ -7,6 +7,27 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **PAR no Antigravity e no ChatGPT (Codex)** (ADR-0040). A mesma raiz traz manifesto nativo
+  para cada um (`.antigravity-plugin/`, `.codex-plugin/` com o catálogo em `.agents/plugins/`), com
+  as mesmas skills, o mesmo CLI e o mesmo servidor MCP: instale com `agy plugin install
+  https://github.com/raphaelfh/prumo-assistant-for-researcher` ou `codex plugin marketplace add
+  raphaelfh/prumo-assistant-for-researcher` e `codex plugin add par@prumo-assistant-for-researcher`,
+  e chame `/start` (Antigravity) ou `$par:start` (Codex). O `start`, o preflight dos modos e o
+  bloco PAR das skills passam a reconhecer os três hosts (Princípios I e VII).
+- **`AGENTS.md` no projeto.** `prumo init` grava as instruções do projeto em `AGENTS.md`, que o
+  Codex e o Antigravity leem, e o `CLAUDE.md` só o importa. Projetos existentes ganham o arquivo
+  no próximo `prumo update`.
+
+### Mudado
+
+- README e trilha do pesquisador com uma seção só para começar, uma linha por agente; saem as
+  instruções de instalação repetidas.
+- O lançador trata o sandbox do Codex como sandbox (saída 77) e fala em "sandbox do agente".
+  Como `shims/prumo` mudou, cada pesquisadora baixa o ambiente de novo na 1ª vez (cerca de
+  60 MB, uma vez).
+
 ## [0.71.3] - 2026-11-01
 
 ### Adicionado

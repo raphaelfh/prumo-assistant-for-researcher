@@ -78,6 +78,7 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
     # Núcleo: presentes
     for rel in [
         "CLAUDE.md",
+        "AGENTS.md",
         "README.md",
         ".claude/settings.json",
         "docs/project_guide.md",
@@ -116,7 +117,9 @@ def test_core_is_minimal_and_modules_rebuild(tmp_path: Path) -> None:
     # CLAUDE.md genérico (sem ML). A tabela de invocação mora no README, que é
     # do humano: no CLAUDE.md ela só gastaria contexto do agente, que já roteia
     # pelas descriptions das skills.
-    claude = (target / "CLAUDE.md").read_text()
+    # O CLAUDE.md só importa o AGENTS.md, que o Codex e o Antigravity leem (ADR-0040).
+    assert (target / "CLAUDE.md").read_text().splitlines()[-1] == "@AGENTS.md"
+    claude = (target / "AGENTS.md").read_text()
     assert "Início rápido" not in claude
     assert "/par:paper library" in (target / "README.md").read_text()
     assert "PyTorch" not in claude and "timm" not in claude

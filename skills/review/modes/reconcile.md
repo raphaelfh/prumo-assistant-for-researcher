@@ -22,9 +22,10 @@ prumo:
 <!-- prumo:preflight:begin -->
 > **Preflight — antes de qualquer operação deste modo:**
 >
-> 1. **Superfície e CLI:** fora do app Claude na aba Code (Mac) ou do Claude Code no terminal
->    (Mac ou Linux), isto é, numa tarefa do Cowork, num chat, numa sessão SSH, no Windows ou no
->    WSL, diga em uma frase que este modo não roda aqui e pare. Senão, rode `prumo --version`
+> 1. **Superfície e CLI:** fora de um agente com terminal no seu Mac ou Linux (Claude Code
+>    no app ou no terminal, Antigravity, Codex no app ChatGPT ou no terminal), isto é, numa
+>    tarefa do Cowork, num chat web, numa sessão SSH, no Windows ou no WSL, diga em uma frase
+>    que este modo não roda aqui e pare. Senão, rode `prumo --version`
 >    (sem `prumo`, a forma `sh … --version` do bloco PAR; cada comando pedirá permissão). O
 >    esperado é `prumo <versão do bloco PAR da porta>`.
 >    - Linha `PAR:` do sandbox (saída 77): ofereça repetir o comando fora do sandbox, pedindo
@@ -52,7 +53,7 @@ skill — é sempre o humano, com `prumo write review apply`.
   (`prumo write review ingest ...`).
 - O fluxo usa as tools MCP `review_status`, `review_events`,
   `review_worklist` e `propose_prose_edit`. Sem as tools
-  `mcp__plugin_par_prumo__*` na sessão: peça para abrir uma sessão nova; até
+  do servidor `prumo` na sessão (nomes no bloco PAR): peça para abrir uma sessão nova; até
   lá, use o fallback CLI (`prumo write review events --page <page>
   --json/--checklist`). **`propose_prose_edit` não tem equivalente CLI**: sem
   MCP, o Passo 2 vira só orientação ao humano, nunca edição manual do
@@ -182,7 +183,7 @@ qualquer coisa. Trate cada recusa como esperada, não como bug a contornar:
 - **`events.yaml`/`review.md` ausentes** → o ciclo de revisão ainda não foi
   iniciado para essa página; rode `prumo write review ingest <reviewed.docx>
   --page <page>` primeiro.
-- **Sem as tools `mcp__plugin_par_prumo__*` na sessão** → peça para abrir uma
+- **Sem as tools do servidor `prumo` na sessão** → peça para abrir uma
   sessão nova; até lá, use o fallback CLI do Passo 1 e a orientação em prosa
   do Passo 2 (item 5).
 - **Todos os eventos são `citation-*`/`applied`** → nada para propor; liste

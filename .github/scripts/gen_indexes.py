@@ -205,9 +205,10 @@ _PREFLIGHT_HEADER = "> **Preflight — antes de qualquer operação deste modo:*
 # raiz do plugin, instalar o uv) mora só no passo 2 do `/par:start`. Reconhece as
 # falhas pela linha `PAR:`, nunca pelo exit 127 (ambíguo entre shells).
 _PF_CLI = """\
-**Superfície e CLI:** fora do app Claude na aba Code (Mac) ou do Claude Code no terminal
-(Mac ou Linux), isto é, numa tarefa do Cowork, num chat, numa sessão SSH, no Windows ou no
-WSL, diga em uma frase que este modo não roda aqui e pare. Senão, rode `prumo --version`
+**Superfície e CLI:** fora de um agente com terminal no seu Mac ou Linux (Claude Code
+no app ou no terminal, Antigravity, Codex no app ChatGPT ou no terminal), isto é, numa
+tarefa do Cowork, num chat web, numa sessão SSH, no Windows ou no WSL, diga em uma frase
+que este modo não roda aqui e pare. Senão, rode `prumo --version`
 (sem `prumo`, a forma `sh … --version` do bloco PAR; cada comando pedirá permissão). O
 esperado é `prumo <versão do bloco PAR da porta>`.
 - Linha `PAR:` do sandbox (saída 77): ofereça repetir o comando fora do sandbox, pedindo
@@ -241,7 +242,7 @@ _PF_ZOTERO = (
 
 _PREFLIGHT_PURE = (
     "> **Preflight:** esta skill é de julgamento puro — NÃO depende\n"
-    "> de CLI, Zotero ou qmd e roda em qualquer superfície Claude. Não invente dados de\n"
+    "> de CLI, Zotero ou qmd e roda em qualquer host, até num chat. Não invente dados de\n"
     "> acervo/projeto: use apenas o que o usuário fornecer na conversa. Se a tarefa\n"
     "> pedir operação exata (citekey, contagem, export), roteie para a skill dedicada."
 )
@@ -388,17 +389,26 @@ def render_skill_blocks(manifest: SkillManifest) -> list[tuple[str, str, str]]:
 
 
 def render_runtime() -> str:
-    """Bloco ``prumo:runtime``: versão esperada, raiz do plugin, forma `sh` e pasta dos agents.
+    """Bloco ``prumo:runtime``: versão, raiz do plugin, forma `sh`, tools MCP e agents por host.
 
-    Lê o ``__version__`` global do módulo na hora da chamada. O ``${CLAUDE_PLUGIN_ROOT}``
-    (com chaves) é substituído ao carregar o SKILL.md e o corpo do agent.
+    Lê o ``__version__`` global do módulo na hora da chamada. O Claude troca o
+    ``${CLAUDE_PLUGIN_ROOT}`` (com chaves) ao carregar o SKILL.md e o corpo do agent; o
+    Antigravity e o Codex não trocam, e o bloco diz como achar a raiz (ADR-0040).
     """
     return (
-        f"**PAR {__version__}** · raiz do plugin: `${{CLAUDE_PLUGIN_ROOT}}`\n"
-        "- CLI: `prumo`. Se `prumo` não existir nesta sessão (hooks bloqueados pela "
-        'organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"`: funciona igual, mas '
-        "cada comando pede permissão.\n"
-        "- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`."
+        f"**PAR {__version__}** · raiz do plugin: `${{CLAUDE_PLUGIN_ROOT}}` (se ali "
+        "aparecer a variável `CLAUDE_PLUGIN_ROOT` em vez de um caminho, você está no "
+        "Antigravity ou no Codex: a raiz é a pasta que contém o `skills/` ou o `agents/` "
+        "deste arquivo)\n"
+        "- CLI: `prumo`. Se `prumo` não existir nesta sessão (fora do Claude, ou hooks "
+        'bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"` com a raiz '
+        "acima: funciona igual, mas cada comando pode pedir permissão.\n"
+        "- Tools MCP do PAR (servidor `prumo`): `mcp__plugin_par_prumo__*` no Claude, "
+        "`mcp__prumo__*` no Codex, servidor `par_prumo` no Antigravity.\n"
+        "- Invocação: o texto escreve `/par:<skill>` (Claude); no Codex e no app ChatGPT é "
+        "`$par:<skill>`, no Antigravity `/<skill>`.\n"
+        "- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`. Sem tool de subagent no host, leia o "
+        "agent e siga-o você mesmo."
     )
 
 

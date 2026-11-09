@@ -1,0 +1,42 @@
+{
+  "name": "par",
+  "version": "0.71.3",
+  "description": "Do Zotero ao manuscrito na pesquisa clínica, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (PICOT, plano de análise, CEP), rascunhos IMRaD e revisão crítica.",
+  "author": {
+    "name": "Raphael Federicci",
+    "email": "rfh.federicci@gmail.com",
+    "url": "https://github.com/raphaelfh"
+  },
+  "homepage": "https://github.com/raphaelfh/prumo-assistant-for-researcher",
+  "repository": "https://github.com/raphaelfh/prumo-assistant-for-researcher.git",
+  "license": "MIT",
+  "keywords": [
+    "clinical-research",
+    "knowledge-management",
+    "bibliography",
+    "academic-writing",
+    "wiki",
+    "zotero"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./mcp.json",
+  "requires_local_executor": true,
+  "interface": {
+    "displayName": "Prumo Assistant for Researcher",
+    "shortDescription": "Pesquisa clínica do Zotero ao manuscrito.",
+    "longDescription": "Do Zotero ao manuscrito na pesquisa clínica, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (PICOT, plano de análise, CEP), rascunhos IMRaD e revisão crítica.",
+    "developerName": "Raphael Federicci",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/raphaelfh/prumo-assistant-for-researcher",
+    "defaultPrompt": [
+      "Por onde eu começo com o PAR?"
+    ]
+  },
+  "hooks": {
+    "hooks": {}
+  }
+}

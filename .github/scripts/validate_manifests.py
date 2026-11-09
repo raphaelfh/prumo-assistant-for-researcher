@@ -13,6 +13,8 @@ Também valida coerência cruzada:
 - plugin.displayName == marketplace.plugins[<self>].displayName (o do marketplace
   vence no card do Desktop; divergir mostraria títulos diferentes por superfície)
 - plugin.name aparece em marketplace.plugins
+- os manifests do Antigravity e do Codex (ADR-0040) repetem name, version e
+  description do manifest do Claude, e o MCP de cada host roda o mesmo lançador
 """
 
 from __future__ import annotations
@@ -73,6 +75,34 @@ def cross_check(plugin: dict, marketplace: dict) -> list[str]:
     return issues
 
 
+# Manifests por host (ADR-0040): mesma identidade, MCP pelo mesmo lançador.
+HOST_MANIFESTS = (".antigravity-plugin/plugin.json", ".codex-plugin/plugin.json")
+# O Codex (0.163) não expande ${PLUGIN_ROOT}, mas resolve `cwd: "."` na raiz do plugin.
+HOST_MCP = {
+    ".mcp.json": "${CLAUDE_PLUGIN_ROOT}",
+    "mcp_config.json": "${PLUGIN_ROOT}",
+    "mcp.json": ".",
+}
+
+
+def hosts_check(plugin: dict) -> list[str]:
+    issues: list[str] = []
+    for rel in HOST_MANIFESTS:
+        host = load_json(REPO / rel)
+        for key in ("name", "version", "description"):
+            if host.get(key) != plugin.get(key):
+                issues.append(f"  • {rel}#{key}={host.get(key)!r} ≠ .claude-plugin={plugin.get(key)!r}")
+    for rel, root in HOST_MCP.items():
+        server = load_json(REPO / rel).get("mcpServers", {}).get("prumo", {})
+        if server.get("command") != "/bin/sh" or server.get("args") != [
+            f"{root}/shims/prumo",
+            "mcp",
+            "serve",
+        ]:
+            issues.append(f"  • {rel}: o servidor prumo deve ser /bin/sh {root}/shims/prumo mcp serve")
+    return issues
+
+
 def main() -> int:
     failures: list[str] = []
 
@@ -96,6 +126,13 @@ def main() -> int:
         failures.extend(cross_issues)
     else:
         print("✓ coerência cruzada plugin.json ↔ marketplace.json")
+
+    host_issues = hosts_check(plugin)
+    if host_issues:
+        failures.append("coerência entre hosts (Claude, Antigravity, Codex):")
+        failures.extend(host_issues)
+    else:
+        print("✓ coerência entre hosts (Claude, Antigravity, Codex)")
 
     if failures:
         print("\n--- FALHAS ---", file=sys.stderr)
