@@ -3,39 +3,35 @@
 > **Knowledge, bibliography & academic writing assistant for clinical research.**
 > Lives between Zotero, your wiki (Markdown; Zettlr front), and your agent-host.
 
-Plugin para agentes como [Claude Code](https://code.claude.com) para pesquisa. 
-Cobre cinco domínios: gerir conhecimento (wiki),
-gerir bibliografia (Zotero ↔ notas), destrinchar fontes, formalizar 
-protocolos e escrever/revisar documentos.
+Plugin de pesquisa clínica para agentes de IA: **Claude** (app Claude, aba Code, ou
+Claude Code no terminal), **Antigravity** e **ChatGPT** (Codex, no app ChatGPT ou no
+terminal). Cobre cinco domínios: gerir conhecimento (wiki), gerir bibliografia
+(Zotero ↔ notas), destrinchar fontes, formalizar protocolos e escrever/revisar
+documentos. As mesmas skills, o mesmo CLI `prumo` e o mesmo servidor MCP em todos.
 
-Arquitetura (what/where) em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios de design em [`docs/constitution.md`](docs/constitution.md); decisões registradas em [`docs/adr/`](docs/adr/); status atual e próximas fases em [`ROADMAP.md`](ROADMAP.md).
+Arquitetura em [`ARCHITECTURE.md`](ARCHITECTURE.md); princípios em [`docs/constitution.md`](docs/constitution.md); decisões em [`docs/adr/`](docs/adr/); status e próximas fases em [`ROADMAP.md`](ROADMAP.md).
 
-## Para pesquisadores (app Claude, aba Code)
+## Começar (sem terminal)
 
-Você não precisa de terminal para usar o PAR. Três passos:
+Escolha o agente que você já usa. Em todos, o único pré-requisito é o `uv`, que o
+próprio PAR oferece instalar no primeiro uso.
 
-1. Abra o app Claude (plano pago — Pro ou Max) → aba **Code**.
-2. Cole, um de cada vez:
-   ```
-   /plugin marketplace add raphaelfh/prumo-assistant-for-researcher
-   /plugin install par@prumo-assistant-for-researcher
-   ```
-   e escolha **Instalar para você**. (Se o comando não for aceito, use o caminho
-   pela interface: **+** → **Plugins** → **Add plugin**, com o endereço
-   `raphaelfh/prumo-assistant-for-researcher`.)
-3. Abra uma sessão nova e peça `/par:start`.
+| Agente | Instalar (uma vez) | Começar |
+|---|---|---|
+| **App Claude**, aba **Code** (plano Pro ou Max) | Cole `/plugin marketplace add raphaelfh/prumo-assistant-for-researcher` e depois `/plugin install par@prumo-assistant-for-researcher`; escolha **Instalar para você**. Pela interface: **+** → **Plugins** → **Add plugin**, endereço `raphaelfh/prumo-assistant-for-researcher`. | sessão nova → `/par:start` |
+| **ChatGPT** (Codex, no app ChatGPT do Mac) | Numa conversa do Codex, peça: "rode `codex plugin marketplace add raphaelfh/prumo-assistant-for-researcher` e depois `codex plugin add par@prumo-assistant-for-researcher`" (aprove o acesso à rede). Ou, na aba **Plugins**, escolha o catálogo do PAR e clique em **+**. | reinicie o app → `$par:start` |
+| **Antigravity** | Peça ao agente: "rode `agy plugin install https://github.com/raphaelfh/prumo-assistant-for-researcher`". | sessão nova → `/start` |
 
-O `/par:start` confere o que falta e pede seu consentimento a cada comando. O
-CLI `prumo` vem dentro do plugin: não há nada a instalar além do `uv`, que o
-próprio `/par:start` oferece instalar.
+O `start` confere o que falta e pede seu consentimento a cada comando. Depois dele,
+fale normalmente ("sincroniza minha bibliografia", "revisa este draft"): o agente
+escolhe a skill.
 
-**Onde funciona.** A aba Code do app Claude (Mac) e o Claude Code no terminal
-(Mac ou Linux) são os canais suportados. No Cowork e no chat do claude.ai, só o
-julgamento sobre texto colado (por exemplo, `/par:review critique`) é garantido:
-para o resto, use a aba Code. Windows (inclusive WSL): sem suporte. Mac Intel:
-suportado, validado pelo job `launcher-smoke` do CI.
+**Onde funciona.** No Mac (Apple Silicon ou Intel) e no Linux, nos três agentes
+acima. Num chat web (claude.ai, chatgpt.com) ou no Cowork, só o julgamento sobre
+texto colado (por exemplo, a revisão crítica) é garantido. Windows (inclusive WSL):
+sem suporte.
 
-Guia completo, passo a passo, em linguagem simples:
+Passo a passo em linguagem simples:
 [`docs/onboarding-pesquisador.md`](docs/onboarding-pesquisador.md).
 
 ## Conteúdo
@@ -67,32 +63,22 @@ Guia completo, passo a passo, em linguagem simples:
 
 ### MCP
 
-- **`prumo`** — servidor MCP do PAR. Sobe pelo lançador do plugin (`/bin/sh ${CLAUDE_PLUGIN_ROOT}/shims/prumo mcp serve`); as tools aparecem como `mcp__plugin_par_prumo__*`. Não há nada a instalar além do `uv`.
+- **`prumo`** — servidor MCP do PAR, sempre pelo lançador `shims/prumo mcp serve`. As tools aparecem como `mcp__plugin_par_prumo__*` no Claude e `mcp__prumo__*` no Codex. Não há nada a instalar além do `uv`.
 
 qmd é CLI opcional (ver [Pré-requisitos externos](#pré-requisitos-externos)); não há servidor MCP do qmd no plugin.
 
-## Instalação
-
-```bash
-# No Claude Code, dentro de qualquer projeto pj_*:
-/plugin marketplace add raphaelfh/prumo-assistant-for-researcher
-/plugin install par@prumo-assistant-for-researcher
-```
-
-Após a instalação, as skills aparecem com o prefixo `/par:...`.
+## Como o plugin roda
 
 O CLI `prumo` vem no plugin: o lançador `shims/prumo` roda o código da raiz do
-plugin num ambiente montado pelo `uv` a partir do `uv.lock` (na 1ª vez, cerca
-de 60 MB em `~/.cache/prumo`), sem instalar nada no sistema.
+plugin num ambiente montado pelo `uv` a partir do `uv.lock` (na 1ª vez, cerca de
+60 MB em `~/.cache/prumo`), sem instalar nada no sistema. Cada agente lê o próprio
+manifesto, todos apontando para as mesmas `skills/` e o mesmo lançador:
 
-O PAR se atualiza sozinho nos projetos criados ou atualizados a partir da
-0.71.0; senão, aceite a atualização em + → Plugins. Depois, abra uma sessão
-nova.
-
-Guia pelo app Claude, sem terminal: [Para
-pesquisadores](#para-pesquisadores-app-claude-aba-code) acima, ou o
-passo a passo completo em
-[`docs/onboarding-pesquisador.md`](docs/onboarding-pesquisador.md).
+| Agente | Manifesto | Servidor MCP | Skills aparecem como |
+|---|---|---|---|
+| Claude | `.claude-plugin/` | `.mcp.json` | `/par:<skill>` |
+| ChatGPT / Codex | `.codex-plugin/`, catálogo em `.agents/plugins/` | `mcp.json` | `$par:<skill>` |
+| Antigravity | `.antigravity-plugin/` | `mcp_config.json` | `/<skill>` |
 
 ## Pré-requisitos externos
 
@@ -146,10 +132,10 @@ Camadas opcionais com gatilho (`prumo add <módulo>`): `code`, `data`, `notebook
 - Histórico completo em [`CHANGELOG.md`](CHANGELOG.md).
 - Política de versionamento e processo de release em [`RELEASING.md`](RELEASING.md).
 
-Para atualizar o plugin num Claude Code já configurado: o PAR se atualiza
-sozinho nos projetos criados ou atualizados a partir da 0.71.0; senão, aceite a
-atualização em + → Plugins (ou `/plugin marketplace update
-prumo-assistant-for-researcher` no terminal). Depois, abra uma sessão nova.
+**Atualizar.** No Claude, o PAR se atualiza sozinho nos projetos criados ou
+atualizados a partir da 0.71.0; senão, aceite a atualização em + → Plugins. No
+Codex: `codex plugin marketplace upgrade`. No Antigravity: `agy plugin install`
+de novo com o mesmo endereço. Depois, abra uma sessão nova.
 
 ### Projetos criados por versões antigas
 
@@ -163,10 +149,8 @@ linhas obsoletas o agente oferece editar.
 
 ## Desinstalar
 
-```
-/plugin uninstall par
-rm -rf ~/.cache/prumo
-```
+No Claude: `/plugin uninstall par`. No Codex: `codex plugin remove par@prumo-assistant-for-researcher`.
+No Antigravity: `agy plugin uninstall par`. Depois, em qualquer um: `rm -rf ~/.cache/prumo`.
 
 Só se nada mais os usa: `uv cache clean` e `uv python uninstall 3.12` (cerca
 de 70 MB).

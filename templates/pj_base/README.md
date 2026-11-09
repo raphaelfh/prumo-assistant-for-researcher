@@ -4,7 +4,9 @@ Projeto de pesquisa: bibliografia (Zotero), wiki e escrita.
 
 ## Setup
 
-Abra este projeto no app Claude, aba Code (ou `claude` no terminal), e peça `/par:start`.
+Abra esta pasta no seu agente, com o PAR instalado, e peça para começar com o PAR:
+app Claude, aba Code (`/par:start`); Antigravity (`/start`); ou Codex no app ChatGPT
+(`$par:start`). No terminal, `claude`, `agy` ou `codex` dentro da pasta.
 
 Editor recomendado: [Zettlr](https://www.zettlr.com) recente (o export do PAR precisa de pandoc 3.8.2 ou mais novo; confira com `prumo doctor`) — preview vivo de citações; setup em `docs/project_guide.md`.
 
@@ -28,7 +30,10 @@ Peça ao Claude:
 - "ativa o módulo de notebooks" (roda `prumo add notebooks`): `notebooks/<escopo>/`, marimo (.py) ou Jupyter (.ipynb);
 - "ativa o módulo de ML" (roda `prumo add ml`): stack de ML/dados + notebook.
 
-## Workflow (no Claude Code)
+## Workflow
+
+As invocações abaixo são as do Claude; no Codex troque `/par:` por `$par:`, no
+Antigravity use só `/<skill>` (por exemplo `/paper library`).
 
 | Quero… | Invoque |
 |---|---|

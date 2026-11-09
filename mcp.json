@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "prumo": {
+      "type": "stdio",
+      "command": "/bin/sh",
+      "args": [
+        "./shims/prumo",
+        "mcp",
+        "serve"
+      ],
+      "cwd": "."
+    }
+  }
+}

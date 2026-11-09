@@ -1,78 +1,92 @@
 ---
-title: Trilha do pesquisador — app Claude, aba Code
+title: Trilha do pesquisador — Claude, ChatGPT ou Antigravity
 tags: [onboarding, pesquisador, golden-path, desktop]
 ---
 
-# Trilha do pesquisador (app Claude, aba Code)
+# Trilha do pesquisador
 
-Este guia é para quem quer usar o PAR conversando com o Claude, no app Claude,
-na aba **Code**. Se você programa e prefere o Claude Code no terminal, veja a
-trilha dev no [README do projeto](../README.md); este documento e aquela seção
-se referenciam mutuamente.
+Este guia é para quem quer usar o PAR conversando com um agente de IA, sem
+terminal. Funciona com o agente que você já usa:
 
-Antes de começar: você precisa de um plano Claude pago (Pro ou Max) — plugins
-não funcionam no plano gratuito.
+- **app Claude**, aba **Code** (plano pago, Pro ou Max: plugins não funcionam no gratuito);
+- **app ChatGPT**, no **Codex** (Mac);
+- **Antigravity**, do Google.
 
-## 1. Instalar o plugin, direto na conversa
+Os três usam as mesmas skills e o mesmo CLI `prumo`. Muda só o jeito de instalar e
+de chamar uma skill.
 
-1. Abra o app Claude → aba **Code**.
-2. Cole, um de cada vez:
+## 1. Instalar o plugin (uma vez)
 
-   ```
-   /plugin marketplace add raphaelfh/prumo-assistant-for-researcher
-   /plugin install par@prumo-assistant-for-researcher
-   ```
-
-   e escolha **Instalar para você**. O primeiro comando registra o catálogo do
-   PAR (uma vez só); o segundo instala o plugin. (Se o comando não for aceito,
-   use o caminho pela interface: **+** → **Plugins** → **Add plugin**, com o
-   endereço `raphaelfh/prumo-assistant-for-researcher`.)
-3. Abra uma sessão nova e peça `/par:start`.
-
-O catálogo mostra o nome do plugin (`PAR`) e a versão publicada no momento —
-ela muda com as releases, não estranhe se for diferente do que alguém te
-contou. Depois de instalado, as skills aparecem com o prefixo `/par:...`.
-
-## 2. Seu primeiro resultado, em poucos minutos
-
-Cole um trecho de um draft seu (paper, capítulo, projeto de pesquisa) na
-conversa e peça:
+**App Claude, aba Code.** Cole, um de cada vez:
 
 ```
-/par:review critique
+/plugin marketplace add raphaelfh/prumo-assistant-for-researcher
+/plugin install par@prumo-assistant-for-researcher
 ```
 
-Isso já foi testado na prática: numa sessão real, o `/par:review critique`
-rodou o fluxo completo sem precisar de CLI, Zotero ou busca semântica, e pegou
-todos os problemas plantados de propósito num draft de teste (claims sem
-evidência, superlativos, contradição com a própria fonte citada) (no spike da
-Fase 0, testado no Claude Code). Essa skill é declarada "julgamento puro": o
-próprio contrato dela (o preflight do ADR-0019) diz que roda em qualquer
-superfície Claude. É esse o valor imediato: o Claude lê o que você colou e responde, antes de você
-instalar qualquer coisa.
+e escolha **Instalar para você**. Se o comando não for aceito, use a interface:
+**+** → **Plugins** → **Add plugin**, com o endereço
+`raphaelfh/prumo-assistant-for-researcher`.
 
-## 3. Quando você quiser ir além
+**App ChatGPT (Codex).** Abra uma conversa do Codex numa pasta qualquer e peça:
 
-Skills que dependem de bibliografia real (Zotero), de um projeto no disco, ou
-do CLI `prumo` — por exemplo, gerar um draft de paper a partir do seu protocolo
-— vão recusar rodar se essa peça estiver faltando (o contrato de preflight,
-ADR-0019, existe exatamente para isso: nunca simular o que não pode ser feito
-de verdade) e vão te apontar para `/par:start`.
+```
+rode codex plugin marketplace add raphaelfh/prumo-assistant-for-researcher
+e depois codex plugin add par@prumo-assistant-for-researcher
+```
 
-O `/par:start` é o instalador guiado: explica o que cada passo faz,
-pede seu "sim" antes de rodar, e só segue adiante se o passo anterior
-funcionou. Nenhum comando roda sem sua permissão. Os passos que ele oferece,
-nesta ordem:
+Aprove o acesso à rede quando o Codex pedir. Depois, feche e abra o app. (O PAR
+também aparece na aba **Plugins**, no catálogo dele, para instalar com **+**.)
 
-- **uv** (gerenciador de pacotes Python): `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- **Diagnóstico**: `prumo doctor` — confere se o Zotero está aberto e acessível
-- **qmd (opcional — busca semântica)**: `npm install -g @tobilu/qmd`
-- **Seu projeto**: `prumo init pj_<nome>`, na pasta que você indicar
+**Antigravity.** Peça ao agente:
 
-> Os comandos desta trilha foram validados em macOS/Linux. Windows (inclusive
-> WSL): ainda não suportado.
+```
+rode agy plugin install https://github.com/raphaelfh/prumo-assistant-for-researcher
+```
 
-## 4. Conectar sua biblioteca
+Depois, abra uma conversa nova. Se o `agy` não existir na sua máquina, peça
+"clone https://github.com/raphaelfh/prumo-assistant-for-researcher em
+~/.gemini/config/plugins/par" (para atualizar depois: "dá git pull nessa pasta").
+
+## 2. Começar
+
+Abra uma conversa nova e chame a skill `start`:
+
+| Agente | Como chamar |
+|---|---|
+| Claude | `/par:start` |
+| ChatGPT (Codex) | `$par:start` |
+| Antigravity | `/start` |
+
+Ela confere o que falta, explica cada passo e pede o seu "sim" antes de rodar
+qualquer comando. Daqui em diante, este guia escreve as skills do jeito do Claude
+(`/par:review critique`); no Codex troque `/par:` por `$par:`, no Antigravity use
+`/review critique`. Você também pode só pedir em português ("revisa este draft").
+
+## 3. Seu primeiro resultado, em poucos minutos
+
+Cole um trecho de um draft seu (paper, capítulo, projeto de pesquisa) e peça
+`/par:review critique`. Essa skill é de julgamento puro: não precisa de CLI,
+Zotero nem busca semântica, e roda em qualquer lugar, até num chat web.
+
+## 4. Quando você quiser ir além
+
+Skills que dependem de bibliografia real (Zotero), de um projeto no disco ou do
+CLI `prumo` recusam rodar se essa peça faltar (nunca simulam) e apontam para o
+`start`. Os passos que ele oferece, nesta ordem:
+
+- **uv** (gerenciador de Python que o PAR usa): `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- **Diagnóstico**: `prumo doctor`, que confere Zotero, pandoc e qmd
+- **qmd (opcional, busca semântica)**: `npm install -g @tobilu/qmd`
+- **Seu projeto**: `prumo init pj_<nome>`, na pasta que você indicar; depois abra
+  essa pasta no seu agente
+
+Na primeira vez, o PAR baixa cerca de 60 MB (uma vez só). No Codex, se aparecer
+uma linha `PAR:` falando de sandbox, aprove repetir o comando fora do sandbox.
+
+> Validado em macOS e Linux. Windows (inclusive WSL): ainda não suportado.
+
+## 5. Conectar sua biblioteca
 
 Você precisa do Zotero 9 ou mais novo, com o Better BibTeX 9.0.65 ou mais novo (versões
 anteriores não exportam itens novos com a janela do Zotero fechada).
@@ -122,26 +136,26 @@ prumo paper sync
 Pular esse passo por enquanto não quebra nada — `prumo doctor` avisa depois
 se o `.bib` do projeto ainda estiver no placeholder do scaffold.
 
-## 5. O que é opcional (e o que não é)
+## 6. O que é opcional (e o que não é)
 
-- **qmd** (busca semântica no seu wiki) é opcional — `npm install -g @tobilu/qmd` (ou bun); na aba Code o próprio Claude roda a busca.
+- **qmd** (busca semântica no seu wiki) é opcional — `npm install -g @tobilu/qmd` (ou bun); o próprio agente roda a busca.
   Sem ele, a busca continua funcionando por leitura direta dos arquivos, só
   que mais devagar. Pode pular sem culpa.
 - **Zotero** só é necessário para as skills de bibliografia (sincronizar
   referências, verificar citações). Escrita e revisão crítica (`review critique`,
   `write style`) não dependem dele.
 
-## 6. Busca e conectores
+## 7. Busca e conectores
 
 ### Busca no seu wiki
 
 O caminho normal é o mais simples: peça ao agente e ele lê os arquivos de
-`docs/` diretamente — é o mesmo mecanismo nativo do Claude usado em
+`docs/` diretamente — é o mesmo mecanismo nativo do agente usado em
 qualquer outra pasta, sem ferramenta extra nenhuma.
 
 O `qmd` (busca semântica indexada) é **opcional-avançado**: só compensa em
-wikis grandes. O qmd é um CLI opcional (`npm install -g @tobilu/qmd`); na aba
-Code, o próprio Claude roda a busca.
+wikis grandes. O qmd é um CLI opcional (`npm install -g @tobilu/qmd`); o próprio
+agente roda a busca.
 
 ### Conectores de literatura (PubMed, ensaios clínicos)
 
@@ -193,37 +207,16 @@ Recomendamos o [Zettlr](https://www.zettlr.com) como editor dos arquivos
 o prumo usa é a nativa dele, com autocomplete lendo direto o
 `docs/references/_references.bib`.
 
-## Trilha dev (Claude Code, terminal)
+## Trilha dev (terminal)
 
-Se você — ou um colega — prefere o terminal, o [README do
-projeto](../README.md) tem a trilha completa: instalação do plugin via Claude
-Code (o CLI vem no plugin; `uv run prumo` e `claude --plugin-dir .` só para
-desenvolvimento) e a tabela de pré-requisitos externos (Zotero, qmd).
+Quem prefere o terminal instala igual (`claude`, `codex` ou `agy`) e encontra no
+[README do projeto](../README.md) a tabela de pré-requisitos externos e como o
+plugin roda em cada agente. `uv run prumo` e `claude --plugin-dir .` são só para
+desenvolver o PAR.
 
-## Kit do piloto (para quem está conduzindo o teste, não para quem está testando)
+## Kit do piloto (para quem conduz o teste)
 
-Esta seção é para o dono do projeto, não para o colega que está
-experimentando. Ela documenta o que medir ao rodar o piloto com 1 colega real
-(item 4 do spec de zero-friction onboarding) — o resultado calibra as Fases
-4–5 do mesmo programa:
-
-- **Cronômetro:** do momento em que você manda o link do marketplace até o
-  colega ter um primeiro output real (por exemplo, o resultado de um
-  `/par:review critique`). Meta: **≤15 minutos**.
-- **Onde travou:** qual passo gerou dúvida, qual mensagem confundiu, o que a
-  pessoa tentou clicar e não achou.
-- **Consentimento na UI:** capture prints de como o pedido de permissão
-  aparece na tela antes de cada comando — é o material bruto que ainda
-  faltava da Fase 0 (o spike validou que o consentimento existe, mas não
-  registrou a tela).
-- **O piloto já rodou (2026-07-25) e calibrou as Fases 4–5** do guarda-chuva
-  de zero-friction. A Fase 4 (colapsar qmd/Zotero em instalação one-click)
-  **disparou**: o colega relatou as duas dores reais — o fio manual
-  Zotero→bib e o `qmd` inutilizável sem terminal — e o `prumo paper connect`
-  (ADR-0020) é o resultado direto, já implementado. A Fase 5 (empacotar o
-  CLI) **encerrou fechada**: a instalação guiada da Fase 2 passou no piloto
-  sem travar, então o trigger dela (colega travado *apesar* da instalação
-  guiada) não disparou — YAGNI militante aplicado corretamente, não
-  adiamento (Princípio VI). Depois, a F5 foi **reaberta e entregue na
-  0.71.0**: o CLI passou a vir dentro do plugin, rodado pelo lançador
-  `shims/prumo` (ADR-0038), sem instalação à parte.
+Meça do link enviado até o primeiro output real (por exemplo, um
+`/par:review critique`), com meta de **≤15 minutos**; anote onde a pessoa travou e
+capture a tela de cada pedido de permissão. O piloto de 2026-07-25 bateu a meta no
+app Claude; o de Codex e Antigravity ainda não rodou.

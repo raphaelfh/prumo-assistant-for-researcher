@@ -146,6 +146,7 @@ _CLASSIFICACAO = [
         "uv python install 3.12",
     ),
     ("error: Read-only file system (os error 30)", {"SANDBOX_RUNTIME": "1"}, 77, "fora do sandbox"),
+    ("error: failed to fetch (dns error)", {"CODEX_SANDBOX": "seatbelt"}, 77, "fora do sandbox"),
     ("error: Read-only file system (os error 30)", {}, 73, "chown"),
     ("error: Operation not permitted (os error 1)", {}, 77, "fora do sandbox"),
     ("error: No space left on device (os error 28)", {}, 73, "chown"),

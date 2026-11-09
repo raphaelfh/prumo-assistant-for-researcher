@@ -25,9 +25,10 @@ prumo:
 <!-- prumo:preflight:begin -->
 > **Preflight — antes de qualquer operação deste modo:**
 >
-> 1. **Superfície e CLI:** fora do app Claude na aba Code (Mac) ou do Claude Code no terminal
->    (Mac ou Linux), isto é, numa tarefa do Cowork, num chat, numa sessão SSH, no Windows ou no
->    WSL, diga em uma frase que este modo não roda aqui e pare. Senão, rode `prumo --version`
+> 1. **Superfície e CLI:** fora de um agente com terminal no seu Mac ou Linux (Claude Code
+>    no app ou no terminal, Antigravity, Codex no app ChatGPT ou no terminal), isto é, numa
+>    tarefa do Cowork, num chat web, numa sessão SSH, no Windows ou no WSL, diga em uma frase
+>    que este modo não roda aqui e pare. Senão, rode `prumo --version`
 >    (sem `prumo`, a forma `sh … --version` do bloco PAR; cada comando pedirá permissão). O
 >    esperado é `prumo <versão do bloco PAR da porta>`.
 >    - Linha `PAR:` do sandbox (saída 77): ofereça repetir o comando fora do sandbox, pedindo

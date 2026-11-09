@@ -1,6 +1,11 @@
 <!--
 Sync impact report:
-  Version: 1.2.3 (2026-10-06) — emenda PATCH: distribuição pelo plugin com CLI
+  Version: 1.2.4 (2026-11-08) — emenda PATCH: o Princípio I deixa de citar
+    `integrations/<host>/installer.py` (removido pela ADR-0038) e diz o mecanismo
+    vigente, um manifesto nativo por host na mesma raiz (ADR-0040); Princípio III e
+    Distribuição citam os três hosts. Nenhuma norma alterada: host novo continua
+    proibido de duplicar lógica.
+  Anterior: 1.2.3 (2026-10-06) — emenda PATCH: distribuição pelo plugin com CLI
     travado no `uv.lock` (ADR-0038); stack externa com piso do Pandoc e qmd como
     CLI opcional; Princípio III sem a menção a `BaseIntegration`, que deixou de
     existir. Nenhuma norma alterada: os termos 'hooks plugáveis' e 'lockfile' do
@@ -69,7 +74,7 @@ Cada operação determinística (sync, lint, export, find, graph) DEVE existir e
 - CLI (`domains/<X>/cli.py`), Python API (`domains/<X>/api.py`) e skills (`skills/<nome>/SKILL.md`) são **fachadas finas** sobre essa implementação.
 - A camada de fachada NÃO contém lógica de negócio: parsing de argumentos, formatação de saída, captura padronizada via `core/cli_op.cli_run`.
 - `domains/<X>/api.py` é re-export puro dos módulos do domínio. Wrappers passthrough (`def x(p): return _x.x(p)`) são considerados defeito.
-- Adicionar um agent-host novo (Cursor, Codex, Gemini) NUNCA pode duplicar lógica — vira `integrations/<host>/installer.py`.
+- Adicionar um agent-host novo NUNCA pode duplicar lógica — vira um manifesto nativo desse host na raiz do plugin, apontando para as mesmas `skills/`, o mesmo lançador e o mesmo servidor MCP (ADR-0040).
 
 ### II · Determinístico antes de agêntico
 
@@ -86,7 +91,7 @@ Quando o resultado pode ser produzido com regex, AST, subprocess ou consulta a u
 
 - Não existe `manifest.yaml` paralelo, nem `description` duplicada em `plugin.json`.
 - Versão da skill mora apenas em `prumo.version` no frontmatter.
-- O catálogo do plugin Claude Code é montado por `core/skills.py::load_skill_registry`; um host novo consumirá o mesmo arquivo (Princípio I).
+- O catálogo do plugin é montado por `core/skills.py::load_skill_registry`; Claude, Antigravity e Codex leem os mesmos `SKILL.md` (Princípio I).
 - Quem contribui uma skill nova NÃO precisa tocar Python.
 
 ### IV · Forward-only schemas
@@ -142,7 +147,7 @@ O custo de uma adição se mede em **conceitos que o pesquisador precisa aprende
 - **CLI**: Typer + `core/cli_op.cli_run` (context manager que injeta `Console` e captura `PrumoError`). Nada de `print()` direto fora de `core/output.py`.
 - **Qualidade**: `ruff check` e `mypy strict` zerados em `main`. CI roda matrix Python 3.11/3.12.
 - **Build**: hatchling; versão única em `src/par/_version.py`. `_templates/` empacotado via `force-include`.
-- **Distribuição**: plugin do Claude Code (marketplace), que executa o próprio CLI `prumo` travado no `uv.lock` da versão instalada (pré-requisito: `uv`). `uv tool install`/`uv run` só para desenvolvimento.
+- **Distribuição**: plugin para Claude Code, Antigravity e Codex (um manifesto por host, mesma raiz), que executa o próprio CLI `prumo` travado no `uv.lock` da versão instalada (pré-requisito: `uv`). `uv tool install`/`uv run` só para desenvolvimento.
 - **Stack externa do projeto-cliente** (`pj_*`): Zotero + Better BibTeX (bibliografia), Zettlr (front do wiki Markdown), Pandoc ≥ 3.8.2 + Typst (opcional) + CSL (export), `qmd` opcional (CLI de busca BM25 + vector + rerank local, instalado pelo pesquisador).
 - **Sem dependência de SaaS para operação core**: tudo que importa para reproduzir uma análise existe localmente no `pj_*`.
 
@@ -162,6 +167,6 @@ Esta constitution é o documento de mais alta autoridade para decisões de desig
 - Emendas DEVEM passar por PR explícito que atualiza este arquivo + a tabela "Sync impact report" no topo.
 - Bump de versão da constitution segue [SemVer](https://semver.org/lang/pt-BR/) aplicado a *princípios*: `MAJOR` quando um princípio é removido ou redefinido, `MINOR` quando um princípio é adicionado, `PATCH` para clarificação textual.
 - Decisões estruturais pontuais são registradas em `docs/adr/` (MADR minimal, `adr-NNNN-slug.md`, imutáveis após aceitas — revisão = ADR novo). Princípios (normas vivas) moram aqui; o que muda por emenda nunca mora num ADR.
-- Versão atual: **1.2.3** (2026-10-06).
+- Versão atual: **1.2.4** (2026-11-08).
 - Princípios novos DEVEM ter trigger concreto (não "pode ser útil no futuro") — coerência com o princípio VI.
 - O agent-host (Claude Code, Cursor, Codex, Gemini) NÃO pode reescrever esta constitution sem revisão humana.

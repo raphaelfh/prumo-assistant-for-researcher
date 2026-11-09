@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "prumo": {
+      "command": "/bin/sh",
+      "args": [
+        "${PLUGIN_ROOT}/shims/prumo",
+        "mcp",
+        "serve"
+      ]
+    }
+  }
+}

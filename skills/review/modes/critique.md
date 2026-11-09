@@ -31,7 +31,7 @@ prumo:
 
 <!-- prumo:preflight:begin -->
 > **Preflight:** esta skill é de julgamento puro — NÃO depende
-> de CLI, Zotero ou qmd e roda em qualquer superfície Claude. Não invente dados de
+> de CLI, Zotero ou qmd e roda em qualquer host, até num chat. Não invente dados de
 > acervo/projeto: use apenas o que o usuário fornecer na conversa. Se a tarefa
 > pedir operação exata (citekey, contagem, export), roteie para a skill dedicada.
 <!-- prumo:preflight:end -->

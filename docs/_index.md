@@ -40,7 +40,7 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 
 - [[Research Project Structure]] · Estrutura de Projeto de Pesquisa
 - [[constitution]] · PAR Constitution
-- [[onboarding-pesquisador]] · Trilha do pesquisador — app Claude, aba Code
+- [[onboarding-pesquisador]] · Trilha do pesquisador — Claude, ChatGPT ou Antigravity
 - [[positioning]] · Posicionamento e claims do PAR
 
 **Specs** (não-perecíveis):

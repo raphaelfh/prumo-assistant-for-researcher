@@ -437,12 +437,20 @@ def test_stale_guideline_warnings_olha_os_modos(tmp_path: Path) -> None:
 _REPO_SKILLS = Path(__file__).resolve().parents[3] / "skills"
 
 
+def _sem_bloco_runtime(text: str) -> str:
+    """Tira o bloco `prumo:runtime`, o único lugar que cita o nome das tools no Codex (ADR-0040)."""
+    return re.sub(
+        r"<!-- prumo:runtime:begin -->.*?<!-- prumo:runtime:end -->", "", text, flags=re.S
+    )
+
+
 def test_skills_use_plugin_mcp_prefix() -> None:
-    """O servidor do plugin aparece como `mcp__plugin_par_prumo__*` (ADR-0037, B8)."""
+    """No Claude o servidor do plugin é `mcp__plugin_par_prumo__*` (ADR-0037, B8); o
+    `mcp__prumo__*` do Codex só aparece no bloco runtime gerado."""
     offenders = [
         str(p.relative_to(_REPO_SKILLS))
         for p in sorted(_REPO_SKILLS.rglob("*.md"))
-        if "mcp__prumo__" in p.read_text(encoding="utf-8")
+        if "mcp__prumo__" in _sem_bloco_runtime(p.read_text(encoding="utf-8"))
     ]
     assert offenders == []
 

@@ -1,4 +1,4 @@
-"""Sincroniza a versão dos manifests Claude Code com ``src/par/_version.py``.
+"""Sincroniza a versão dos manifests do plugin (Claude, Antigravity, Codex) com ``src/par/_version.py``.
 
 Uso:
 
@@ -6,7 +6,8 @@ Uso:
     python .github/scripts/sync_manifest_version.py --check    # exit 1 se desync
 
 A intenção é que ``_version.py`` (pacote Python) e os manifests do plugin
-(``.claude-plugin/plugin.json``, ``.claude-plugin/marketplace.json``) andem
+(``.claude-plugin/plugin.json``, ``.claude-plugin/marketplace.json``,
+``.antigravity-plugin/plugin.json``, ``.codex-plugin/plugin.json``) andem
 juntos depois de um release. Em períodos de transição (ex.: spin-off de
 skills) eles podem divergir intencionalmente — nesse caso, basta não rodar
 o script.
@@ -27,6 +28,11 @@ REPO = Path(__file__).resolve().parents[2]
 VERSION_FILE = REPO / "src" / "par" / "_version.py"
 PLUGIN_JSON = REPO / ".claude-plugin" / "plugin.json"
 MARKETPLACE_JSON = REPO / ".claude-plugin" / "marketplace.json"
+# Manifests dos outros hosts (ADR-0040): só a versão é sincronizada aqui.
+HOST_PLUGIN_JSONS = (
+    REPO / ".antigravity-plugin" / "plugin.json",
+    REPO / ".codex-plugin" / "plugin.json",
+)
 
 _VERSION_RE = re.compile(r'__version__\s*=\s*"([^"]+)"')
 
@@ -70,6 +76,14 @@ def sync(version: str) -> list[str]:
     if changes:
         write_json(MARKETPLACE_JSON, marketplace)
 
+    for path in HOST_PLUGIN_JSONS:
+        host = read_json(path)
+        if host.get("version") != version:
+            rel = path.relative_to(REPO)
+            changes.append(f"  • {rel}: {host.get('version')} → {version}")
+            host["version"] = version
+            write_json(path, host)
+
     return changes
 
 
@@ -87,6 +101,11 @@ def check(version: str) -> list[str]:
                 f"marketplace.json#{entry['name']}.version="
                 f"{entry.get('version')!r} ≠ _version.py={version!r}"
             )
+    for path in HOST_PLUGIN_JSONS:
+        host = read_json(path)
+        if host.get("version") != version:
+            rel = path.relative_to(REPO)
+            issues.append(f"{rel}#version={host.get('version')!r} ≠ _version.py={version!r}")
     return issues
 
 

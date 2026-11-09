@@ -53,7 +53,7 @@
 | 2.3  | Pack `venue-clinical` (NEJM, JAMA, Lancet, Nature Medicine, Radiology) | Submeter pra venue específico |
 | 2.4  | Pack `thesis` (chapter-from-findings, snapshot, defense-summary) | Aproximação da defesa |
 | 2.5  | `kg/` module (grafo de papers, paths de citação) | Wiki passar de 50+ papers |
-| 3.0  | `integrations/{cursor,codex,gemini,jupyter}/` | Colega adotar host diferente |
+| 3.0  | ~~Hosts além do Claude~~ — Antigravity e Codex/ChatGPT entregues por manifesto nativo ([ADR-0040](docs/adr/adr-0040-multi-host-por-manifesto-nativo.md)); Cursor e Jupyter seguem com o mesmo trigger | Colega adotar host diferente |
 | 3.1  | Hooks system (PII redaction, cost gates) | Houver ≥3 cross-cutting concerns |
 | 3.2  | Eval gate em CI | Drift de prompt observado em prod |
 

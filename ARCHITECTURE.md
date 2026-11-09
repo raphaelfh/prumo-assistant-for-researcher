@@ -64,7 +64,9 @@ prumo-assistant-for-researcher/
 ├── ROADMAP.md · CHANGELOG.md · RELEASING.md · README.md · CITATION.cff · LICENSE
 │
 ├── .claude-plugin/            ← plugin.json + marketplace.json (self-hosting, ADR-0010)
-├── .mcp.json                  ← servidor MCP `prumo` do plugin, via `shims/prumo`
+├── .mcp.json                  ← servidor MCP `prumo` do plugin no Claude, via `shims/prumo`
+├── .antigravity-plugin/ · mcp_config.json        ← manifesto e MCP do Antigravity (ADR-0040)
+├── .codex-plugin/ · mcp.json · .agents/plugins/  ← manifesto, MCP e catálogo do Codex/ChatGPT (ADR-0040)
 ├── shims/                     ← lançador do CLI, único arquivo
 ├── hooks/                     ← SessionStart: PATH do lançador · mods/: painel de revisão e PICOT no system prompt (ADR-0039)
 ├── types/                     ← contrato de $.state dos mods (plugin.json "types")
