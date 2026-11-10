@@ -41,12 +41,14 @@ também aparece na aba **Plugins**, no catálogo dele, para instalar com **+**.)
 **Antigravity.** Peça ao agente:
 
 ```
-rode agy plugin install https://github.com/raphaelfh/prumo-assistant-for-researcher
+rode git clone https://github.com/raphaelfh/prumo-assistant-for-researcher ~/.gemini/config/plugins/par
 ```
 
-Depois, abra uma conversa nova. Se o `agy` não existir na sua máquina, peça
-"clone https://github.com/raphaelfh/prumo-assistant-for-researcher em
-~/.gemini/config/plugins/par" (para atualizar depois: "dá git pull nessa pasta").
+Aprove quando ele pedir para rodar fora do sandbox. Mantenha o nome da pasta
+`par`: é dele que sai o nome das ferramentas do PAR. O plugin aparece em
+**Customizations** e já vale na mensagem seguinte, sem reiniciar. Para atualizar
+depois, peça "rode `git -C ~/.gemini/config/plugins/par pull`". Quem instalou o
+CLI `agy` pode usar `agy plugin install https://github.com/raphaelfh/prumo-assistant-for-researcher`.
 
 ## 2. Começar
 
@@ -219,4 +221,6 @@ desenvolver o PAR.
 Meça do link enviado até o primeiro output real (por exemplo, um
 `/par:review critique`), com meta de **≤15 minutos**; anote onde a pessoa travou e
 capture a tela de cada pedido de permissão. O piloto de 2026-07-25 bateu a meta no
-app Claude; o de Codex e Antigravity ainda não rodou.
+app Claude. Em 2026-11-08, o dono instalou no Antigravity 2.29.1 como usuário novo
+(clone): skills e as 10 ferramentas carregaram; o piloto com pesquisadora no Codex e no
+Antigravity ainda não rodou.

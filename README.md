@@ -20,7 +20,7 @@ próprio PAR oferece instalar no primeiro uso.
 |---|---|---|
 | **App Claude**, aba **Code** (plano Pro ou Max) | Cole `/plugin marketplace add raphaelfh/prumo-assistant-for-researcher` e depois `/plugin install par@prumo-assistant-for-researcher`; escolha **Instalar para você**. Pela interface: **+** → **Plugins** → **Add plugin**, endereço `raphaelfh/prumo-assistant-for-researcher`. | sessão nova → `/par:start` |
 | **ChatGPT** (Codex, no app ChatGPT do Mac) | Numa conversa do Codex, peça: "rode `codex plugin marketplace add raphaelfh/prumo-assistant-for-researcher` e depois `codex plugin add par@prumo-assistant-for-researcher`" (aprove o acesso à rede). Ou, na aba **Plugins**, escolha o catálogo do PAR e clique em **+**. | reinicie o app → `$par:start` |
-| **Antigravity** | Peça ao agente: "rode `agy plugin install https://github.com/raphaelfh/prumo-assistant-for-researcher`". | sessão nova → `/start` |
+| **Antigravity** | Peça ao agente: "rode `git clone https://github.com/raphaelfh/prumo-assistant-for-researcher ~/.gemini/config/plugins/par`" (aprove quando ele pedir para sair do sandbox). O plugin aparece em **Customizations**, sem reiniciar. Quem tem o CLI `agy`: `agy plugin install https://github.com/raphaelfh/prumo-assistant-for-researcher`. | próxima mensagem → `/start` |
 
 O `start` confere o que falta e pede seu consentimento a cada comando. Depois dele,
 fale normalmente ("sincroniza minha bibliografia", "revisa este draft"): o agente
@@ -134,8 +134,8 @@ Camadas opcionais com gatilho (`prumo add <módulo>`): `code`, `data`, `notebook
 
 **Atualizar.** No Claude, o PAR se atualiza sozinho nos projetos criados ou
 atualizados a partir da 0.71.0; senão, aceite a atualização em + → Plugins. No
-Codex: `codex plugin marketplace upgrade`. No Antigravity: `agy plugin install`
-de novo com o mesmo endereço. Depois, abra uma sessão nova.
+Codex: `codex plugin marketplace upgrade`. No Antigravity: `git -C ~/.gemini/config/plugins/par pull`
+(ou `agy plugin install` de novo). Depois, abra uma sessão nova.
 
 ### Projetos criados por versões antigas
 
@@ -150,7 +150,7 @@ linhas obsoletas o agente oferece editar.
 ## Desinstalar
 
 No Claude: `/plugin uninstall par`. No Codex: `codex plugin remove par@prumo-assistant-for-researcher`.
-No Antigravity: `agy plugin uninstall par`. Depois, em qualquer um: `rm -rf ~/.cache/prumo`.
+No Antigravity: **Customizations** → `par` → desinstalar (ou `rm -rf ~/.gemini/config/plugins/par`). Depois, em qualquer um: `rm -rf ~/.cache/prumo`.
 
 Só se nada mais os usa: `uv cache clean` e `uv python uninstall 3.12` (cerca
 de 70 MB).

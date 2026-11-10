@@ -404,7 +404,7 @@ def render_runtime() -> str:
         'bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"` com a raiz '
         "acima: funciona igual, mas cada comando pode pedir permissão.\n"
         "- Tools MCP do PAR (servidor `prumo`): `mcp__plugin_par_prumo__*` no Claude, "
-        "`mcp__prumo__*` no Codex, servidor `par_prumo` no Antigravity.\n"
+        "`mcp__prumo__*` no Codex, servidor `<pasta do plugin>_prumo` no Antigravity.\n"
         "- Invocação: o texto escreve `/par:<skill>` (Claude); no Codex e no app ChatGPT é "
         "`$par:<skill>`, no Antigravity `/<skill>`.\n"
         "- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`. Sem tool de subagent no host, leia o "

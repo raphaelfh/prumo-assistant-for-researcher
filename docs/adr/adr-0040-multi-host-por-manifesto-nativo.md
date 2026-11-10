@@ -25,4 +25,6 @@ Medido no Codex 0.163 (app ChatGPT 155, 2026-11-08), instalando deste checkout n
 
 ## Consequências
 
-Mudar `shims/prumo` refaz o venv de cada pesquisadora (cerca de 60 MB, uma vez). Não medido: o Antigravity (sem `agy` na máquina do mantenedor; `${PLUGIN_ROOT}` e `allowed-tools` seguem a documentação, a conferir com `agy plugin validate --strict`), a instalação por `owner/repo` no Codex antes do push, e o piloto com pesquisadora nos dois hosts novos. Os mods (ADR-0039) e o hook `SessionStart` continuam só do Claude; fora dele, a forma `sh` do lançador é o caminho normal.
+Mudar `shims/prumo` refaz o venv de cada pesquisadora (cerca de 60 MB, uma vez).
+
+Medido no Antigravity 2.29.1 (2026-11-08), instalando do GitHub como usuário novo: o app não traz o CLI `agy`, e o caminho que funciona sem terminal é o agente clonar o repo em `~/.gemini/config/plugins/<pasta>`; o `${PLUGIN_ROOT}` expande, o `cwd` é a raiz do plugin, as 6 skills carregam e o servidor fica `READY` com as 10 tools, nomeado `<pasta>_prumo` (o prefixo é a pasta, não o `name` do manifesto). Plugin sem agents nesta versão: as skills seguem o agent elas mesmas. O `hooks/hooks.json` e o `AGENTS.md` da raiz são ignorados (o Antigravity só lê `hooks.json` e `rules/` na raiz do plugin). Não medido: a instalação por `owner/repo` no Codex e o piloto com pesquisadora nos dois hosts novos. Os mods (ADR-0039) e o hook `SessionStart` continuam só do Claude; fora dele, a forma `sh` do lançador é o caminho normal.
