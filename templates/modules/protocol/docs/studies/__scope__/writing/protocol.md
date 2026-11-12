@@ -1,12 +1,14 @@
 # Protocolo do estudo
 
-Documento vivo. Atualize sempre que a coorte, label, desfecho ou métrica mudar.
+Documento vivo. Atualize sempre que a amostra, o desfecho, o desenho ou a métrica mudar. A pergunta do estudo canônica fica em `.claude/question.toml` (`/par:protocol question`) e aparece aqui num bloco gerado.
 
-## Contexto clínico
+## Contexto da pesquisa
 
-_(pergunta clínica, motivação, relevância)_
+_(problema em saúde, motivação, relevância; tipo e desenho do estudo)_
 
-## Coorte
+## Participantes, amostra ou fontes
+
+_(coorte, animais, amostras biológicas, estudos incluídos numa revisão, base de dados ou cenário de simulação)_
 
 - **Fonte dos dados:**
 - **Janela temporal:**
@@ -32,7 +34,8 @@ _(pergunta clínica, motivação, relevância)_
 
 ## Modalidades de dados
 
-- [ ] Tabular clínico
+- [ ] Tabular (clínico, laboratorial, administrativo)
+- [ ] Texto ou entrevistas (qualitativo)
 - [ ] Imagem (modalidade: _____ )
 - [ ] Outros (_____)
 

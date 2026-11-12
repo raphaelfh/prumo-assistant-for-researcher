@@ -1,6 +1,6 @@
 ---
 name: manuscript
-description: "Gera draft de paper IMRaD venue-aware a partir do PICOT, callouts _extract.md, protocol.md e project_guide.md, com citação strict do acervo ([REF FALTANTE] quando ausente)."
+description: "Gera draft de paper IMRaD venue-aware a partir da pergunta do estudo, callouts _extract.md, protocol.md e project_guide.md, com citação strict do acervo ([REF FALTANTE] quando ausente)."
 argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH] [--venue NAME] [--lang pt-BR|en-US]"
 allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *)
 prumo:
@@ -84,7 +84,7 @@ prumo:
 >    o itálico é regra de pt-BR.
 <!-- prumo:prose:end -->
 
-Você é um pesquisador clínico de ML escrevendo paper acadêmico. Template default
+Você é um pesquisador da área da saúde escrevendo paper acadêmico. Template default
 co-localizado: [`../templates/manuscript.md`](../templates/manuscript.md). Override por projeto:
 `<pj>/.claude/writing_templates/paper.md`. Override ad-hoc: `--template <path>`.
 Para cada section, preencha conforme as instruções HTML comments dentro do
@@ -95,7 +95,7 @@ template, usando os inputs estruturados do projeto.
 1. **Citação strict.** Só `[@citekey]` que existe em `docs/references/_references.bib`. Se a claim precisa de paper fora do acervo, escreva `[REF FALTANTE: <descrição curta>]`. Nunca invente citekey ou escreva `[Smith et al., 2024]` sem citekey.
 2. **Não toca `## References`.** Lista bibliográfica é gerada por export Pandoc.
    **Figura e tabela nunca têm número digitado.** Marque `![Legenda](figures/x.png){#fig:x}` e `: Legenda {#tbl:x}` sob a tabela; no texto, `@fig:x`/`@tbl:x` solto, nunca entre colchetes. O export numera e resolve.
-3. **Use PicotSpec do projeto** se existir (`.claude/picot.toml`). Population = coorte; Intervention = método; Comparison = baseline; Outcome = métrica primária; Hypothesis.statement = hipótese formal.
+3. **Use a pergunta do estudo** (`inputs.question`, de `.claude/question.toml`). `question` = a pergunta; `type` e `design` = o desenho que Methods descreve; `elements` (se houver framework) = população, intervenção ou exposição, comparador, desfecho, contexto; `hypothesis.statement` ou `objective` = o que a Introduction anuncia. Siga a guideline de relato do tipo (tabela em `/par:protocol question`).
 4. **Use callouts `_extract.md`** dos papers como insumo. Extract content tem PICOT/Método/Resultados/Limitações estruturados.
 
 ## Fluxo
@@ -108,7 +108,7 @@ prumo write prep --kind paper --json > /tmp/compose_prep.json
 
 Ler o JSON; os inputs estruturados estão sob a chave `inputs`. Identificar:
 - `language` + `language_source` (idioma já resolvido pela cascata — declare ao usuário)
-- `inputs.picot` (se None, abortar com mensagem "rode `/par:protocol picot` primeiro")
+- `inputs.question` (se None, abortar com mensagem "rode `/par:protocol question` primeiro"; `inputs.picot` é legado e pode ser ignorado)
 - `inputs.citekeys` (lista pra validação de citação)
 - `inputs.papers` (citekey → metadata + extract_content)
 - `inputs.protocol`, `inputs.project` (raw text)
@@ -122,7 +122,7 @@ Ler `template_path` do JSON gerado no passo 1 (`/tmp/compose_prep.json`). Usar a
 
 Para cada section do template (ou só `--section` se passado), formule prose seguindo:
 - Instruções dos HTML comments dentro do template
-- Inputs estruturados (PicotSpec, papers extract_content, protocol, project)
+- Inputs estruturados (pergunta do estudo, papers extract_content, protocol, project)
 - Citação strict: cada `[@<key>]` deve estar em `inputs.citekeys`; senão, `[REF FALTANTE: <descrição>]`
 
 Tom de cada section:

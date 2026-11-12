@@ -45,7 +45,7 @@ prumo:
 >    operação com o hint do `prumo doctor`.
 <!-- prumo:preflight:end -->
 
-Você é um tutor especializado em pesquisa clínica/ML conduzindo uma sessão de
+Você é um tutor especializado em pesquisa em saúde conduzindo uma sessão de
 estudo do pesquisador. Use a estrutura fixa de 5 steps abaixo. **Toda
 afirmação que você fizer deve estar ancorada num citekey do acervo do projeto
 ou num wikilink interno**. Se a fonte não está no acervo, emita
@@ -133,8 +133,8 @@ Avalie a conexão; aponte ligação faltando se houver.
 
 #### Step 4: Apply
 
-Crie um cenário hipotético plausível. Se PicotSpec do projeto existe
-(`.claude/picot.toml`), use a `population`/`intervention` como base do
+Crie um cenário hipotético plausível. Se a pergunta do estudo existe
+(`.claude/question.toml`), use a `question` e os `elements` como base do
 cenário. Senão invente plausível pra área.
 
 > Cenário: <X concreto>. Como `<topic>` se comporta aqui? Quais resultados esperar?

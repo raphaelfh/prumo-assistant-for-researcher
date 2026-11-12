@@ -1,26 +1,20 @@
 ---
 name: picot
-description: "Formaliza, propaga e versiona a PICOT do projeto em 3 destinos (.claude/picot.toml canônico, docs/studies/<slug>/writing/protocol.md operacional, docs/project_guide.md acadêmico) + ADR append-only quando muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado."
+description: "Apelido de `question` (ADR-0041): a PICOT agora é um dos frameworks opcionais da pergunta do estudo. Leia modes/question.md e siga-o."
 argument-hint: "[init | formalize | propagate | diff]"
 allowed-tools: Read Write Edit Glob Grep Bash(cat *) Bash(prumo protocol *)
 prumo:
-  version: 1.0.0
-  schema: PicotSpec/v1
+  version: 2.0.0
+  schema: QuestionSpec/v1
   determinism: hybrid
   agent_compat: [claude-code]
-  cost_estimate: ~6k tokens (Socrático), ~2k (Formalize/Propagate/Diff)
-  inputs:
-    pj_path: optional (default cwd)
-    mode: optional ('init' | 'formalize' | 'propagate' | 'diff'; default = auto-detect)
   requires: [cli]
   phrases:
     - "fecha a PICOT"
-    - "formaliza a pergunta de pesquisa"
     - "a PICOT mudou"
-  legacy: [formulate-picot]
 ---
 
-# Formulate PICOT — formalização canônica + propagação versionada
+# PICOT — apelido do modo `question`
 
 <!-- prumo:preflight:begin -->
 > **Preflight — antes de qualquer operação deste modo:**
@@ -40,144 +34,9 @@ prumo:
 >    oriente `prumo init pj_<nome>`; nunca crie o scaffold à mão.
 <!-- prumo:preflight:end -->
 
-Skill que mantém a PICOT do projeto consistente em **três destinos**:
+Este modo existe para quem chega pela PICOT. A pergunta do estudo é o artefato principal
+(ADR-0041), e a PICOT é um dos frameworks opcionais dela.
 
-- `.claude/picot.toml` — canônico (machine-readable, validado por `PicotSpec/v1`)
-- `docs/studies/<slug>/writing/protocol.md` — render operacional (concreto, conferível)
-- `docs/project_guide.md` — render acadêmico (prosa formal)
-
-Quando a versão muda, grava ainda um ADR append-only em `docs/studies/<slug>/decisions/adr-NNNN-picot-v<N>-<slug>.md`.
-
-## Pressupostos
-
-- cwd é um `pj_*` com `docs/studies/<slug>/writing/protocol.md` e `docs/project_guide.md` (mesmo que vazios) e `docs/studies/<slug>/decisions/`.
-- A parte determinística (read/write TOML, render, diff, ADR) é exposta via `prumo protocol *` (detect-mode/init/adr/propagate/diff). A skill **só** cuida do agêntico (Socrático e Formalize).
-
-## Auto-detect
-
-A skill escolhe o modo baseado no estado:
-
-```bash
-prumo protocol detect-mode
-```
-
-A saída (``init`` / ``formalize`` / ``propagate`` / ``diff``) define qual
-operação seguir. Para ``propagate`` e ``diff``, ler primeiro
-[`../references/operations-advanced.md`](../references/operations-advanced.md).
-
-## Operação 1: `init` — modo Socrático (greenfield)
-
-Pré-condição: `.claude/picot.toml` ausente, `docs/studies/<slug>/writing/protocol.md` vazio (ou só template).
-
-Passos:
-
-1. **Reunir contexto via `wiki query`**: invocar `/par:wiki query` (ou `Read` em `docs/_index.md`/`_log.md`) pra entender o que já existe de tema. Citações livres ok.
-
-2. **Perguntar `type`** (escolha):
-   - "É um estudo **clínico** de intervenção (PICOT padrão: Population/Intervention/Comparison/Outcome/Time), de **predição** (modelo, escore, biomarcador ou teste que prevê um desfecho; o comparador é opcional) ou **metodológico** (Contribution + Hypothesis-validity-condition)?"
-
-3. **Para `clinical`**, perguntar uma de cada vez (sugerindo do wiki sempre que possível):
-   - **P (Population)**: "Quem é a coorte/dataset principal?" Ex.: "Coorte A + Coorte B, ~1500 participantes."
-   - **I (Intervention)**: "Qual o método sob teste?" Ex.: "Intervenção X em dose padrão."
-   - **C (Comparison)**: "Qual o baseline canônico?" Ex.: "Cuidado usual."
-   - **O (Outcome)**: "Métrica primária + threshold?" Ex.: "AUROC ≥ 0.85, IC bootstrap; ECE ≤ 0.05 como secundária."
-   - **T (Time)**: "Janela temporal?" Ex.: "Retrospectivo, sem janela prospectiva; cross-cohort split."
-
-   **Para `prediction`**, os campos são os mesmos, lidos como predição (uma pergunta de cada vez):
-   - **P (População, paciente ou problema)**: "Em quem o preditor será aplicado?" Defina critérios de inclusão, estágio da doença e cenário. Ex.: "Adultos com dor torácica no pronto-socorro, sem IAM com supra de ST."
-   - **I (Index: preditor ou fator de risco)**: "Qual teste, biomarcador, escore, sinal de imagem ou modelo prevê o desfecho?" Vai no campo `intervention`. Ex.: "Troponina ultrassensível na admissão."
-   - **C (Comparador, opcional)**: "Há um comparador, como o padrão atual, o julgamento clínico isolado ou um escore tradicional?" Se não houver, omita `comparison` do JSON. Ex.: "Escore HEART isolado."
-   - **O (Desfecho previsto)**: "Qual evento clínico está sendo previsto?" Ex.: "Infarto agudo do miocárdio."
-   - **T (Horizonte temporal)**: "Em que horizonte o desfecho deve ocorrer?" Ex.: "30 dias."
-
-4. **Para `methodological`**, perguntar:
-   - **Contribution**: "Qual a contribuição teórica/metodológica?" Ex.: "Método estatístico M."
-   - **Hypothesis-validity-condition**: "Sob qual condição a contribuição vale?" Ex.: "Quando a suposição S falha."
-
-5. **Hipótese formal única** (sempre):
-   - **Statement**: frase declarativa testável. Ex.: "A intervenção X supera o comparador em ≥5 pts no desfecho primário."
-   - **Rationale**: por que esperar isso. Ex.: "Estudos-piloto sugerem efeito clinicamente relevante."
-   - **Metrics**: lista de métricas pra testar. Ex.: `["AUROC", "ECE", "coverage"]`.
-
-6. **Mostrar PicotSpec proposto pro usuário e pedir confirmação**.
-   Renderizar como JSON (mais legível em chat) com os campos coletados nos
-   passos 3-5. Estrutura mínima para ``clinical``:
-
-   ```json
-   {
-     "type": "clinical",
-     "created_at": "<hoje ISO>",
-     "last_updated": "<hoje ISO>",
-     "version": 1,
-     "population": "...",
-     "intervention": "...",
-     "comparison": "...",
-     "outcome": "...",
-     "time": "...",
-     "hypothesis": {
-       "statement": "...",
-       "rationale": "...",
-       "metrics": ["AUROC", "ECE"]
-     }
-   }
-   ```
-
-   Para ``prediction``: ``"type": "prediction"``, os mesmos campos, com
-   ``comparison`` omitido quando não houver comparador.
-   Para ``methodological``: substituir P/I/C/O/T por ``contribution`` +
-   ``hypothesis_validity_condition``. Pedir "OK assim?".
-
-7. **Após confirmação, escrever**:
-
-   ```bash
-   cat <<'JSON' | prumo protocol init --date "<hoje ISO>" --json
-   <PicotSpec JSON aprovado>
-   JSON
-   ```
-
-   O script grava ``.claude/picot.toml``, propaga blocos em
-   ``docs/studies/<slug>/writing/protocol.md`` + ``docs/project_guide.md`` e cria
-   ``adr-0001-picot-v1-versao-inicial.md``.
-   Saída em stdout é JSON ``{"propagate": ..., "adr_path": ...}``.
-
-8. **Reportar ao usuário**: arquivos criados (``.claude/picot.toml``,
-   ``docs/studies/<slug>/decisions/adr-NNNN-picot-v1-*.md``) e blocos atualizados em
-   ``protocol.md`` / ``project_guide.md``.
-
-## Operação 2: `formalize` — extrair de prosa existente
-
-Pré-condição: `.claude/picot.toml` ausente, mas `docs/studies/<slug>/writing/protocol.md` ou `docs/project_guide.md` têm prose com sinais de PICOT.
-
-Passos:
-
-1. **Ler `protocol.md` e `project_guide.md`**, identificar candidatos pra cada campo (heurística: parágrafo após heading "## Contexto" / "## Coorte" / "## Desfecho").
-
-2. **Apresentar tabela**:
-
-| Campo | Candidato extraído | Fonte |
-|---|---|---|
-| `population` | "..." | `protocol.md § Coorte` |
-| `intervention` | "..." | `project_guide.md § Hipótese` |
-| ... | ... | ... |
-
-3. **Confirmar/editar campo a campo** com o usuário.
-
-4. **Resto idêntico ao `init` passos 5–8** (hipótese, write, propagate, ADR-0001).
-
-## Operações 3 e 4 — ``propagate`` e ``diff``
-
-Ver [`../references/operations-advanced.md`](../references/operations-advanced.md).
-
-## Boundaries
-
-- Skill **nunca** edita `.claude/picot.toml` sem confirmação do usuário.
-- Skill **nunca** edita ADR existente (append-only).
-- Skill **nunca** edita prose fora dos blocos `<!-- picot:begin/end -->` em protocol.md/project_guide.md.
-- Skill **não** invoca LLM para validar PICOT semanticamente — só estrutura.
-- Para escrita acadêmica do `project_guide.md` § não delimitado, delegar a `/par:write section`.
-
-## Erros comuns
-
-- `picot.toml` corrompido (não-parseable) → reportar erro do `tomllib`, sugerir `git diff .claude/picot.toml`.
-- `docs/studies/<slug>/writing/protocol.md` ou `docs/project_guide.md` ausentes → reportar `missing` e seguir; humano cria depois.
-- Nenhum ADR baseline mas `picot.toml` existe → tratar como ADR-0001 inicial; criar.
+**Leia [`question.md`](question.md) inteiro e siga-o**, com uma diferença: no passo 4 do
+`init`, proponha `"framework": "PICOT"` (ou `PICO`, se não houver tempo) sem perguntar se quer
+um framework, já que a pesquisadora pediu a PICOT.

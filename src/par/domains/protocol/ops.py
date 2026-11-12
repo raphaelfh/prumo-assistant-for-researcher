@@ -1,18 +1,17 @@
 """Orquestradores determinísticos de ``protocol``, expostos como ``prumo protocol *``.
 
 Lado determinístico Python das operações: ``detect_mode`` (estado → modo),
-``init_picot_spec`` (escreve PicotSpec + propaga + ADR-0001), ``create_picot_adr``
+``init_question_spec`` (escreve QuestionSpec + propaga + ADR-0001), ``create_question_adr``
 (ADR-N + propaga), ``propagate`` (regenera blocos) e ``diff_against_last_adr``.
-O modo ``protocol picot`` chama estas funções via CLI (``prumo protocol …``),
+O modo ``protocol question`` chama estas funções via CLI (``prumo protocol …``),
 não por import.
 
-O julgamento agêntico (diálogo Socrático, ``formalize`` de prosa → PicotSpec)
+O julgamento agêntico (diálogo Socrático, ``formalize`` de prosa → QuestionSpec)
 fica no ``SKILL.md``; aqui mora só o que é exato/auditável.
 """
 
 from __future__ import annotations
 
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -21,17 +20,18 @@ from par.core import pj_layout
 from par.core.pj_layout import find_pj_root
 from par.domains.protocol.adr import (
     compose_adr,
-    extract_picot_snapshot,
-    find_last_picot_adr,
+    extract_snapshot,
+    find_last_question_adr,
     next_number,
+    parse_snapshot,
 )
-from par.domains.protocol.diff import PicotDiff, diff_picot
+from par.domains.protocol.diff import QuestionDiff, diff_question
 from par.domains.protocol.drift import Drift, SourceText, collect, find_drift, merge_drift
-from par.domains.protocol.picot_io import (
-    picot_hash,
-    picot_path,
-    read_picot,
-    write_picot,
+from par.domains.protocol.question_io import (
+    current_question_file,
+    question_hash,
+    read_question,
+    write_question,
 )
 from par.domains.protocol.render import (
     BLOCK_BEGIN_RE,
@@ -39,7 +39,7 @@ from par.domains.protocol.render import (
     render_protocol_block,
     replace_or_insert_block,
 )
-from par.domains.protocol.schemas.v1 import PicotSpec
+from par.domains.protocol.schemas.v1 import QuestionSpec
 
 PropagateStatus = Literal["inserted", "updated", "unchanged", "missing"]
 
@@ -54,7 +54,7 @@ class PropagateReport:
 
 
 def propagate(scope: Path) -> PropagateReport:
-    """Lê ``picot.toml`` (do projeto), regenera blocos delimitados em
+    """Lê ``question.toml`` (do projeto), regenera blocos delimitados em
     ``protocol.md`` (do escopo) e ``project_guide.md`` (do projeto).
 
     Status por destino:
@@ -65,8 +65,8 @@ def propagate(scope: Path) -> PropagateReport:
     - ``unchanged``: bloco já tem o hash atual, nada a fazer
     """
     pj_root = find_pj_root(scope)
-    spec = read_picot(pj_root)
-    h = picot_hash(pj_root)
+    spec = read_question(pj_root)
+    h = question_hash(pj_root)
 
     protocol_status = _propagate_one(
         target=pj_layout.writing_dir(scope) / "protocol.md",
@@ -106,44 +106,46 @@ def _propagate_one(
 
 
 def detect_mode(scope: Path) -> str:
-    """Detecta a operação do modo ``protocol picot`` pelo estado do escopo/projeto.
+    """Detecta a operação do modo ``protocol question`` pelo estado do escopo/projeto.
 
     Retorna ``init`` | ``formalize`` | ``propagate`` | ``diff``.
     """
     protocol_md = pj_layout.writing_dir(scope) / "protocol.md"
     pj_root = find_pj_root(scope)
-    if not picot_path(pj_root).exists():
+    if current_question_file(pj_root) is None:
         has_prose = protocol_md.exists() and protocol_md.read_text(errors="ignore").strip() != ""
         return "formalize" if has_prose else "init"
-    if find_last_picot_adr(scope) is None:
+    if find_last_question_adr(scope) is None:
         return "propagate"
     return "diff"
 
 
 @dataclass(frozen=True)
 class InitResult:
-    """Resultado de ``init_picot_spec``: relatório de propagação + caminho do ADR-0001."""
+    """Resultado de ``init_question_spec``: relatório de propagação + caminho do ADR-0001."""
 
     report: PropagateReport
     adr_path: Path
 
 
-def init_picot_spec(scope: Path, *, spec: PicotSpec, motivation: str, date: str) -> InitResult:
-    """Escreve o ``PicotSpec`` inicial (no projeto), propaga os blocos e cria o
+def init_question_spec(
+    scope: Path, *, spec: QuestionSpec, motivation: str, date: str
+) -> InitResult:
+    """Escreve o ``QuestionSpec`` inicial (no projeto), propaga os blocos e cria o
     ADR-0001 (no escopo)."""
     pj_root = find_pj_root(scope)
-    write_picot(pj_root, spec)
+    write_question(pj_root, spec)
     report = propagate(scope)
     n = next_number(scope)
     body = compose_adr(
         adr_number=n,
         spec=spec,
-        diff=PicotDiff(changes=[]),
+        diff=QuestionDiff(changes=[]),
         motivation=motivation,
         supersedes_path=None,
         date=date,
     )
-    adr_path = pj_layout.decisions_dir(scope) / f"adr-{n:04d}-picot-v1-versao-inicial.md"
+    adr_path = pj_layout.decisions_dir(scope) / f"adr-{n:04d}-question-v1-versao-inicial.md"
     adr_path.parent.mkdir(parents=True, exist_ok=True)
     adr_path.write_text(body, encoding="utf-8")
     return InitResult(report=report, adr_path=adr_path)
@@ -151,21 +153,23 @@ def init_picot_spec(scope: Path, *, spec: PicotSpec, motivation: str, date: str)
 
 @dataclass(frozen=True)
 class AdrResult:
-    """Resultado de ``create_picot_adr``: relatório de propagação + caminho do ADR."""
+    """Resultado de ``create_question_adr``: relatório de propagação + caminho do ADR."""
 
     report: PropagateReport
     adr_path: Path
 
 
-def create_picot_adr(scope: Path, *, motivation: str, slug: str, date: str) -> AdrResult:
-    """Grava o ADR-N (no escopo) para a versão atual do ``picot.toml`` (após bump)
+def create_question_adr(scope: Path, *, motivation: str, slug: str, date: str) -> AdrResult:
+    """Grava o ADR-N (no escopo) para a versão atual do ``question.toml`` (após bump)
     e propaga."""
     pj_root = find_pj_root(scope)
-    spec = read_picot(pj_root)
-    # read_picot acima já garante que o picot.toml existe, então diff_against_last_adr
-    # nunca retorna None aqui; o ``or`` apenas estreita PicotDiff | None -> PicotDiff p/ mypy.
-    diff = diff_against_last_adr(scope) or PicotDiff(changes=[])
-    last_adr = find_last_picot_adr(scope)
+    spec = read_question(pj_root)
+    # read_question acima já garante que a pergunta existe, então diff_against_last_adr
+    # nunca retorna None aqui; o ``or`` só estreita o tipo p/ mypy.
+    diff = diff_against_last_adr(scope) or QuestionDiff(changes=[])
+    last_adr = find_last_question_adr(scope)
+    # A gravação migra o question.toml antigo para question.toml (ADR-0041).
+    write_question(pj_root, spec)
     n = next_number(scope)
     body = compose_adr(
         adr_number=n,
@@ -175,44 +179,44 @@ def create_picot_adr(scope: Path, *, motivation: str, slug: str, date: str) -> A
         supersedes_path=last_adr,
         date=date,
     )
-    adr_path = pj_layout.decisions_dir(scope) / f"adr-{n:04d}-picot-v{spec.version}-{slug}.md"
+    adr_path = pj_layout.decisions_dir(scope) / f"adr-{n:04d}-question-v{spec.version}-{slug}.md"
     adr_path.parent.mkdir(parents=True, exist_ok=True)
     adr_path.write_text(body, encoding="utf-8")
     report = propagate(scope)
     return AdrResult(report=report, adr_path=adr_path)
 
 
-def diff_against_last_adr(scope: Path) -> PicotDiff | None:
-    """Compara ``picot.toml`` atual (do projeto) contra snapshot do último ADR
-    ``picot-v<N>`` (do escopo).
+def diff_against_last_adr(scope: Path) -> QuestionDiff | None:
+    """Compara ``question.toml`` atual (do projeto) contra snapshot do último ADR
+    ``question-v<N>`` (do escopo).
 
-    Retorna ``None`` se ``picot.toml`` ausente. Retorna ``PicotDiff`` com
+    Retorna ``None`` se ``question.toml`` ausente. Retorna ``QuestionDiff`` com
     ``changes=[]`` quando não há ADR baseline (caller decide criar v1).
     """
     pj_root = find_pj_root(scope)
-    if not picot_path(pj_root).exists():
+    if current_question_file(pj_root) is None:
         return None
-    current = read_picot(pj_root)
-    last_adr = find_last_picot_adr(scope)
+    current = read_question(pj_root)
+    last_adr = find_last_question_adr(scope)
     if last_adr is None:
-        return PicotDiff(changes=[])
-    snapshot_text = extract_picot_snapshot(last_adr.read_text(encoding="utf-8"))
+        return QuestionDiff(changes=[])
+    snapshot_text = extract_snapshot(last_adr.read_text(encoding="utf-8"))
     if snapshot_text is None:
-        return PicotDiff(changes=[])
-    parsed = tomllib.loads(snapshot_text)
-    baseline = PicotSpec.model_validate(parsed["picot"])
-    return diff_picot(baseline, current)
+        return QuestionDiff(changes=[])
+    return diff_question(parse_snapshot(snapshot_text), current)
 
 
 def manuscript_drift(scope: Path, draft: Path | None = None) -> list[Drift]:
-    """Drift entre drafts do escopo e o lado protocolo (``protocol.md`` + ``picot.toml``).
+    """Drift entre drafts do escopo e o lado protocolo (``protocol.md`` + ``question.toml``).
 
     ``draft`` restringe a um arquivo; sem ele, todo ``writing/*.md`` exceto
     ``protocol.md``. Só lê — nunca edita o manuscrito.
     """
     pj_root = find_pj_root(scope)
     protocol_md = pj_layout.writing_dir(scope) / "protocol.md"
-    protocol_side = [_source(p, pj_root) for p in (protocol_md, picot_path(pj_root)) if p.is_file()]
+    question_file = current_question_file(pj_root)
+    candidates = (protocol_md, question_file) if question_file else (protocol_md,)
+    protocol_side = [_source(p, pj_root) for p in candidates if p.is_file()]
     if not protocol_side:
         return []
     if draft is not None:

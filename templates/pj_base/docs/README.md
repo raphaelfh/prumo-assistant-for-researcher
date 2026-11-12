@@ -9,7 +9,7 @@ Documentação do projeto. Preencha conforme o estudo evolui — este README é 
 | [`_index.md`](_index.md) | Catálogo content-oriented do wiki (mantido pela `/par:wiki ingest`) |
 | [`_log.md`](_log.md) | Append-only chronological (ingests, queries, lints, decisões) |
 | [`studies/<slug>/notes/`](studies/) | Toda página do wiki, uma por arquivo, distinguida pelo `type:` do frontmatter: `concept` (ideias, métodos), `entity` (modelos, datasets, coortes, ferramentas), `finding` (resultados arquivados), `source` (blogs, tutoriais, slides, transcrições) |
-| [`studies/<slug>/writing/protocol.md`](studies/) | Protocolo clínico, coorte, critérios, labels, métricas — por escopo de escrita |
+| [`studies/<slug>/writing/protocol.md`](studies/) | Protocolo do estudo, população ou amostra, critérios, labels, métricas — por escopo de escrita |
 | [`studies/<slug>/decisions/`](studies/) | ADRs do escopo — congelar escolhas com motivação |
 | [`references/_index.md`](references/_index.md) | Acervo bibliográfico (papers). Paper principal marcado `role: primary`. |
 

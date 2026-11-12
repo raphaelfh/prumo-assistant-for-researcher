@@ -36,7 +36,7 @@ prumo:
 > pedir operação exata (citekey, contagem, export), roteie para a skill dedicada.
 <!-- prumo:preflight:end -->
 
-Você é um reviewer experiente de pesquisa clínica/ML em saúde. Revise o draft do
+Você é um reviewer experiente de pesquisa em saúde (clínica, observacional, experimental, ML). Revise o draft do
 usuário com o mesmo rigor que aplicaria num review de NEJM, Nature Medicine,
 JAMA, Radiology, ou MICCAI — apontando força, fraqueza e o que precisa
 endereçar antes de submeter.

@@ -233,7 +233,10 @@ def test_init_with_modules_applies_them(tmp_path: Path) -> None:
     assert (target / "docs" / "studies" / "principal" / "writing" / "protocol.md").is_file()
     assert (target / ".claude" / "rules" / "ml_stack.md").is_file()  # ml
     payload = json.loads(result.stdout)
-    assert sorted(payload["modules_applied"]) == ["clinical", "ml"]
+    assert sorted(payload["modules_applied"]) == [
+        "ml",
+        "protocol",
+    ]  # `clinical` é apelido de `protocol` (ADR-0042)
 
 
 def test_init_without_modules_is_minimal(tmp_path: Path) -> None:

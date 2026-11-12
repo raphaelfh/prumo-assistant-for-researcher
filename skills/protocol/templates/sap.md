@@ -10,16 +10,16 @@ bibliography: ../../../references/_references.bib
 
 ## Definição operacional do outcome
 
-<!-- PicotSpec.outcome formalizado:
+<!-- Desfecho da pergunta do estudo (question.elements.outcome) formalizado:
      - Variável dependente: tipo (binária / contínua / time-to-event)
-     - Definição clínica
+     - Definição operacional
      - Janela de mensuração
      - Critérios de exclusão por outcome ausente -->
 
 ## Sample size justification
 
 <!-- Cálculo formal:
-     - Métrica primária + threshold (PicotSpec.hypothesis.metrics)
+     - Métrica primária + threshold (question.hypothesis.metrics)
      - Effect size esperado
      - Power (geralmente 0.8)
      - Alpha (geralmente 0.05)

@@ -28,7 +28,7 @@ extracted_template_hash: null   # sha256[:12] do paper_extraction.md usado
 
 ## Problema
 
-_(pergunta clínica/técnica, gap na literatura)_
+_(pergunta do estudo, gap na literatura)_
 
 ## Método
 

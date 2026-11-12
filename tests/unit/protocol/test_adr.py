@@ -9,15 +9,25 @@ from par.domains.protocol.adr import (
     SNAPSHOT_BEGIN,
     SNAPSHOT_END,
     compose_adr,
-    extract_picot_snapshot,
-    find_last_picot_adr,
+    extract_snapshot,
+    find_last_question_adr,
     next_number,
+    parse_snapshot,
 )
-from par.domains.protocol.diff import FieldChange, PicotDiff
-from par.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
+from par.domains.protocol.diff import FieldChange, QuestionDiff
+from par.domains.protocol.schemas.v1 import (
+    Hypothesis,
+    PicotSpec,
+    QuestionSpec,
+    question_from_picot,
+)
 
 
-def _spec(version: int = 1, population: str = "DS_A") -> PicotSpec:
+def _spec(version: int = 1, population: str = "DS_A") -> QuestionSpec:
+    return question_from_picot(_picot(version, population))
+
+
+def _picot(version: int = 1, population: str = "DS_A") -> PicotSpec:
     return PicotSpec(
         type="clinical",
         created_at="2026-05-03",
@@ -66,7 +76,7 @@ def test_numeracao_de_adr_e_por_escopo(tmp_path: Path) -> None:
 
 
 def test_compose_adr_includes_diff_motivation_and_snapshot(tmp_path: Path) -> None:
-    diff = PicotDiff(
+    diff = QuestionDiff(
         changes=[
             FieldChange(field="population", before="DS_A", after="DS_A+DS_BB", structural=True),
         ]
@@ -81,17 +91,18 @@ def test_compose_adr_includes_diff_motivation_and_snapshot(tmp_path: Path) -> No
         date="2026-05-03",
     )
     assert "ADR-0002" in body
-    assert "PICOT v2" in body
+    assert "Pergunta do estudo v2" in body
     assert "population" in body
     assert "DS_A+DS_BB" in body
     assert "adicionar coorte externa" in body
     assert SNAPSHOT_BEGIN in body
     assert SNAPSHOT_END in body
     assert 'population = "DS_A+DS_BB"' in body
+    assert "[question.elements]" in body
 
 
 def test_compose_adr_supersedes_link() -> None:
-    diff = PicotDiff(changes=[FieldChange("population", "A", "B", True)])
+    diff = QuestionDiff(changes=[FieldChange("population", "A", "B", True)])
     body = compose_adr(
         adr_number=3,
         spec=_spec(version=3, population="B"),
@@ -104,7 +115,7 @@ def test_compose_adr_supersedes_link() -> None:
 
 
 def test_extract_snapshot_round_trip() -> None:
-    diff = PicotDiff(changes=[FieldChange("population", "A", "B", True)])
+    diff = QuestionDiff(changes=[FieldChange("population", "A", "B", True)])
     body = compose_adr(
         adr_number=1,
         spec=_spec(),
@@ -113,7 +124,7 @@ def test_extract_snapshot_round_trip() -> None:
         supersedes_path=None,
         date="2026-05-03",
     )
-    extracted = extract_picot_snapshot(body)
+    extracted = extract_snapshot(body)
     assert extracted is not None
     assert "population" in extracted
     assert 'type = "clinical"' in extracted
@@ -121,28 +132,60 @@ def test_extract_snapshot_round_trip() -> None:
 
 def test_extract_snapshot_returns_none_when_absent() -> None:
     body = "ADR sem snapshot"
-    assert extract_picot_snapshot(body) is None
+    assert extract_snapshot(body) is None
 
 
-def test_find_last_picot_adr(tmp_path: Path) -> None:
+def test_find_last_question_adr(tmp_path: Path) -> None:
     decisions = tmp_path / "decisions"
     decisions.mkdir(parents=True)
     (decisions / "adr-0001-foo.md").write_text("# foo")
     (decisions / "adr-0002-picot-v1-initial.md").write_text("# v1")
     (decisions / "adr-0003-picot-v2-coorte.md").write_text("# v2")
-    found = find_last_picot_adr(tmp_path)
+    found = find_last_question_adr(tmp_path)
     assert found is not None
     assert found.name == "adr-0003-picot-v2-coorte.md"
 
 
-def test_find_last_picot_adr_none(tmp_path: Path) -> None:
+def test_find_last_adr_none(tmp_path: Path) -> None:
     decisions = tmp_path / "decisions"
     decisions.mkdir(parents=True)
     (decisions / "adr-0001-foo.md").write_text("# foo")
-    assert find_last_picot_adr(tmp_path) is None
+    assert find_last_question_adr(tmp_path) is None
 
 
 def test_adr_number_from_filename_works_4_digits() -> None:
     decisions_dir_pat = re.compile(r"adr-(\d{4})-")
     m = decisions_dir_pat.match("adr-0042-picot-v3-foo.md")
     assert m is not None and m.group(1) == "0042"
+
+
+def test_find_last_adr_mixes_question_and_picot(tmp_path: Path) -> None:
+    decisions = tmp_path / "decisions"
+    decisions.mkdir(parents=True)
+    (decisions / "adr-0001-picot-v1-initial.md").write_text("# v1")
+    (decisions / "adr-0002-question-v2-ampliacao.md").write_text("# v2")
+    found = find_last_question_adr(tmp_path)
+    assert found is not None and found.name == "adr-0002-question-v2-ampliacao.md"
+
+
+def test_parse_snapshot_new_and_legacy() -> None:
+    body = compose_adr(
+        adr_number=1,
+        spec=_spec(),
+        diff=QuestionDiff(changes=[]),
+        motivation="m",
+        supersedes_path=None,
+        date="2026-05-03",
+    )
+    snap = extract_snapshot(body)
+    assert snap is not None and parse_snapshot(snap) == _spec()
+    legacy = (
+        "<!-- picot-snapshot:begin -->\n```toml\n[picot]\n"
+        'type = "clinical"\ncreated_at = "2026-05-03"\nlast_updated = "2026-05-03"\n'
+        'version = 1\npopulation = "DS_A"\nintervention = "IntervencaoX"\n'
+        'comparison = "best baseline"\noutcome = "AUROC ≥ 0.85"\ntime = "retrospectivo"\n\n'
+        '[picot.hypothesis]\nstatement = "combinado supera comparador em ≥5 pts"\n'
+        'rationale = "piloto"\nmetrics = ["AUROC"]\n```\n<!-- picot-snapshot:end -->'
+    )
+    legacy_snap = extract_snapshot(legacy)
+    assert legacy_snap is not None and parse_snapshot(legacy_snap) == _spec()

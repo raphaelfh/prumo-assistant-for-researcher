@@ -25,8 +25,8 @@ pj_<nome>/
 
 Peça ao Claude:
 
-- "quais módulos posso ativar?" (roda `prumo add`): lista os módulos (clinical, ml, ...);
-- "ativa o módulo clínico" (roda `prumo add clinical`): protocolo, CEP, plano estatístico;
+- "quais módulos posso ativar?" (roda `prumo add`): lista os módulos (protocol, ml, ...);
+- "ativa o módulo de protocolo" (roda `prumo add protocol`; `clinical` também funciona): protocolo, CEP ou CEUA, plano estatístico;
 - "ativa o módulo de notebooks" (roda `prumo add notebooks`): `notebooks/<escopo>/`, marimo (.py) ou Jupyter (.ipynb);
 - "ativa o módulo de ML" (roda `prumo add ml`): stack de ML/dados + notebook.
 

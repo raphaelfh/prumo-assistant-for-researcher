@@ -104,7 +104,7 @@ def test_protocol_propagate_from_pj_root_uses_the_single_scope(tmp_path: Path) -
     assert result.exit_code == 0, result.output
     payload = _last_json(result.stdout)
     assert payload["protocol_status"] == "inserted"
-    assert "<!-- picot:begin " in (scope / "writing" / "protocol.md").read_text(encoding="utf-8")
+    assert "<!-- question:begin " in (scope / "writing" / "protocol.md").read_text(encoding="utf-8")
 
 
 def test_protocol_propagate_sem_escopo_nenhum_falha_com_add_study(tmp_path: Path) -> None:
@@ -135,7 +135,8 @@ def test_protocol_propagate_missing_picot(tmp_path: Path) -> None:
     _pj, scope = _bootstrap(tmp_path)  # sem picot.toml
     result = runner.invoke(app, ["protocol", "propagate", str(scope), "--json"])
     assert result.exit_code != 0
-    assert "picot.toml" in result.output or "picot.toml" in result.stderr
+    assert "question.toml" in result.output
+    assert "protocol question" in result.output
 
 
 def test_protocol_detect_mode_init(tmp_path: Path) -> None:
@@ -145,7 +146,34 @@ def test_protocol_detect_mode_init(tmp_path: Path) -> None:
     assert result.stdout.strip() == "init"
 
 
+def test_protocol_init_question_spec(tmp_path: Path) -> None:
+    pj, scope = _mk_project(tmp_path)
+    payload = {
+        "type": "qualitative",
+        "question": "Como enfermeiras da APS vivenciam a telessaúde?",
+        "objective": "Compreender a experiência.",
+        "created_at": "2026-11-12",
+        "last_updated": "2026-11-12",
+        "version": 1,
+        "framework": "PICo",
+        "elements": {
+            "population": "enfermeiras da APS",
+            "phenomenon": "telessaúde",
+            "context": "municípios rurais",
+        },
+    }
+    result = runner.invoke(
+        app,
+        ["protocol", "init", "--date", "2026-11-12", "--path", str(scope), "--json"],
+        input=json.dumps(payload),
+    )
+    assert result.exit_code == 0, result.output
+    assert (pj / ".claude" / "question.toml").exists()
+    assert "question-v1" in str(_last_json(result.stdout)["adr_path"])
+
+
 def test_protocol_init_writes_and_emits(tmp_path: Path) -> None:
+    """Payload ``PicotSpec`` antigo (sem ``question``) continua aceito e é convertido."""
     _pj, scope = _mk_project(tmp_path)
     payload = {
         "type": "clinical",
@@ -175,7 +203,7 @@ def test_protocol_init_invalid_payload_fails(tmp_path: Path) -> None:
         app, ["protocol", "init", "--date", "2026-06-14", "--path", str(scope)], input="{}"
     )
     assert result.exit_code == 1
-    assert "hypothesis" in result.output
+    assert "question" in result.output
 
 
 def _last_json(stdout: str) -> dict[str, object]:
