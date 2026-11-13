@@ -6,6 +6,7 @@ Plugin Claude Code + CLI Python (`prumo`) de pesquisa clínica: bibliografia (Zo
 
 - @.claude/rules/code.md
 - @.claude/rules/release.md
+- @.claude/rules/privacy.md
 
 ## Fontes de verdade
 
