@@ -62,6 +62,7 @@ def test_read_inputs_minimal_pj(tmp_path: Path) -> None:
     root = _project(tmp_path / "pj_empty")
     out = read_inputs(root)
     assert out.picot is None
+    assert out.question is None
     assert out.citekeys == []
     assert out.papers == {}
     assert out.protocol is None
@@ -91,6 +92,28 @@ def test_read_inputs_picot_loaded_when_exists(tmp_path: Path) -> None:
     out = read_inputs(scope)
     assert out.picot is not None
     assert out.picot.population == "DS_A"
+    # a pergunta do estudo vem convertida do picot.toml antigo (ADR-0041)
+    assert out.question is not None
+    assert out.question.elements is not None
+    assert out.question.elements["population"] == "DS_A"
+
+
+def test_read_inputs_question_loaded(tmp_path: Path) -> None:
+    scope = _bootstrap(tmp_path)
+    root = pj_layout.find_pj_root(scope)
+    (root / ".claude" / "question.toml").write_text(
+        "[question]\n"
+        'type = "observational"\n'
+        'question = "iSGLT2 reduz DRC em adultos com DM2?"\n'
+        'objective = "Estimar a associação."\n'
+        'created_at = "2026-11-12"\n'
+        'last_updated = "2026-11-12"\n'
+        "version = 1\n",
+        encoding="utf-8",
+    )
+    out = read_inputs(scope)
+    assert out.picot is None
+    assert out.question is not None and out.question.type == "observational"
 
 
 def test_read_inputs_citekeys_and_papers(tmp_path: Path) -> None:

@@ -302,7 +302,7 @@ _EMPTY_MAKE = frozenset({".gitkeep", ".DS_Store"})
 _PAR_MARK = re.compile(
     r"^prumo:[ \t]*$"
     r"|prumo:runtime"
-    r"|\b(?:PaperCallout|PaperExtract|PeerReviewReport|PicotSpec|ScientificWritingPass"
+    r"|\b(?:PaperCallout|PaperExtract|PeerReviewReport|PicotSpec|QuestionSpec|ScientificWritingPass"
     r"|SessionLog|SupportReport|WikiLintReport|WikiQueryResponse|WikiSource|WriteOutput)/v\d",
     re.MULTILINE,
 )

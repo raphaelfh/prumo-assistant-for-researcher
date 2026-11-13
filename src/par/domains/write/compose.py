@@ -2,7 +2,7 @@
 
 Funções:
 
-- ``read_inputs`` — carrega ``ComposeInputs`` lendo ``.claude/picot.toml``,
+- ``read_inputs`` — carrega ``ComposeInputs`` lendo ``.claude/question.toml``,
   ``references/_references.bib``, callouts ``_extract.md``, ``protocol.md``,
   ``project_guide.md``, ``findings/*.md``.
 - ``resolve_template`` — chain ``--template`` > ``.claude/writing_templates/`` > skill bundle.
@@ -49,6 +49,7 @@ def read_inputs(scope: Path) -> ComposeInputs:
     """
     pj_root = pj_layout.find_pj_root(scope)
     return ComposeInputs(
+        question=_read_question(pj_root),
         picot=_read_picot(pj_root),
         citekeys=_read_citekeys(pj_root),
         papers=_read_papers(pj_root),
@@ -149,8 +150,23 @@ def prep(scope: Path, *, kind: WriteKind, lang: str | None = None) -> WritePrep:
     )
 
 
+def _read_question(pj_path: Path):  # type: ignore[no-untyped-def]
+    """Tenta carregar a pergunta do estudo; ``None`` se ausente ou inválida."""
+    try:
+        from par.domains.protocol.question_io import read_question
+    except ImportError:
+        return None
+    try:
+        return read_question(pj_path)
+    except (FileNotFoundError, ValueError):
+        return None
+
+
 def _read_picot(pj_path: Path):  # type: ignore[no-untyped-def]
-    """Tenta carregar PicotSpec; ``None`` se ausente ou inválido."""
+    """``PicotSpec`` do ``picot.toml`` antigo, se ainda existir (ADR-0041).
+
+    ``ComposeInputs.picot`` é forward-only; o campo vigente é ``question``.
+    """
     try:
         from par.domains.protocol.picot_io import read_picot
     except ImportError:

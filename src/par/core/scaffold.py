@@ -29,7 +29,7 @@ _NAME_PLACEHOLDERS: tuple[str, ...] = ("pj_<NOME>", "pj-NOME")
 MODULE_MANIFEST = "_module.toml"
 
 #: Segmento de caminho usado por módulos cujo payload é por-escopo (ex.:
-#: ``clinical``). ``overlay`` substitui esse segmento pelo slug real antes de
+#: ``protocol``). ``overlay`` substitui esse segmento pelo slug real antes de
 #: copiar; ``is_applied`` faz o mesmo antes de checar o anchor. Ver ADR-0024
 #: (escopo é resolvido por posição em ``docs/studies/<slug>/``, sem sentinela).
 SCOPE_MARKER = "__scope__"
@@ -292,7 +292,7 @@ def overlay(
     diretórios faltantes; ignora arquivos cujo destino já existe.
 
     Quando o payload do template usa o marcador :data:`SCOPE_MARKER` no
-    caminho (módulos por-escopo, ex. ``clinical``), ``scope`` é obrigatório
+    caminho (módulos por-escopo, ex. ``protocol``), ``scope`` é obrigatório
     — o chamador resolve o slug real (via CLI ou pelo escopo recém-criado no
     ``init``) antes de chamar ``overlay``. Idem :data:`PKG_MARKER` e ``pkg``
     para o módulo ``code``, cujo payload é o pacote Python do projeto.
@@ -377,6 +377,8 @@ class ModuleInfo:
     when_to_use: str
     anchor: str | None
     path: Path
+    #: Nomes anteriores aceitos no lugar de ``name`` (ADR-0042).
+    aliases: tuple[str, ...] = ()
 
 
 def _modules_root() -> Path:
@@ -402,14 +404,20 @@ def discover_modules() -> list[ModuleInfo]:
                 when_to_use=meta.get("when_to_use", ""),
                 anchor=meta.get("anchor"),
                 path=d,
+                aliases=tuple(meta.get("aliases", ())),
             )
         )
     return out
 
 
 def get_module(name: str) -> ModuleInfo | None:
-    for m in discover_modules():
+    """Módulo pelo nome ou por um apelido (ex.: ``clinical`` → ``protocol``)."""
+    modules = discover_modules()
+    for m in modules:
         if m.name == name:
+            return m
+    for m in modules:
+        if name in m.aliases:
             return m
     return None
 
@@ -417,7 +425,7 @@ def get_module(name: str) -> ModuleInfo | None:
 def module_requires_scope(module: ModuleInfo) -> bool:
     """``True`` se o payload do módulo usa :data:`SCOPE_MARKER` no caminho.
 
-    Módulos assim (ex. ``clinical``) precisam de um escopo resolvido
+    Módulos assim (ex. ``protocol``) precisam de um escopo resolvido
     (``docs/studies/<slug>/``) antes de ``overlay`` — ver ``add_command``.
     """
     return any(SCOPE_MARKER in p.relative_to(module.path).parts for p in module.path.rglob("*"))

@@ -7,21 +7,21 @@ plataforma_brasil: "" # link ou ID
 
 # Resumo
 
-<!-- 1-2 parágrafos. Use PicotSpec.population + intervention + outcome.
+<!-- 1-2 parágrafos. Use question.question e os elements (população, intervenção ou exposição, desfecho).
      Sem citações. Linguagem acessível (Comitê de Ética não-técnico). -->
 
 # Pergunta de pesquisa
 
-<!-- 1 parágrafo formalizando PicotSpec em prosa. -->
+<!-- 1 parágrafo com question.question em prosa; cite o framework (PICOT, PECO, PCC...) se houver. -->
 
 # Justificativa
 
-<!-- 3-5 parágrafos: relevância clínica, gap, contribuição esperada.
+<!-- 3-5 parágrafos: relevância para a saúde, gap, contribuição esperada.
      Cite ≥3 papers do acervo justificando importância. -->
 
 # Hipótese
 
-<!-- PicotSpec.hypothesis.statement em prosa. -->
+<!-- question.hypothesis.statement em prosa; sem hipótese, question.objective. -->
 
 # Coorte e critérios
 
@@ -33,7 +33,7 @@ plataforma_brasil: "" # link ou ID
 
 # Métodos
 
-<!-- PicotSpec.intervention + comparison + outcome em detalhe operacional.
+<!-- Desenho (question.design) e elements em detalhe operacional.
      Sub-seções: Coleta de dados, Análise, Métricas. -->
 
 # Riscos e benefícios

@@ -1,11 +1,13 @@
 # Operações avançadas — propagate & diff
 
-Carregue quando ``prumo protocol detect-mode`` retornar ``propagate`` ou ``diff``; ``init``/``formalize`` estão em ``modes/picot.md``.
+Carregue quando ``prumo protocol detect-mode`` retornar ``propagate`` ou ``diff``; ``init``/``formalize`` estão em ``modes/question.md``.
+
+Projeto antigo, só com ``.claude/picot.toml``: tudo abaixo vale igual, porque o CLI lê o arquivo antigo. No passo 4, edite o arquivo que existe (tabela ``[picot]``); o ``prumo protocol adr`` converte, grava ``question.toml`` e remove o ``picot.toml``.
 
 ## Operação 3 — ``propagate``
 
-**Quando**: ``.claude/picot.toml`` existe e há ADR baseline, mas os blocos
-delimitados ``<!-- picot:begin -->`` em ``docs/studies/<slug>/writing/protocol.md`` e
+**Quando**: a pergunta canônica (``.claude/question.toml``) existe e há ADR baseline, mas os blocos
+delimitados ``<!-- question:begin -->`` em ``docs/studies/<slug>/writing/protocol.md`` e
 ``docs/project_guide.md`` estão stale (hash mismatch). Sem mudança estrutural.
 
 Executar:
@@ -19,7 +21,7 @@ Reportar status por destino (``inserted`` / ``updated`` / ``unchanged`` /
 
 ## Operação 4 — ``diff``
 
-**Quando**: o usuário editou ``.claude/picot.toml`` (manualmente ou via outra
+**Quando**: o usuário editou ``.claude/question.toml`` (manualmente ou via outra
 invocação) e quer registrar a mudança como novo ADR.
 
 ### Passo 1. Rodar diff
@@ -33,7 +35,7 @@ Captura o JSON da última linha. Campos relevantes:
 - ``changes`` (lista) — pode estar vazia.
 - ``has_structural`` (bool) — distingue mudança estrutural de cosmética.
 - ``drift`` (lista) — fatos do draft em ``writing/`` que contradizem
-  ``protocol.md``/PICOT (janela de coleta, ``n``, testes nomeados,
+  ``protocol.md``/pergunta do estudo (janela de coleta, ``n``, testes nomeados,
   pré-especificação de subgrupos), com ``protocol_loc``, ``draft_locs`` (todas as ocorrências) e ``hint``.
   Passe o caminho de um ``.md`` para checar só esse draft. Mostre cada item ao
   usuário; nunca edite o manuscrito por conta própria.
@@ -58,12 +60,12 @@ Mostrar o diff campo-a-campo. Perguntar a motivação (livre ou de menu):
 
 Capturar também um slug curto (kebab-case) derivado da motivação.
 
-### Passo 4. Bumpar versão em ``picot.toml``
+### Passo 4. Bumpar versão em ``question.toml``
 
-Editar ``.claude/picot.toml`` via ``Edit``:
+Editar ``.claude/question.toml`` via ``Edit`` (em projeto antigo, ``.claude/picot.toml``, tabela ``[picot]``):
 
-- ``[picot] version`` → ``version + 1``
-- ``[picot] last_updated`` → hoje (ISO ``YYYY-MM-DD``)
+- ``[question] version`` → ``version + 1``
+- ``[question] last_updated`` → hoje (ISO ``YYYY-MM-DD``)
 
 ### Passo 5. Gerar ADR + propagar
 
@@ -79,13 +81,13 @@ A saída em stdout é JSON com ``adr_path`` e ``propagate``.
 ### Passo 6. Reportar
 
 ```
-✓ ADR gerado: docs/studies/<slug>/decisions/adr-NNNN-picot-v<N>-<slug>.md
+✓ ADR gerado: docs/studies/<slug>/decisions/adr-NNNN-question-v<N>-<slug>.md
   Propagate: protocol=<status> · project=<status>
 ```
 
 ## Caso especial — mudança de ``type``
 
-Se ``type`` mudou (entre ``clinical``, ``prediction`` e ``methodological``), o ADR
+Se ``type`` ou ``framework`` mudou, o ADR
 deve trazer warning explícito sobre os campos abandonados na seção
 **Notas**. Esse caso é raro e sempre vale confirmação extra com o usuário
 antes de prosseguir.

@@ -19,7 +19,7 @@ Os princípios não-negociáveis (lógica em um lugar só, determinístico antes
 ```
 ┌──────────────┐ ┌──────────────┐ ┌────────────┐ ┌──────────────┐ ┌──────────────┐
 │ 📚 paper     │ │ 🧠 wiki      │ │ 📥 capture │ │ 🧪 protocol  │ │ ✍️ write      │
-│ (Zotero+BBT) │ │ (Markdown)†  │ │ (router)   │ │ (PICOT+ADR)  │ │ (Pandoc/Typst)│
+│ (Zotero+BBT) │ │ (Markdown)†  │ │ (router)   │ │(pergunta+ADR)│ │ (Pandoc/Typst)│
 │              │ │              │ │            │ │              │ │              │
 │ sync · graph │ │ lint · index │ │ capture    │ │ propagate    │ │ export       │
 │ find · lint  │ │ stats        │ │ <input>    │ │ diff         │ │ compose      │
@@ -68,7 +68,7 @@ prumo-assistant-for-researcher/
 ├── .antigravity-plugin/ · mcp_config.json        ← manifesto e MCP do Antigravity (ADR-0040)
 ├── .codex-plugin/ · mcp.json · .agents/plugins/  ← manifesto, MCP e catálogo do Codex/ChatGPT (ADR-0040)
 ├── shims/                     ← lançador do CLI, único arquivo
-├── hooks/                     ← SessionStart: PATH do lançador · mods/: painel de revisão e PICOT no system prompt (ADR-0039)
+├── hooks/                     ← SessionStart: PATH do lançador · mods/: painel de revisão e pergunta do estudo no system prompt (ADR-0039)
 ├── types/                     ← contrato de $.state dos mods (plugin.json "types")
 ├── .github/
 │   ├── workflows/             ← ci.yml (lint+types+test+índices) · validate-manifests.yml
@@ -101,7 +101,7 @@ prumo-assistant-for-researcher/
 ├── templates/
 │   ├── pj_base/               ← núcleo mínimo copiado por `prumo init`
 │   └── modules/             ← overlays opt-in (`prumo add`), self-describing (_module.toml):
-│       {clinical,ml,data,notebooks,code}/ — `code` traz o pacote instalável (ADR-0027)
+│       {protocol,ml,data,notebooks,code}/ — `code` traz o pacote instalável (ADR-0027)
 │
 ├── tests/unit/                ← espelha domains/ 1:1
 └── docs/                      ← vault Markdown: constitution · adr/ ·

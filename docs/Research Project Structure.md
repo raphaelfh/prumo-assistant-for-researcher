@@ -43,7 +43,7 @@ pj_<nome>/
     │   └── pdfs/<citekey>.pdf    ← symlinks pro Zotero (gitignorado)
     └── studies/<slug>/            ← O ESCOPO — unidade de escrita (ADR-0024)
         ├── notes/                 ← prosa humana, inclusive findings (`type: finding`)
-        ├── writing/               ← o produto (drafts; `protocol.md` quando `clinical` ativo)
+        ├── writing/               ← o produto (drafts; `protocol.md` quando `protocol` ativo)
         └── decisions/             ← ADRs do escopo, append-only
 ```
 
@@ -91,7 +91,7 @@ Cada módulo é independente. Ative quando o trigger acontecer; não ative antes
 | `data` | `content/01_raw/` (somente leitura) + `content/02_processed/` — ative com `prumo add data` | Entra o primeiro dataset no projeto |
 | `notebooks` | `notebooks/<escopo>/` (fora da raiz de leitura `docs/`) — ative com `prumo add notebooks` (`--scope <slug>` se houver mais de um escopo); aceita **marimo** (`.py`, padrão) e Jupyter (`.ipynb`), com rule `.claude/rules/notebooks.md` e alvos `nb-edit`/`nb-run`/`nb-convert` | Primeira análise exploratória em notebook |
 | `ml` | `.claude/rules/ml_stack.md` (stack, governança de código) + notebook de EDA (`.ipynb`) — ative com `prumo add ml` | Vai treinar modelos ou fazer análise tabular/de imagem |
-| `clinical` | `docs/studies/<slug>/writing/protocol.md` + `docs/templates/` (projeto CEP, plano estatístico/SAP, dicionário de dados) — ative com `prumo add clinical` (`--scope <slug>` se houver mais de um escopo) | Estudo clínico/empírico com coorte e submissão a CEP |
+| `protocol` (apelido: `clinical`) | `docs/studies/<slug>/writing/protocol.md` + `docs/templates/` (projeto CEP, plano estatístico/SAP, dicionário de dados) — ative com `prumo add protocol` (`--scope <slug>` se houver mais de um escopo) | Estudo empírico com protocolo formal: pergunta do estudo, plano de análise, submissão a CEP ou CEUA |
 
 ### Onde o código mora (módulo `code`)
 
@@ -182,6 +182,6 @@ Esses níveis não são prescritivos. São pontos de partida para você compor.
 - **Ative um módulo no momento da dor**, não antes. Sintoma típico: você está prestes a fazer um workaround manual repetidamente — o módulo já existe pra esse padrão.
 - **Não desative módulos retroativamente**. Se ativou e não usa mais, deixe ali — o histórico tem valor.
 - **Module novo** que não está nesta lista é candidato a ser proposto aqui. Se aparecer em ≥2 projetos, formaliza.
-- **Variantes do mínimo** (ex.: ativar o módulo `clinical` só quando o projeto for clínico) são aceitas — esta lista é guia, não lei.
+- **Variantes do mínimo** (ex.: ativar o módulo `protocol` só quando o estudo tiver protocolo formal) são aceitas — esta lista é guia, não lei.
 
 Ver também: [[journey|Canvas de jornada]].

@@ -14,7 +14,7 @@ from par.domains.wiki.stats_check import (
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "wiki"
 
 
-def test_wilson_interval_reproduz_o_draft() -> None:
+def test_wilson_interval_valor_conhecido() -> None:
     lo, hi = wilson_interval(29, 35)
     assert (round(lo * 100, 1), round(hi * 100, 1)) == (67.3, 91.9)
 
@@ -25,8 +25,8 @@ def test_benjamini_hochberg_step_up_com_empates() -> None:
     assert benjamini_hochberg([0.5, 0.5]) == [0.5, 0.5]
 
 
-def test_recorte_real_nao_tem_divergencia() -> None:
-    text = (FIXTURES / "stats_real_excerpt.md").read_text(encoding="utf-8")
+def test_recorte_correto_nao_tem_divergencia() -> None:
+    text = (FIXTURES / "stats_ok_excerpt.md").read_text(encoding="utf-8")
     assert stat_mismatches(text) == []
 
 

@@ -135,13 +135,13 @@ def test_extract_com_template_antigo_conta_como_stale(
     assert (st.extracts.pending, st.extracts.stale) == (0, 1)
 
 
-def test_sem_picot_pede_picot(tmp_path: Path, registry: SkillRegistry) -> None:
+def test_sem_pergunta_pede_question(tmp_path: Path, registry: SkillRegistry) -> None:
     pj = _init(tmp_path)
     _bib(pj, "a")
     _paper(pj, "a", extract=True, hash_=_current_hash(pj))
     st = project_status(pj, registry=registry)
     assert st.picot.closed is False and st.picot.error is None
-    assert st.next is not None and (st.next.skill, st.next.mode) == ("protocol", "picot")
+    assert st.next is not None and (st.next.skill, st.next.mode) == ("protocol", "question")
 
 
 def test_picot_invalida_reporta_erro(tmp_path: Path, registry: SkillRegistry) -> None:

@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "par: Knowledge, bibliography & academic writing assistant for clinical research"
+title: "par: Knowledge, bibliography & academic writing assistant for health research"
 message: "If you use this software, please cite it using the metadata from this file."
 type: software
 authors:
@@ -10,7 +10,8 @@ authors:
 repository-code: "https://github.com/raphaelfh/prumo-assistant-for-researcher"
 url: "https://github.com/raphaelfh/prumo-assistant-for-researcher"
 abstract: >-
-  PAR is a CLI + Claude Code plugin for clinical research workflows.
+  PAR is a CLI + Claude Code plugin for health research workflows
+  (clinical, observational, experimental, reviews, qualitative, computational).
   It connects Zotero (Better BibTeX), Zettlr (writing front-end), and the researcher's
   agent-host (Claude Code, Cursor, Codex, Gemini) around four pillars:
   bibliography management, knowledge management (wiki ingest/query/lint),
@@ -19,6 +20,7 @@ abstract: >-
   testable Python with forward-only schemas for long-term reproducibility.
 keywords:
   - research-software
+  - health-research
   - clinical-research
   - knowledge-management
   - bibliography

@@ -1,4 +1,4 @@
-"""PAR — knowledge, bibliography & academic writing for clinical research.
+"""PAR — knowledge, bibliography & academic writing for health research.
 
 API pública (estável a partir de v0.2.0):
 
