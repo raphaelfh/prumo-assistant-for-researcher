@@ -28,7 +28,8 @@ pt-BR do domínio (sidecar ausente ou raiz de projeto não localizada) como
 sidecar corrompido já sai pronto do domínio.
 
 Desde 2026-08-23 o servidor cobre também o domínio `paper` (6 tools, uma
-delas mutante — ver `MUTATING_TOOLS`), e por isso deixou de se chamar
+delas mutante — ver `MUTATING_TOOLS`); desde 2026-11-15, `project_status`
+(só leitura: as etapas do estudo, ADR-0043), e por isso deixou de se chamar
 `prumo-review`: o nome é o prefixo das tools no agent-host —
 `mcp__plugin_par_prumo__paper_find` quando servido pelo plugin (ADR-0037,
 B8); `mcp__prumo__*` só no `.mcp.json` de projeto deste repo. ADR emendando
@@ -52,8 +53,9 @@ from typing import Any, Literal, TypeVar
 
 from mcp.server.fastmcp import FastMCP
 
-from par import PrumoError
+from par import PrumoError, status
 from par._version import __version__
+from par.core.skills import bundled_skill_registry
 from par.domains.paper import api as paper_api
 from par.domains.write import review
 
@@ -248,6 +250,18 @@ def paper_connect(pj_path: str, collection: str, library: str | None = None) -> 
         "bib_path": str(result.bib_path),
         "exported": result.exported,
     }
+
+
+@server.tool()
+def project_status(pj_path: str) -> dict[str, Any]:
+    """Onde o estudo está: etapas, sinais do disco e o próximo passo (``ProjectStatus/v1``).
+
+    Só leitura. Mesmo JSON de ``prumo status --json``; é o que o painel "Projeto" do
+    mod desenha (ADR-0043). ``pj_path`` pode ser qualquer pasta dentro do ``pj_*``."""
+    result = _paper_call(
+        status.project_status, Path(pj_path).resolve(), registry=bundled_skill_registry()
+    )
+    return status.status_to_dict(result)
 
 
 def run_stdio() -> None:
