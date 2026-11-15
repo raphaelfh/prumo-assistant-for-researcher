@@ -68,7 +68,7 @@ prumo-assistant-for-researcher/
 ├── .antigravity-plugin/ · mcp_config.json        ← manifesto e MCP do Antigravity (ADR-0040)
 ├── .codex-plugin/ · mcp.json · .agents/plugins/  ← manifesto, MCP e catálogo do Codex/ChatGPT (ADR-0040)
 ├── shims/                     ← lançador do CLI, único arquivo
-├── hooks/                     ← SessionStart: PATH do lançador · mods/: painel de revisão e pergunta do estudo no system prompt (ADR-0039)
+├── hooks/                     ← SessionStart: PATH do lançador · mods/: painel de etapas do projeto e pergunta do estudo no system prompt (ADR-0039, ADR-0043)
 ├── types/                     ← contrato de $.state dos mods (plugin.json "types")
 ├── .github/
 │   ├── workflows/             ← ci.yml (lint+types+test+índices) · validate-manifests.yml
