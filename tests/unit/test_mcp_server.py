@@ -204,8 +204,9 @@ def test_server_registers_exactly_the_review_and_paper_tools() -> None:
         "paper_verify_refs",
         "paper_connect",
         "project_status",
+        "project_list",
     }
-    assert len(tools) == 11
+    assert len(tools) == 12
 
 
 def test_paper_connect_is_the_only_mutating_paper_tool() -> None:
@@ -481,3 +482,27 @@ def test_project_status_fora_de_um_pj_da_erro_pt_br(tmp_path: Path) -> None:
 
 def test_project_status_nao_muta_nada() -> None:
     assert "project_status" not in mcp_server.MUTATING_TOOLS
+    assert "project_list" not in mcp_server.MUTATING_TOOLS
+
+
+def test_project_list_mostra_os_pj_de_uma_pasta_de_trabalho(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from par.cli import app
+
+    for name in ("pj_piloto_b", "pj_piloto_a"):
+        res = CliRunner().invoke(app, ["init", str(tmp_path / name), "--no-git", "--json"])
+        assert res.exit_code == 0, res.output
+
+    payload = mcp_server.project_list(str(tmp_path))
+
+    assert payload == {
+        "projects": [
+            {"name": "pj_piloto_a", "path": str((tmp_path / "pj_piloto_a").resolve())},
+            {"name": "pj_piloto_b", "path": str((tmp_path / "pj_piloto_b").resolve())},
+        ]
+    }
+
+
+def test_project_list_sem_projeto_devolve_lista_vazia(tmp_path: Path) -> None:
+    assert mcp_server.project_list(str(tmp_path)) == {"projects": []}

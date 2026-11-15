@@ -27,6 +27,24 @@ def test_find_pj_root_sobe_ate_o_marcador(tmp_path: Path) -> None:
     assert L.find_pj_root(deep) == root
 
 
+def test_find_pj_roots_lista_os_projetos_filhos_em_ordem(tmp_path: Path) -> None:
+    _mk_project(tmp_path / "pj_b")
+    _mk_project(tmp_path / "pj_a")
+    (tmp_path / "pj_sem_config").mkdir()
+    (tmp_path / "notas.txt").write_text("x", encoding="utf-8")
+    assert L.find_pj_roots(tmp_path) == [tmp_path / "pj_a", tmp_path / "pj_b"]
+
+
+def test_find_pj_roots_dentro_de_um_pj_devolve_so_ele(tmp_path: Path) -> None:
+    root = _mk_project(tmp_path / "pj_x")
+    _mk_project(tmp_path / "pj_y")
+    assert L.find_pj_roots(root / "docs") == [root]
+
+
+def test_find_pj_roots_sem_projeto_devolve_vazio(tmp_path: Path) -> None:
+    assert L.find_pj_roots(tmp_path) == []
+
+
 def test_find_pj_root_aceita_arquivo(tmp_path: Path) -> None:
     root = _mk_project(tmp_path / "pj_x")
     page = root / "docs" / "studies" / "principal" / "writing" / "paper.md"
