@@ -189,3 +189,22 @@ test('com o prumo fora do ar o painel diz o que fazer', async ($, on) => {
   expect((await ui.find({ type: 'Text', text: /prumo indisponível/ }))?.text).toContain('/par:start')
   await ui.unmount()
 })
+
+test('servidor antigo sem project_status: o painel mostra o erro em vez de ficar vazio', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'projeto' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.cwd', () => ({ value: '/pj' }))
+  on('mcp.connect', () => ({ value: { isConnected: true, server: 'plugin:par:prumo' } }))
+  on('mcp.call', () => {
+    throw new Error('Unknown tool: project_status')
+  })
+
+  await $.session.start({ cwd: '/pj', surface: 'desktop', isInteractive: true })
+  await $.command.run(PROJETO)
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: /não consegui ler o projeto/ }))?.text).toContain('/par:start')
+  await ui.unmount()
+})

@@ -50,7 +50,15 @@ async function collect($: EngineInterface): Promise<ProjectSnapshot> {
 
 /** Relê o projeto, grava o retrato do painel e a linha de status; devolve o retrato. */
 async function refresh($: EngineInterface): Promise<ProjectSnapshot> {
-  const snapshot = await collect($)
+  // Uma exceção (tool ausente num servidor antigo, JSON inválido) vira erro visível:
+  // engolida, deixaria o painel só com o botão "Atualizar".
+  const snapshot = await collect($).catch(
+    (err: unknown): ProjectSnapshot => ({
+      status: null,
+      updatedAt: Date.now(),
+      error: `não consegui ler o projeto (${err instanceof Error ? err.message : String(err)}); rode /par:start`,
+    }),
+  )
   await update($, project, () => snapshot)
   $.ui.status(snapshot.status === null ? undefined : statusLine(snapshot.status))
   return snapshot
@@ -96,6 +104,7 @@ export function registerProject(on: On): void {
           </Button>
         </Box>
         {snapshot.error !== undefined && <Text color="red">{snapshot.error}</Text>}
+        {snapshot.error === undefined && snapshot.status === null && <Text dimColor>Lendo o projeto…</Text>}
         {stages.map((stage: Stage, index: number) => {
           const where = stage.scope !== null ? ` (${stage.scope})` : ''
           const say = stage.next?.say

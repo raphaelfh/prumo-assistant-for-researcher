@@ -7,6 +7,13 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Corrigido
+
+- **Painel "Projeto" vazio.** Quando a leitura do projeto falhava com exceção (por exemplo, um
+  servidor `prumo` de versão anterior, sem a tool `project_status`), o painel ficava só com o
+  botão "Atualizar". Agora mostra o erro com "rode `/par:start`", e "Lendo o projeto…" enquanto
+  carrega.
+
 ## [0.71.4] - 2026-11-15
 
 ### Adicionado
