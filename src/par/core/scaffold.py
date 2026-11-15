@@ -410,6 +410,54 @@ def discover_modules() -> list[ModuleInfo]:
     return out
 
 
+def module_writing_files() -> frozenset[str]:
+    """Nomes de arquivo que os módulos copiam para ``writing/`` de cada escopo.
+
+    Esqueleto de módulo não é draft de manuscrito: ``prumo status`` os exclui.
+    """
+    names: set[str] = set()
+    for module in discover_modules():
+        writing = module.path / "docs" / "studies" / SCOPE_MARKER / "writing"
+        if writing.is_dir():
+            names.update(
+                p.name for p in writing.iterdir() if p.is_file() and not p.name.startswith(".")
+            )
+    return frozenset(names)
+
+
+def _template_rel(rel: Path) -> Path:
+    """``docs/studies/<slug>/...`` → ``docs/studies/__scope__/...``; o resto fica igual."""
+    parts = rel.parts
+    if len(parts) > 2 and parts[:2] == ("docs", "studies"):
+        return Path(*parts[:2], SCOPE_MARKER, *parts[3:])
+    return rel
+
+
+def is_pristine(pj_root: Path, rel: Path) -> bool:
+    """``rel`` (relativo ao pj) ainda é o esqueleto do scaffold, sem edição.
+
+    Compara com o template de algum módulo depois dos mesmos placeholders de nome
+    que o ``init`` aplica (``pj_root.name``). Pasta renomeada depois do ``init``
+    conta como editado: o erro é para o lado de "feito", nunca de esconder etapa.
+    """
+    try:
+        current = (pj_root / rel).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    template_rel = _template_rel(rel)
+    for module in discover_modules():
+        template = module.path / template_rel
+        try:
+            expected = template.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for placeholder in _NAME_PLACEHOLDERS:
+            expected = expected.replace(placeholder, pj_root.name)
+        if expected == current:
+            return True
+    return False
+
+
 def get_module(name: str) -> ModuleInfo | None:
     """Módulo pelo nome ou por um apelido (ex.: ``clinical`` → ``protocol``)."""
     modules = discover_modules()

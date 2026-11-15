@@ -226,3 +226,11 @@ def test_cli_escopo_inexistente_falha_com_instrucao(tmp_path: Path) -> None:
     res = runner.invoke(app, ["status", str(pj), "--scope", "nada"])
     assert res.exit_code != 0
     assert "prumo add study" in res.output
+
+
+def test_esqueletos_do_protocol_nao_contam_como_draft(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_demo"
+    res = runner.invoke(app, ["init", str(pj), "--with", "protocol", "--json"])
+    assert res.exit_code == 0, res.output
+    st = project_status(pj)
+    assert st.scopes and all(scope.drafts == () for scope in st.scopes)

@@ -23,6 +23,7 @@ from par.core import criticmarkup, pj_layout
 from par.core.bib import parse_bib
 from par.core.note_paths import citekey_from_meta_path, extract_path, iter_note_meta_files
 from par.core.pj_layout import PjRootNotFoundError
+from par.core.scaffold import module_writing_files
 from par.core.skills import SkillRef, SkillRegistry
 from par.domains.paper.callout import hash_template
 from par.domains.paper.connect import bib_is_placeholder
@@ -55,9 +56,6 @@ SCHEMA_VERSION = "ProjectStatus/v1"
 RECONCILE_KINDS = frozenset(
     {EVENT_KIND_UNANCHORED_MARK, EVENT_KIND_AMBIGUOUS_ANCHOR, EVENT_KIND_NON_IDENTITY_SPAN}
 )
-
-#: Arquivos de ``writing/`` que não são draft de manuscrito.
-_NOT_DRAFTS = frozenset({"protocol.md"})
 
 
 @dataclass(frozen=True)
@@ -163,7 +161,8 @@ def _picot(pj_root: Path) -> PicotStatus:
     return PicotStatus(closed=True)
 
 
-def _drafts(scope: Path) -> tuple[str, ...]:
+def _drafts(scope: Path, not_drafts: frozenset[str]) -> tuple[str, ...]:
+    """Drafts de manuscrito do escopo: ``writing/*.md`` menos os esqueletos de módulo."""
     writing = pj_layout.writing_dir(scope)
     if not writing.is_dir():
         return ()
@@ -171,7 +170,7 @@ def _drafts(scope: Path) -> tuple[str, ...]:
         sorted(
             p.name
             for p in writing.glob("*.md")
-            if p.name not in _NOT_DRAFTS and not p.name.startswith((".", "_"))
+            if p.name not in not_drafts and not p.name.startswith((".", "_"))
         )
     )
 
@@ -294,8 +293,9 @@ def project_status(
     library = _library(pj_root)
     extracts = _extracts(pj_root)
     picot = _picot(pj_root)
+    not_drafts = module_writing_files()
     scopes = tuple(
-        ScopeStatus(slug=s.name, drafts=_drafts(s), reviews=_reviews(pj_root, s.name))
+        ScopeStatus(slug=s.name, drafts=_drafts(s, not_drafts), reviews=_reviews(pj_root, s.name))
         for s in _scopes(pj_root, scope)
     )
     return ProjectStatus(
