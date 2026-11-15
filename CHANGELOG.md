@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.71.4] - 2026-11-15
+
 ### Adicionado
 
 - **Painel "Projeto"** (`/projeto`, ADR-0043). No Claude Code e na aba Code do Desktop, um painel
@@ -1650,7 +1652,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.3...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.4...HEAD
+[0.71.4]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.3...v0.71.4
 [0.71.3]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.2...v0.71.3
 [0.71.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.1...v0.71.2
 [0.71.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.0...v0.71.1
