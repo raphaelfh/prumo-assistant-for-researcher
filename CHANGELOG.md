@@ -7,6 +7,14 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **Painel "Projeto" com vários projetos.** Numa sessão aberta numa pasta com mais de um `pj_*`,
+  o painel lista os projetos para escolher, lembra a escolha e tem "Trocar projeto"; a linha de
+  status mostra o nome do projeto escolhido. Tool MCP nova `project_list`, só leitura.
+- **Retorno do "Atualizar".** O painel mostra "Atualizando…" e depois "Atualizado às HH:MM:SS",
+  e o botão confirma com um aviso.
+
 ## [0.71.5] - 2026-11-15
 
 ### Corrigido

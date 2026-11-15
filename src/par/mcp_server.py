@@ -29,7 +29,8 @@ sidecar corrompido já sai pronto do domínio.
 
 Desde 2026-08-23 o servidor cobre também o domínio `paper` (6 tools, uma
 delas mutante — ver `MUTATING_TOOLS`); desde 2026-11-15, `project_status`
-(só leitura: as etapas do estudo, ADR-0043), e por isso deixou de se chamar
+(só leitura: as etapas do estudo, ADR-0043) e `project_list` (os `pj_*` de
+uma pasta, para o painel escolher), e por isso deixou de se chamar
 `prumo-review`: o nome é o prefixo das tools no agent-host —
 `mcp__plugin_par_prumo__paper_find` quando servido pelo plugin (ADR-0037,
 B8); `mcp__prumo__*` só no `.mcp.json` de projeto deste repo. ADR emendando
@@ -55,6 +56,7 @@ from mcp.server.fastmcp import FastMCP
 
 from par import PrumoError, status
 from par._version import __version__
+from par.core.pj_layout import find_pj_roots
 from par.core.skills import bundled_skill_registry
 from par.domains.paper import api as paper_api
 from par.domains.write import review
@@ -262,6 +264,16 @@ def project_status(pj_path: str) -> dict[str, Any]:
         status.project_status, Path(pj_path).resolve(), registry=bundled_skill_registry()
     )
     return status.status_to_dict(result)
+
+
+@server.tool()
+def project_list(path: str) -> dict[str, Any]:
+    """Os ``pj_*`` alcançáveis a partir de ``path``: ele mesmo, ou os filhos diretos.
+
+    Só leitura. O painel "Projeto" usa quando a sessão abre numa pasta com vários
+    projetos, para a pesquisadora escolher qual ver. Nenhum é ``{"projects": []}``."""
+    roots = find_pj_roots(Path(path).resolve())
+    return {"projects": [{"name": root.name, "path": str(root)} for root in roots]}
 
 
 def run_stdio() -> None:

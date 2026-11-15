@@ -21,14 +21,27 @@ export type Stage = {
 /** A parte de `ProjectStatus/v1` que o painel "Projeto" desenha. */
 export type ProjectStatusJson = {
   schema_version: string
+  project: string
   stages: Stage[]
   next: StageNext | null
+}
+
+/** Um `pj_*` da pasta de trabalho, como a tool `project_list` o devolve. */
+export type ProjectRef = {
+  name: string
+  path: string
 }
 
 export type ProjectSnapshot = {
   status: ProjectStatusJson | null
   updatedAt: number
   error?: string
+  /** Os `pj_*` da pasta da sessão quando ela não é um projeto; vazio dentro de um. */
+  projects: ProjectRef[]
+  /** O caminho do projeto escolhido na lista, ou `null` para usar a pasta da sessão. */
+  selected: string | null
+  /** Verdadeiro enquanto uma atualização está em curso. */
+  loading: boolean
 }
 
 declare module 'claude-code' {

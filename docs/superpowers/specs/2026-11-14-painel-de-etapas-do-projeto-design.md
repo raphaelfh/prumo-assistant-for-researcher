@@ -109,6 +109,22 @@ erro de `PjRootNotFoundError` com o comando de correção.
 - `types/index.d.ts`: `ReviewSnapshot`/`ReviewPage`/`ReviewMark` dão lugar a
   `ProjectSnapshot` (o JSON de `ProjectStatus/v1` mais `error?`).
 
+### 4b. Adendo (2026-11-15): pasta com vários projetos e retorno do "Atualizar"
+
+Pedido de uso real, depois da 0.71.5:
+
+- **Vários `pj_*`.** Quando a pasta da sessão não é um projeto, o painel chama a tool nova
+  `project_list(path)` (só leitura; `core/pj_layout.find_pj_roots`: o próprio projeto, ou os
+  filhos diretos com `.claude/pj_config.toml`, por nome). Com dois ou mais, o painel lista os
+  projetos e abre sozinho; a escolha fica no `atom` (`selected`) e vale para as próximas
+  atualizações. "Trocar projeto" volta à lista. Com um só, ele é escolhido sem perguntar. Com
+  nenhum, o erro de `project_status` aparece como antes. A linha de status ganha o nome do
+  projeto escolhido (`pj_x · Etapa 1/5 · Pergunta`).
+- **Retorno do "Atualizar".** Ao lado do botão: "Atualizando…" durante a leitura e "Atualizado às
+  HH:MM:SS" depois. O botão também mostra um toast ("Projeto atualizado." ou "Não consegui
+  atualizar o projeto.").
+- `shape` do `atom` passa a `project-2` (campos novos `projects`, `selected`, `loading`).
+
 ### 5. ADR
 
 ADR nova (MADR minimal) que substitui o item 3 da ADR-0039: o painel de revisão vira o painel

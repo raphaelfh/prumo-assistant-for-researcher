@@ -208,3 +208,82 @@ test('servidor antigo sem project_status: o painel mostra o erro em vez de ficar
   expect((await ui.find({ type: 'Text', text: /não consegui ler o projeto/ }))?.text).toContain('/par:start')
   await ui.unmount()
 })
+
+const err = (text: string) => ({ value: { content: [{ type: 'text', text }], isError: true } })
+
+test('pasta com vários pj_*: o painel pede para escolher e lembra a escolha', async ($, on) => {
+  const asked: string[] = []
+  const lines: (string | undefined)[] = []
+  let opened = 0
+  on('command.register', () => ({ value: { command: 'projeto' } }))
+  on('ui.open', () => {
+    opened += 1
+    return { value: { isPlaced: true } }
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.cwd', () => ({ value: '/ws' }))
+  on('mcp.connect', () => ({ value: { isConnected: true, server: 'plugin:par:prumo' } }))
+  on('mcp.call', (_, e) => {
+    if (e.tool === 'project_list') {
+      return ok({
+        projects: [
+          { name: 'pj_piloto_a', path: '/ws/pj_piloto_a' },
+          { name: 'pj_piloto_b', path: '/ws/pj_piloto_b' },
+        ],
+      })
+    }
+    const where = String(e.args.pj_path)
+    asked.push(where)
+    return where === '/ws' ? err('Raiz de projeto não encontrada. Rode `prumo init`.') : ok(STATUS)
+  })
+  on('ui.status', (_, e) => {
+    lines.push(e.text)
+    return { value: undefined }
+  })
+
+  await $.session.start({ cwd: '/ws', surface: 'desktop', isInteractive: true })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /2 projetos/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Raiz de projeto/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /Leitura/ })).toBeUndefined()
+  // abriu sozinho no session.start, sem /projeto
+  expect(opened).toBe(1)
+
+  await ui.press({ key: 'pick-pj_piloto_a' })
+  expect(asked.at(-1)).toBe('/ws/pj_piloto_a')
+  expect(await ui.find({ type: 'Text', text: /Leitura/ })).toBeDefined()
+  expect(await ui.find({ type: 'Button', key: 'switch' })).toBeDefined()
+  expect(lines.at(-1)).toBe('pj_piloto_a · Etapa 3/4 · Leitura')
+
+  // a escolha vale para as próximas atualizações
+  await $.command.run(PROJETO)
+  expect(asked.at(-1)).toBe('/ws/pj_piloto_a')
+
+  await ui.press({ key: 'switch' })
+  expect(await ui.find({ type: 'Button', key: 'pick-pj_piloto_b' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('Atualizar mostra a hora da última leitura e avisa que rodou', async ($, on) => {
+  const toasts: string[] = []
+  on('command.register', () => ({ value: { command: 'projeto' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', (_, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.cwd', () => ({ value: '/pj' }))
+  on('mcp.connect', () => ({ value: { isConnected: true, server: 'plugin:par:prumo' } }))
+  on('mcp.call', () => ok(STATUS))
+
+  await $.session.start({ cwd: '/pj', surface: 'desktop', isInteractive: true })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: /Atualizado às/ }))?.text).toMatch(/\d\d:\d\d:\d\d/)
+  await ui.press({ key: 'refresh' })
+  expect(toasts).toEqual(['Projeto atualizado.'])
+  await ui.unmount()
+})

@@ -68,6 +68,24 @@ def find_pj_root(start: Path) -> Path:
     )
 
 
+def find_pj_roots(start: Path) -> list[Path]:
+    """Os ``pj_*`` que ``start`` alcança, por nome.
+
+    Dentro de um projeto, só ele. Fora, os filhos diretos com
+    ``.claude/pj_config.toml`` (a pasta de trabalho com vários projetos).
+    Nenhum é lista vazia, não erro: quem chama decide o que dizer.
+    """
+    try:
+        return [find_pj_root(start)]
+    except PjRootNotFoundError:
+        pass
+    cur = _as_dir(start)
+    return sorted(
+        (child for child in cur.iterdir() if (child / PJ_CONFIG_RELPATH).is_file()),
+        key=lambda child: child.name,
+    )
+
+
 def find_scope_root(start: Path) -> Path:
     """Resolve o escopo de ``start``, em duas etapas com precedência.
 
