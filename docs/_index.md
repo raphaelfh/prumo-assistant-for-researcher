@@ -75,12 +75,13 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-10-02-plugin-distribuicao-unica-design]] · approved
 - [[superpowers/specs/2026-10-02-ponte-zotero-minima-design]] · approved
 - [[superpowers/specs/2026-11-12-pergunta-do-estudo-pesquisa-em-saude-design]] · approved
+- [[superpowers/specs/2026-11-14-painel-de-etapas-do-projeto-design]] · approved
 
 **Plans ativos:**
 
 - (nenhum)
 
-**Plans arquivados:** 46 em `superpowers/plans/archive/`
+**Plans arquivados:** 47 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->

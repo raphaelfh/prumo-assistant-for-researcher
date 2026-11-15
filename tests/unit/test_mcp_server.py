@@ -203,8 +203,9 @@ def test_server_registers_exactly_the_review_and_paper_tools() -> None:
         "paper_graph",
         "paper_verify_refs",
         "paper_connect",
+        "project_status",
     }
-    assert len(tools) == 10
+    assert len(tools) == 11
 
 
 def test_paper_connect_is_the_only_mutating_paper_tool() -> None:
@@ -452,3 +453,31 @@ def test_server_is_named_prumo_not_prumo_review() -> None:
     domínio `paper` — o nome tem de acompanhar, e ele é o prefixo das tools
     no agent-host (`mcp__prumo__paper_find`)."""
     assert mcp_server.server.name == "prumo"
+
+
+# --- project_status: as etapas do estudo (spec 2026-11-14) -----------------
+
+
+def test_project_status_devolve_as_etapas_do_pj(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from par.cli import app
+
+    pj = tmp_path / "pj_demo"
+    res = CliRunner().invoke(app, ["init", str(pj), "--no-git", "--json"])
+    assert res.exit_code == 0, res.output
+
+    payload = mcp_server.project_status(str(pj / "docs"))
+
+    assert payload["schema_version"] == "ProjectStatus/v1"
+    assert payload["stages"][0]["id"] == "question"
+    assert payload["next"]["invocation"] == "/par:protocol question"
+
+
+def test_project_status_fora_de_um_pj_da_erro_pt_br(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="prumo init"):
+        mcp_server.project_status(str(tmp_path))
+
+
+def test_project_status_nao_muta_nada() -> None:
+    assert "project_status" not in mcp_server.MUTATING_TOOLS

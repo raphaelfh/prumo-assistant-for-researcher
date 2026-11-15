@@ -433,3 +433,18 @@ def stale_guideline_warnings(
                 f"(> {max_age_days}); revalide os reporting guidelines e atualize guidelines_reviewed."
             )
     return out
+
+
+def bundled_skill_registry() -> SkillRegistry | None:
+    """Registry do bundle de skills do plugin, ou ``None`` quando o bundle não existe.
+
+    Usado por ``prumo status`` (CLI) e pela tool MCP ``project_status`` para a frase
+    de cada modo; sem bundle, a frase cai na própria invocação.
+    """
+    from par.core.paths import find_resource
+
+    skills_dir = find_resource("skills")
+    if skills_dir is None:
+        return None
+    registry, _ = load_skill_registry(skills_dir, strict=False)
+    return registry

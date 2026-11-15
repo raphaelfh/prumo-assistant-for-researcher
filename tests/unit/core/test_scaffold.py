@@ -414,3 +414,40 @@ def test_migracao_e_idempotente(tmp_path: Path) -> None:
 def test_migracao_no_projeto_que_nunca_teve_o_formulario(tmp_path: Path) -> None:
     pj = _pj_com_guia(tmp_path)
     assert scaffold.migrate_project_context(pj) is None
+
+
+# --- esqueletos de módulo em writing/ (spec 2026-11-14, painel de etapas) ---
+
+
+def test_module_writing_files_lista_os_esqueletos_do_protocol() -> None:
+    names = scaffold.module_writing_files()
+    assert {"protocol.md", "projeto-cep.md", "statistical_analysis_plan_skeleton.md"} <= names
+    assert not any(n.startswith(".") for n in names)
+
+
+def _pj_com_protocol(tmp_path: Path) -> Path:
+    from typer.testing import CliRunner
+
+    from par.cli import app
+
+    pj = tmp_path / "pj_exemplo"
+    res = CliRunner().invoke(app, ["init", str(pj), "--with", "protocol", "--no-git", "--json"])
+    assert res.exit_code == 0, res.output
+    return pj
+
+
+def test_is_pristine_distingue_esqueleto_de_arquivo_editado(tmp_path: Path) -> None:
+    pj = _pj_com_protocol(tmp_path)
+    rel = Path("docs/studies/principal/writing/projeto-cep.md")
+    assert scaffold.is_pristine(pj, rel) is True
+    with (pj / rel).open("a", encoding="utf-8") as f:
+        f.write("\nTexto da pesquisadora.\n")
+    assert scaffold.is_pristine(pj, rel) is False
+
+
+def test_is_pristine_de_arquivo_sem_template_e_falso(tmp_path: Path) -> None:
+    pj = _pj_com_protocol(tmp_path)
+    rel = Path("docs/studies/principal/writing/manuscrito.md")
+    (pj / rel).write_text("# Draft\n", encoding="utf-8")
+    assert scaffold.is_pristine(pj, rel) is False
+    assert scaffold.is_pristine(pj, Path("docs/studies/principal/writing/ausente.md")) is False

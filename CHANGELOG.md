@@ -9,6 +9,14 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Adicionado
 
+- **Painel "Projeto"** (`/projeto`, ADR-0043). No Claude Code e na aba Code do Desktop, um painel
+  ao lado do chat mostra as etapas do estudo (Pergunta, Bibliografia, Leitura, Protocolo,
+  Escrita, Revisão, Entrega), cada uma feita, atual, atenção ou depois, com um botão que preenche
+  o prompt com o próximo passo. A etapa atual também aparece na linha de status. Abre sozinho
+  dentro de um `pj_*`. O cálculo é o do `prumo status` (Princípio I): `prumo status` passa a
+  listar as etapas, e `ProjectStatus/v1` ganha a chave `stages` (Princípio IV).
+- Tool MCP `project_status`, só leitura, com o mesmo JSON de `prumo status --json`.
+
 - **Pergunta do estudo para qualquer pesquisa em saúde** (ADR-0041). O PAR deixa de assumir
   ensaio clínico. Novo modo `/par:protocol question` fecha a pergunta em `.claude/question.toml`
   (`QuestionSpec/v1`): tipo do estudo (`clinical`, `experimental` com animais ou bancada,
@@ -39,6 +47,12 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Mudado
 
+- **`/revisao` virou `/projeto`.** O painel "Revisão do manuscrito" sai (ADR-0043 substitui o
+  item 3 da ADR-0039); as contagens de revisão estão na etapa Revisão, e as marcas, no
+  `/par:review reconcile`.
+- **Projeto novo começa pela pergunta do estudo.** `prumo status` e o `/par:start` sugerem fechar
+  a pergunta antes de conectar a coleção do Zotero.
+
 - **Posicionamento: pesquisa em saúde.** README, manifestos, `pyproject`, `CITATION.cff`, CLI e
   docs passam a falar em pesquisa em saúde; a pesquisa clínica vira um dos tipos de estudo.
 - **Projetos com `.claude/picot.toml`** continuam funcionando: o CLI lê o arquivo antigo e o
@@ -53,6 +67,12 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 - O lançador trata o sandbox do Codex como sandbox (saída 77) e fala em "sandbox do agente".
   Como `shims/prumo` mudou, cada pesquisadora baixa o ambiente de novo na 1ª vez (cerca de
   60 MB, uma vez).
+
+### Corrigido
+
+- `prumo status` contava como draft os esqueletos que o módulo `protocol` copia para `writing/`
+  (`projeto-cep.md`, o esqueleto do plano de análise), e o escopo nunca recebia a sugestão de
+  escrever o manuscrito.
 
 ## [0.71.3] - 2026-11-01
 

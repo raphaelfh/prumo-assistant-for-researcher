@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import ValidationError
@@ -23,11 +23,13 @@ from par.core import criticmarkup, pj_layout
 from par.core.bib import parse_bib
 from par.core.note_paths import citekey_from_meta_path, extract_path, iter_note_meta_files
 from par.core.pj_layout import PjRootNotFoundError
+from par.core.scaffold import is_pristine, module_writing_files
 from par.core.skills import SkillRef, SkillRegistry
 from par.domains.paper.callout import hash_template
 from par.domains.paper.connect import bib_is_placeholder
 from par.domains.paper.sync import read_nota_yaml
 from par.domains.protocol.question_io import read_question
+from par.domains.write.export import EXT_BY_FORMAT, slugify
 from par.domains.write.review import (
     EVENT_KIND_AMBIGUOUS_ANCHOR,
     EVENT_KIND_NON_IDENTITY_SPAN,
@@ -44,6 +46,7 @@ __all__ = [
     "ProjectStatus",
     "ReviewSummary",
     "ScopeStatus",
+    "Stage",
     "project_status",
     "render_status",
     "status_to_dict",
@@ -55,9 +58,6 @@ SCHEMA_VERSION = "ProjectStatus/v1"
 RECONCILE_KINDS = frozenset(
     {EVENT_KIND_UNANCHORED_MARK, EVENT_KIND_AMBIGUOUS_ANCHOR, EVENT_KIND_NON_IDENTITY_SPAN}
 )
-
-#: Arquivos de ``writing/`` que não são draft de manuscrito.
-_NOT_DRAFTS = frozenset({"protocol.md"})
 
 
 @dataclass(frozen=True)
@@ -79,6 +79,9 @@ class ExtractStatus:
 class PicotStatus:
     closed: bool
     error: str | None = None
+    #: ``type`` e ``framework`` da pergunta fechada (resumo da etapa "Pergunta").
+    kind: str | None = None
+    framework: str | None = None
 
 
 @dataclass(frozen=True)
@@ -110,6 +113,29 @@ class NextStep:
         return "/" + SkillRef(self.skill, self.mode).invocation
 
 
+StageState = Literal["done", "current", "attention", "todo"]
+
+#: Marcador de cada estado no texto do terminal (o painel "Projeto" usa os mesmos).
+STAGE_MARKS: dict[str, str] = {"done": "✓", "current": "●", "attention": "!", "todo": "○"}
+
+
+@dataclass(frozen=True)
+class Stage:
+    """Uma etapa do estudo, derivada do disco (ADR-0029).
+
+    ``current`` é a primeira etapa não feita; antes dela, ``done`` ou ``attention``
+    (pendência que não bloqueia); depois dela, ``todo``. Só ``current`` e
+    ``attention`` trazem ``next``.
+    """
+
+    id: str
+    title: str
+    state: StageState
+    summary: str
+    next: NextStep | None = None
+    scope: str | None = None
+
+
 @dataclass(frozen=True)
 class ProjectStatus:
     project: Path
@@ -118,6 +144,7 @@ class ProjectStatus:
     picot: PicotStatus
     scopes: tuple[ScopeStatus, ...]
     next: NextStep | None
+    stages: tuple[Stage, ...] = ()
 
 
 def _library(pj_root: Path) -> LibraryStatus:
@@ -154,16 +181,17 @@ def _extracts(pj_root: Path) -> ExtractStatus:
 
 def _picot(pj_root: Path) -> PicotStatus:
     try:
-        read_question(pj_root)
+        spec = read_question(pj_root)
     except FileNotFoundError:
         return PicotStatus(closed=False)
     except ValueError as exc:  # ValidationError e TOMLDecodeError são ValueError
         first = str(exc).strip().splitlines()
         return PicotStatus(closed=False, error=first[0] if first else type(exc).__name__)
-    return PicotStatus(closed=True)
+    return PicotStatus(closed=True, kind=spec.type, framework=spec.framework)
 
 
-def _drafts(scope: Path) -> tuple[str, ...]:
+def _drafts(scope: Path, not_drafts: frozenset[str]) -> tuple[str, ...]:
+    """Drafts de manuscrito do escopo: ``writing/*.md`` menos os esqueletos de módulo."""
     writing = pj_layout.writing_dir(scope)
     if not writing.is_dir():
         return ()
@@ -171,7 +199,7 @@ def _drafts(scope: Path) -> tuple[str, ...]:
         sorted(
             p.name
             for p in writing.glob("*.md")
-            if p.name not in _NOT_DRAFTS and not p.name.startswith((".", "_"))
+            if p.name not in not_drafts and not p.name.startswith((".", "_"))
         )
     )
 
@@ -233,51 +261,164 @@ def _step(
     return NextStep(skill=ref.skill, mode=ref.mode, say=say, why=why, scope=scope)
 
 
-def _next(
-    library: LibraryStatus,
-    extracts: ExtractStatus,
-    picot: PicotStatus,
-    scopes: tuple[ScopeStatus, ...],
-    registry: SkillRegistry | None,
-) -> NextStep | None:
-    """Primeiro pendente numa ordem fixa (spec D5)."""
-    if library.placeholder or library.entries == 0:
-        return _step(
-            SkillRef("paper", "library"),
-            "a bibliografia do projeto está vazia — conecte a coleção do Zotero",
-            registry,
-        )
-    if extracts.pending:
-        return _step(
-            SkillRef("paper", "extract"),
-            f"{extracts.pending} paper(s) com PDF e sem extract",
-            registry,
-        )
-    if not picot.closed:
-        why = (
-            f"a pergunta do estudo não valida ({picot.error})"
-            if picot.error
-            else "a pergunta do estudo ainda não foi fechada"
-        )
-        return _step(SkillRef("protocol", "question"), why, registry)
-    for scope in scopes:
-        if not scope.drafts:
-            return _step(
+@dataclass(frozen=True)
+class _Check:
+    """Uma etapa antes de ganhar estado: feita ou não, e o passo que a resolve."""
+
+    id: str
+    title: str
+    done: bool
+    summary: str
+    step: NextStep
+    scope: str | None = None
+    attention: NextStep | None = None
+
+
+def _question_check(picot: PicotStatus, registry: SkillRegistry | None) -> _Check:
+    if picot.closed:
+        summary = (picot.kind or "fechada") + (f" · {picot.framework}" if picot.framework else "")
+        why = "a pergunta do estudo está fechada"
+    elif picot.error:
+        summary = f"inválida: {picot.error}"
+        why = f"a pergunta do estudo não valida ({picot.error})"
+    else:
+        summary = "ainda aberta"
+        why = "a pergunta do estudo ainda não foi fechada"
+    step = _step(SkillRef("protocol", "question"), why, registry)
+    return _Check("question", "Pergunta", picot.closed, summary, step)
+
+
+def _library_check(library: LibraryStatus, registry: SkillRegistry | None) -> _Check:
+    done = not library.placeholder and library.entries > 0
+    if done:
+        synced = f" · sync {library.synced_at[:10]}" if library.synced_at else ""
+        summary = f"{library.entries} entrada(s){synced}"
+    else:
+        summary = "vazia — conecte a coleção do Zotero"
+    why = "a bibliografia do projeto está vazia — conecte a coleção do Zotero"
+    step = _step(SkillRef("paper", "library"), why, registry)
+    return _Check("library", "Bibliografia", done, summary, step)
+
+
+def _reading_check(extracts: ExtractStatus, registry: SkillRegistry | None) -> _Check:
+    summary = (
+        f"{extracts.pending} sem extract · {extracts.without_pdf} sem PDF"
+        f" · {extracts.stale} desatualizado(s)"
+    )
+    ref = SkillRef("paper", "extract")
+    step = _step(ref, f"{extracts.pending} paper(s) com PDF e sem extract", registry)
+    attention = None
+    if extracts.stale:
+        why = f"{extracts.stale} extract(s) feitos com um template de extração anterior"
+        attention = _step(ref, why, registry)
+    return _Check("reading", "Leitura", extracts.pending == 0, summary, step, attention=attention)
+
+
+#: Esqueletos do módulo ``protocol`` que a etapa acompanha → modo que os preenche.
+#: ``protocol.md`` fica de fora: é documento vivo, e o bloco da pergunta já o altera.
+_PROTOCOL_STEPS: tuple[tuple[str, SkillRef], ...] = (
+    ("statistical_analysis_plan_skeleton.md", SkillRef("protocol", "sap")),
+    ("projeto-cep.md", SkillRef("protocol", "cep")),
+)
+
+
+def _protocol_check(pj_root: Path, scope: Path, registry: SkillRegistry | None) -> _Check | None:
+    writing = pj_layout.writing_dir(scope)
+    if not (writing / "protocol.md").is_file():
+        return None
+    pending = [
+        (name, ref)
+        for name, ref in _PROTOCOL_STEPS
+        if (writing / name).is_file()
+        and is_pristine(pj_root, (writing / name).relative_to(pj_root))
+    ]
+    names = ", ".join(name for name, _ in pending)
+    summary = (
+        f"ainda esqueleto: {names}" if pending else "plano de análise e projeto CEP preenchidos"
+    )
+    ref = pending[0][1] if pending else SkillRef("protocol", "sap")
+    why = f"no escopo '{scope.name}', ainda são esqueleto: {names}"
+    step = _step(ref, why, registry, scope.name)
+    return _Check("protocol", "Protocolo", not pending, summary, step, scope.name)
+
+
+def _scope_checks(
+    pj_root: Path, scope: ScopeStatus, registry: SkillRegistry | None
+) -> list[_Check]:
+    slug = scope.slug
+    n = len(scope.drafts)
+    checks = [
+        _Check(
+            "writing",
+            "Escrita",
+            n > 0,
+            f"{n} draft(s)" if n else "sem draft",
+            _step(
                 SkillRef("write", "manuscript"),
-                f"o escopo '{scope.slug}' ainda não tem draft em writing/",
+                f"o escopo '{slug}' ainda não tem draft em writing/",
                 registry,
-                scope.slug,
+                slug,
+            ),
+            slug,
+        )
+    ]
+    if scope.reviews:
+        eventos = sum(r.reconcile_events for r in scope.reviews)
+        marcas = sum(r.pending_marks for r in scope.reviews)
+        checks.append(
+            _Check(
+                "review",
+                "Revisão",
+                eventos == 0,
+                f"{eventos} evento(s) ambíguo(s) · {marcas} marca(s) aguardando apply",
+                _step(
+                    SkillRef("review", "reconcile"),
+                    f"{eventos} evento(s) ambíguo(s) de revisão no escopo '{slug}'",
+                    registry,
+                    slug,
+                ),
+                slug,
             )
-    for scope in scopes:
-        pendentes = sum(r.reconcile_events for r in scope.reviews)
-        if pendentes:
-            return _step(
-                SkillRef("review", "reconcile"),
-                f"{pendentes} evento(s) ambíguo(s) de revisão no escopo '{scope.slug}'",
-                registry,
-                scope.slug,
-            )
-    return None
+        )
+    if scope.drafts:
+        writing = pj_layout.writing_dir(pj_root / pj_layout.STUDIES_RELPATH / slug)
+        exports = pj_root / "build" / "exports"
+        ext = EXT_BY_FORMAT["docx"]
+        docx = [
+            exports / f"{slugify(writing.relative_to(pj_root) / d, pj_root)}.{ext}"
+            for d in scope.drafts
+        ]
+        found = sorted((p for p in docx if p.is_file()), key=lambda p: p.stat().st_mtime)
+        if found:
+            when = datetime.fromtimestamp(found[-1].stat().st_mtime, tz=UTC).strftime("%Y-%m-%d")
+            summary = f"{found[-1].name} · {when}"
+        else:
+            summary = "nenhum docx exportado"
+        step = _step(
+            SkillRef("write", "export"),
+            f"o escopo '{slug}' ainda não tem docx exportado",
+            registry,
+            slug,
+        )
+        checks.append(_Check("delivery", "Entrega", bool(found), summary, step, slug))
+    return checks
+
+
+def _stages(checks: list[_Check]) -> tuple[Stage, ...]:
+    """Dá estado às etapas: a primeira não feita é ``current`` (spec 2026-11-14)."""
+    out: list[Stage] = []
+    seen_current = False
+    for c in checks:
+        if seen_current:
+            out.append(Stage(c.id, c.title, "todo", c.summary, None, c.scope))
+        elif not c.done:
+            out.append(Stage(c.id, c.title, "current", c.summary, c.step, c.scope))
+            seen_current = True
+        elif c.attention is not None:
+            out.append(Stage(c.id, c.title, "attention", c.summary, c.attention, c.scope))
+        else:
+            out.append(Stage(c.id, c.title, "done", c.summary, None, c.scope))
+    return tuple(out)
 
 
 def project_status(
@@ -294,25 +435,40 @@ def project_status(
     library = _library(pj_root)
     extracts = _extracts(pj_root)
     picot = _picot(pj_root)
+    not_drafts = module_writing_files()
+    scope_paths = _scopes(pj_root, scope)
     scopes = tuple(
-        ScopeStatus(slug=s.name, drafts=_drafts(s), reviews=_reviews(pj_root, s.name))
-        for s in _scopes(pj_root, scope)
+        ScopeStatus(slug=s.name, drafts=_drafts(s, not_drafts), reviews=_reviews(pj_root, s.name))
+        for s in scope_paths
     )
+    checks = [
+        _question_check(picot, registry),
+        _library_check(library, registry),
+        _reading_check(extracts, registry),
+    ]
+    for scope_path, scope_status in zip(scope_paths, scopes, strict=True):
+        protocol = _protocol_check(pj_root, scope_path, registry)
+        if protocol is not None:
+            checks.append(protocol)
+        checks.extend(_scope_checks(pj_root, scope_status, registry))
+    stages = _stages(checks)
     return ProjectStatus(
         project=pj_root,
         library=library,
         extracts=extracts,
         picot=picot,
         scopes=scopes,
-        next=_next(library, extracts, picot, scopes, registry),
+        next=next((st.next for st in stages if st.state == "current"), None),
+        stages=stages,
     )
 
 
 def status_to_dict(status: ProjectStatus) -> dict[str, Any]:
     """Payload JSON versionado (``ProjectStatus/v1``) — o que o ``start`` lê."""
-    nxt: dict[str, Any] | None = None
-    if status.next is not None:
-        nxt = {**asdict(status.next), "invocation": status.next.invocation}
+
+    def step(n: NextStep | None) -> dict[str, Any] | None:
+        return None if n is None else {**asdict(n), "invocation": n.invocation}
+
     return {
         "schema_version": SCHEMA_VERSION,
         "project": str(status.project),
@@ -322,38 +478,24 @@ def status_to_dict(status: ProjectStatus) -> dict[str, Any]:
         # chave anterior à ADR-0041, mantida para quem já lê o JSON
         "picot": asdict(status.picot),
         "scopes": [asdict(s) for s in status.scopes],
-        "next": nxt,
+        "next": step(status.next),
+        "stages": [{**asdict(st), "next": step(st.next)} for st in status.stages],
     }
 
 
 def render_status(status: ProjectStatus) -> str:
-    """Resumo em texto para o terminal, terminando na frase do próximo passo."""
-    lib, ex, picot = status.library, status.extracts, status.picot
-    if picot.closed:
-        picot_txt = "fechada"
-    elif picot.error:
-        picot_txt = f"inválida ({picot.error})"
-    else:
-        picot_txt = "aberta"
-    lines = [
-        f"Projeto: {status.project}",
-        f"Bibliografia: {lib.entries} entrada(s)"
-        + (" — ainda é o placeholder do scaffold" if lib.placeholder else ""),
-        f"Papers: {ex.papers} · sem extract com PDF: {ex.pending} · sem PDF: {ex.without_pdf}"
-        f" · extract desatualizado: {ex.stale}",
-        f"Pergunta do estudo: {picot_txt}",
-    ]
-    for scope in status.scopes:
-        eventos = sum(r.reconcile_events for r in scope.reviews)
-        marcas = sum(r.pending_marks for r in scope.reviews)
-        lines.append(
-            f"Escopo {scope.slug}: {len(scope.drafts)} draft(s) · eventos ambíguos: {eventos}"
-            f" · marcas aguardando `prumo write review apply`: {marcas}"
-        )
+    """Etapas do estudo, uma por linha, terminando na frase do próximo passo."""
+    lines = [f"Projeto: {status.project}", ""]
+    for st in status.stages:
+        where = f" ({st.scope})" if st.scope else ""
+        lines.append(f"{STAGE_MARKS[st.state]} {st.title}{where}: {st.summary}")
     lines.append("")
     if status.next is None:
         lines.append("Nada pendente pelos sinais do disco.")
     else:
         n = status.next
         lines.append(f'Próximo passo: diga "{n.say}" ({n.invocation}) — {n.why}.')
+    for st in status.stages:
+        if st.state == "attention" and st.next is not None:
+            lines.append(f'Atenção: {st.next.why} — diga "{st.next.say}" ({st.next.invocation}).')
     return "\n".join(lines)

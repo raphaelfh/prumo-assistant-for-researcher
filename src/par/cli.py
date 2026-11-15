@@ -72,7 +72,7 @@ from par.core.skill_refs import (
     plugin_copies,
     scan_skill_refs,
 )
-from par.core.skills import SkillRef, SkillRegistry, load_skill_registry
+from par.core.skills import SkillRef, bundled_skill_registry, load_skill_registry
 from par.domains.capture.cli import capture_command
 from par.domains.paper.cli import paper_app
 from par.domains.paper.connect import bib_is_placeholder
@@ -161,24 +161,15 @@ def _resolve_skills_dir() -> Path | None:
     return find_resource("skills")
 
 
-def _skill_registry() -> SkillRegistry | None:
-    """Registry do bundle de skills, ou ``None`` quando o bundle não existe."""
-    skills_dir = _resolve_skills_dir()
-    if skills_dir is None:
-        return None
-    registry, _ = load_skill_registry(skills_dir, strict=False)
-    return registry
-
-
 def _legacy_skill_map() -> dict[str, SkillRef]:
     """Nomes de skill antigos → modo novo, lidos do bundle (vazio sem bundle)."""
-    registry = _skill_registry()
+    registry = bundled_skill_registry()
     return registry.legacy_map() if registry else {}
 
 
 def _plugin_skill_names() -> set[str]:
     """Nomes de skill do PAR, atuais e antigos (vazio sem bundle) — A11."""
-    registry = _skill_registry()
+    registry = bundled_skill_registry()
     if registry is None:
         return set()
     return set(registry.names()) | set(registry.legacy_map())
@@ -909,7 +900,7 @@ def status_command(
 ) -> None:
     """Onde o estudo está e qual a próxima frase dizer ao agente. Só lê o disco."""
     with cli_run(json_mode=json_mode) as console:
-        result = project_status(path.resolve(), scope=scope, registry=_skill_registry())
+        result = project_status(path.resolve(), scope=scope, registry=bundled_skill_registry())
         console.result(render_status(result), status_to_dict(result))
 
 
