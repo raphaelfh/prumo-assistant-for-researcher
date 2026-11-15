@@ -1,3 +1,12 @@
+---
+status: implemented
+verified: 2026-11-15
+release: "PATCH (ADR-0015) — pendente do corte"
+spec: "[[2026-11-14-painel-de-etapas-do-projeto-design]]"
+---
+
+> **Fechamento (2026-11-15).** Tasks 2–6 entregues em commits consecutivos no branch `feat/painel-etapas-projeto`, empilhado sobre `feat/pesquisa-em-saude` (ainda fora de `main`; o módulo `protocol` e o `question.toml` vêm dele). `core/scaffold` ganha `module_writing_files` e `is_pristine`, e os esqueletos de módulo saem de `drafts`; `status.py` deriva sete etapas e o `next` passa a ser o da etapa atual, com a pergunta antes da bibliografia; `core/skills.bundled_skill_registry` serve o CLI e a tool MCP `project_status`; `hooks/mods/project.tsx` (`/projeto`) substitui `review.tsx` (`/revisao`); ADR-0043, ARCHITECTURE e CHANGELOG. Desvio da spec: a etapa Protocolo acompanha só o SAP e o projeto CEP, porque o bloco da pergunta já altera o `protocol.md` (spec corrigida no mesmo commit). Verificação: suíte pytest verde, ruff, `ruff format --check`, mypy, `gen_indexes --check`, `validate_manifests` e `sync_manifest_version --check` limpos; `claude plugin validate .` (os mesmos 2 avisos de antes) e `claude plugin test .` (6 de 6). Num `pj_exemplo` sintético com `--with protocol`, `prumo status --json` e a tool `project_status` devolvem as mesmas etapas e o mesmo `next`. Pendentes: ver o painel no Desktop com `claude --plugin-dir .` e comparar a etapa Revisão num projeto piloto com revisão ingerida.
+
 # Painel "Projeto" — etapas do estudo num mod fino sobre o `prumo status` Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
