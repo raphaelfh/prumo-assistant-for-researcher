@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.71.6] - 2026-11-15
+
 ### Adicionado
 
 - **Painel "Projeto" com vários projetos.** Numa sessão aberta numa pasta com mais de um `pj_*`,
@@ -1669,7 +1671,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.5...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.6...HEAD
+[0.71.6]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.5...v0.71.6
 [0.71.5]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.4...v0.71.5
 [0.71.4]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.3...v0.71.4
 [0.71.3]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.2...v0.71.3
