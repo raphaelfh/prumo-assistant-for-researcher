@@ -1,6 +1,6 @@
 # Lista-ouro de roteamento (spec 2026-09-12, critério de aceite de F1).
 # Frases reais de pesquisador, DIFERENTES das `prumo.phrases` dos modos, para medir
-# generalização. Critério manual no Desktop: >= 29/32 caem no modo certo na 1ª invocação.
+# generalização. Critério manual no Desktop: >= 31/34 caem no modo certo na 1ª invocação.
 # `needs_mode_file = true`: o modo certo exige um passo que só existe em modes/<modo>.md.
 
 [[case]]
@@ -63,11 +63,11 @@ expected = "wiki/study"
 
 [[case]]
 phrase = "vamos definir população e desfecho do estudo"
-expected = "protocol/picot"
+expected = "protocol/question"
 
 [[case]]
 phrase = "mudei o desfecho primário, registra isso"
-expected = "protocol/picot"
+expected = "protocol/question"
 needs_mode_file = true
 
 [[case]]
@@ -135,3 +135,11 @@ expected = "write/export"
 [[case]]
 phrase = "preciso do arquivo do word pra submeter na revista"
 expected = "write/export"
+
+[[case]]
+phrase = "quero estruturar a PICO do meu ensaio"
+expected = "protocol/picot"
+
+[[case]]
+phrase = "vou fazer uma revisão de escopo, me ajuda a montar a pergunta"
+expected = "protocol/question"

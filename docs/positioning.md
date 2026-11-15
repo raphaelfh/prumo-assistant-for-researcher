@@ -7,7 +7,7 @@ tags: [positioning, claims]
 
 ## O que o prumo é
 
-O PAR é um plugin Claude Code com um CLI Python (`prumo`) que dá ao pesquisador clínico um projeto `pj_*` versionável: bibliografia espelhada do Zotero, wiki Markdown, protocolo (PICOT) e escrita via Pandoc. Todo passo repetível roda no CLI, sem LLM ([ADR-0004](adr/adr-0004-pacote-livre-de-llm.md)). O LLM entra só onde há julgamento, e o resultado dele é rascunho ou sinal que o pesquisador decide. O prumo não escreve o paper por você, não substitui revisor, estatístico nem comitê de ética, e não é um serviço: tudo fica na máquina e no projeto. O mapa do código está em [ARCHITECTURE](../ARCHITECTURE.md).
+O PAR é um plugin Claude Code com um CLI Python (`prumo`) que dá a quem faz pesquisa em saúde um projeto `pj_*` versionável: bibliografia espelhada do Zotero, wiki Markdown, protocolo (a pergunta do estudo, decomposta em PICOT, PECO, PCC ou outro framework) e escrita via Pandoc. Serve a estudos clínicos, observacionais, experimentais com animais ou de bancada, revisões, pesquisa qualitativa, computacional e teórica, e relatos de caso. Todo passo repetível roda no CLI, sem LLM ([ADR-0004](adr/adr-0004-pacote-livre-de-llm.md)). O LLM entra só onde há julgamento, e o resultado dele é rascunho ou sinal que o pesquisador decide. O prumo não escreve o paper por você, não substitui revisor, estatístico nem comitê de ética, e não é um serviço: tudo fica na máquina e no projeto. O mapa do código está em [ARCHITECTURE](../ARCHITECTURE.md).
 
 ## Mecanismos recusados
 
@@ -46,7 +46,7 @@ Nível = `prumo.determinism` no frontmatter do modo. Evidência = o que existe h
 
 | Modo | Nível | Evidência | Claim máximo |
 |---|---|---|---|
-| `picot` | hybrid | `tests/unit/protocol/test_picot_io.py`, `test_diff.py`, `test_adr.py`, `test_drift.py` | Versiona e propaga a PICOT com diff e ADR, e o `diff` aponta drift do manuscrito contra protocolo e PICOT (janela, `n`, testes, pré-especificação). A pergunta é do pesquisador. |
+| `question` (apelido `picot`) | hybrid | `tests/unit/protocol/test_question_schema.py`, `test_question_io.py`, `test_diff.py`, `test_adr.py`, `test_drift.py` | Versiona e propaga a pergunta do estudo (qualquer desenho; PICOT, PECO, PCC e outros como estrutura opcional) com diff e ADR, e o `diff` aponta drift do manuscrito contra protocolo e pergunta (janela, `n`, testes, pré-especificação). A pergunta é do pesquisador. |
 | `sap` | agentic | `tests/unit/test_guidelines_present.py` (só nomeia guidelines) | Rascunho do plano de análise que referencia TRIPOD+AI, TRIPOD-LLM e CONSORT 2025. Conformidade e tamanho amostral exigem estatístico. |
 | `cep` | agentic | `tests/unit/write/test_compose_refs.py` | Rascunho da submissão à Plataforma Brasil. Não prevê nem substitui o parecer do CEP. |
 

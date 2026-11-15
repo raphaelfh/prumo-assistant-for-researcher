@@ -1,4 +1,4 @@
-"""Deep diff entre dois ``PicotSpec`` (atual vs snapshot do último ADR).
+"""Deep diff entre dois ``QuestionSpec`` (atual vs snapshot do último ADR).
 
 Detecta quais campos mudaram e quais são "estruturais" (mudança = bump de
 versão + ADR novo). Campos não-estruturais (``last_updated``, ``rationale``)
@@ -10,11 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from par.domains.protocol.schemas.v1 import PicotSpec
+from par.domains.protocol.schemas.v1 import QuestionSpec
 
 STRUCTURAL_FIELDS: frozenset[str] = frozenset(
     {
         "type",
+        "question",
+        "design",
+        "framework",
         "population",
         "intervention",
         "comparison",
@@ -29,13 +32,16 @@ STRUCTURAL_FIELDS: frozenset[str] = frozenset(
 
 
 def is_structural_field(field: str) -> bool:
-    """``True`` se a mudança nesse campo deve gerar bump + ADR."""
-    return field in STRUCTURAL_FIELDS
+    """``True`` se a mudança nesse campo deve gerar bump + ADR.
+
+    Todo elemento do framework (``elements.<chave>``) é estrutural.
+    """
+    return field in STRUCTURAL_FIELDS or field.startswith("elements.")
 
 
 @dataclass(frozen=True)
 class FieldChange:
-    """Mudança em 1 campo do ``PicotSpec``."""
+    """Mudança em 1 campo do ``QuestionSpec``."""
 
     field: str
     before: Any
@@ -44,8 +50,8 @@ class FieldChange:
 
 
 @dataclass(frozen=True)
-class PicotDiff:
-    """Resultado de ``diff_picot``: lista de mudanças + flag de structural."""
+class QuestionDiff:
+    """Resultado de ``diff_question``: lista de mudanças + flag de structural."""
 
     changes: list[FieldChange]
 
@@ -54,8 +60,8 @@ class PicotDiff:
         return any(c.structural for c in self.changes)
 
 
-def diff_picot(before: PicotSpec, after: PicotSpec) -> PicotDiff:
-    """Compara campo-a-campo. Retorna ``PicotDiff`` com lista de mudanças."""
+def diff_question(before: QuestionSpec, after: QuestionSpec) -> QuestionDiff:
+    """Compara campo-a-campo. Retorna ``QuestionDiff`` com lista de mudanças."""
     changes: list[FieldChange] = []
     flat_before = _flatten(before.model_dump(mode="python"))
     flat_after = _flatten(after.model_dump(mode="python"))
@@ -75,7 +81,7 @@ def diff_picot(before: PicotSpec, after: PicotSpec) -> PicotDiff:
                 structural=is_structural_field(key),
             )
         )
-    return PicotDiff(changes=changes)
+    return QuestionDiff(changes=changes)
 
 
 def _flatten(d: dict[str, Any], prefix: str = "") -> dict[str, Any]:

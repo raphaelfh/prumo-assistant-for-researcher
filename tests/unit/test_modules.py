@@ -1,4 +1,4 @@
-"""Integração: módulos opcionais do núcleo (code, data, notebooks, clinical, ml)."""
+"""Integração: módulos opcionais do núcleo (code, data, notebooks, protocol, ml)."""
 
 from __future__ import annotations
 
@@ -32,7 +32,8 @@ def test_modulos_do_nucleo_existem_e_sao_descobriveis() -> None:
     from par.core.scaffold import discover_modules
 
     nomes = {m.name for m in discover_modules()}
-    assert {"code", "data", "notebooks", "clinical", "ml"} <= nomes
+    assert {"code", "data", "notebooks", "protocol", "ml"} <= nomes
+    assert "clinical" not in nomes  # apelido, não diretório (ADR-0042)
 
 
 def test_add_clinical_nao_cria_protocolo_fora_do_escopo(tmp_path: Path) -> None:
@@ -108,7 +109,7 @@ def test_add_list_marca_clinical_aplicado_apos_resolucao_de_escopo(tmp_path: Pat
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
     by_name = {m["name"]: m for m in payload["modules"]}
-    assert by_name["clinical"]["applied"] is True
+    assert by_name["protocol"]["applied"] is True
 
 
 def test_add_code_cria_pacote_instalavel_com_nome(tmp_path: Path) -> None:

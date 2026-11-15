@@ -44,18 +44,42 @@ title: Métodos
 O desfecho foi {--mortalidade--}{++IAM++} em 30 dias.{>>citar diretriz<<}
 `
 
-test('a PICOT vigente entra no system prompt como seção de sessão', async ($, on) => {
+const QUESTION = `[question]
+type = "review"
+question = "O que se sabe sobre telessaúde na APS rural?"
+objective = "Mapear a evidência."
+framework = "PCC"
+`
+
+test('a pergunta do estudo vigente entra no system prompt como seção de sessão', async ($, on) => {
   on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'oi', scope: 'shared' }] }))
-  on('fs.read', () => ({ value: PICOT }))
+  on('fs.read', (_, e) => {
+    if (e.path.endsWith('question.toml')) return { value: QUESTION }
+    throw new Error('ENOENT')
+  })
 
   const { sections } = await $.prompt.compose(COMPOSE)
-  const picot = sections.find(section => section.id === 'par:picot')
-  expect(picot?.scope).toBe('session')
-  expect(picot?.text).toContain('type = "prediction"')
-  expect(picot?.text).toContain('/par:protocol picot')
+  const question = sections.find(section => section.id === 'par:question')
+  expect(question?.scope).toBe('session')
+  expect(question?.text).toContain('type = "review"')
+  expect(question?.text).toContain('QuestionSpec/v1')
+  expect(question?.text).toContain('/par:protocol question')
 })
 
-test('sem picot.toml o system prompt fica como está', async ($, on) => {
+test('projeto antigo: cai no picot.toml', async ($, on) => {
+  on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'oi', scope: 'shared' }] }))
+  on('fs.read', (_, e) => {
+    if (e.path.endsWith('picot.toml')) return { value: PICOT }
+    throw new Error('ENOENT')
+  })
+
+  const { sections } = await $.prompt.compose(COMPOSE)
+  const question = sections.find(section => section.id === 'par:question')
+  expect(question?.text).toContain('type = "prediction"')
+  expect(question?.text).toContain('.claude/picot.toml')
+})
+
+test('sem question.toml nem picot.toml o system prompt fica como está', async ($, on) => {
   on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'oi', scope: 'shared' }] }))
   on('fs.read', () => {
     throw new Error('ENOENT')

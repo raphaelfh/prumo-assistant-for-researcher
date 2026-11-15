@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from par.domains.protocol.schemas.v1 import PicotSpec
+from par.domains.protocol.schemas.v1 import PicotSpec, QuestionSpec
 
 
 class PaperSummary(BaseModel):
@@ -36,6 +36,8 @@ class ComposeInputs(BaseModel):
 
     schema_version: Literal["ComposeInputs/v1"] = "ComposeInputs/v1"
     picot: PicotSpec | None = None
+    #: Pergunta do estudo vigente (ADR-0041); ``picot`` só vem de projeto antigo.
+    question: QuestionSpec | None = None
     citekeys: list[str] = []
     papers: dict[str, PaperSummary] = {}
     protocol: str | None = None

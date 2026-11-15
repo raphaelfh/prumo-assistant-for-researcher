@@ -14,11 +14,16 @@ from par.core import pj_layout
 from par.core.cli_io import read_stdin_json
 from par.core.cli_op import cli_run
 from par.domains.protocol import ops
-from par.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
+from par.domains.protocol.schemas.v1 import (
+    Hypothesis,
+    PicotSpec,
+    QuestionSpec,
+    question_from_picot,
+)
 
 protocol_app = typer.Typer(
     name="protocol",
-    help="PICOT: propagate (regenerar blocos) + diff (comparar contra último ADR).",
+    help="Pergunta do estudo: init, adr, propagate (regenerar blocos) e diff (contra o último ADR).",
     no_args_is_help=True,
 )
 
@@ -31,7 +36,7 @@ def propagate_command(
     path: Annotated[Path, typer.Argument(help=_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Regenera blocos ``<!-- picot:begin -->`` em ``protocol.md`` (do escopo) e
+    """Regenera blocos ``<!-- question:begin -->`` em ``protocol.md`` (do escopo) e
     ``project_guide.md`` (do projeto)."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         scope = pj_layout.find_scope_root(path.resolve())
@@ -48,8 +53,8 @@ def diff_command(
     path: Annotated[Path, typer.Argument(help=_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Compara ``picot.toml`` atual contra snapshot do último ADR ``picot-v<N>`` e
-    reporta drift dos drafts de ``writing/`` contra protocolo/PICOT (um ``.md`` em
+    """Compara a pergunta do estudo atual contra o snapshot do último ADR e
+    reporta drift dos drafts de ``writing/`` contra protocolo/pergunta (um ``.md`` em
     ``path`` restringe a esse draft)."""
     with cli_run(json_mode=json_mode, catches=(FileNotFoundError,)) as console:
         scope = pj_layout.find_scope_root(path.resolve())
@@ -60,7 +65,10 @@ def diff_command(
         drift_payload = [asdict(d) for d in drifts]
         diff = ops.diff_against_last_adr(scope)
         if diff is None:
-            console.warn("`.claude/picot.toml` não encontrado.")
+            console.warn(
+                "`.claude/question.toml` não encontrado; feche a pergunta com "
+                "`/par:protocol question`."
+            )
             if json_mode:
                 console.emit(
                     {
@@ -112,22 +120,30 @@ def init_command(
     path: Annotated[Path, typer.Option("--path", help=_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Cria o PicotSpec inicial (JSON via stdin), propaga blocos e grava o ADR-0001."""
+    """Cria a pergunta do estudo inicial (JSON ``QuestionSpec`` via stdin), propaga
+    blocos e grava o ADR-0001. Um JSON ``PicotSpec`` antigo (sem ``question``) é
+    convertido."""
     with cli_run(
         json_mode=json_mode, catches=(ValueError, FileNotFoundError, ValidationError)
     ) as console:
-        payload = read_stdin_json()
-        hypothesis_data = payload.pop("hypothesis", None)
-        if not isinstance(hypothesis_data, dict):
-            raise PrumoError(
-                "payload PicotSpec exige a chave 'hypothesis' (objeto JSON); ex.: "
-                '{"hypothesis": {"statement": "...", "rationale": "...", "metrics": ["AUROC"]}, ...}'
-            )
-        spec = PicotSpec(**payload, hypothesis=Hypothesis(**hypothesis_data))
+        spec = _spec_from_payload(read_stdin_json())
         scope = pj_layout.find_scope_root(path.resolve())
-        result = ops.init_picot_spec(scope, spec=spec, motivation=motivation, date=date)
-        console.success(f"PicotSpec v{spec.version} inicializado; ADR em {result.adr_path}")
+        result = ops.init_question_spec(scope, spec=spec, motivation=motivation, date=date)
+        console.success(f"Pergunta do estudo v{spec.version} gravada; ADR em {result.adr_path}")
         console.emit({"adr_path": str(result.adr_path), "propagate": asdict(result.report)})
+
+
+def _spec_from_payload(payload: dict[str, object]) -> QuestionSpec:
+    if "question" in payload:
+        return QuestionSpec.model_validate(payload)
+    hypothesis_data = payload.pop("hypothesis", None)
+    if not isinstance(hypothesis_data, dict):
+        raise PrumoError(
+            "payload sem 'question': esperado QuestionSpec, ex.: "
+            '{"type": "observational", "question": "...", "objective": "...", ...}'
+        )
+    legacy = PicotSpec.model_validate({**payload, "hypothesis": Hypothesis(**hypothesis_data)})
+    return question_from_picot(legacy)
 
 
 @protocol_app.command("adr")
@@ -138,10 +154,10 @@ def adr_command(
     path: Annotated[Path, typer.Option("--path", help=_PATH_HELP)] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Registra o ADR-N para a versão atual do picot.toml (após bump) e propaga blocos."""
+    """Registra o ADR-N para a versão atual da pergunta (após bump) e propaga blocos."""
     with cli_run(json_mode=json_mode, catches=(ValueError, FileNotFoundError)) as console:
         scope = pj_layout.find_scope_root(path.resolve())
-        result = ops.create_picot_adr(scope, motivation=motivation, slug=slug, date=date)
+        result = ops.create_question_adr(scope, motivation=motivation, slug=slug, date=date)
         console.success(f"ADR criado: {result.adr_path}")
         console.emit({"adr_path": str(result.adr_path), "propagate": asdict(result.report)})
 

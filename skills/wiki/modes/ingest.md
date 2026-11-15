@@ -52,7 +52,7 @@ tipo está nos passos 4 e 5 desta skill.
 | DOI, arXiv ID, URL de journal | **Orientar o usuário a adicionar o paper no Zotero** e rodar `/par:paper library sync`. A skill não resolve metadata diretamente; Zotero é a fonte de verdade. |
 | URL de blog, tutorial, doc, slide, vídeo, transcript | Continuar nesta skill. Cria `docs/studies/<escopo>/notes/<slug>.md` com `type: source`. |
 | PDF local que não é paper acadêmico (relatório, white paper, slide deck) | Continuar nesta skill. Ler com a tool `Read` (lê PDF nativamente; use o parâmetro de páginas se >10). |
-| Decisão clínica ou editorial (memo, ata) | Continuar nesta skill. `kind: decision`. |
+| Decisão de pesquisa ou editorial (memo, ata) | Continuar nesta skill. `kind: decision`. |
 
 Se houver dúvida, perguntar ao usuário uma vez antes de escolher o caminho.
 

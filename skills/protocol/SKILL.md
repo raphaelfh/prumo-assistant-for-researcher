@@ -1,12 +1,13 @@
 ---
 name: protocol
-description: "Protocolo do estudo: fechar e versionar a PICOT, gerar o plano de análise estatística e o projeto para CEP/Plataforma Brasil."
+description: "Protocolo do estudo em qualquer desenho de pesquisa em saúde: fechar e versionar a pergunta do estudo (PICOT, PECO, PCC e outros frameworks, opcionais), gerar o plano de análise e o projeto para CEP/CEUA."
 when_to_use: |
-  Modos: cep, picot, sap. Frases típicas:
+  Modos: cep, picot, question, sap. Frases típicas:
   - cep: "gera o projeto CEP"; "preciso submeter pra Plataforma Brasil"
-  - picot: "fecha a PICOT"; "formaliza a pergunta de pesquisa"; "a PICOT mudou"
+  - picot: "fecha a PICOT"; "a PICOT mudou"
+  - question: "fecha a pergunta do estudo"; "formaliza a pergunta de pesquisa"; "qual o desenho do meu estudo"; "a pergunta do estudo mudou"
   - sap: "gera o plano de análise estatística"; "justifica o tamanho amostral"; "planeja as análises de sensibilidade"
-argument-hint: "[cep|picot|sap] [argumentos do modo]"
+argument-hint: "[cep|picot|question|sap] [argumentos do modo]"
 allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *) Bash(prumo protocol *) Bash(prumo --version)
 prumo:
   version: 2.0.0
@@ -25,7 +26,7 @@ prumo:
 
 Escolha o modo antes de agir:
 
-1. **Argumento explícito vence.** `/par:protocol picot formalize` → modo `picot`.
+1. **Argumento explícito vence.** `/par:protocol question formalize` → modo `question`.
 2. **Senão, pela intenção**, usando a tabela abaixo.
 3. **Ambíguo entre modos → faça UMA pergunta** listando os candidatos com uma frase de exemplo cada. Na dúvida entre gerar e orientar, oriente.
 4. **Leia `modes/<modo>.md` inteiro antes de qualquer operação.** Este arquivo não contém instrução operacional; o preflight e o procedimento de cada modo estão lá.
@@ -36,8 +37,11 @@ Escolha o modo antes de agir:
 | "gera o projeto CEP" | `cep` |
 | "preciso submeter pra Plataforma Brasil" | `cep` |
 | "fecha a PICOT" | `picot` |
-| "formaliza a pergunta de pesquisa" | `picot` |
 | "a PICOT mudou" | `picot` |
+| "fecha a pergunta do estudo" | `question` |
+| "formaliza a pergunta de pesquisa" | `question` |
+| "qual o desenho do meu estudo" | `question` |
+| "a pergunta do estudo mudou" | `question` |
 | "gera o plano de análise estatística" | `sap` |
 | "justifica o tamanho amostral" | `sap` |
 | "planeja as análises de sensibilidade" | `sap` |

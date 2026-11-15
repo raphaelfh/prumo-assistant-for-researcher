@@ -1,6 +1,6 @@
 {
   "name": "prumo-assistant-for-researcher",
-  "description": "Marketplace do PAR (Prumo Assistant for Researcher), plugin para pesquisa clínica do Zotero ao manuscrito.",
+  "description": "Marketplace do PAR (Prumo Assistant for Researcher), plugin para pesquisa em saúde do Zotero ao manuscrito.",
   "owner": {
     "name": "Raphael Federicci",
     "email": "rfh.federicci@gmail.com",
@@ -11,11 +11,12 @@
       "name": "par",
       "displayName": "Prumo Assistant for Researcher",
       "source": "./",
-      "description": "Do Zotero ao manuscrito na pesquisa clínica, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (PICOT, plano de análise, CEP), rascunhos IMRaD e revisão crítica.",
+      "description": "Do Zotero ao manuscrito na pesquisa em saúde, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (pergunta do estudo em PICOT, PECO, PCC e outros, plano de análise, CEP e CEUA), rascunhos IMRaD e revisão crítica.",
       "version": "0.71.3",
       "homepage": "https://github.com/raphaelfh/prumo-assistant-for-researcher",
       "license": "MIT",
       "keywords": [
+        "health-research",
         "clinical-research",
         "knowledge-management",
         "bibliography",

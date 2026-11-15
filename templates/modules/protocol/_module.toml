@@ -1,0 +1,5 @@
+description = "Protocolo do estudo: pergunta do estudo, plano de análise, dicionário de dados, projeto CEP/CEUA."
+when_to_use = "Estudo empírico em saúde que precisa de protocolo escrito, plano de análise ou submissão a CEP ou CEUA."
+anchor = "docs/studies/__scope__/writing/protocol.md"
+# ADR-0042: nome anterior, aceito por `prumo add` e `prumo init --with`.
+aliases = ["clinical"]

@@ -1,7 +1,7 @@
 {
   "name": "par",
   "version": "0.71.3",
-  "description": "Do Zotero ao manuscrito na pesquisa clínica, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (PICOT, plano de análise, CEP), rascunhos IMRaD e revisão crítica.",
+  "description": "Do Zotero ao manuscrito na pesquisa em saúde, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (pergunta do estudo em PICOT, PECO, PCC e outros, plano de análise, CEP e CEUA), rascunhos IMRaD e revisão crítica.",
   "author": {
     "name": "Raphael Federicci",
     "email": "rfh.federicci@gmail.com",
@@ -11,6 +11,7 @@
   "repository": "https://github.com/raphaelfh/prumo-assistant-for-researcher.git",
   "license": "MIT",
   "keywords": [
+    "health-research",
     "clinical-research",
     "knowledge-management",
     "bibliography",
@@ -23,8 +24,8 @@
   "requires_local_executor": true,
   "interface": {
     "displayName": "Prumo Assistant for Researcher",
-    "shortDescription": "Pesquisa clínica do Zotero ao manuscrito.",
-    "longDescription": "Do Zotero ao manuscrito na pesquisa clínica, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (PICOT, plano de análise, CEP), rascunhos IMRaD e revisão crítica.",
+    "shortDescription": "Pesquisa em saúde do Zotero ao manuscrito.",
+    "longDescription": "Do Zotero ao manuscrito na pesquisa em saúde, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (pergunta do estudo em PICOT, PECO, PCC e outros, plano de análise, CEP e CEUA), rascunhos IMRaD e revisão crítica.",
     "developerName": "Raphael Federicci",
     "category": "Productivity",
     "capabilities": [

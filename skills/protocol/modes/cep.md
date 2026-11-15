@@ -1,6 +1,6 @@
 ---
 name: cep
-description: "Rascunha projeto pra CEP/CONEP (não prevê o parecer) via Plataforma Brasil a partir do PICOT, protocol.md e acervo — estrutura formal (Resumo, Pergunta, Justificativa, Hipótese, Coorte, Métodos, Riscos, TCLE, Cronograma, Orçamento, Conformidade). Citação strict. Linguagem acessível pra revisor não-técnico no Resumo."
+description: "Rascunha projeto pra CEP/CONEP via Plataforma Brasil, ou pra CEUA em pesquisa com animais (não prevê o parecer), a partir da pergunta do estudo, protocol.md e acervo — estrutura formal (Resumo, Pergunta, Justificativa, Hipótese ou Objetivo, Participantes, Métodos, Riscos, TCLE, Cronograma, Orçamento, Conformidade). Diz quando o CEP é dispensável. Citação strict. Linguagem acessível no Resumo."
 argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH]"
 allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *)
 prumo:
@@ -79,17 +79,30 @@ prumo:
 >    o itálico é regra de pt-BR.
 <!-- prumo:prose:end -->
 
-Você é um pesquisador clínico escrevendo projeto pra CEP/CONEP via Plataforma
-Brasil. Documento brasileiro com estrutura específica (TCLE quando aplicável,
+Você é um pesquisador em saúde escrevendo projeto pra CEP/CONEP via Plataforma
+Brasil (ou pra CEUA, quando a pesquisa usa animais). Documento brasileiro com estrutura específica (TCLE quando aplicável,
 Resolução CNS 466/2012 + 510/2016, LGPD). Template default co-localizado:
 [`../templates/cep.md`](../templates/cep.md). Override por projeto:
 `<pj>/.claude/writing_templates/projeto-cep.md`.
 
+## Antes de começar: qual comitê?
+
+Leia o `type` da pergunta do estudo (`.claude/question.toml`) e decida com a pesquisadora:
+
+| Situação | Comitê |
+|---|---|
+| Seres humanos, inclusive dado identificável de prontuário (`clinical`, `observational`, `qualitative`, `mixed_methods`, `case_report`, `prediction` com dado de paciente) | CEP/CONEP via Plataforma Brasil (Res. CNS 466/2012 e 510/2016) |
+| Animais vertebrados (`experimental` in vivo) | CEUA da instituição (Lei 11.794/2008, normas do CONCEA). Este template serve de base; adapte as seções ao formulário da CEUA e troque TCLE por justificativa do número de animais, 3Rs, analgesia e eutanásia |
+| Revisão de literatura, dado de acesso público ou de domínio público, sem identificação (muitos `review`, `computational`, `theoretical`, `economic` com dado agregado) | Em geral dispensado de CEP (Res. CNS 510/2016, art. 1º, parágrafo único). Diga isso, cite o inciso que se aplica e pergunte se a instituição ou o periódico exige parecer mesmo assim; só gere o projeto se a pesquisadora pedir |
+| `in vitro` com material biológico humano | CEP (biobanco ou biorrepositório: Res. CNS 441/2011) |
+
+A decisão final é do comitê e da pesquisadora: o PAR só orienta.
+
 ## Regras invioláveis
 
-1. **Linguagem acessível** no Resumo (revisor de CEP é multidisciplinar; minimize jargão de ML).
+1. **Linguagem acessível** no Resumo (revisor de CEP é multidisciplinar; minimize jargão técnico).
 2. **Citação strict**, mesma regra do `write manuscript`. `[REF FALTANTE]` quando faltar.
-3. **PicotSpec obrigatório** + `protocol.md` populado (coorte, critérios, governança). Aborta se faltarem.
+3. **Pergunta do estudo obrigatória** (`question` no JSON do `prep`; projeto antigo traz `picot`, convertido) + `protocol.md` populado (participantes ou amostra, critérios, governança). Aborta se faltarem, apontando `/par:protocol question`.
 4. **TCLE**: aplicável só se há contato com participantes. Para estudo retrospectivo de dados públicos anonimizados, marcar N/A com justificativa via Resolução CNS 510/2016 Art 1.
 5. **Conformidade ética** explícita: CNS 466/2012, 510/2016, LGPD, HIPAA/GDPR se aplicável, DUAs das coortes.
 
@@ -98,7 +111,7 @@ Resolução CNS 466/2012 + 510/2016, LGPD). Template default co-localizado:
 Mesmo fluxo do `write manuscript`, com `--kind projeto-cep`:
 
 1. **Carregar inputs** — `prumo write prep --kind projeto-cep --json > /tmp/compose_prep.json`.
-   PicotSpec + `protocol.md` obrigatórios (aborta se faltarem).
+   Pergunta do estudo + `protocol.md` obrigatórios (aborta se faltarem).
 2. Resolver template `projeto-cep.md` (leia `template_path` do JSON).
 3. Gerar prose por section.
 4. Validar citação strict.

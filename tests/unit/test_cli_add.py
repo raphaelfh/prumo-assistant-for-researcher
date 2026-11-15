@@ -19,19 +19,29 @@ def _init(target: Path) -> None:
     assert res.exit_code == 0, res.output
 
 
-def test_add_clinical_restores_protocol(tmp_path: Path) -> None:
+def test_add_protocol_restores_protocol(tmp_path: Path) -> None:
     target = tmp_path / "pj_demo"
     _init(target)
     assert not (target / "docs" / "studies" / "principal" / "writing" / "protocol.md").exists()
 
-    res = runner.invoke(app, ["add", "clinical", "--target", str(target), "--json"])
+    res = runner.invoke(app, ["add", "protocol", "--target", str(target), "--json"])
     assert res.exit_code == 0, res.output
     assert (target / "docs" / "studies" / "principal" / "writing" / "protocol.md").is_file()
     assert (target / "docs" / "studies" / "principal" / "writing" / "projeto-cep.md").is_file()
     assert (target / "docs" / "templates" / "data_dictionary_skeleton.md").is_file()
     payload = json.loads(res.stdout)
-    assert payload["module"] == "clinical"
+    assert payload["module"] == "protocol"
     assert payload["files_copied"] > 0
+
+
+def test_add_clinical_is_alias_of_protocol(tmp_path: Path) -> None:
+    """ADR-0042: `clinical` continua aceito e aplica `protocol`."""
+    target = tmp_path / "pj_demo"
+    _init(target)
+    res = runner.invoke(app, ["add", "clinical", "--target", str(target), "--json"])
+    assert res.exit_code == 0, res.output
+    assert (target / "docs" / "studies" / "principal" / "writing" / "protocol.md").is_file()
+    assert json.loads(res.stdout.splitlines()[-1])["module"] == "protocol"
 
 
 def test_add_ml_restores_stack(tmp_path: Path) -> None:
@@ -67,7 +77,7 @@ def test_add_list_marks_applied(tmp_path: Path) -> None:
     assert res.exit_code == 0, res.output
     payload = json.loads(res.stdout)
     by = {m["name"]: m for m in payload["modules"]}
-    assert by["clinical"]["applied"] is True
+    assert by["protocol"]["applied"] is True
     assert by["ml"]["applied"] is False
     assert by["ml"]["description"]
 
@@ -84,9 +94,9 @@ def test_add_interactive_picks_by_number(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     target = tmp_path / "pj_demo"
     _init(target)
-    # módulos ordenados: clinical(1), code(2), data(3), ml(4), notebooks(5).
-    # Input "4" → ml.
-    res = runner.invoke(app, ["add", "--target", str(target)], input="4\n")
+    # módulos ordenados: code(1), data(2), ml(3), notebooks(4), protocol(5).
+    # Input "3" → ml.
+    res = runner.invoke(app, ["add", "--target", str(target)], input="3\n")
     assert res.exit_code == 0, res.output
     assert (target / ".claude" / "rules" / "ml_stack.md").is_file()
 

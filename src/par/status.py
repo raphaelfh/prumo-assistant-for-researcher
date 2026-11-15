@@ -27,7 +27,7 @@ from par.core.skills import SkillRef, SkillRegistry
 from par.domains.paper.callout import hash_template
 from par.domains.paper.connect import bib_is_placeholder
 from par.domains.paper.sync import read_nota_yaml
-from par.domains.protocol.picot_io import read_picot
+from par.domains.protocol.question_io import read_question
 from par.domains.write.review import (
     EVENT_KIND_AMBIGUOUS_ANCHOR,
     EVENT_KIND_NON_IDENTITY_SPAN,
@@ -154,7 +154,7 @@ def _extracts(pj_root: Path) -> ExtractStatus:
 
 def _picot(pj_root: Path) -> PicotStatus:
     try:
-        read_picot(pj_root)
+        read_question(pj_root)
     except FileNotFoundError:
         return PicotStatus(closed=False)
     except ValueError as exc:  # ValidationError e TOMLDecodeError são ValueError
@@ -255,11 +255,11 @@ def _next(
         )
     if not picot.closed:
         why = (
-            f"a PICOT não valida ({picot.error})"
+            f"a pergunta do estudo não valida ({picot.error})"
             if picot.error
-            else "a PICOT ainda não foi fechada"
+            else "a pergunta do estudo ainda não foi fechada"
         )
-        return _step(SkillRef("protocol", "picot"), why, registry)
+        return _step(SkillRef("protocol", "question"), why, registry)
     for scope in scopes:
         if not scope.drafts:
             return _step(
@@ -318,6 +318,8 @@ def status_to_dict(status: ProjectStatus) -> dict[str, Any]:
         "project": str(status.project),
         "library": asdict(status.library),
         "extracts": asdict(status.extracts),
+        "question": asdict(status.picot),
+        # chave anterior à ADR-0041, mantida para quem já lê o JSON
         "picot": asdict(status.picot),
         "scopes": [asdict(s) for s in status.scopes],
         "next": nxt,
@@ -339,7 +341,7 @@ def render_status(status: ProjectStatus) -> str:
         + (" — ainda é o placeholder do scaffold" if lib.placeholder else ""),
         f"Papers: {ex.papers} · sem extract com PDF: {ex.pending} · sem PDF: {ex.without_pdf}"
         f" · extract desatualizado: {ex.stale}",
-        f"PICOT: {picot_txt}",
+        f"Pergunta do estudo: {picot_txt}",
     ]
     for scope in status.scopes:
         eventos = sum(r.reconcile_events for r in scope.reviews)

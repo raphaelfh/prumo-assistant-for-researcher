@@ -8,7 +8,7 @@ status: implemented
 
 ## Problema
 
-No A/B de 2026-09-12 (prumo `review critique` × ARS academic-paper-reviewer), só uma cadeira do ARS justificou o custo: a do advogado do diabo, que ataca o argumento central. Três cadeiras do ARS apontaram que a conclusão do draft piloto ("attitudes were conclusão central") se apoia num item de teto, enquanto uma parcela grande das respostas a outro item a contradiz. O `reviewer` do prumo, que procura em largura (forças, método, checklist), não pegou.
+No A/B de 2026-09-12 (prumo `review critique` × ARS academic-paper-reviewer), só uma cadeira do ARS justificou o custo: a do advogado do diabo, que ataca o argumento central. Três cadeiras do ARS apontaram que a conclusão central do draft piloto se apoia num item de teto, enquanto uma parcela grande das respostas a outro item a contradiz. O `reviewer` do prumo, que procura em largura (forças, método, checklist), não pegou.
 
 ## Decisão
 

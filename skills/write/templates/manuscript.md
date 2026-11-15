@@ -8,32 +8,33 @@ bibliography: ../../../references/_references.bib
 # Title
 
 <!-- 1 frase, ≤180 caracteres, declarativa.
-     Use PicotSpec.hypothesis.statement como base. -->
+     Use question.hypothesis.statement (ou question.objective) como base. -->
 
 # Abstract
 
 <!-- IMRaD em 250-300 palavras (ajustar pra venue):
-     Background (PicotSpec.population + gap), Methods (PicotSpec.intervention),
+     Background (população da pergunta + gap), Methods (desenho e intervenção ou exposição),
      Results (placeholders [RESULTADO N=...] se ainda não temos), Conclusion
-     (hipótese + implicação clínica). Sem citações no abstract. -->
+     (hipótese ou objetivo + implicação clínica, biológica ou de saúde pública). Sem citações no abstract. -->
 
 # Introduction
 
 <!-- 4-6 parágrafos:
-     1. Contexto clínico (PicotSpec.population). Cite ≥2 papers do acervo.
-     2. Gap metodológico/clínico. Cite ≥3 papers que mostram limites.
-     3. Nossa abordagem (PicotSpec.intervention). Cite trabalhos correlatos.
-     4. Hipótese formal (PicotSpec.hypothesis.statement). Sem citação.
+     1. Contexto do problema em saúde (população da pergunta do estudo). Cite ≥2 papers do acervo.
+     2. Gap metodológico ou de conhecimento. Cite ≥3 papers que mostram limites.
+     3. Nossa abordagem (desenho e intervenção, exposição ou fenômeno). Cite trabalhos correlatos.
+     4. Hipótese formal ou objetivo (question.hypothesis.statement ou question.objective). Sem citação.
      Tom: presente pra SOTA, futuro pra "this study will". -->
 
 # Methods
 
 <!-- Subsections:
-     - Population (PicotSpec.population + protocol.md § Coorte)
+     - Design (question.type + question.design; siga a guideline de relato do tipo)
+     - Population (elements.population + protocol.md § Coorte)
      - Data (datasets, protocol.md § Modalidades)
-     - Model architecture (PicotSpec.intervention)
+     - Intervention, exposure or model (elements.intervention ou elements.exposure)
      - Training
-     - Evaluation (PicotSpec.outcome + métricas)
+     - Outcomes (elements.outcome + métricas da hipótese)
      - Statistical analysis (protocol.md § Splits) -->
 
 # Results

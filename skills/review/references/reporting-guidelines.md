@@ -12,7 +12,21 @@ Mental model por gênero do draft; não cite a checklist no review final salvo s
 | Protocolo de ensaio com IA | **SPIRIT-AI** |
 | Imaging AI | **CLAIM / MI-CLAIM** |
 | Revisão sistemática | **PRISMA 2020** |
-| Estudo observacional | **STROBE** |
+| Revisão de escopo | **PRISMA-ScR** |
+| Estudo observacional | **STROBE** (dado rotineiro: **RECORD**) |
+| Acurácia diagnóstica | **STARD 2015** |
+| Experimento com animais | **ARRIVE 2.0** |
+| Estudo qualitativo | **COREQ** (entrevista/grupo focal) ou **SRQR** |
+| Métodos mistos | **GRAMMS** |
+| Avaliação econômica em saúde | **CHEERS 2022** |
+| Relato de caso | **CARE** |
+| Melhoria da qualidade | **SQUIRE 2.0** |
+
+O `type` da pergunta do estudo (`.claude/question.toml`) indica o gênero: `clinical` → CONSORT;
+`experimental` → ARRIVE; `observational` → STROBE; `prediction` → TRIPOD+AI ou STARD;
+`review` → PRISMA ou PRISMA-ScR; `qualitative` → COREQ/SRQR; `mixed_methods` → GRAMMS;
+`economic` → CHEERS; `case_report` → CARE. `computational`, `theoretical` e
+`methodological` não têm checklist única: critique pela clareza da contribuição.
 
 ## TRIPOD-LLM (Nature Medicine, jan/2025)
 

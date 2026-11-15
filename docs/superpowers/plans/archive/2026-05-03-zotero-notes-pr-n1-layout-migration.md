@@ -1517,10 +1517,10 @@ Expected: all valid
 
 - [ ] **Smoke-test `migrate-layout` against `pj_piloto_ml`**
 
-The reference project at `<pasta_do_projeto>/pj_piloto_ml` has many legacy `<key>.md` notes. Test on a copy:
+The reference project at `<pj_de_referencia>` has many legacy `<key>.md` notes. Test on a copy:
 
 ```bash
-cp -r <pasta_do_projeto>/pj_piloto_ml /tmp/pj_test_migrate
+cp -r <pj_de_referencia> /tmp/pj_test_migrate
 uv run prumo paper migrate-layout /tmp/pj_test_migrate --json | head -30
 ```
 

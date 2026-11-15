@@ -94,11 +94,11 @@ projeto: `<pj>/.claude/writing_templates/scientific.md`. Override ad-hoc:
 1. **Citação strict.** Só `[@citekey]` presente em `inputs.citekeys`; senão, `[REF FALTANTE: <descrição curta>]`. Nunca invente citekey.
 2. **Aceita seed text** via `--seed <text>` ou stdin (se conversa).
 3. **`--section <name>`** foca em uma seção quando template tem várias.
-4. **PicotSpec opcional** — se ausente, gera baseado só no seed/template.
+4. **Pergunta do estudo opcional** (`inputs.question`) — se ausente, gera baseado só no seed/template.
 
 ## Fluxo
 
-Mesmo fluxo do `write manuscript`, com `--kind scientific` — mais permissivo (PicotSpec
+Mesmo fluxo do `write manuscript`, com `--kind scientific` — mais permissivo (pergunta do estudo
 opcional; se ausente, gere a partir do seed/template):
 
 1. **Carregar inputs** — `prumo write prep --kind scientific --json > /tmp/compose_prep.json`.

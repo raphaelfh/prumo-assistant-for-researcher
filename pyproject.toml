@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prumo-assistant-for-researcher"
-description = "Knowledge, bibliography & academic writing assistant for clinical research. Lives between Zotero, Zettlr, and your agent-host."
+description = "Knowledge, bibliography & academic writing assistant for health research. Lives between Zotero, Zettlr, and your agent-host."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
@@ -18,6 +18,7 @@ keywords = [
   "zotero",
   "zettlr",
   "academic-writing",
+  "health-research",
   "clinical-research",
   "claude-code-plugin",
 ]

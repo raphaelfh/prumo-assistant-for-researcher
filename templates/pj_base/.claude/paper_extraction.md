@@ -22,7 +22,7 @@
      - **C (Comparison):** <baseline(s), SOTA mencionado>
      - **O (Outcome):** <métrica(s) primária(s)>
      - **T (Time/Type):** <prospectivo/retrospectivo, horizonte>
-     Paper não-clínico (metodológico puro):
+     Paper sem pergunta empírica (metodológico puro):
      PICOT vira "N/A" e inclua "Contribuição:" + "Hipótese:" após a Pergunta.
 -->
 

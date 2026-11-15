@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 from par.domains.protocol.diff import (
-    PicotDiff,
-    diff_picot,
+    QuestionDiff,
+    diff_question,
     is_structural_field,
 )
-from par.domains.protocol.schemas.v1 import Hypothesis, PicotSpec
+from par.domains.protocol.schemas.v1 import (
+    Hypothesis,
+    PicotSpec,
+    QuestionSpec,
+    question_from_picot,
+)
 
 
-def _spec(**overrides: object) -> PicotSpec:
+def _spec(**overrides: object) -> QuestionSpec:
     base = dict(
         type="clinical",
         created_at="2026-05-03",
@@ -28,13 +33,13 @@ def _spec(**overrides: object) -> PicotSpec:
         ),
     )
     base.update(overrides)
-    return PicotSpec(**base)  # type: ignore[arg-type]
+    return question_from_picot(PicotSpec(**base))  # type: ignore[arg-type]
 
 
 def test_diff_no_changes() -> None:
     a, b = _spec(), _spec()
-    out = diff_picot(a, b)
-    assert isinstance(out, PicotDiff)
+    out = diff_question(a, b)
+    assert isinstance(out, QuestionDiff)
     assert out.changes == []
     assert out.has_structural is False
 
@@ -42,10 +47,9 @@ def test_diff_no_changes() -> None:
 def test_diff_structural_field_change() -> None:
     a = _spec()
     b = _spec(population="DS_A + DS_BB")
-    out = diff_picot(a, b)
-    assert len(out.changes) == 1
-    change = out.changes[0]
-    assert change.field == "population"
+    out = diff_question(a, b)
+    # o question derivado da PICOT também muda; o elemento é o que interessa aqui
+    change = next(c for c in out.changes if c.field == "elements.population")
     assert change.before == "DS_A"
     assert change.after == "DS_A + DS_BB"
     assert change.structural is True
@@ -55,7 +59,7 @@ def test_diff_structural_field_change() -> None:
 def test_diff_non_structural_field_change_does_not_flag() -> None:
     a = _spec()
     b = _spec(last_updated="2026-06-01")
-    out = diff_picot(a, b)
+    out = diff_question(a, b)
     assert any(c.field == "last_updated" for c in out.changes)
     assert out.has_structural is False
 
@@ -69,7 +73,7 @@ def test_diff_hypothesis_statement() -> None:
             metrics=["AUROC"],
         )
     )
-    out = diff_picot(a, b)
+    out = diff_question(a, b)
     fields = [c.field for c in out.changes]
     assert "hypothesis.statement" in fields
     statement_change = next(c for c in out.changes if c.field == "hypothesis.statement")
@@ -78,6 +82,7 @@ def test_diff_hypothesis_statement() -> None:
 
 def test_diff_hypothesis_rationale_not_structural() -> None:
     a = _spec()
+    assert a.hypothesis is not None
     b = _spec(
         hypothesis=Hypothesis(
             statement=a.hypothesis.statement,
@@ -85,7 +90,7 @@ def test_diff_hypothesis_rationale_not_structural() -> None:
             metrics=a.hypothesis.metrics,
         )
     )
-    out = diff_picot(a, b)
+    out = diff_question(a, b)
     rationale_changes = [c for c in out.changes if c.field == "hypothesis.rationale"]
     assert len(rationale_changes) == 1
     assert rationale_changes[0].structural is False
@@ -94,6 +99,7 @@ def test_diff_hypothesis_rationale_not_structural() -> None:
 
 def test_diff_metrics_change_is_structural() -> None:
     a = _spec()
+    assert a.hypothesis is not None
     b = _spec(
         hypothesis=Hypothesis(
             statement=a.hypothesis.statement,
@@ -101,13 +107,16 @@ def test_diff_metrics_change_is_structural() -> None:
             metrics=["AUROC", "ECE"],
         )
     )
-    out = diff_picot(a, b)
+    out = diff_question(a, b)
     metrics_change = next(c for c in out.changes if c.field == "hypothesis.metrics")
     assert metrics_change.structural is True
 
 
 def test_is_structural_field() -> None:
     assert is_structural_field("population") is True
+    assert is_structural_field("elements.concept") is True
+    assert is_structural_field("question") is True
+    assert is_structural_field("objective") is False
     assert is_structural_field("hypothesis.statement") is True
     assert is_structural_field("hypothesis.metrics") is True
     assert is_structural_field("last_updated") is False

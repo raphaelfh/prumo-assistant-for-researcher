@@ -85,7 +85,7 @@ from par.status import project_status, render_status, status_to_dict
 app = typer.Typer(
     name="prumo",
     help=(
-        "Knowledge, bibliography & academic writing assistant for clinical research.\n"
+        "Knowledge, bibliography & academic writing assistant for health research.\n"
         "Lives between Zotero, Zettlr, and your agent-host."
     ),
     add_completion=False,
@@ -263,7 +263,7 @@ def _render_banner(console: Console) -> None:
         ("prumo init  ", "bold cyan"),
         (f"v{__version__}\n", "dim"),
         ("Knowledge, bibliography & writing scaffold\n", ""),
-        ("for clinical research projects.", "dim"),
+        ("for health research projects.", "dim"),
     )
     console._rich.print(Panel(body, border_style="cyan", padding=(0, 2)))
 
@@ -284,7 +284,7 @@ def _render_next_steps(console: Console, target: Path, mode: str) -> None:
         console._rich.print(
             "  Edite [cyan]docs/project_guide.md[/cyan] — objetivo, hipótese, escopo do wiki"
         )
-        console._rich.print("  Ative módulos opcionais (clínico, ML): [cyan]prumo add[/cyan]")
+        console._rich.print("  Ative módulos opcionais (protocolo, ML): [cyan]prumo add[/cyan]")
     elif mode == MODE_MERGE:
         console._rich.print(
             "  Revise as diferenças no [cyan]git status[/cyan] — arquivos existentes foram preservados."
@@ -409,7 +409,7 @@ def init_command(
         str | None,
         typer.Option(
             "--with",
-            help="Módulos a ativar na criação, separados por vírgula (ex.: clinical,ml).",
+            help="Módulos a ativar na criação, separados por vírgula (ex.: protocol,ml).",
         ),
     ] = None,
     json_mode: Annotated[
@@ -546,7 +546,7 @@ def init_command(
                 console.warn(f"Módulo '{_name}' desconhecido; ignorado.")
                 continue
             # `scope_slug` já é o slug real deste projeto (renomeado acima, se
-            # o usuário pediu outro) — módulos por-escopo (ex. `clinical`)
+            # o usuário pediu outro) — módulos por-escopo (ex. `protocol`)
             # caem direto nele; módulos sem marcador de escopo ignoram o kwarg.
             # Idem `pkg` para o módulo `code` (ADR-0027).
             _pkg = pkg_name(target.name) if module_requires_pkg(_info) else None
@@ -554,7 +554,7 @@ def init_command(
             apply_project_name(target, target.name, _mod_copied)
             if _pkg is not None:
                 apply_pkg_name(target, _pkg, _mod_copied)
-            modules_applied.append(_name)
+            modules_applied.append(_info.name)
 
         # Perfil de export do Zettlr — caminhos absolutos por máquina,
         # então é gerado aqui (nunca vem do template). Não pode derrubar
@@ -980,7 +980,7 @@ def add_command(
     module: Annotated[
         str | None,
         typer.Argument(
-            help="Módulo a ativar (ex.: clinical, ml) ou `study` para criar um escopo de "
+            help="Módulo a ativar (ex.: protocol, ml) ou `study` para criar um escopo de "
             "escrita novo (`prumo add study <slug>`). Omita para listar/escolher."
         ),
     ] = None,
@@ -998,7 +998,7 @@ def add_command(
         typer.Option(
             "--scope",
             help="Slug do escopo alvo (docs/studies/<slug>/) para módulos por-escopo "
-            "(ex.: clinical). Obrigatório quando o projeto tem mais de um escopo.",
+            "(ex.: protocol). Obrigatório quando o projeto tem mais de um escopo.",
         ),
     ] = None,
     list_only: Annotated[
@@ -1029,6 +1029,9 @@ def add_command(
     if info is None:
         console.error(f"Módulo '{module}' não encontrado. Use `prumo add --list`.")
         raise typer.Exit(code=1)
+    if info.name != module:
+        console.info(f"'{module}' agora se chama '{info.name}'; use `prumo add {info.name}`.")
+        module = info.name
 
     scope_slug: str | None = None
     pkg: str | None = None
@@ -1066,7 +1069,7 @@ def add_command(
 
 
 def _resolve_module_scope(target: Path, module: str, requested: str | None) -> str:
-    """Resolve o slug do escopo alvo pra módulos por-escopo (ex. ``clinical``).
+    """Resolve o slug do escopo alvo pra módulos por-escopo (ex. ``protocol``).
 
     Sem ambiguidade não precisa perguntar: um escopo só resolve sozinho. Zero
     ou vários escopos exigem decisão explícita do usuário (``prumo add study

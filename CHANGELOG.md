@@ -9,6 +9,23 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Adicionado
 
+- **Pergunta do estudo para qualquer pesquisa em saúde** (ADR-0041). O PAR deixa de assumir
+  ensaio clínico. Novo modo `/par:protocol question` fecha a pergunta em `.claude/question.toml`
+  (`QuestionSpec/v1`): tipo do estudo (`clinical`, `experimental` com animais ou bancada,
+  `observational`, `prediction`, `review`, `qualitative`, `mixed_methods`, `economic`,
+  `computational`, `theoretical`, `methodological`, `case_report`, `other`), a pergunta em uma
+  frase e, opcionalmente, um framework (PICOT, PICO, PICOS, PECO, PECOT, PEO, PCC, PICo, SPIDER,
+  PIRD, CoCoPop) com seus elementos. Hipótese formal só é exigida nos tipos confirmatórios; os
+  demais usam objetivo. `/par:protocol picot` continua funcionando como apelido.
+- **Módulo `protocol`** (ADR-0042) no lugar de `clinical`. `prumo add clinical` e
+  `prumo init --with clinical` continuam funcionando e aplicam `protocol`; projetos que já
+  aplicaram `clinical` não mudam nada.
+- `/par:protocol cep` orienta sobre CEUA (pesquisa com animais, Lei 11.794/2008) e diz quando o
+  CEP é dispensável (Res. CNS 510/2016, art. 1º, parágrafo único). `/par:protocol sap` ajusta o
+  plano ao tipo do estudo e diz quando não há plano estatístico (qualitativo, teórico, relato de
+  caso). A referência de guidelines do `review critique` cobre ARRIVE, STARD, PRISMA-ScR, COREQ,
+  SRQR, GRAMMS, CHEERS, CARE e SQUIRE.
+
 - **PAR no Antigravity e no ChatGPT (Codex)** (ADR-0040). A mesma raiz traz manifesto nativo
   para cada um (`.antigravity-plugin/`, `.codex-plugin/` com o catálogo em `.agents/plugins/`), com
   as mesmas skills, o mesmo CLI e o mesmo servidor MCP: instale com `agy plugin install
@@ -22,6 +39,15 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ### Mudado
 
+- **Posicionamento: pesquisa em saúde.** README, manifestos, `pyproject`, `CITATION.cff`, CLI e
+  docs passam a falar em pesquisa em saúde; a pesquisa clínica vira um dos tipos de estudo.
+- **Projetos com `.claude/picot.toml`** continuam funcionando: o CLI lê o arquivo antigo e o
+  converte sem perda. A próxima gravação (`prumo protocol init` ou `adr`) cria
+  `.claude/question.toml` e remove o `picot.toml` (o ADR e o git guardam o antigo). Os blocos
+  `<!-- picot:begin -->` de `protocol.md` e `project_guide.md` viram `<!-- question:begin -->` no
+  próximo `propagate`, e os ADRs novos se chamam `adr-NNNN-question-vN-*`. `prumo status --json`
+  ganha a chave `question` e mantém `picot`; `ComposeInputs/v1` ganha `question` (Princípio IV,
+  ADR-0006).
 - README e trilha do pesquisador com uma seção só para começar, uma linha por agente; saem as
   instruções de instalação repetidas.
 - O lançador trata o sandbox do Codex como sandbox (saída 77) e fala em "sandbox do agente".

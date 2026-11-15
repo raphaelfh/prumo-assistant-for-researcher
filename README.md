@@ -1,11 +1,12 @@
 # PAR — prumo-assistant-for-researcher
 
-> **Knowledge, bibliography & academic writing assistant for clinical research.**
+> **Knowledge, bibliography & academic writing assistant for health research.**
 > Lives between Zotero, your wiki (Markdown; Zettlr front), and your agent-host.
 
-Plugin de pesquisa clínica para agentes de IA: **Claude** (app Claude, aba Code, ou
+Plugin de pesquisa em saúde para agentes de IA: **Claude** (app Claude, aba Code, ou
 Claude Code no terminal), **Antigravity** e **ChatGPT** (Codex, no app ChatGPT ou no
-terminal). Cobre cinco domínios: gerir conhecimento (wiki), gerir bibliografia
+terminal). Serve a estudos clínicos, observacionais, experimentais (animais, bancada),
+revisões, pesquisa qualitativa, computacional e teórica, e relatos de caso. Cobre cinco domínios: gerir conhecimento (wiki), gerir bibliografia
 (Zotero ↔ notas), destrinchar fontes, formalizar protocolos e escrever/revisar
 documentos. As mesmas skills, o mesmo CLI `prumo` e o mesmo servidor MCP em todos.
 
@@ -44,9 +45,10 @@ Passo a passo em linguagem simples:
 | "resuma o paper X" | `/par:paper extract` | Extrai conteúdo estruturado do PDF de um paper (TL;DR, Problema com PICOT, Método, Resultados, Limitações) e escreve em callout delimitado em docs/references/papers/<citekey>/_extract.md. Pressupõe /par:paper library sync executado + symlinks via prumo paper sync-pdfs. |
 | "sincroniza minha bibliografia" | `/par:paper library` | Gerencia o acervo bibliográfico do pj_* (docs/references/): sincroniza .bib do Zotero/BBT, atualiza grafo de citação passivo, marca paper principal, lista bibliografia, busca por palavra-chave, vê quem cita quem, audita consistência .bib↔notas. |
 | "as referências batem com o que eu afirmo?" | `/par:paper support` | Classifica se cada citação de uma página sustenta a frase que a cita (Fully/Partially/Unsubstantiated/No-source) com o subagent verifier lendo o PDF — SINALIZA apenas, nunca edita nem bloqueia. Roda `prumo paper verify-refs` antes (base determinística: existência/retração/título). |
-| "gera o projeto CEP" | `/par:protocol cep` | Rascunha projeto pra CEP/CONEP (não prevê o parecer) via Plataforma Brasil a partir do PICOT, protocol.md e acervo — estrutura formal (Resumo, Pergunta, Justificativa, Hipótese, Coorte, Métodos, Riscos, TCLE, Cronograma, Orçamento, Conformidade). Citação strict. Linguagem acessível pra revisor não-técnico no Resumo. |
-| "fecha a PICOT" | `/par:protocol picot` | Formaliza, propaga e versiona a PICOT do projeto em 3 destinos (.claude/picot.toml canônico, docs/studies/<slug>/writing/protocol.md operacional, docs/project_guide.md acadêmico) + ADR append-only quando muda. Auto-detecta modo (Socrático / Formalize / Propagate / Diff) pelo estado. |
-| "gera o plano de análise estatística" | `/par:protocol sap` | Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa PicotSpec.outcome+metrics e protocol.md § Splits. Rascunho que referencia TRIPOD+AI/SPIRIT-AI, TRIPOD-LLM quando o pipeline usa LLM e CONSORT 2025/DECIDE-AI conforme o desenho; conformidade final é do estatístico. |
+| "gera o projeto CEP" | `/par:protocol cep` | Rascunha projeto pra CEP/CONEP via Plataforma Brasil, ou pra CEUA em pesquisa com animais (não prevê o parecer), a partir da pergunta do estudo, protocol.md e acervo — estrutura formal (Resumo, Pergunta, Justificativa, Hipótese ou Objetivo, Participantes, Métodos, Riscos, TCLE, Cronograma, Orçamento, Conformidade). Diz quando o CEP é dispensável. Citação strict. Linguagem acessível no Resumo. |
+| "fecha a PICOT" | `/par:protocol picot` | Apelido de `question` (ADR-0041): a PICOT agora é um dos frameworks opcionais da pergunta do estudo. Leia modes/question.md e siga-o. |
+| "fecha a pergunta do estudo" | `/par:protocol question` | Fecha, propaga e versiona a pergunta do estudo em qualquer desenho de pesquisa em saúde (clínico, experimental, observacional, predição, revisão, qualitativo, métodos mistos, econômico, computacional, teórico, metodológico, relato de caso). PICOT, PECO, PCC, PICo, SPIDER e outros entram como estrutura opcional. Grava .claude/question.toml (QuestionSpec/v1), blocos em protocol.md e project_guide.md e ADR append-only quando muda. |
+| "gera o plano de análise estatística" | `/par:protocol sap` | Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa o desfecho e as métricas da pergunta do estudo e protocol.md. Rascunho que referencia TRIPOD+AI/SPIRIT-AI, TRIPOD-LLM quando o pipeline usa LLM e CONSORT 2025/DECIDE-AI conforme o desenho; conformidade final é do estatístico. |
 | "revisa este draft" | `/par:review critique` | Simula revisão crítica de draft acadêmico (paper, capítulo, grant, proposta) produzindo feedback estruturado por seção com forças, fraquezas, claims sem evidência e sugestões acionáveis. Aplica mental model adequado (TRIPOD+AI / TRIPOD-LLM / DECIDE-AI / CLAIM / CONSORT 2025 / PRISMA / STROBE). |
 | "reconcilia os eventos ambíguos da revisão" | `/par:review reconcile` | Reconcilia eventos ambíguos do round-trip de revisão (unanchored/ambiguous/non-identity) propondo marcas CriticMarkup pendentes no worklist via prumo — o humano decide com `prumo write review apply`. NUNCA propõe/move/cunha citação (citação é decisão humana). |
 | — | `/par:start` | Porta de entrada do par: instala o que falta e roteia para a skill e o modo certos (paper, wiki, protocol, write, review). |
@@ -56,7 +58,7 @@ Passo a passo em linguagem simples:
 | "me ensina X" | `/par:wiki study` | Conduz sessão Socrática de estudo em 5 steps (Recall → Anchor → Connect → Apply → Reflect) ancorada nas fontes do projeto (wiki + acervo). Sessão curta (15-25 min) com citação strict. Log estruturado em docs/studies/<slug>/notes/. No Reflect, oferece arquivar insight como finding. |
 | "gera a declaração de uso de IA" | `/par:write disclosure` | Gera a declaração de uso de IA do projeto a partir da proveniência gravada nos artefatos (determinístico, pt ou en). |
 | "exporta o docx para o coautor revisar" | `/par:write export` | Gera o docx do manuscrito com citações vivas do Zotero: travado para a rodada de revisão do coautor, ou final para editar no Word com o Zotero. |
-| "escreve um draft do meu paper" | `/par:write manuscript` | Gera draft de paper IMRaD venue-aware a partir do PICOT, callouts _extract.md, protocol.md e project_guide.md, com citação strict do acervo ([REF FALTANTE] quando ausente). |
+| "escreve um draft do meu paper" | `/par:write manuscript` | Gera draft de paper IMRaD venue-aware a partir da pergunta do estudo, callouts _extract.md, protocol.md e project_guide.md, com citação strict do acervo ([REF FALTANTE] quando ausente). |
 | "escreve essa seção" | `/par:write section` | Gera prose acadêmica genérica quando o usuário tem texto-base ou só uma seção isolada e não cabe em paper/CEP/statistics. Aceita --seed, --section, --template. Citação strict do acervo. |
 | "aplica as convenções de escrita científica" | `/par:write style` | Aplica convenções editoriais de escrita científica em drafts Markdown/Quarto/Pandoc, em pt-BR ou inglês americano (idioma resolvido por cascata, default en-US) — citação sempre imediatamente antes do ponto final, múltiplas citações num único colchete ([@a; @b]), pontuação sem travessão/dois-pontos/ponto-e-vírgula em texto corrido, remoção de superlativo, economia lexical, coesão entre períodos. Mexe na forma, não na substância; o diff confere as citações, o sentido fica para o autor revisar. |
 <!-- prumo:skills-table:end -->
@@ -118,7 +120,7 @@ pj_<nome>/
     └── studies/<slug>/      O ESCOPO — notes/, writing/, decisions/
 ```
 
-Camadas opcionais com gatilho (`prumo add <módulo>`): `code`, `data`, `notebooks` (marimo `.py` ou Jupyter `.ipynb`), `ml`, `clinical`. Detalhes em [`docs/Research Project Structure.md`](docs/Research%20Project%20Structure.md).
+Camadas opcionais com gatilho (`prumo add <módulo>`): `code`, `data`, `notebooks` (marimo `.py` ou Jupyter `.ipynb`), `ml`, `protocol` (aceita `clinical` como apelido). Detalhes em [`docs/Research Project Structure.md`](docs/Research%20Project%20Structure.md).
 
 ## Stack implícita
 

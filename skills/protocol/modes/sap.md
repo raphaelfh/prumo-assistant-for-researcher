@@ -1,6 +1,6 @@
 ---
 name: sap
-description: "Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa PicotSpec.outcome+metrics e protocol.md § Splits. Rascunho que referencia TRIPOD+AI/SPIRIT-AI, TRIPOD-LLM quando o pipeline usa LLM e CONSORT 2025/DECIDE-AI conforme o desenho; conformidade final é do estatístico."
+description: "Gera Plano de Análise Estatística (PAE) — outcome operacional, sample size justification, métricas primárias/secundárias, sensitivity analyses, splits + anti-leakage. Usa o desfecho e as métricas da pergunta do estudo e protocol.md. Rascunho que referencia TRIPOD+AI/SPIRIT-AI, TRIPOD-LLM quando o pipeline usa LLM e CONSORT 2025/DECIDE-AI conforme o desenho; conformidade final é do estatístico."
 argument-hint: "[--section NAME] [--into PATH | --out PATH] [--template PATH] [--lang pt-BR|en-US]"
 allowed-tools: Read Write Edit Glob Grep Bash(prumo write *) Bash(cat *)
 prumo:
@@ -85,17 +85,30 @@ prumo:
 >    o itálico é regra de pt-BR.
 <!-- prumo:prose:end -->
 
-Você é um bioestatístico escrevendo o PAE de um estudo de ML clínico.
-Estrutura padrão (TRIPOD+AI / SPIRIT-AI compatível). Se o estudo desenvolve ou avalia um LLM, reporte também conforme **TRIPOD-LLM** (Nat Med 2025). Para o desenho de ensaio, alinhe o reporting a **CONSORT 2025** (RCT) ou **DECIDE-AI** (avaliação clínica precoce de IA). Template default
+Você é um bioestatístico escrevendo o PAE de um estudo em saúde.
+Ajuste a estrutura ao `type` da pergunta do estudo (`.claude/question.toml`):
+
+| `type` | Plano |
+|---|---|
+| `clinical`, `experimental` | estimando, randomização ou alocação, análise primária, interinas, multiplicidade (SPIRIT 2025, ARRIVE 2.0 para animais) |
+| `observational` | confundimento (DAG), ajuste, dados faltantes, viés de seleção e de informação (STROBE) |
+| `prediction` | desenvolvimento e validação, calibração, splits sem vazamento (TRIPOD+AI) |
+| `review` | síntese, heterogeneidade, viés de publicação, certeza da evidência (PRISMA 2020, GRADE) |
+| `economic` | perspectiva, horizonte, desconto, análise de sensibilidade probabilística (CHEERS 2022) |
+| `computational` | cenários, validação, reprodutibilidade e sementes |
+| `mixed_methods` | a parte quantitativa aqui; a integração com a qualitativa em prosa |
+| `qualitative`, `theoretical`, `case_report` | não há PAE: diga isso e ofereça descrever a análise (temática, de conteúdo, framework) numa seção de `/par:write section` |
+
+Para estudo de ML, a estrutura padrão é TRIPOD+AI / SPIRIT-AI compatível. Se o estudo desenvolve ou avalia um LLM, reporte também conforme **TRIPOD-LLM** (Nat Med 2025). Para o desenho de ensaio, alinhe o reporting a **CONSORT 2025** (RCT) ou **DECIDE-AI** (avaliação clínica precoce de IA). Template default
 co-localizado: [`../templates/sap.md`](../templates/sap.md). Override por projeto:
 `<pj>/.claude/writing_templates/statistics.md`.
 
 ## Regras invioláveis
 
-1. **PicotSpec.outcome obrigatório** com métrica primária + threshold.
+1. **Desfecho primário obrigatório** (`elements.outcome` ou a hipótese da pergunta do estudo) com métrica ou estimador primário.
 2. **Sample size com cálculo formal** — sem chute. Cite ≥1 paper metodológico.
-3. **Métricas secundárias** sempre incluem calibração (ECE, Brier).
-4. **Análises de sensibilidade** explícitas pra MNAR + subgrupos demográficos.
+3. **Em predição**, métricas secundárias sempre incluem calibração (ECE, Brier).
+4. **Análises de sensibilidade** explícitas para dados faltantes (MNAR) e subgrupos pré-especificados.
 5. **Citação strict**, idêntica ao `write manuscript`.
 
 ## Fluxo
@@ -104,7 +117,7 @@ Mesmo fluxo do `write manuscript`, com `--kind statistics` (template = `../templ
 
 1. **Carregar inputs** — `prumo write prep --kind statistics --json > /tmp/compose_prep.json`.
    O JSON traz `language` + `language_source` (idioma já resolvido; declare ao usuário).
-   Usa `PicotSpec.outcome+metrics` e `protocol.md § Splits`.
+   Usa a pergunta do estudo (`question`) e `protocol.md`.
 2-4. Resolver template → gerar prose por section → validar citação strict (passos 2 e 3 do `manuscript`).
 5. **Escrever output** via `prumo write draft`:
    ```bash
