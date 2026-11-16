@@ -68,7 +68,7 @@ Regras:
   passa a ser "a primeira etapa não `done`, na ordem da tupla", e a ordem da tupla é a ordem
   da tabela. CLI, skill `start` e painel concordam por construção.
 - **`attention`** = etapa anterior à `current` com pendência que não bloqueia (hoje: extract
-  desatualizado). Traz `next` próprio. Etapas depois da `current` são `todo`.
+  desatualizado). Traz `next` próprio. Etapas depois da `current` são `todo` — *revisto em 2026-11-16*: depois da `current`, etapa feita é `done` (e `attention` quando tem pendência), só a não feita é `todo`; Leitura sem nenhum paper no acervo não está feita.
 - **"Diferente do esqueleto"** compara o arquivo com o template empacotado
   (`templates/modules/protocol/...`, resolvido por `core/paths.py`). Sem heurística de
   conteúdo.

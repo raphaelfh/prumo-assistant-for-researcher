@@ -117,6 +117,13 @@ def test_iter_scopes_ordena_e_ignora_arquivo(tmp_path: Path) -> None:
     assert [s.name for s in L.iter_scopes(root)] == ["a", "b"]
 
 
+def test_iter_scopes_ignora_pasta_oculta(tmp_path: Path) -> None:
+    root = _mk_project(tmp_path / "pj_x", "principal")
+    (root / "docs" / "studies" / ".claude").mkdir()
+    assert [s.name for s in L.iter_scopes(root)] == ["principal"]
+    assert L.find_scope_root(root) == root / "docs" / "studies" / "principal"
+
+
 def test_iter_scopes_sem_studies_devolve_vazio(tmp_path: Path) -> None:
     root = tmp_path / "pj_x"
     (root / ".claude").mkdir(parents=True)

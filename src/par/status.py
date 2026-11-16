@@ -301,6 +301,12 @@ def _library_check(library: LibraryStatus, registry: SkillRegistry | None) -> _C
 
 
 def _reading_check(extracts: ExtractStatus, registry: SkillRegistry | None) -> _Check:
+    if extracts.papers == 0:
+        # Sem paper no acervo não há o que ler: a etapa não está feita, e quem a
+        # destrava é o sync da bibliografia, não o extract.
+        why = "nenhum paper no acervo ainda — sincronize a bibliografia"
+        step = _step(SkillRef("paper", "library"), why, registry)
+        return _Check("reading", "Leitura", False, "nenhum paper no acervo", step)
     summary = (
         f"{extracts.pending} sem extract · {extracts.without_pdf} sem PDF"
         f" · {extracts.stale} desatualizado(s)"
@@ -405,11 +411,16 @@ def _scope_checks(
 
 
 def _stages(checks: list[_Check]) -> tuple[Stage, ...]:
-    """Dá estado às etapas: a primeira não feita é ``current`` (spec 2026-11-14)."""
+    """Dá estado às etapas: a primeira não feita é ``current`` (spec 2026-11-14).
+
+    Depois da ``current``, cada etapa mostra o próprio estado: feita é ``done`` (a
+    pesquisadora pode sincronizar a bibliografia antes de fechar a pergunta), não
+    feita é ``todo``.
+    """
     out: list[Stage] = []
     seen_current = False
     for c in checks:
-        if seen_current:
+        if seen_current and not c.done:
             out.append(Stage(c.id, c.title, "todo", c.summary, None, c.scope))
         elif not c.done:
             out.append(Stage(c.id, c.title, "current", c.summary, c.step, c.scope))

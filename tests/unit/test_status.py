@@ -278,6 +278,37 @@ def test_recem_criado_tem_pergunta_atual_e_o_resto_depois(tmp_path: Path) -> Non
     }
 
 
+def test_etapa_feita_depois_da_atual_aparece_feita(tmp_path: Path) -> None:
+    pj = _init(tmp_path)
+    _bib(pj, "a")
+    _paper(pj, "a", extract=True)
+    states = _states(project_status(pj))
+    assert states["question"] == "current"
+    assert states["library"] == "done"
+    assert states["reading"] == "done"
+    assert states["writing:principal"] == "todo"
+
+
+def test_leitura_sem_paper_no_acervo_nao_esta_feita(
+    tmp_path: Path, registry: SkillRegistry
+) -> None:
+    pj = _init(tmp_path)
+    _picot(pj)
+    _bib(pj, "a")
+    st = project_status(pj, registry=registry)
+    reading = next(s for s in st.stages if s.id == "reading")
+    assert reading.state == "current" and reading.summary == "nenhum paper no acervo"
+    assert st.next is not None and (st.next.skill, st.next.mode) == ("paper", "library")
+
+
+def test_pasta_oculta_em_studies_nao_vira_etapa(tmp_path: Path) -> None:
+    pj = _init(tmp_path)
+    (pj / "docs" / "studies" / ".claude").mkdir()
+    st = project_status(pj)
+    assert [s.slug for s in st.scopes] == ["principal"]
+    assert all(s.scope != ".claude" for s in st.stages)
+
+
 def test_extract_desatualizado_vira_atencao_sem_bloquear(
     tmp_path: Path, registry: SkillRegistry
 ) -> None:
