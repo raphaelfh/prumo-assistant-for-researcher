@@ -6,7 +6,8 @@ ADR-0029 — comparação ao vivo não pode mentir). Vive no topo do pacote, com
 continua sem importar ``domains/``.
 
 A ligação com o Zotero (autoexport do BBT) não é sinal daqui: só é observável por
-RPC e já é assunto do ``prumo doctor``.
+RPC e já é assunto do ``prumo doctor``. O que aparece é o registro que o
+``paper connect`` gravou em ``.claude/zotero.toml`` (ADR-0044), lido do disco.
 """
 
 from __future__ import annotations
@@ -27,6 +28,8 @@ from par.core.scaffold import is_pristine, module_writing_files
 from par.core.skills import SkillRef, SkillRegistry
 from par.domains.paper.callout import hash_template
 from par.domains.paper.connect import bib_is_placeholder
+from par.domains.paper.link import read_link, select_uri
+from par.domains.paper.schemas.v1 import ZoteroLink
 from par.domains.paper.sync import read_nota_yaml
 from par.domains.protocol.question_io import read_question
 from par.domains.write.export import EXT_BY_FORMAT, slugify
@@ -65,6 +68,8 @@ class LibraryStatus:
     entries: int
     placeholder: bool
     synced_at: str | None
+    #: Coleção do Zotero gravada pelo ``paper connect`` (ADR-0044); ``None`` sem registro.
+    zotero: ZoteroLink | None = None
 
 
 @dataclass(frozen=True)
@@ -150,13 +155,14 @@ class ProjectStatus:
 def _library(pj_root: Path) -> LibraryStatus:
     bib = pj_layout.bib_path(pj_root)
     if not bib.is_file():
-        return LibraryStatus(entries=0, placeholder=True, synced_at=None)
+        return LibraryStatus(entries=0, placeholder=True, synced_at=None, zotero=read_link(pj_root))
     entries = len(parse_bib(bib.read_text(encoding="utf-8")))
     mtime = datetime.fromtimestamp(bib.stat().st_mtime, tz=UTC)
     return LibraryStatus(
         entries=entries,
         placeholder=bib_is_placeholder(pj_root),
         synced_at=mtime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        zotero=read_link(pj_root),
     )
 
 
@@ -292,7 +298,9 @@ def _library_check(library: LibraryStatus, registry: SkillRegistry | None) -> _C
     done = not library.placeholder and library.entries > 0
     if done:
         synced = f" · sync {library.synced_at[:10]}" if library.synced_at else ""
-        summary = f"{library.entries} entrada(s){synced}"
+        z = library.zotero
+        source = f"{z.library} › {z.collection} · " if z else ""
+        summary = f"{source}{library.entries} entrada(s){synced}"
     else:
         summary = "vazia — conecte a coleção do Zotero"
     why = "a bibliografia do projeto está vazia — conecte a coleção do Zotero"
@@ -474,6 +482,10 @@ def project_status(
     )
 
 
+def _zotero_dict(link: ZoteroLink | None) -> dict[str, Any] | None:
+    return None if link is None else {**link.model_dump(), "select_uri": select_uri(link)}
+
+
 def status_to_dict(status: ProjectStatus) -> dict[str, Any]:
     """Payload JSON versionado (``ProjectStatus/v1``) — o que o ``start`` lê."""
 
@@ -483,7 +495,7 @@ def status_to_dict(status: ProjectStatus) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "project": str(status.project),
-        "library": asdict(status.library),
+        "library": {**asdict(status.library), "zotero": _zotero_dict(status.library.zotero)},
         "extracts": asdict(status.extracts),
         "question": asdict(status.picot),
         # chave anterior à ADR-0041, mantida para quem já lê o JSON

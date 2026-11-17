@@ -76,3 +76,22 @@ class SupportReport(BaseModel):
     schema_version: Literal["SupportReport/v1"] = "SupportReport/v1"
     page: str = Field(..., min_length=1)
     verdicts: list[SupportVerdict] = Field(default_factory=list)
+
+
+class ZoteroLink(BaseModel):
+    """Qual coleção do Zotero alimenta o ``.bib`` do projeto (ADR-0044).
+
+    Gravado em ``.claude/zotero.toml`` pelo ``prumo paper connect``. ``library_id`` +
+    ``collection_key`` são o identificador estável (sobrevivem a renomear e mover a
+    coleção); ``library`` e ``collection`` são os nomes no momento do registro.
+    """
+
+    schema_version: Literal["ZoteroLink/v1"] = "ZoteroLink/v1"
+    library: str = Field(..., min_length=1, description="Nome da biblioteca do Zotero")
+    library_id: int | None = Field(None, description="libraryID local do Zotero")
+    collection: str = Field(..., min_length=1, description="Caminho da coleção (pai/filha)")
+    collection_key: str | None = Field(None, description="Chave da coleção no Zotero")
+    linked_at: str = Field(..., description="ISO date YYYY-MM-DD do registro")
+    source: Literal["connect", "record"] = Field(
+        ..., description="connect = o PAR criou o autoexport; record = declarado depois"
+    )

@@ -45,6 +45,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -58,14 +59,10 @@ from par.core.deps import (
     zotero_base,
 )
 from par.domains.paper.errors import PaperError
+from par.domains.paper.link import PERSONAL_LIBRARY_ID, write_link
+from par.domains.paper.schemas.v1 import ZoteroLink
 
 BETTER_BIBLATEX_GUID = "f895aa0d-f28e-47fe-b247-2ea77c6ed583"
-
-#: ``id`` da biblioteca pessoal ("My Library") no Zotero — grupos têm ids
-#: próprios (2, 5, 6, ...). É o alvo default de ``--create`` sem ``--library``:
-#: criar no acervo pessoal é sempre menos invasivo que criar num grupo
-#: compartilhado com outras pessoas.
-PERSONAL_LIBRARY_ID = 1
 
 # Seam módulo-level pro courtesy poll — monkeypatchável em teste
 # (`monkeypatch.setattr(".../connect._sleep", lambda _s: None)`).
@@ -169,6 +166,9 @@ class CollectionRef:
     path: str  # ex. "Pesquisa/Colecao do estudo piloto1" (cadeia de pais)
     bbt_path: str  # ex. "/My Library/Pesquisa/Colecao do estudo piloto1"
     segments: tuple[str, ...]  # nomes CRUS: (library, pai, ..., filha)
+    #: Identificador estável, quando a coleção já existe (``None`` na planejada).
+    key: str | None = None
+    library_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -215,6 +215,10 @@ class ConnectResult:
     bib_path: Path
     exported: bool  # True se o bib deixou de ser placeholder dentro do poll
     created: bool = False  # True se a coleção nasceu nesta chamada (`--create`)
+
+
+class NotConnectedError(PaperError):
+    """``--record`` num projeto cujo ``.bib`` ainda é o placeholder."""
 
 
 class ZoteroOfflineError(PaperError):
@@ -305,6 +309,7 @@ def _collections_from(groups: list[Any]) -> list[CollectionRef]:
         if not isinstance(group, dict):
             continue
         lib_name = group.get("name")
+        lib_id = group.get("id")
         collections = group.get("collections")
         if not isinstance(lib_name, str) or not isinstance(collections, list):
             continue
@@ -350,6 +355,8 @@ def _collections_from(groups: list[Any]) -> list[CollectionRef]:
                     path=path,
                     bbt_path=f"/{lib_name}/{path}",
                     segments=(lib_name, *chain),
+                    key=c["key"] if isinstance(c.get("key"), str) else None,
+                    library_id=lib_id if isinstance(lib_id, int) else None,
                 )
             )
     return out
@@ -634,4 +641,48 @@ def connect_collection(
         _sleep(poll_interval)
         elapsed += poll_interval
 
+    _save_link(pj_path, ref, "connect", added=resp.get("result"))
     return ConnectResult(collection=ref, bib_path=bib, exported=exported, created=plan.will_create)
+
+
+def _save_link(
+    pj_path: Path, ref: CollectionRef, source: str, *, added: object = None
+) -> ZoteroLink:
+    """Grava ``.claude/zotero.toml``. ``added`` é o retorno do ``autoexport.add``.
+
+    O ``add`` devolve ``{libraryID, key, id}``: é a única fonte da chave quando a
+    coleção acabou de nascer (``--create``), e confirma a da que já existia.
+    """
+    key, library_id = ref.key, ref.library_id
+    if isinstance(added, dict):
+        if isinstance(added.get("key"), str):
+            key = added["key"]
+        if isinstance(added.get("libraryID"), int):
+            library_id = added["libraryID"]
+    link = ZoteroLink(
+        library=ref.library,
+        library_id=library_id,
+        collection=ref.path,
+        collection_key=key,
+        linked_at=date.today().isoformat(),
+        source="connect" if source == "connect" else "record",
+    )
+    write_link(pj_path, link)
+    return link
+
+
+def record_collection(pj_path: Path, name: str, *, library: str | None = None) -> ZoteroLink:
+    """Registra qual coleção alimenta um ``.bib`` JÁ conectado. Não muta o Zotero.
+
+    Para projeto conectado antes da ADR-0044 (ou à mão, na UI do Better BibTeX):
+    só lê ``user.groups`` para resolver a coleção e grava ``.claude/zotero.toml``.
+    ``autoexport.add`` nunca é chamado. O PAR não tem como conferir que o autoexport
+    existente aponta para essa coleção — o Better BibTeX não lista autoexports —,
+    por isso o registro sai com ``source="record"``.
+    """
+    if bib_is_placeholder(pj_path):
+        raise NotConnectedError(
+            "docs/references/_references.bib ainda está vazio: não há conexão para "
+            f'registrar. Conecte a coleção com: prumo paper connect "{name}"'
+        )
+    return _save_link(pj_path, find_collection(name, library=library), "record")
