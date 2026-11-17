@@ -329,6 +329,60 @@ def test_bibliografia_mostra_a_colecao_do_zotero_gravada(tmp_path: Path) -> None
     assert payload["select_uri"] == "zotero://select/library/collections/BBB"
 
 
+def _linked(tmp_path: Path) -> Path:
+    from par.domains.paper import link
+    from par.domains.paper.schemas.v1 import ZoteroLink
+
+    pj = _init(tmp_path)
+    _bib(pj, "a")
+    link.write_link(
+        pj,
+        ZoteroLink(
+            library="My Library",
+            library_id=1,
+            collection="Pesquisa",
+            collection_key="BBB",
+            linked_at="2026-11-16",
+            source="connect",
+        ),
+    )
+    return pj
+
+
+def test_live_avisa_quando_o_zotero_esta_em_outra_colecao(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj = _linked(tmp_path)
+    monkeypatch.setattr("par.status.selection_mismatch", lambda _link: "o Zotero está em X")
+    st = project_status(pj, live=True)
+    library = next(s for s in st.stages if s.id == "library")
+    assert library.summary.endswith("· ⚠ o Zotero está em X")
+    assert status_to_dict(st)["library"]["zotero_elsewhere"] == "o Zotero está em X"
+
+
+def test_sem_live_nao_fala_com_o_zotero(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pj = _linked(tmp_path)
+
+    def boom(_link: object) -> str:
+        raise AssertionError("status sem live não pode chamar o Zotero")
+
+    monkeypatch.setattr("par.status.selection_mismatch", boom)
+    st = project_status(pj)
+    assert status_to_dict(st)["library"]["zotero_elsewhere"] is None
+
+
+def test_live_sem_vinculo_nao_fala_com_o_zotero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pj = _init(tmp_path)
+
+    def boom(_link: object) -> str:
+        raise AssertionError("sem vínculo não há o que comparar")
+
+    monkeypatch.setattr("par.status.selection_mismatch", boom)
+    assert project_status(pj, live=True).library.zotero_elsewhere is None
+
+
 def test_pasta_oculta_em_studies_nao_vira_etapa(tmp_path: Path) -> None:
     pj = _init(tmp_path)
     (pj / "docs" / "studies" / ".claude").mkdir()

@@ -434,3 +434,38 @@ def test_doctor_projeto_recem_criado_nao_tem_referencia_obsoleta(tmp_path: Path)
     assert res.exit_code == 0, res.output
 
     assert _referencias(pj) == []
+
+
+def _doctor_with_link_check(tmp_path: Path, state: str) -> dict[str, object]:
+    from par.domains.paper.linkcheck import LinkCheck
+
+    pj = _project(tmp_path)
+    (pj / "docs" / "references" / "_references.bib").write_text(
+        "@article{x2020,\n  title = {T},\n}\n", encoding="utf-8"
+    )
+    check = LinkCheck(state, f"frase {state}")  # type: ignore[arg-type]
+    with (
+        patch("par.cli.check_external_deps", return_value=[]),
+        patch("par.cli.check_link", return_value=check),
+    ):
+        result = runner.invoke(app, ["doctor", str(pj), "--json"])
+    assert result.exit_code == 0, result.output
+    payload: dict[str, object] = json.loads(result.stdout)
+    return payload
+
+
+def test_doctor_avisa_vinculo_divergente(tmp_path: Path) -> None:
+    payload = _doctor_with_link_check(tmp_path, "drift")
+    assert "frase drift" in payload["warnings"]  # type: ignore[operator]
+    assert payload["zotero_link"] == {
+        "state": "drift",
+        "detail": "frase drift",
+        "only_zotero": 0,
+        "only_bib": 0,
+    }
+
+
+def test_doctor_cala_vinculo_ok_e_zotero_fechado(tmp_path: Path) -> None:
+    for state in ("ok", "unreachable"):
+        payload = _doctor_with_link_check(tmp_path / state, state)
+        assert f"frase {state}" not in payload["warnings"]  # type: ignore[operator]

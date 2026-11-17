@@ -7,12 +7,15 @@ continua sem importar ``domains/``.
 
 A ligação com o Zotero (autoexport do BBT) não é sinal daqui: só é observável por
 RPC e já é assunto do ``prumo doctor``. O que aparece é o registro que o
-``paper connect`` gravou em ``.claude/zotero.toml`` (ADR-0044), lido do disco.
+``paper connect`` gravou em ``.claude/zotero.toml`` (ADR-0044), lido do disco. A
+exceção é opt-in (``live=True``, ligado no CLI e na tool do painel): perguntar ao
+Zotero aberto qual coleção está selecionada, porque é nela que o Zotero Connector
+do navegador salva.
 """
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -30,6 +33,7 @@ from par.domains.paper.callout import hash_template
 from par.domains.paper.connect import bib_is_placeholder
 from par.domains.paper.link import read_link, select_uri
 from par.domains.paper.schemas.v1 import ZoteroLink
+from par.domains.paper.selection import selection_mismatch
 from par.domains.paper.sync import read_nota_yaml
 from par.domains.protocol.question_io import read_question
 from par.domains.write.export import EXT_BY_FORMAT, slugify
@@ -70,6 +74,8 @@ class LibraryStatus:
     synced_at: str | None
     #: Coleção do Zotero gravada pelo ``paper connect`` (ADR-0044); ``None`` sem registro.
     zotero: ZoteroLink | None = None
+    #: Aviso ao vivo: o Zotero aberto está em outra coleção (só com ``live=True``).
+    zotero_elsewhere: str | None = None
 
 
 @dataclass(frozen=True)
@@ -301,6 +307,8 @@ def _library_check(library: LibraryStatus, registry: SkillRegistry | None) -> _C
         z = library.zotero
         source = f"{z.library} › {z.collection} · " if z else ""
         summary = f"{source}{library.entries} entrada(s){synced}"
+        if library.zotero_elsewhere:
+            summary += f" · ⚠ {library.zotero_elsewhere}"
     else:
         summary = "vazia — conecte a coleção do Zotero"
     why = "a bibliografia do projeto está vazia — conecte a coleção do Zotero"
@@ -441,17 +449,25 @@ def _stages(checks: list[_Check]) -> tuple[Stage, ...]:
 
 
 def project_status(
-    start: Path, *, scope: str | None = None, registry: SkillRegistry | None = None
+    start: Path,
+    *,
+    scope: str | None = None,
+    registry: SkillRegistry | None = None,
+    live: bool = False,
 ) -> ProjectStatus:
     """Sinais do projeto que contém ``start`` e o próximo passo.
 
     ``registry`` dá a frase de cada modo; sem ele, ``say`` cai na própria invocação.
+    ``live=True`` acrescenta a única leitura fora do disco: com vínculo gravado, pergunta ao
+    Zotero aberto qual coleção está selecionada (1 s de timeout, silêncio sem resposta).
 
     Raises:
         PjRootNotFoundError: ``start`` fora de um ``pj_*``, ou ``scope`` inexistente.
     """
     pj_root = pj_layout.find_pj_root(start)
     library = _library(pj_root)
+    if live and library.zotero is not None:
+        library = replace(library, zotero_elsewhere=selection_mismatch(library.zotero))
     extracts = _extracts(pj_root)
     picot = _picot(pj_root)
     not_drafts = module_writing_files()
