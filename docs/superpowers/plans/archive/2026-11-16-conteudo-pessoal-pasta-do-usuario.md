@@ -2,7 +2,7 @@
 status: implemented
 verified: 2026-11-16
 verification_pending: "consulta livre: 1ª versão falhou (0/2); correção de 2026-11-17 (índice `knowledge` + passo no runtime) fez 2/2 tentarem e 1/2 ler a base; Cowork e claude.ai não verificados"
-release: "pendente — PATCH (ADR-0015)"
+release: "0.72.0"
 spec: "[[2026-11-16-conteudo-pessoal-fora-do-repo-design]]"
 adr: "[[adr/adr-0045-pasta-do-usuario]]"
 ---

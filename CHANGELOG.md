@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.72.0] - 2026-11-17
+
 ### Adicionado
 
 - **A Bibliografia mostra a coleção do Zotero** (ADR-0044). `prumo paper connect` grava
@@ -1718,7 +1720,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.6...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.0...HEAD
+[0.72.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.6...v0.72.0
 [0.71.6]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.5...v0.71.6
 [0.71.5]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.4...v0.71.5
 [0.71.4]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.3...v0.71.4
