@@ -174,25 +174,6 @@ def test_pkg_name_recusa_projeto_que_vira_vazio() -> None:
         scaffold.pkg_name("pj_")
 
 
-@pytest.mark.parametrize(
-    ("slug", "esperado"),
-    [
-        ("01_estudo", "estudo"),
-        ("mortalidade-uti", "mortalidade_uti"),
-        ("principal", "principal"),
-        ("02-triage-cohort", "triage_cohort"),
-    ],
-)
-def test_scope_pkg_name_normaliza_slug_de_escopo(slug: str, esperado: str) -> None:
-    """Slug de escrita é bom slug e não é identificador Python (ADR-0027, D3)."""
-    assert scaffold.scope_pkg_name(slug) == esperado
-
-
-def test_scope_pkg_name_recusa_slug_so_numerico() -> None:
-    with pytest.raises(PrumoError, match="não vira um nome de pacote Python válido"):
-        scaffold.scope_pkg_name("2024")
-
-
 def test_overlay_substitui_marcador_de_pacote_no_caminho(tmp_path: Path) -> None:
     template = tmp_path / "tpl"
     (template / "src" / scaffold.PKG_MARKER).mkdir(parents=True)

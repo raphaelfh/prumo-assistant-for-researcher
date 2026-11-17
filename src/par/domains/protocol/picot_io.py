@@ -2,14 +2,10 @@
 
 Usa ``tomllib`` (stdlib) pra leitura e ``tomli_w`` pra escrita. Validação via
 Pydantic (``PicotSpec/v1``) acontece no read; write pré-condiciona spec válido.
-
-Hash sha256[:8] do conteúdo serve pra detectar drift nos blocos delimitados
-dos destinos (``protocol.md``, ``project_guide.md``).
 """
 
 from __future__ import annotations
 
-import hashlib
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -49,15 +45,6 @@ def write_picot(pj_path: Path, spec: PicotSpec) -> Path:
     text = tomli_w.dumps(payload)
     path.write_text(text, encoding="utf-8")
     return path
-
-
-def picot_hash(pj_path: Path) -> str:
-    """sha256[:8] do conteúdo do TOML — usado em ``<!-- picot:begin hash=...-->``."""
-    path = picot_path(pj_path)
-    if not path.exists():
-        raise FileNotFoundError(f"{path} não encontrado.")
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    return digest[:8]
 
 
 def spec_to_toml_payload(spec: PicotSpec) -> dict[str, Any]:

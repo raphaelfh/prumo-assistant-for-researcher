@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from par.domains.protocol.picot_io import (
-    picot_hash,
     picot_path,
     read_picot,
     write_picot,
@@ -78,25 +77,6 @@ def test_read_validates(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError):
         read_picot(tmp_path)
-
-
-def test_picot_hash_stable(tmp_path: Path) -> None:
-    spec = _spec()
-    write_picot(tmp_path, spec)
-    h1 = picot_hash(tmp_path)
-    h2 = picot_hash(tmp_path)
-    assert h1 == h2
-    assert len(h1) == 8
-
-
-def test_picot_hash_changes_on_field_change(tmp_path: Path) -> None:
-    spec = _spec()
-    write_picot(tmp_path, spec)
-    h1 = picot_hash(tmp_path)
-    spec2 = spec.model_copy(update={"population": "NOVO"})
-    write_picot(tmp_path, spec2)
-    h2 = picot_hash(tmp_path)
-    assert h1 != h2
 
 
 def test_methodological_omits_picot_fields(tmp_path: Path) -> None:

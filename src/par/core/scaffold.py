@@ -44,10 +44,6 @@ PKG_MARKER = "__pkg__"
 #: ruído em `import` — some do nome do pacote (ADR-0027, D2).
 _PJ_PREFIX = "pj_"
 
-#: Prefixo numérico de slug de escopo (`01_estudo`, `02-triage`). Ordena
-#: a leitura em `docs/studies/` e não pode abrir um identificador Python.
-_NUMERIC_PREFIX_RE = re.compile(r"^\d+[_-]")
-
 #: Subárvore do ``pj_base`` que o ``update`` NÃO reflui. ``docs/studies/<slug>/``
 #: é do PROJETO — o slug é escolha do pesquisador —, e recopiar o ``principal``
 #: do template injetaria um escopo órfão: um projeto que tinha um escopo só
@@ -262,23 +258,6 @@ def pkg_name(project_name: str) -> str:
             f"O projeto {project_name!r} não é um nome de pacote Python válido "
             f"(viraria {candidate!r}). Renomeie o diretório para `pj_<letra>...`, "
             "usando apenas [a-z0-9_] e sem começar por dígito."
-        )
-    return candidate
-
-
-def scope_pkg_name(slug: str) -> str:
-    """Nome do subpacote a partir do slug de escopo (ADR-0027, D3).
-
-    ``01_estudo`` → ``estudo``; ``mortalidade-uti`` →
-    ``mortalidade_uti``. O slug de `docs/studies/` NÃO muda — a numeração
-    ordena a leitura e é ruído no import.
-    """
-    candidate = _NUMERIC_PREFIX_RE.sub("", slug).replace("-", "_")
-    if not candidate.isidentifier():
-        raise PrumoError(
-            f"O escopo {slug!r} não vira um nome de pacote Python válido "
-            f"(viraria {candidate!r}). Renomeie o escopo em `docs/studies/` para "
-            "que sobre ao menos uma letra depois do prefixo numérico."
         )
     return candidate
 
