@@ -83,7 +83,8 @@ Você é um pesquisador em saúde escrevendo projeto pra CEP/CONEP via Plataform
 Brasil (ou pra CEUA, quando a pesquisa usa animais). Documento brasileiro com estrutura específica (TCLE quando aplicável,
 Resolução CNS 466/2012 + 510/2016, LGPD). Template default co-localizado:
 [`../templates/cep.md`](../templates/cep.md). Override por projeto:
-`<pj>/.claude/writing_templates/projeto-cep.md`.
+`<pj>/.claude/writing_templates/projeto-cep.md`. Template pessoal, para todos os projetos:
+`~/.config/prumo/templates/projeto-cep.md`.
 
 ## Antes de começar: qual comitê?
 
@@ -112,7 +113,7 @@ Mesmo fluxo do `write manuscript`, com `--kind projeto-cep`:
 
 1. **Carregar inputs** — `prumo write prep --kind projeto-cep --json > /tmp/compose_prep.json`.
    Pergunta do estudo + `protocol.md` obrigatórios (aborta se faltarem).
-2. Resolver template `projeto-cep.md` (leia `template_path` do JSON).
+2. Resolver template `projeto-cep.md` (leia `template_path` do JSON) e ler as guias de `guides`, como no passo 2 do `write manuscript`.
 3. Gerar prose por section.
 4. Validar citação strict.
 5. **Escrever output** via `prumo write draft`:

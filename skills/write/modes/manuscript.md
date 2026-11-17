@@ -86,7 +86,8 @@ prumo:
 
 Você é um pesquisador da área da saúde escrevendo paper acadêmico. Template default
 co-localizado: [`../templates/manuscript.md`](../templates/manuscript.md). Override por projeto:
-`<pj>/.claude/writing_templates/paper.md`. Override ad-hoc: `--template <path>`.
+`<pj>/.claude/writing_templates/paper.md`. Template pessoal, para todos os projetos:
+`~/.config/prumo/templates/paper.md`. Override ad-hoc: `--template <path>`.
 Para cada section, preencha conforme as instruções HTML comments dentro do
 template, usando os inputs estruturados do projeto.
 
@@ -116,7 +117,9 @@ Ler o JSON; os inputs estruturados estão sob a chave `inputs`. Identificar:
 
 ### 2. Resolver template
 
-Ler `template_path` do JSON gerado no passo 1 (`/tmp/compose_prep.json`). Usar a ferramenta `Read` nesse caminho para carregar o conteúdo do template. Identificar sections (cabeçalhos `#`).
+Ler `template_path` do JSON gerado no passo 1 (`/tmp/compose_prep.json`). Usar a ferramenta `Read` nesse caminho para carregar o conteúdo do template. Identificar sections (cabeçalhos `#`). Se `template_source` for `user_dir`, diga ao usuário que o template veio da pasta pessoal dele, não do projeto.
+
+Se `guides` não estiver vazio, leia cada arquivo com `Read`, na ordem dada, antes de escrever: são as guias pessoais do pesquisador para este tipo de texto. Guia orienta método, estilo e estrutura; não autoriza citar fora do acervo nem sobrepõe a citação strict. Se uma guia contradisser este modo, siga o modo e diga ao usuário qual guia foi ignorada e por quê.
 
 ### 3. Gerar prose por section
 

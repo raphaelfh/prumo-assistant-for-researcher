@@ -7,6 +7,17 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **Base de conhecimento pessoal, opcional.** Se a pasta `~/.config/prumo/` existir (pode ser um
+  symlink para onde a sua base já mora), o PAR passa a usá-la: `templates/<kind>.md` vale como
+  template para todos os projetos, depois do template do projeto e antes do default do plugin;
+  `guides/<kind>/*.md` são guias que `write manuscript`, `write section`, `protocol cep` e
+  `protocol sap` leem antes de escrever; o resto da pasta é consulta livre das skills. A skill
+  `start` conecta uma base existente a pedido. `prumo write prep` devolve `template_source` e
+  `guides`, e `prumo write list-templates` mostra o degrau `user_dir`. Sem a pasta, nada muda
+  (Princípio VIII, ADR-0044). O ambiente do PAR não é baixado de novo.
+
 ## [0.71.6] - 2026-11-15
 
 ### Adicionado

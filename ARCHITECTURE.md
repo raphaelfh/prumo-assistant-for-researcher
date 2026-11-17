@@ -140,3 +140,4 @@ _meta.md ganha extracted_* (staleness por hash) e o bloco `_meta` de proveniênc
 - **Determinismo** — `agentic` | `deterministic` | `hybrid` (frontmatter `prumo.determinism`).
 - **Layout α** — `docs/references/papers/<citekey>/` com `_meta` e `_extract` (ADR-0008); `_annotations` e `note__*` como legado legível (ADR-0037).
 - **Bloco delimitado** — região machine-owned `<!-- x:begin -->…<!-- x:end -->` (ADR-0009).
+- **Pasta do usuário** — `~/.config/prumo/`, opcional: base de conhecimento pessoal fora de qualquer repo. O PAR reconhece `templates/<kind>.md` e `guides/<kind>/`; o resto é consulta livre das skills. Achada por `core/paths.py::user_dir` (ADR-0044).

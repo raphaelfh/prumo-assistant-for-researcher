@@ -57,6 +57,37 @@ def test_write_prep_emits_inputs_and_template(tmp_path: Path) -> None:
     out = _last_json(result.stdout)
     assert "inputs" in out
     assert "template_path" in out
+    assert out["template_source"] == "plugin_default"
+    assert out["guides"] == []
+
+
+def test_write_prep_e_list_templates_com_pasta_do_usuario(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pasta do usuário sintética (ADR-0044): template e guia chegam ao JSON."""
+    pj, scope = _pj_with_scope(tmp_path)
+    root = tmp_path / "xdg" / "prumo"
+    (root / "templates").mkdir(parents=True)
+    (root / "templates" / "paper.md").write_text(
+        "# Template sintético de teste\n", encoding="utf-8"
+    )
+    (root / "guides" / "paper").mkdir(parents=True)
+    (root / "guides" / "paper" / "estilo.md").write_text("Guia sintética\n", encoding="utf-8")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+
+    result = runner.invoke(
+        app, ["write", "prep", "--kind", "paper", "--path", str(scope), "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    out = _last_json(result.stdout)
+    assert out["template_source"] == "user_dir"
+    assert out["guides"] == [str(root / "guides" / "paper" / "estilo.md")]
+
+    listed = runner.invoke(app, ["write", "list-templates", str(pj), "--json"])
+    assert listed.exit_code == 0, listed.output
+    templates = _last_json(listed.stdout)
+    assert templates["paper"]["user_dir"] == str(root / "templates" / "paper.md")  # type: ignore[index]
+    assert templates["statistics"]["user_dir"] is None  # type: ignore[index]
 
 
 def test_write_prep_sem_path_da_raiz_do_projeto(

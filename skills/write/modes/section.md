@@ -86,7 +86,8 @@ prumo:
 
 Skill flexível pra geração que não se encaixa em paper/CEP/statistics. Template
 default co-localizado: [`../templates/section.md`](../templates/section.md) — minimal. Override por
-projeto: `<pj>/.claude/writing_templates/scientific.md`. Override ad-hoc:
+projeto: `<pj>/.claude/writing_templates/scientific.md`. Template pessoal, para todos os projetos:
+`~/.config/prumo/templates/scientific.md`. Override ad-hoc:
 `--template <path>`.
 
 ## Regras invioláveis
@@ -105,7 +106,7 @@ opcional; se ausente, gere a partir do seed/template):
    O JSON traz `language` + `language_source` (idioma já resolvido; declare ao usuário).
    Leia `inputs` + `template_path`. Use `--seed`/stdin como texto-base e `--section`
    pra focar uma seção, quando passados.
-2-4. Resolver template → gerar prose → validar citação strict (passos 2 e 3 do `manuscript`).
+2-4. Resolver template e ler as guias de `guides` → gerar prose → validar citação strict (passos 2 e 3 do `manuscript`).
 5. **Escrever output** via `prumo write draft`:
    ```bash
    cat <<'DRAFT' | prumo write draft \

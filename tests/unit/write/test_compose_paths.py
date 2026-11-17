@@ -8,6 +8,7 @@ import pytest
 
 from par.domains.write.compose import (
     compose_path,
+    guide_paths,
     resolve_template,
     template_candidates,
 )
@@ -119,7 +120,8 @@ def test_template_candidates_espelha_a_chain_de_resolve(tmp_path: Path) -> None:
     usava `skills/write-<kind>/template.md`.
     """
     candidates = template_candidates(pj_path=tmp_path, kind="paper")
-    assert set(candidates) == {"project_override", "plugin_default"}
+    assert list(candidates) == ["project_override", "user_dir", "plugin_default"]
+    assert candidates["user_dir"] is None  # sem pasta do usuário, o degrau não existe
     # sem override no projeto, o vencedor da chain é o default do plugin
     assert resolve_template(pj_path=tmp_path, kind="paper") == candidates["plugin_default"]
     assert candidates["plugin_default"] is not None
@@ -130,3 +132,90 @@ def test_template_candidates_espelha_a_chain_de_resolve(tmp_path: Path) -> None:
     override.write_text("# override\n", encoding="utf-8")
     assert resolve_template(pj_path=tmp_path, kind="paper") == override
     assert template_candidates(pj_path=tmp_path, kind="paper")["project_override"] == override
+
+
+def _user_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Pasta do usuário sintética (ADR-0044): ``$XDG_CONFIG_HOME/prumo``."""
+    root = tmp_path / "xdg" / "prumo"
+    root.mkdir(parents=True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    return root
+
+
+def _user_template(root: Path, kind: str = "paper") -> Path:
+    template = root / "templates" / f"{kind}.md"
+    template.parent.mkdir(parents=True, exist_ok=True)
+    template.write_text("# Template sintético de teste\n", encoding="utf-8")
+    return template
+
+
+def test_template_do_usuario_vence_o_do_plugin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    template = _user_template(_user_dir(tmp_path, monkeypatch))
+    pj = tmp_path / "pj_exemplo"
+    (pj / ".claude").mkdir(parents=True)
+
+    assert resolve_template(pj_path=pj, kind="paper") == template
+    assert template_candidates(pj_path=pj, kind="paper")["user_dir"] == template
+
+
+def test_template_do_projeto_vence_o_do_usuario(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _user_template(_user_dir(tmp_path, monkeypatch))
+    override = tmp_path / "pj_exemplo" / ".claude" / "writing_templates" / "paper.md"
+    override.parent.mkdir(parents=True)
+    override.write_text("# Template sintético do projeto\n", encoding="utf-8")
+
+    assert resolve_template(pj_path=tmp_path / "pj_exemplo", kind="paper") == override
+
+
+def test_pasta_do_usuario_sem_o_kind_cai_no_plugin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _user_template(_user_dir(tmp_path, monkeypatch), kind="statistics")
+
+    out = resolve_template(pj_path=tmp_path, kind="paper")
+    assert out.as_posix().endswith("write/templates/manuscript.md")
+
+
+def test_guias_so_do_kind_em_ordem(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = _user_dir(tmp_path, monkeypatch)
+    for rel in (
+        "guides/paper/b.md",
+        "guides/paper/a.md",
+        "guides/statistics/x.md",
+        "guides/solta.md",
+        "ml/formato.md",
+    ):
+        guide = root / rel
+        guide.parent.mkdir(parents=True, exist_ok=True)
+        guide.write_text("Guia sintética de teste\n", encoding="utf-8")
+
+    got = [g.relative_to(root).as_posix() for g in guide_paths("paper")]
+    # o resto da base é consulta livre, não leitura obrigatória
+    assert got == ["guides/paper/a.md", "guides/paper/b.md"]
+
+
+def test_sem_pasta_do_usuario_sem_guias() -> None:
+    assert guide_paths("paper") == ()
+
+
+def test_erro_sem_template_mostra_o_caminho_real_da_pasta_do_usuario(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A mensagem aponta ``$XDG_CONFIG_HOME/prumo``, não um ``~/.config`` fixo."""
+    from par.domains.write import compose
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setattr(
+        compose,
+        "template_candidates",
+        lambda **_: {"project_override": None, "user_dir": None, "plugin_default": None},
+    )
+
+    with pytest.raises(FileNotFoundError) as exc:
+        resolve_template(pj_path=tmp_path, kind="paper")
+
+    assert str(tmp_path / "xdg" / "prumo" / "templates" / "paper.md") in str(exc.value)

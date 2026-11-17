@@ -251,7 +251,7 @@ def list_templates_command(
     path: Annotated[Path, typer.Argument(help="Diretório do pj_*.")] = Path("."),
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Lista templates resolvíveis (project overrides + plugin defaults)."""
+    """Lista templates resolvíveis (projeto, pasta do usuário e default do plugin)."""
     with cli_run(json_mode=json_mode) as console:
         result: dict[str, dict[str, str | None]] = {}
         for kind in _WRITE_KINDS:
@@ -287,13 +287,17 @@ def prep_command(
             raise PrumoError(f"--kind deve ser um de {list(_WRITE_KINDS)}.")
         scope = pj_layout.find_scope_root(path.resolve())
         result = compose.prep(scope, kind=cast(WriteKind, kind), lang=lang)
+        guides = f", {len(result.guides)} guia(s) pessoal(is)" if result.guides else ""
         console.success(
-            f"Contexto pronto (template {result.template_path.name}, idioma {result.language})."
+            f"Contexto pronto (template {result.template_path.name}, "
+            f"idioma {result.language}{guides})."
         )
         console.emit(
             {
                 "inputs": result.inputs.model_dump(mode="json"),
                 "template_path": str(result.template_path),
+                "template_source": result.template_source,
+                "guides": [str(g) for g in result.guides],
                 "language": result.language,
                 "language_source": result.language_source,
             }

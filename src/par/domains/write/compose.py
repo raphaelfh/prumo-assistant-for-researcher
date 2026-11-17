@@ -5,7 +5,9 @@ Funções:
 - ``read_inputs`` — carrega ``ComposeInputs`` lendo ``.claude/question.toml``,
   ``references/_references.bib``, callouts ``_extract.md``, ``protocol.md``,
   ``project_guide.md``, ``findings/*.md``.
-- ``resolve_template`` — chain ``--template`` > ``.claude/writing_templates/`` > skill bundle.
+- ``resolve_template`` — chain ``--template`` > ``.claude/writing_templates/`` > pasta do
+  usuário (``~/.config/prumo/templates/``, ADR-0044) > skill bundle.
+- ``guide_paths`` — guias de leitura obrigatória da pasta do usuário, por ``kind``.
 - ``resolve_language`` — cascata de idioma (ADR-0021): trava de gênero > flag >
   ``[writing].language`` > default.
 - ``compose_path`` — resolve output path por modo (drafts/into/out).
@@ -27,7 +29,7 @@ from par.core.bib import extract_field, extract_year, parse_bib
 from par.core.citations import scan_citekeys
 from par.core.markdown import set_frontmatter_key
 from par.core.note_paths import extract_path
-from par.core.paths import find_resource
+from par.core.paths import find_resource, user_dir, user_dir_location
 from par.core.provenance import build_meta
 from par.core.skills import SkillManifest, load_skill_registry
 from par.domains.write.errors import WriteError
@@ -67,6 +69,11 @@ class WritePrep:
     template_path: Path
     language: str
     language_source: str
+    #: Rótulo do candidato vencedor em ``template_candidates`` — diz se o template
+    #: veio do projeto, da pasta do usuário ou do plugin.
+    template_source: str
+    #: Guias de leitura obrigatória da pasta do usuário (ADR-0044).
+    guides: tuple[Path, ...] = ()
 
 
 def _mode_for_kind(kind: WriteKind) -> SkillManifest | None:
@@ -142,11 +149,14 @@ def prep(scope: Path, *, kind: WriteKind, lang: str | None = None) -> WritePrep:
     """
     pj_path = pj_layout.find_pj_root(scope)
     language, language_source = resolve_language(pj_path, kind=kind, lang=lang)
+    template_source, template_path = _winning_template(pj_path=pj_path, kind=kind)
     return WritePrep(
         inputs=read_inputs(scope),
-        template_path=resolve_template(pj_path=pj_path, kind=kind),
+        template_path=template_path,
         language=language,
         language_source=language_source,
+        template_source=template_source,
+        guides=guide_paths(kind),
     )
 
 
@@ -249,18 +259,44 @@ _VALID_KINDS = ("paper", "projeto-cep", "statistics", "scientific")
 
 
 def template_candidates(*, pj_path: Path, kind: WriteKind) -> dict[str, Path | None]:
-    """Candidatos a template de ``kind``, na ordem da chain (override > plugin).
+    """Candidatos a template de ``kind``, na ordem da chain (projeto > usuário > plugin).
 
     Fonte única dos caminhos: ``resolve_template`` escolhe o primeiro que existe e
-    ``write list-templates`` reporta os dois. O default do plugin mora ao lado do
+    ``write list-templates`` reporta os três. O projeto vence a pasta do usuário
+    (ADR-0044) porque é o que reproduz o estudo. O default do plugin mora ao lado do
     modo que declara o ``kind``: ``skills/<skill>/templates/<modo>.md``.
     """
     mode = _mode_for_kind(kind)
     plugin_default = mode.path.parent.parent / "templates" / f"{mode.name}.md" if mode else None
+    personal = user_dir()
     return {
         "project_override": pj_path / ".claude" / "writing_templates" / f"{kind}.md",
+        "user_dir": personal / "templates" / f"{kind}.md" if personal else None,
         "plugin_default": plugin_default,
     }
+
+
+def _winning_template(*, pj_path: Path, kind: WriteKind) -> tuple[str, Path]:
+    """Rótulo e caminho do primeiro candidato que existe."""
+    for label, candidate in template_candidates(pj_path=pj_path, kind=kind).items():
+        if candidate is not None and candidate.exists():
+            return label, candidate
+    raise FileNotFoundError(
+        f"Nenhum template '{kind}' encontrado. Crie "
+        f".claude/writing_templates/{kind}.md (só este projeto) ou "
+        f"{user_dir_location() / 'templates' / f'{kind}.md'} (todos os projetos), "
+        "ou passe --template."
+    )
+
+
+def guide_paths(kind: WriteKind) -> tuple[Path, ...]:
+    """Guias de leitura obrigatória para ``kind``: ``guides/<kind>/*.md`` da pasta do usuário.
+
+    Em ordem alfabética. O resto da base de conhecimento é consulta livre da skill,
+    não passa por aqui (ADR-0044).
+    """
+    personal = user_dir()
+    return () if personal is None else tuple(sorted((personal / "guides" / kind).glob("*.md")))
 
 
 def resolve_template(
@@ -269,20 +305,14 @@ def resolve_template(
     kind: WriteKind,
     explicit: Path | None = None,
 ) -> Path:
-    """Resolve template via fallback chain ``explicit > project > plugin``."""
+    """Resolve template via fallback chain ``explicit > project > user > plugin``."""
     if kind not in _VALID_KINDS:
         raise ValueError(f"kind inválido '{kind}'; esperado um de {list(_VALID_KINDS)}")
     if explicit is not None:
         if not explicit.exists():
             raise FileNotFoundError(f"--template {explicit} não existe.")
         return explicit
-    for candidate in template_candidates(pj_path=pj_path, kind=kind).values():
-        if candidate is not None and candidate.exists():
-            return candidate
-    raise FileNotFoundError(
-        f"Nenhum template '{kind}' encontrado. Crie "
-        f".claude/writing_templates/{kind}.md ou passe --template."
-    )
+    return _winning_template(pj_path=pj_path, kind=kind)[1]
 
 
 def compose_path(
