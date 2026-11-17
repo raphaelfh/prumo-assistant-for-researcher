@@ -113,7 +113,7 @@ Mesmo fluxo do `write manuscript`, com `--kind projeto-cep`:
 
 1. **Carregar inputs** — `prumo write prep --kind projeto-cep --json > /tmp/compose_prep.json`.
    Pergunta do estudo + `protocol.md` obrigatórios (aborta se faltarem).
-2. Resolver template `projeto-cep.md` (leia `template_path` do JSON) e ler as guias de `guides`, como no passo 2 do `write manuscript`.
+2. Resolver template `projeto-cep.md` (leia `template_path` do JSON) e ler as guias de `guides` e os arquivos pertinentes do índice `knowledge`, como no passo 2 do `write manuscript`.
 3. Gerar prose por section.
 4. Validar citação strict.
 5. **Escrever output** via `prumo write draft`:

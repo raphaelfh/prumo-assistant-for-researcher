@@ -119,7 +119,7 @@ Mesmo fluxo do `write manuscript`, com `--kind statistics` (template = `../templ
 1. **Carregar inputs** — `prumo write prep --kind statistics --json > /tmp/compose_prep.json`.
    O JSON traz `language` + `language_source` (idioma já resolvido; declare ao usuário).
    Usa a pergunta do estudo (`question`) e `protocol.md`.
-2-4. Resolver template e ler as guias de `guides` → gerar prose por section → validar citação strict (passos 2 e 3 do `manuscript`).
+2-4. Resolver template e ler as guias de `guides` e os arquivos pertinentes do índice `knowledge` → gerar prose por section → validar citação strict (passos 2 e 3 do `manuscript`).
 5. **Escrever output** via `prumo write draft`:
    ```bash
    cat <<'DRAFT' | prumo write draft \

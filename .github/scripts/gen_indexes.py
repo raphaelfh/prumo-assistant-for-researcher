@@ -411,8 +411,10 @@ def render_runtime() -> str:
         "- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`. Sem tool de subagent no host, leia o "
         "agent e siga-o você mesmo.\n"
         "- Base de conhecimento do pesquisador: `~/.config/prumo/` (ou "
-        "`$XDG_CONFIG_HOME/prumo/`), se existir. Consulte-a (liste as pastas, leia o que for pertinente) quando a tarefa envolver redação, "
-        "método, análise de dados ou machine learning, e diga ao usuário qual arquivo usou."
+        "`$XDG_CONFIG_HOME/prumo/`), se existir. Em pergunta ou tarefa de redação, método, "
+        "análise de dados ou machine learning, ANTES de responder liste a base (`ls -R`), leia "
+        "os arquivos pertinentes e diga ao usuário qual usou, ou que nenhum era pertinente. Nos "
+        "modos que rodam `prumo write prep`, o índice já vem em `knowledge` (caminho e título)."
     )
 
 

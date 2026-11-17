@@ -59,6 +59,7 @@ def test_write_prep_emits_inputs_and_template(tmp_path: Path) -> None:
     assert "template_path" in out
     assert out["template_source"] == "plugin_default"
     assert out["guides"] == []
+    assert out["knowledge"] == []
 
 
 def test_write_prep_e_list_templates_com_pasta_do_usuario(
@@ -73,6 +74,8 @@ def test_write_prep_e_list_templates_com_pasta_do_usuario(
     )
     (root / "guides" / "paper").mkdir(parents=True)
     (root / "guides" / "paper" / "estilo.md").write_text("Guia sintética\n", encoding="utf-8")
+    (root / "analise").mkdir()
+    (root / "analise" / "cox.md").write_text("# Cox (sintético)\n", encoding="utf-8")
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
 
     result = runner.invoke(
@@ -82,6 +85,9 @@ def test_write_prep_e_list_templates_com_pasta_do_usuario(
     out = _last_json(result.stdout)
     assert out["template_source"] == "user_dir"
     assert out["guides"] == [str(root / "guides" / "paper" / "estilo.md")]
+    assert out["knowledge"] == [
+        {"path": str(root / "analise" / "cox.md"), "title": "Cox (sintético)"}
+    ]
 
     listed = runner.invoke(app, ["write", "list-templates", str(pj), "--json"])
     assert listed.exit_code == 0, listed.output

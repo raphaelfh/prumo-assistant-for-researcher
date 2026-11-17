@@ -348,6 +348,9 @@ def test_render_runtime_anuncia_a_base_de_conhecimento(gen: ModuleType) -> None:
     out = gen.render_runtime()
     assert "Base de conhecimento do pesquisador" in out
     assert "`~/.config/prumo/` (ou `$XDG_CONFIG_HOME/prumo/`)" in out
+    # passo explícito antes de responder, e o índice do prep nos modos que o usam
+    assert "ANTES de responder" in out
+    assert "`knowledge`" in out
 
 
 def test_render_runtime_cobre_os_tres_hosts(gen: ModuleType) -> None:

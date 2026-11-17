@@ -121,6 +121,8 @@ Ler `template_path` do JSON gerado no passo 1 (`/tmp/compose_prep.json`). Usar a
 
 Se `guides` não estiver vazio, leia cada arquivo com `Read`, na ordem dada, antes de escrever: são as guias pessoais do pesquisador para este tipo de texto. Guia orienta método, estilo e estrutura; não autoriza citar fora do acervo nem sobrepõe a citação strict. Se uma guia contradisser este modo, siga o modo e diga ao usuário qual guia foi ignorada e por quê.
 
+Se `knowledge` não estiver vazio, é o índice da base de conhecimento pessoal (caminho e título). Escolha pelo título os arquivos pertinentes a este texto, leia-os com `Read` e diga ao usuário quais usou; se nenhum for pertinente, diga isso em uma linha. Valem as mesmas restrições das guias.
+
 ### 3. Gerar prose por section
 
 Para cada section do template (ou só `--section` se passado), formule prose seguindo:

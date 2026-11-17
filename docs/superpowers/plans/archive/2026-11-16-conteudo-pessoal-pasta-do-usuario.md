@@ -1,7 +1,7 @@
 ---
 status: implemented
 verified: 2026-11-16
-verification_pending: "consulta à parte livre da base numa sessão real (Task 5, Step 6): verificada em 2026-11-17 e FALHOU (0 de 2 sessões consultaram a base)"
+verification_pending: "consulta livre: 1ª versão falhou (0/2); correção de 2026-11-17 (índice `knowledge` + passo no runtime) fez 2/2 tentarem e 1/2 ler a base; Cowork e claude.ai não verificados"
 release: "pendente — PATCH (ADR-0015)"
 spec: "[[2026-11-16-conteudo-pessoal-fora-do-repo-design]]"
 adr: "[[adr/adr-0044-pasta-do-usuario]]"
@@ -31,6 +31,16 @@ adr: "[[adr/adr-0044-pasta-do-usuario]]"
 > a consulta livre. Ela só existe com skill ativa e, mesmo ativa, compete com o resto do modo.
 > Caminhos determinísticos (`list-templates`, `prep` com `guides`) seguem funcionando. Amostra
 > pequena (n=2), mas os dois casos falharam pelo mesmo motivo.
+>
+> **Correção e nova verificação (2026-11-17).** `write prep` passou a devolver `knowledge` (índice
+> de caminho e título da parte livre, teto 200) e a linha do `prumo:runtime` virou passo explícito
+> ("ANTES de responder liste a base"). Mesmos dois prompts, mesma base sintética: (1) o modo `sap`
+> tentou `ls -R ~/.config/prumo`, mas o comando com pipe exigiu aprovação no modo headless e foi
+> negado; além disso o modelo usou o caminho literal e ignorou `XDG_CONFIG_HOME`, então numa base
+> em outro lugar não acharia nada. (2) `write section` rodou o `prep`, leu os dois arquivos da base
+> pelo índice e disse ao usuário que nenhum era pertinente ao desfecho binário. Resultado: 2 de 2
+> tentaram consultar e 1 de 2 leu de fato; a falha restante é de permissão do teste e de caminho
+> fora do padrão. Base em `~/.config/prumo/` (o padrão) é o caso coberto.
 
 # Conteúdo pessoal fora do repo — base de conhecimento na pasta do usuário: plano de implementação
 

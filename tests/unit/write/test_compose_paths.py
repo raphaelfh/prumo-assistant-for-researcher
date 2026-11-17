@@ -7,8 +7,10 @@ from pathlib import Path
 import pytest
 
 from par.domains.write.compose import (
+    KNOWLEDGE_INDEX_MAX,
     compose_path,
     guide_paths,
+    knowledge_index,
     resolve_template,
     template_candidates,
 )
@@ -200,6 +202,44 @@ def test_guias_so_do_kind_em_ordem(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
 def test_sem_pasta_do_usuario_sem_guias() -> None:
     assert guide_paths("paper") == ()
+
+
+def test_indice_da_base_lista_a_parte_livre_com_titulo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A parte livre da base vira índice determinístico (ADR-0044, correção de 2026-11-17)."""
+    root = _user_dir(tmp_path, monkeypatch)
+    files = {
+        "analise/tempo.md": "# Tempo até evento (sintético)\n\ncorpo\n",
+        "ml/validacao.md": "sem título aqui\n",
+        "templates/paper.md": "# Template\n",
+        "guides/paper/a.md": "# Guia\n",
+        ".oculto/x.md": "# Oculto\n",
+        "analise/dados.csv": "a,b\n",
+    }
+    for rel, text in files.items():
+        f = root / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(text, encoding="utf-8")
+
+    got = [(e.path.relative_to(root).as_posix(), e.title) for e in knowledge_index()]
+    # templates/ e guides/ já têm caminho próprio; oculto e não-Markdown ficam de fora
+    assert got == [
+        ("analise/tempo.md", "Tempo até evento (sintético)"),
+        ("ml/validacao.md", "validacao"),
+    ]
+
+
+def test_indice_da_base_tem_teto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = _user_dir(tmp_path, monkeypatch)
+    (root / "notas").mkdir(parents=True)
+    for i in range(KNOWLEDGE_INDEX_MAX + 5):
+        (root / "notas" / f"n{i:04d}.md").write_text("x\n", encoding="utf-8")
+    assert len(knowledge_index()) == KNOWLEDGE_INDEX_MAX
+
+
+def test_sem_pasta_do_usuario_sem_indice() -> None:
+    assert knowledge_index() == ()
 
 
 def test_erro_sem_template_mostra_o_caminho_real_da_pasta_do_usuario(

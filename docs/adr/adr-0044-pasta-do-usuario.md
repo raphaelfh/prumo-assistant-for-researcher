@@ -15,14 +15,14 @@ O repo é público e não pode carregar conteúdo pessoal. O mantenedor quer con
 3. **Duas pastas têm significado:** `templates/<kind>.md` e `guides/<kind>/*.md`, com o vocabulário de `kind` que já existe. O resto da base é livre.
 4. **Templates:** a cadeia passa a ser `--template` > projeto > pasta do usuário > plugin. O projeto vence porque é mais específico e é o que reproduz o estudo.
 5. **Guias obrigatórias:** `write prep` devolve `guides/<kind>/` em `guides`; o PAR só lista, a skill lê.
-6. **Consulta livre:** o bloco gerado `prumo:runtime` de todas as skills ganha uma linha que avisa da base e manda consultá-la quando pertinente. Sem código.
+6. **Consulta livre:** `write prep` devolve `knowledge`, o índice (caminho e título do primeiro `# `) de todo `*.md` da base fora de `templates/` e `guides/`, com teto de 200; os modos escolhem pelo título e leem. O bloco gerado `prumo:runtime` de todas as skills manda listar a base antes de responder pergunta de redação, método, análise ou ML. A primeira versão, só com a linha de aviso, falhou em sessão real (0 de 2 consultaram a base).
 7. **O nome é "pasta do usuário" (`user_dir`)**, não "overlay", que já designa a cópia do `pj_base` e os módulos do `prumo add`.
 
 ## Consequências
 
 - Um template pessoal serve a todos os projetos sem cópia; o projeto que precisa congelá-lo copia para `.claude/writing_templates/`.
 - Um draft pode depender de um arquivo que não está no projeto, e o `_meta` ainda não registra isso (adiado, com trigger na spec).
-- Leitura obrigatória só existe nos modos que passam pelo `write prep`. Nos demais, e para o resto da base, a consulta depende do julgamento da skill: é barata, mas não garantida.
+- Leitura obrigatória só existe nos modos que passam pelo `write prep`. Nos demais, e para o resto da base, a consulta depende de a skill seguir o passo do `prumo:runtime`: é barata, mas não garantida.
 - A base só é anunciada com uma skill do PAR ativa; sessão de código ou de ML sem skill não a vê (adiado, com trigger na spec).
 - Fora do computador (Cowork, chat do claude.ai) o alcance não foi verificado.
 - Skills e agents pessoais não passam por aqui: são assunto de plugin privado, sem mudança neste repo.

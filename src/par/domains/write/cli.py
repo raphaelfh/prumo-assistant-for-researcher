@@ -298,6 +298,7 @@ def prep_command(
                 "template_path": str(result.template_path),
                 "template_source": result.template_source,
                 "guides": [str(g) for g in result.guides],
+                "knowledge": [{"path": str(e.path), "title": e.title} for e in result.knowledge],
                 "language": result.language,
                 "language_source": result.language_source,
             }

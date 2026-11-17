@@ -8,6 +8,7 @@ Funções:
 - ``resolve_template`` — chain ``--template`` > ``.claude/writing_templates/`` > pasta do
   usuário (``~/.config/prumo/templates/``, ADR-0044) > skill bundle.
 - ``guide_paths`` — guias de leitura obrigatória da pasta do usuário, por ``kind``.
+- ``knowledge_index`` — índice (caminho + título) da parte livre da pasta do usuário.
 - ``resolve_language`` — cascata de idioma (ADR-0021): trava de gênero > flag >
   ``[writing].language`` > default.
 - ``compose_path`` — resolve output path por modo (drafts/into/out).
@@ -74,6 +75,16 @@ class WritePrep:
     template_source: str
     #: Guias de leitura obrigatória da pasta do usuário (ADR-0044).
     guides: tuple[Path, ...] = ()
+    #: Índice da parte livre da pasta do usuário; a skill escolhe o que ler.
+    knowledge: tuple[KnowledgeEntry, ...] = ()
+
+
+@dataclass(frozen=True)
+class KnowledgeEntry:
+    """Um arquivo da parte livre da pasta do usuário: caminho e título."""
+
+    path: Path
+    title: str
 
 
 def _mode_for_kind(kind: WriteKind) -> SkillManifest | None:
@@ -157,6 +168,7 @@ def prep(scope: Path, *, kind: WriteKind, lang: str | None = None) -> WritePrep:
         language_source=language_source,
         template_source=template_source,
         guides=guide_paths(kind),
+        knowledge=knowledge_index(),
     )
 
 
@@ -297,6 +309,46 @@ def guide_paths(kind: WriteKind) -> tuple[Path, ...]:
     """
     personal = user_dir()
     return () if personal is None else tuple(sorted((personal / "guides" / kind).glob("*.md")))
+
+
+#: Teto do índice: a base pode ser grande, e o JSON do ``prep`` vai inteiro para o contexto.
+KNOWLEDGE_INDEX_MAX = 200
+
+#: Pastas da base com caminho próprio (template e guias); ficam fora do índice livre.
+_KNOWLEDGE_SKIP = frozenset({"templates", "guides"})
+
+
+def _md_title(path: Path) -> str:
+    """Primeiro cabeçalho ``# `` nas 20 primeiras linhas, ou o nome do arquivo."""
+    try:
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            for _, line in zip(range(20), fh, strict=False):
+                if line.startswith("# "):
+                    return line[2:].strip()
+    except OSError:
+        pass
+    return path.stem
+
+
+def knowledge_index() -> tuple[KnowledgeEntry, ...]:
+    """Índice da parte livre da pasta do usuário: todo ``*.md`` fora de ``templates/`` e ``guides/``.
+
+    Ordem alfabética do caminho relativo, sem arquivos ou pastas ocultos, com teto
+    :data:`KNOWLEDGE_INDEX_MAX`. O PAR só lista; a skill escolhe pelo título o que ler.
+    Existe porque uma linha de prosa avisando da base não bastou numa sessão real (ADR-0044).
+    """
+    personal = user_dir()
+    if personal is None:
+        return ()
+    entries: list[KnowledgeEntry] = []
+    for path in sorted(personal.rglob("*.md")):
+        parts = path.relative_to(personal).parts
+        if parts[0] in _KNOWLEDGE_SKIP or any(p.startswith(".") for p in parts):
+            continue
+        entries.append(KnowledgeEntry(path=path, title=_md_title(path)))
+        if len(entries) == KNOWLEDGE_INDEX_MAX:
+            break
+    return tuple(entries)
 
 
 def resolve_template(
