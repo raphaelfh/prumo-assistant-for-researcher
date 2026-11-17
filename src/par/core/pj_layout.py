@@ -121,11 +121,15 @@ def find_scope_root(start: Path) -> Path:
 
 
 def iter_scopes(pj_root: Path) -> list[Path]:
-    """Lista os escopos do projeto, em ordem alfabética."""
+    """Lista os escopos do projeto, em ordem alfabética.
+
+    Pastas ocultas não são escopo: o Claude Code cria ``.claude/`` em qualquer pasta
+    onde uma sessão foi aberta, e o Finder/Zettlr deixam as suas.
+    """
     studies = pj_root / STUDIES_RELPATH
     if not studies.is_dir():
         return []
-    return sorted(p for p in studies.iterdir() if p.is_dir())
+    return sorted(p for p in studies.iterdir() if p.is_dir() and not p.name.startswith("."))
 
 
 def references_dir(pj_root: Path) -> Path:

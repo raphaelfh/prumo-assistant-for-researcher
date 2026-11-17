@@ -7,6 +7,15 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Corrigido
+
+- **Painel "Projeto" mostrava `.claude` como estudo.** Pasta oculta em `docs/studies/` (o
+  Claude Code cria `.claude/` onde uma sessão é aberta) virava escopo, com etapas "Escrita
+  (.claude)" no painel e no `prumo status`. Pastas que começam com `.` não são mais escopo.
+- **Etapas feitas apareciam como "por fazer".** Toda etapa depois da atual ficava ○, mesmo com a
+  bibliografia sincronizada ou a leitura em dia. Agora cada uma mostra ✓ (ou !) pelo próprio
+  estado. Leitura sem nenhum paper no acervo não conta mais como feita e aponta para o sync.
+
 ## [0.71.6] - 2026-11-15
 
 ### Adicionado
