@@ -7,6 +7,23 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **A Bibliografia mostra a coleção do Zotero** (ADR-0044). `prumo paper connect` grava
+  biblioteca e coleção em `.claude/zotero.toml` (`ZoteroLink/v1`), e o painel "Projeto" e o
+  `prumo status` passam a mostrar "<biblioteca> › <coleção> · N entrada(s)". `ProjectStatus/v1`
+  ganha `library.zotero` (Princípio IV).
+- **`prumo paper connect "<coleção>" --record`.** Para projeto conectado antes desta versão:
+  registra a coleção sem mexer no Zotero. Rode uma vez para o painel mostrar a coleção.
+
+### Alterado
+
+- **Painel "Projeto" com cartão de próximo passo e etapas agrupadas.** O próximo passo sai da
+  lista e vira um cartão no topo, com a etapa, o motivo e a frase inteira (o botão cortava a
+  frase); "Usar esta frase" preenche o prompt. As etapas aparecem em dois grupos, "Projeto"
+  (Pergunta, Bibliografia, Leitura) e "Estudo · <escopo>" (Protocolo, Escrita, Revisão, Entrega),
+  sem repetir o escopo em cada linha. Com tudo em dia, o cartão diz "Nada pendente".
+
 ### Corrigido
 
 - **Painel "Projeto" mostrava `.claude` como estudo.** Pasta oculta em `docs/studies/` (o

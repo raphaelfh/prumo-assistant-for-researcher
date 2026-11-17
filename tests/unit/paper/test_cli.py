@@ -514,3 +514,42 @@ def test_paper_extract_secao_errada_falha_com_instrucao(tmp_path: Path) -> None:
     result = runner.invoke(app, args, input=json.dumps({"Sumario": "x"}))
     assert result.exit_code == 1
     assert "Resumo" in result.output
+
+
+def test_paper_connect_record_registra_sem_conectar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from par.domains.paper.schemas.v1 import ZoteroLink
+
+    called: list[str] = []
+
+    def fake_record(pj: Path, name: str, *, library: str | None = None) -> ZoteroLink:
+        called.append(name)
+        return ZoteroLink(
+            library="My Library",
+            library_id=1,
+            collection="Pesquisa",
+            collection_key="AAA",
+            linked_at="2026-11-16",
+            source="record",
+        )
+
+    def no_connect(*_a: object, **_k: object) -> None:
+        raise AssertionError("--record não pode chamar connect_collection")
+
+    monkeypatch.setattr("par.domains.paper.connect.record_collection", fake_record)
+    monkeypatch.setattr("par.domains.paper.connect.connect_collection", no_connect)
+    result = runner.invoke(
+        app, ["paper", "connect", "Pesquisa", "--record", "--path", str(tmp_path)]
+    )
+    assert result.exit_code == 0, result.output
+    assert called == ["Pesquisa"]
+    assert "o Zotero não foi alterado" in _norm(result.output)
+
+
+def test_paper_connect_record_com_create_e_recusado(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app, ["paper", "connect", "X", "--record", "--create", "--path", str(tmp_path)]
+    )
+    assert result.exit_code != 0
+    assert "não combina com --create" in _norm(result.output)

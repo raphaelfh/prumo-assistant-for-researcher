@@ -228,6 +228,11 @@ Passos:
    prumo paper sync
    ```
    Se `exported` vier `false`, repasse a dica do comando (o BBT pode levar alguns segundos; BBT ≥ 9.0.65).
+7. O `connect` grava a coleção em `.claude/zotero.toml`; é o que o `prumo status` e o painel "Projeto" mostram. Projeto conectado antes disso (o comando recusa com "já tem entradas") e o usuário quer ver ou corrigir a coleção mostrada: registre sem mexer no Zotero:
+   ```bash
+   prumo paper connect "X" --record
+   ```
+   O comando não confere o export automático; repasse o pedido de conferir no Zotero.
 
 Regras duras:
 

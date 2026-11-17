@@ -28,6 +28,7 @@ from par.domains.paper import (
 )
 from par.domains.paper import prep as paper_prep
 from par.domains.paper.callout import apply_extraction, parse_extract_payload
+from par.domains.paper.errors import PaperError
 
 paper_app = typer.Typer(
     name="paper",
@@ -237,6 +238,13 @@ def connect_command(
     yes: Annotated[
         bool, typer.Option("--yes", "-y", help="Não pergunta antes de criar (só com --create).")
     ] = False,
+    record: Annotated[
+        bool,
+        typer.Option(
+            "--record",
+            help="Só REGISTRA a coleção de um projeto já conectado; não mexe no Zotero.",
+        ),
+    ] = False,
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Conecta a coleção do Zotero: cria o export automático do BBT → docs/references/_references.bib."""
@@ -244,6 +252,23 @@ def connect_command(
         json_mode=json_mode,
         exit_codes={connect.ZoteroOfflineError: 2, connect.CreationDeclinedError: 130},
     ) as console:
+        if record:
+            if create:
+                raise PaperError(
+                    "--record só registra uma coleção que já existe; não combina com "
+                    "--create. Rode um dos dois."
+                )
+            saved = connect.record_collection(path.resolve(), collection, library=library)
+            console.success(
+                f"coleção '{saved.collection}' ({saved.library}) registrada em "
+                ".claude/zotero.toml — o Zotero não foi alterado."
+            )
+            console.info(
+                "  O PAR não consegue conferir o export automático: confirme no Zotero "
+                "(Settings → Better BibTeX → Automatic export) que é esta a coleção."
+            )
+            console.emit(saved.model_dump())
+            return
         confirm = _make_creation_confirm(console, yes=yes, json_mode=json_mode) if create else None
         r = connect.connect_collection(
             path.resolve(), collection, library=library, create=create, confirm=confirm

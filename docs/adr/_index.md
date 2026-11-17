@@ -51,4 +51,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0041-pergunta-do-estudo]] — A pergunta do estudo é o artefato principal; PICOT e os demais frameworks são opcionais · proposto
 - [[adr/adr-0042-modulo-protocol]] — Módulo `protocol` substitui `clinical`, que vira apelido · proposto
 - [[adr/adr-0043-painel-de-etapas]] — Painel "Projeto": etapas do estudo calculadas no Python, desenhadas pelo mod · proposto
+- [[adr/adr-0044-vinculo-zotero-gravado]] — O `connect` grava qual coleção do Zotero alimenta o projeto · proposto
 <!-- prumo:adr-index:end -->

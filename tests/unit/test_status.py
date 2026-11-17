@@ -301,6 +301,34 @@ def test_leitura_sem_paper_no_acervo_nao_esta_feita(
     assert st.next is not None and (st.next.skill, st.next.mode) == ("paper", "library")
 
 
+def test_bibliografia_mostra_a_colecao_do_zotero_gravada(tmp_path: Path) -> None:
+    from par.domains.paper import link
+    from par.domains.paper.schemas.v1 import ZoteroLink
+
+    pj = _init(tmp_path)
+    _bib(pj, "a")
+    library = next(s for s in project_status(pj).stages if s.id == "library")
+    assert "›" not in library.summary
+
+    link.write_link(
+        pj,
+        ZoteroLink(
+            library="My Library",
+            library_id=1,
+            collection="Pesquisa/Colecao do estudo piloto1",
+            collection_key="BBB",
+            linked_at="2026-11-16",
+            source="connect",
+        ),
+    )
+    st = project_status(pj)
+    library = next(s for s in st.stages if s.id == "library")
+    assert library.summary.startswith("My Library › Pesquisa/Colecao do estudo piloto1 · 1 entrada")
+    payload = status_to_dict(st)["library"]["zotero"]
+    assert payload["collection_key"] == "BBB"
+    assert payload["select_uri"] == "zotero://select/library/collections/BBB"
+
+
 def test_pasta_oculta_em_studies_nao_vira_etapa(tmp_path: Path) -> None:
     pj = _init(tmp_path)
     (pj / "docs" / "studies" / ".claude").mkdir()

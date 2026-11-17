@@ -140,6 +140,14 @@ test('o painel desenha uma linha por etapa e um botão no próximo passo, em tod
       expect(await ui.find({ type: 'Text', text: new RegExp(title) })).toBeDefined()
     }
     expect(await ui.find({ type: 'Button', key: 'next-writing-demo' })).toBeUndefined()
+    // cartão do próximo passo: etapa, motivo e a frase inteira, fora do botão
+    expect(await ui.find({ type: 'Text', text: /Próximo passo · Leitura/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /2 paper\(s\) com PDF e sem extract/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: new RegExp(NEXT.say) })).toBeDefined()
+    // etapas agrupadas: as do projeto e as de cada estudo, sem "(escopo)" na linha
+    expect(await ui.find({ type: 'Text', text: /^Projeto$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^Estudo · demo$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /\(demo\)/ })).toBeUndefined()
     await ui.press({ key: 'next-reading' })
     await ui.unmount()
   }
@@ -285,5 +293,29 @@ test('Atualizar mostra a hora da última leitura e avisa que rodou', async ($, o
   expect((await ui.find({ type: 'Text', text: /Atualizado às/ }))?.text).toMatch(/\d\d:\d\d:\d\d/)
   await ui.press({ key: 'refresh' })
   expect(toasts).toEqual(['Projeto atualizado.'])
+  await ui.unmount()
+})
+
+test('sem nada pendente o cartão diz isso e não oferece frase', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'projeto' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.cwd', () => ({ value: '/pj' }))
+  on('mcp.connect', () => ({ value: { isConnected: true, server: 'plugin:par:prumo' } }))
+  on('mcp.call', () =>
+    ok({
+      ...STATUS,
+      next: null,
+      stages: STATUS.stages.map(stage => ({ ...stage, state: 'done', next: null })),
+    }),
+  )
+
+  await $.session.start({ cwd: '/pj', surface: 'desktop', isInteractive: true })
+  await $.command.run(PROJETO)
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /Nada pendente/ })).toBeDefined()
+  expect(await ui.find({ type: 'Button', key: 'next-reading' })).toBeUndefined()
   await ui.unmount()
 })
