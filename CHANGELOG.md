@@ -15,6 +15,17 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   ganha `library.zotero` (Princípio IV).
 - **`prumo paper connect "<coleção>" --record`.** Para projeto conectado antes desta versão:
   registra a coleção sem mexer no Zotero. Rode uma vez para o painel mostrar a coleção.
+- **`prumo paper connect --selected`** (ADR-0044). Clique na coleção do projeto no Zotero e
+  conecte sem digitar o nome; vale com `--record`, e a tool MCP `paper_connect` ganha
+  `selected`. Usa o servidor do conector do Zotero, sem o toggle "Allow other applications".
+  Só coleção que existe chega ao `autoexport.add`, então não há coleção-fantasma.
+- **O `prumo doctor` confere o vínculo com o Zotero.** Com o Zotero aberto, puxa a coleção
+  gravada pelo Better BibTeX e avisa quando as citekeys diferem das do `.bib`, quando a coleção
+  sumiu ou quando o vínculo não tem a chave. O payload ganha `zotero_link`.
+- **Aviso de coleção errada no Zotero.** O painel "Projeto" e o `prumo status` avisam "o Zotero
+  está em …" quando a coleção selecionada no Zotero não é a do projeto, porque é nela que o
+  Zotero Connector do navegador salva os papers. `ProjectStatus/v1` ganha
+  `library.zotero_elsewhere` (Princípio IV).
 
 ### Alterado
 

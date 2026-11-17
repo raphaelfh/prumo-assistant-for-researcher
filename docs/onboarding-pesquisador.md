@@ -108,6 +108,13 @@ exportar, marcar a opção de manter atualizado e apontar para o
 `docs/references/_references.bib` certo dentro do projeto) — um fio fácil de
 errar.
 
+Se a coleção já está selecionada no Zotero, nem precisa dizer o nome: clique
+nela na coluna da esquerda do Zotero e peça "conecta a coleção que está aberta
+no Zotero" (por trás, `prumo paper connect --selected`). Depois de conectar,
+deixe essa coleção selecionada quando salvar papers pelo Zotero Connector do
+navegador: é nela que ele salva, e o painel "Projeto" avisa quando o Zotero
+está em outra.
+
 Digitar o nome errado é seguro: o comando confere se a coleção existe
 **antes** de qualquer mudança no Zotero, então um typo só gera uma mensagem
 de erro com sugestões parecidas — nada é criado no Zotero por engano. Se o

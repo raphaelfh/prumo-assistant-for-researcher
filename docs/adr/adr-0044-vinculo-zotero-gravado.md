@@ -16,12 +16,17 @@ O Princípio VIII manda preferir a implementação com menos estado persistido, 
 2. `prumo paper connect "<coleção>" --record` registra a coleção de um projeto já conectado. Só lê `user.groups` e nunca chama `autoexport.add`, então as guardas anti-fantasma da ADR-0020 e da ADR-0028 não são tocadas. Sai com `source = "record"`, porque o PAR não consegue conferir o autoexport existente.
 3. `ProjectStatus/v1` ganha `library.zotero` (opcional), e o resumo da etapa Bibliografia mostra biblioteca e coleção. O `status` continua só leitura.
 4. Arquivo ausente ou inválido é "sem vínculo". Nada bloqueia por causa dele.
-5. Rejeitados: usar `autoexport.add` como sonda (dispara export e pode criar autoexport e coleção), ler as preferências do Zotero por fora (formato interno) e a API local (toggle). A tool MCP `paper_connect` não ganha `record`: registrar é raro e fica no CLI.
+5. **A coleção selecionada no Zotero** (emenda do mesmo dia, antes da aceitação). O servidor do conector (`POST /connector/getSelectedCollection`, o endpoint do Zotero Connector do navegador) responde sem o toggle e diz qual coleção está selecionada, com a árvore de coleções. `prumo paper connect --selected` (e a tool `paper_connect` com `selected`) usa essa coleção no lugar do nome; ela é casada com o `user.groups` pelo caminho na mesma biblioteca, então só coleção existente chega ao `autoexport.add`, e a Guarda 1 continua antes de qualquer rede. Vale com `--record`.
+6. **O `doctor` confere o vínculo** pelo pull export do Better BibTeX endereçado pela chave (`/better-bibtex/export/collection?/<libraryID>/<KEY>.biblatex`, só leitura): citekeys diferentes, coleção que o BBT não acha mais ou vínculo sem chave viram aviso, sem mudar o exit.
+7. **O `status` avisa quando o Zotero aberto está em outra coleção**, porque é nela que o Connector salva. É a única leitura fora do disco do `status`: opt-in (`live=True`, ligado no CLI e na tool `project_status`), só com vínculo gravado, 1 s de timeout e silêncio sem resposta. `ProjectStatus/v1` ganha `library.zotero_elsewhere` (opcional).
+8. Rejeitados: usar `autoexport.add` como sonda (dispara export e pode criar autoexport e coleção), ler as preferências do Zotero por fora (formato interno) e a API local (toggle). A tool MCP `paper_connect` não ganha `record`: registrar é raro e fica no CLI.
 
 ## Consequências
 
 A pesquisadora vê no painel de onde vem a bibliografia. Projeto conectado antes desta ADR não mostra nada até rodar `--record` uma vez.
 
-É estado novo, e pode envelhecer: trocar o autoexport na UI do Better BibTeX não atualiza o arquivo. O remédio previsto é conferir pelo pull export do Better BibTeX endereçado pela chave, no `doctor`, sem mutar o Zotero; fica fora deste corte, com a chave já gravada para isso.
+É estado novo, e pode envelhecer: trocar o autoexport na UI do Better BibTeX não atualiza o arquivo. O `doctor` acusa isso pelo pull export (decisão 6); a correção é `--selected --record`.
+
+O `status` deixa de ser só disco quando chamado com `live=True`; os testes usam o default, sem rede. O painel faz uma chamada ao conector por turno, local e com timeout curto.
 
 O arquivo entra no git do projeto com o nome da coleção, que é dado do projeto e não deste repo.

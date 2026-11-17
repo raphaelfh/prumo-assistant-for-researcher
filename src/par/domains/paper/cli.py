@@ -23,6 +23,7 @@ from par.domains.paper import (
     lint,
     migrate,
     pdfs,
+    selection,
     sync,
     verify,
 )
@@ -218,11 +219,33 @@ def _make_creation_confirm(
     return confirm
 
 
+def _check_connect_args(
+    collection: str | None, *, selected: bool, create: bool, library: str | None
+) -> None:
+    """Nome da coleção OU ``--selected``; ``--selected`` não combina com ``--create``/``--library``."""
+    if selected and collection is not None:
+        raise PaperError(
+            f"use o nome da coleção ou --selected, não os dois. Rode: prumo paper connect "
+            f'"{collection}" ou prumo paper connect --selected'
+        )
+    if selected and (create or library is not None):
+        raise PaperError(
+            "--selected usa a coleção que já está selecionada no Zotero: não combina com "
+            "--create nem com --library. Rode: prumo paper connect --selected"
+        )
+    if not selected and collection is None:
+        raise PaperError(
+            'diga qual coleção: prumo paper connect "<nome da coleção>", ou clique nela no '
+            "Zotero e rode: prumo paper connect --selected"
+        )
+
+
 @paper_app.command("connect")
 def connect_command(
     collection: Annotated[
-        str, typer.Argument(help="Nome da coleção no Zotero (case-insensitive).")
-    ],
+        str | None,
+        typer.Argument(help="Nome da coleção no Zotero (case-insensitive). Ou use --selected."),
+    ] = None,
     library: Annotated[
         str | None,
         typer.Option("--library", help="Desambigua quando o nome existe em mais de uma library."),
@@ -245,6 +268,13 @@ def connect_command(
             help="Só REGISTRA a coleção de um projeto já conectado; não mexe no Zotero.",
         ),
     ] = False,
+    selected: Annotated[
+        bool,
+        typer.Option(
+            "--selected",
+            help="Usa a coleção selecionada agora no Zotero aberto, no lugar do nome.",
+        ),
+    ] = False,
     json_mode: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Conecta a coleção do Zotero: cria o export automático do BBT → docs/references/_references.bib."""
@@ -252,13 +282,18 @@ def connect_command(
         json_mode=json_mode,
         exit_codes={connect.ZoteroOfflineError: 2, connect.CreationDeclinedError: 130},
     ) as console:
+        _check_connect_args(collection, selected=selected, create=create, library=library)
         if record:
             if create:
                 raise PaperError(
                     "--record só registra uma coleção que já existe; não combina com "
                     "--create. Rode um dos dois."
                 )
-            saved = connect.record_collection(path.resolve(), collection, library=library)
+            if selected:
+                saved = connect.record_resolved(path.resolve(), selection.resolve_selected)
+            else:
+                assert collection is not None  # garantido por _check_connect_args
+                saved = connect.record_collection(path.resolve(), collection, library=library)
             console.success(
                 f"coleção '{saved.collection}' ({saved.library}) registrada em "
                 ".claude/zotero.toml — o Zotero não foi alterado."
@@ -269,10 +304,16 @@ def connect_command(
             )
             console.emit(saved.model_dump())
             return
-        confirm = _make_creation_confirm(console, yes=yes, json_mode=json_mode) if create else None
-        r = connect.connect_collection(
-            path.resolve(), collection, library=library, create=create, confirm=confirm
-        )
+        if selected:
+            r = connect.connect_resolved(path.resolve(), selection.resolve_selected)
+        else:
+            assert collection is not None  # garantido por _check_connect_args
+            confirm = (
+                _make_creation_confirm(console, yes=yes, json_mode=json_mode) if create else None
+            )
+            r = connect.connect_collection(
+                path.resolve(), collection, library=library, create=create, confirm=confirm
+            )
         console.success(
             f"coleção '{r.collection.path}' ({r.collection.library}) "
             f"{'CRIADA e conectada' if r.created else 'conectada'} → {r.bib_path}"

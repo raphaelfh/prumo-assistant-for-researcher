@@ -76,6 +76,7 @@ from par.core.skills import SkillRef, bundled_skill_registry, load_skill_registr
 from par.domains.capture.cli import capture_command
 from par.domains.paper.cli import paper_app
 from par.domains.paper.connect import bib_is_placeholder
+from par.domains.paper.linkcheck import check_link
 from par.domains.protocol.cli import protocol_app
 from par.domains.wiki.cli import wiki_app
 from par.domains.write.cli import write_app
@@ -686,6 +687,11 @@ def doctor_command(
             "docs/references/_references.bib ainda é o placeholder do scaffold — "
             'conecte sua coleção do Zotero: prumo paper connect "<nome da coleção>"'
         )
+    # Vínculo gravado conferido pelo pull export (emenda da ADR-0044). Zotero fechado
+    # já aparece na linha de dependências; "ok" não precisa de frase.
+    link_check = check_link(target)
+    if link_check is not None and link_check.state in ("drift", "missing", "unverifiable"):
+        warnings.append(link_check.detail)
 
     payload = {
         "project": str(target),
@@ -693,6 +699,7 @@ def doctor_command(
         "issues": issues,
         "warnings": warnings,
         "external_deps": [d.as_dict() for d in deps],
+        "zotero_link": asdict(link_check) if link_check is not None else None,
         "version": __version__,
     }
     if issues:
@@ -900,7 +907,9 @@ def status_command(
 ) -> None:
     """Onde o estudo está e qual a próxima frase dizer ao agente. Só lê o disco."""
     with cli_run(json_mode=json_mode) as console:
-        result = project_status(path.resolve(), scope=scope, registry=bundled_skill_registry())
+        result = project_status(
+            path.resolve(), scope=scope, registry=bundled_skill_registry(), live=True
+        )
         console.result(render_status(result), status_to_dict(result))
 
 

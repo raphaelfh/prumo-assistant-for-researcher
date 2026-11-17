@@ -224,12 +224,13 @@ def test_paper_connect_mcp_nao_expoe_create() -> None:
     `paper_connect` já muta o Zotero real do pesquisador; um parâmetro
     `create` neste caminho deixaria um agente materializar coleções no
     acervo sem ninguém no meio. A fachada MCP fica com a assinatura de
-    leitura-resolvida: `pj_path`, `collection`, `library`.
+    leitura-resolvida: `pj_path`, `collection`, `library` e `selected` (a coleção
+    selecionada no Zotero, que já existe por definição).
     """
     import inspect
 
     params = set(inspect.signature(mcp_server.paper_connect).parameters)
-    assert params == {"pj_path", "collection", "library"}
+    assert params == {"pj_path", "collection", "library", "selected"}
     assert "create" not in params
 
 
@@ -506,3 +507,33 @@ def test_project_list_mostra_os_pj_de_uma_pasta_de_trabalho(tmp_path: Path) -> N
 
 def test_project_list_sem_projeto_devolve_lista_vazia(tmp_path: Path) -> None:
     assert mcp_server.project_list(str(tmp_path)) == {"projects": []}
+
+
+def test_paper_connect_mcp_selected_usa_a_selecao(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from par.domains.paper import connect, selection
+
+    ref = connect.CollectionRef(
+        library="My Library",
+        path="Pesquisa",
+        bbt_path="/My Library/Pesquisa",
+        segments=("My Library", "Pesquisa"),
+        key="AAA",
+        library_id=1,
+    )
+    seen: list[object] = []
+
+    def fake(pj: Path, resolve: object, **_k: object) -> connect.ConnectResult:
+        seen.append(resolve)
+        return connect.ConnectResult(collection=ref, bib_path=pj / "x.bib", exported=True)
+
+    monkeypatch.setattr("par.domains.paper.api.connect_resolved", fake)
+    out = mcp_server.paper_connect(str(tmp_path), selected=True)
+    assert seen == [selection.resolve_selected]
+    assert out["collection"] == "Pesquisa"
+
+
+def test_paper_connect_mcp_sem_nome_nem_selected_recusa(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="selected"):
+        mcp_server.paper_connect(str(tmp_path))

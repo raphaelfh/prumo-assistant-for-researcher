@@ -204,7 +204,7 @@ Passos:
 
 Liga o `.bib` do projeto a uma coleção do Zotero via autoexport do Better BibTeX. Normalmente é rodado uma única vez, logo depois de `prumo init`.
 
-Quando o usuário pedir algo como "conecta minha coleção X" (ou "liga meu projeto na coleção X do Zotero"):
+Quando o usuário pedir algo como "conecta minha coleção X" (ou "liga meu projeto na coleção X do Zotero"). Se ele disser que a coleção está selecionada no Zotero ("a que está aberta no Zotero", "essa que eu cliquei"), use `--selected` no lugar do nome (passo 2b).
 
 Passos:
 
@@ -213,6 +213,11 @@ Passos:
    ```bash
    prumo paper connect "X"
    ```
+   2b. Com a coleção selecionada no Zotero, sem digitar o nome:
+   ```bash
+   prumo paper connect --selected
+   ```
+   Se o comando responder que a biblioteca inteira está selecionada, peça ao usuário que clique na coleção do projeto na coluna da esquerda do Zotero e repita. `--selected` não combina com nome, `--create` nem `--library`.
 3. Se o CLI responder que o nome é ambíguo (mesma coleção em mais de uma biblioteca), rodar de novo acrescentando `--library`:
    ```bash
    prumo paper connect "X" --library "<nome da biblioteca>"
@@ -232,7 +237,8 @@ Passos:
    ```bash
    prumo paper connect "X" --record
    ```
-   O comando não confere o export automático; repasse o pedido de conferir no Zotero.
+   (ou `prumo paper connect --selected --record`, com a coleção selecionada no Zotero). O comando não confere o export automático; repasse o pedido de conferir no Zotero.
+8. Avisos que aparecem depois do connect: o `prumo doctor` confere o vínculo pelo Better BibTeX e avisa quando o `.bib` difere da coleção gravada; o `prumo status` e o painel avisam "o Zotero está em …" quando a coleção selecionada no Zotero não é a do projeto, porque é nela que o Zotero Connector do navegador salva. Repasse o aviso; o remédio é clicar na coleção certa no Zotero (ou, se a bibliografia mudou mesmo de coleção, `prumo paper connect --selected --record`).
 
 Regras duras:
 

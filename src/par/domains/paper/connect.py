@@ -606,6 +606,50 @@ def connect_collection(
     Só depois disso ``autoexport.add`` é chamado — nunca antes. Não há
     desfazer: ver o docstring do módulo.
     """
+    _ensure_placeholder(pj_path)
+    plan = plan_connection(name, library=library, create=create)
+
+    if plan.will_create and confirm is not None and not confirm(plan):
+        raise CreationDeclinedError(
+            f"criação de '{plan.collection.bbt_path}' cancelada — NADA foi criado."
+        )
+    return _add_and_link(
+        pj_path,
+        plan.collection,
+        created=plan.will_create,
+        poll_timeout=poll_timeout,
+        poll_interval=poll_interval,
+    )
+
+
+def connect_resolved(
+    pj_path: Path,
+    resolve: Callable[[], CollectionRef],
+    *,
+    poll_timeout: float = 10.0,
+    poll_interval: float = 0.5,
+) -> ConnectResult:
+    """Como :func:`connect_collection`, mas a coleção vem de ``resolve``, não de um nome.
+
+    ``resolve`` só roda depois da Guarda 1 (local), para que nada fale com o Zotero num
+    projeto já conectado. A coleção tem que EXISTIR: uma referência sem ``key`` é planejada,
+    não resolvida, e o ``autoexport.add`` a criaria — recusa antes. É o caminho do
+    ``--selected`` (``selection.resolve_selected``).
+    """
+    _ensure_placeholder(pj_path)
+    ref = resolve()
+    if ref.key is None:
+        raise CollectionNotFoundError(
+            f"a coleção '{ref.bbt_path}' não foi confirmada no Zotero — NADA foi criado. "
+            f'Rode: prumo paper connect "{_last_segment(ref.path)}"'
+        )
+    return _add_and_link(
+        pj_path, ref, created=False, poll_timeout=poll_timeout, poll_interval=poll_interval
+    )
+
+
+def _ensure_placeholder(pj_path: Path) -> None:
+    """Guarda 1: recusa se o ``.bib`` já tem entradas. Local, antes de qualquer rede."""
     if not bib_is_placeholder(pj_path):
         raise AlreadyConnectedError(
             "docs/references/_references.bib já tem entradas: conectar agora poderia "
@@ -613,14 +657,16 @@ def connect_collection(
             "Zotero: Settings → Better BibTeX → Automatic export), rode: prumo paper sync"
         )
 
-    plan = plan_connection(name, library=library, create=create)
 
-    if plan.will_create and confirm is not None and not confirm(plan):
-        raise CreationDeclinedError(
-            f"criação de '{plan.collection.bbt_path}' cancelada — NADA foi criado."
-        )
-
-    ref = plan.collection
+def _add_and_link(
+    pj_path: Path,
+    ref: CollectionRef,
+    *,
+    created: bool,
+    poll_timeout: float,
+    poll_interval: float,
+) -> ConnectResult:
+    """``autoexport.add`` + poll de cortesia + ``.claude/zotero.toml``. Só depois das guardas."""
     bib = pj_layout.bib_path(pj_path)
     resp = _rpc("autoexport.add", [ref.bbt_path, BETTER_BIBLATEX_GUID, str(bib.resolve())])
     if "error" in resp:
@@ -642,7 +688,7 @@ def connect_collection(
         elapsed += poll_interval
 
     _save_link(pj_path, ref, "connect", added=resp.get("result"))
-    return ConnectResult(collection=ref, bib_path=bib, exported=exported, created=plan.will_create)
+    return ConnectResult(collection=ref, bib_path=bib, exported=exported, created=created)
 
 
 def _save_link(
@@ -680,9 +726,26 @@ def record_collection(pj_path: Path, name: str, *, library: str | None = None) -
     existente aponta para essa coleção — o Better BibTeX não lista autoexports —,
     por isso o registro sai com ``source="record"``.
     """
+    return record_resolved(
+        pj_path,
+        lambda: find_collection(name, library=library),
+        connect_cmd=f'prumo paper connect "{name}"',
+    )
+
+
+def record_resolved(
+    pj_path: Path,
+    resolve: Callable[[], CollectionRef],
+    *,
+    connect_cmd: str = "prumo paper connect --selected",
+) -> ZoteroLink:
+    """Como :func:`record_collection`, com a coleção vinda de ``resolve`` (ex.: ``--selected``).
+
+    ``resolve`` só roda depois da checagem local do ``.bib``. Não muta o Zotero.
+    """
     if bib_is_placeholder(pj_path):
         raise NotConnectedError(
             "docs/references/_references.bib ainda está vazio: não há conexão para "
-            f'registrar. Conecte a coleção com: prumo paper connect "{name}"'
+            f"registrar. Conecte a coleção com: {connect_cmd}"
         )
-    return _save_link(pj_path, find_collection(name, library=library), "record")
+    return _save_link(pj_path, resolve(), "record")

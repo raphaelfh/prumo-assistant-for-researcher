@@ -82,7 +82,7 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 
 - (nenhum)
 
-**Plans arquivados:** 47 em `superpowers/plans/archive/`
+**Plans arquivados:** 48 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->
