@@ -367,11 +367,6 @@ def list_collections() -> list[CollectionRef]:
     return _collections_from(_fetch_groups())
 
 
-def list_libraries() -> list[LibraryRef]:
-    """Lista as bibliotecas (pessoal + grupos) via ``user.groups``."""
-    return _libraries_from(_fetch_groups())
-
-
 def _scoped_refs(refs: list[CollectionRef], library: str | None) -> list[CollectionRef]:
     """Filtra por biblioteca ANTES de contar matches (``--library`` desambigua)."""
     if library is None:

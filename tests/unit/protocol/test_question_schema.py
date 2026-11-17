@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 from pydantic import ValidationError
 
 from par.domains.protocol.schemas.v1 import (
     FRAMEWORK_ELEMENTS,
-    QUESTION_TYPES,
     PicotSpec,
     QuestionSpec,
+    QuestionType,
     question_from_picot,
 )
 
@@ -88,7 +88,7 @@ def test_methodological_requires_contribution_condition_hypothesis() -> None:
 
 
 def test_every_type_is_covered_by_rules() -> None:
-    assert set(QUESTION_TYPES) == {
+    assert set(get_args(QuestionType)) == {
         "clinical",
         "experimental",
         "observational",
