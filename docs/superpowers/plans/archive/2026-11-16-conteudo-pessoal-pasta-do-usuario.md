@@ -1,7 +1,7 @@
 ---
 status: implemented
 verified: 2026-11-16
-verification_pending: "consulta à parte livre da base numa sessão real com o plugin carregado (Task 5, Step 6): NÃO verificada"
+verification_pending: "consulta à parte livre da base numa sessão real (Task 5, Step 6): verificada em 2026-11-17 e FALHOU (0 de 2 sessões consultaram a base)"
 release: "pendente — PATCH (ADR-0015)"
 spec: "[[2026-11-16-conteudo-pessoal-fora-do-repo-design]]"
 adr: "[[adr/adr-0044-pasta-do-usuario]]"
@@ -19,6 +19,18 @@ adr: "[[adr/adr-0044-pasta-do-usuario]]"
 > que a skill consulta a parte livre da base (`ml/`, `analise/`) e cita o arquivo usado. Só os
 > caminhos determinísticos (`list-templates`, `write prep`) foram verificados. O alcance em Cowork
 > e no chat do claude.ai também não foi verificado. Falta ainda o corte do release.
+>
+> **Verificação manual (2026-11-17): falhou.** Duas sessões headless (`claude -p --plugin-dir`
+> no branch, Sonnet), num `pj_exemplo` novo, com `XDG_CONFIG_HOME` apontando para uma base
+> sintética com `analise/tempo-ate-evento.md` (preferências marcadas, ex. resíduos de Schoenfeld),
+> `ml/validacao.md` e `guides/paper/01.md`. (1) Pergunta de análise com risco competitivo: o modelo
+> ativou `par:protocol` (modo `sap`), leu `project_guide.md` e `modes/sap.md`, não rodou o `prep`
+> e não listou nem leu a base; a resposta não traz nenhuma preferência da fixture. (2) Pedido de
+> parágrafo de métodos de ML: nenhuma skill foi ativada, então o bloco `prumo:runtime` nem entrou no
+> contexto; a base não foi consultada. Conclusão: a linha do `prumo:runtime` sozinha não basta para
+> a consulta livre. Ela só existe com skill ativa e, mesmo ativa, compete com o resto do modo.
+> Caminhos determinísticos (`list-templates`, `prep` com `guides`) seguem funcionando. Amostra
+> pequena (n=2), mas os dois casos falharam pelo mesmo motivo.
 
 # Conteúdo pessoal fora do repo — base de conhecimento na pasta do usuário: plano de implementação
 
