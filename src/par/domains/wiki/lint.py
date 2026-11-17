@@ -20,11 +20,6 @@ Detecta problemas estruturais que LLM não precisa ver:
 - Conceitos citados ≥3× sem página correspondente dentro do escopo
   (``concept_candidate``, severity ``info``).
 
-``check_single_primary`` (mais de uma nota com ``role: primary`` em
-``docs/references/papers/``) é opt-in: só faz sentido quando o projeto
-declara ter um paper principal, então não é chamado por ``lint()`` — rode
-explicitamente quando aplicável.
-
 Contradições e stale claims permanecem semânticas — trabalho da skill
 ``wiki lint`` (modo agêntico via host), não deste módulo determinístico.
 """
@@ -247,35 +242,6 @@ def _report(issues: list[WikiIssue]) -> dict[str, Any]:
         },
         "issues": [asdict(i) for i in issues],
     }
-
-
-_ROLE_PRIMARY_RE = re.compile(r"^role:\s*primary\s*$", re.MULTILINE)
-
-
-def check_single_primary(pj_path: Path) -> list[WikiIssue]:
-    """Opt-in: ``role: primary`` deve aparecer em no máximo 1 paper de ``docs/references/papers/``.
-
-    Não é chamado por ``lint()``. Um revisor sistemático tem N papers
-    incluídos e zero paper principal; o check só faz sentido quando o
-    projeto declara ter um — rode explicitamente nesse caso.
-    """
-    papers = pj_layout.papers_dir(pj_path)
-    if not papers.is_dir():
-        return []
-    primaries = [
-        meta.parent.name
-        for meta in sorted(papers.rglob("_meta.md"))
-        if _ROLE_PRIMARY_RE.search(meta.read_text(encoding="utf-8"))
-    ]
-    if len(primaries) >= 2:
-        return [
-            WikiIssue(
-                "warning",
-                "multiple_primary",
-                f"{len(primaries)} notas com role: primary ({', '.join(primaries)}); esperado ≤ 1",
-            )
-        ]
-    return []
 
 
 def _check_log_prefixes(docs: Path) -> list[WikiIssue]:

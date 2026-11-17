@@ -231,7 +231,12 @@ def paper_verify_refs(pj_path: str, page: str | None = None) -> dict[str, Any]:
 
 
 @server.tool()
-def paper_connect(pj_path: str, collection: str, library: str | None = None) -> dict[str, Any]:
+def paper_connect(
+    pj_path: str,
+    collection: str | None = None,
+    library: str | None = None,
+    selected: bool = False,
+) -> dict[str, Any]:
     """Liga ``docs/references/_references.bib`` a uma coleção do Zotero via
     ``autoexport.add`` do Better BibTeX.
 
@@ -239,13 +244,22 @@ def paper_connect(pj_path: str, collection: str, library: str | None = None) -> 
     coleção-fantasma mora no domínio (ADR-0020): ``autoexport.add`` CRIA a
     coleção se o caminho não existir, então ``find_collection`` confirma a
     existência antes, e a mensagem de erro afirma "NADA foi criado". Nome
-    ambíguo entre bibliotecas exige ``library``."""
-    result = _paper_call(
-        paper_api.connect_collection,
-        Path(pj_path).resolve(),
-        collection,
-        library=library,
-    )
+    ambíguo entre bibliotecas exige ``library``. ``selected=True`` (sem
+    ``collection``) usa a coleção selecionada agora no Zotero aberto."""
+    pj = Path(pj_path).resolve()
+    if selected:
+        if collection is not None or library is not None:
+            raise ValueError(
+                "selected usa a coleção selecionada no Zotero: não passe collection nem library."
+            )
+        result = _paper_call(paper_api.connect_resolved, pj, paper_api.resolve_selected)
+    elif collection is None:
+        raise ValueError(
+            "diga a coleção (collection) ou use selected=true com a coleção do projeto "
+            "selecionada no Zotero."
+        )
+    else:
+        result = _paper_call(paper_api.connect_collection, pj, collection, library=library)
     return {
         "collection": result.collection.path,
         "library": result.collection.library,
@@ -261,7 +275,10 @@ def project_status(pj_path: str) -> dict[str, Any]:
     Só leitura. Mesmo JSON de ``prumo status --json``; é o que o painel "Projeto" do
     mod desenha (ADR-0043). ``pj_path`` pode ser qualquer pasta dentro do ``pj_*``."""
     result = _paper_call(
-        status.project_status, Path(pj_path).resolve(), registry=bundled_skill_registry()
+        status.project_status,
+        Path(pj_path).resolve(),
+        registry=bundled_skill_registry(),
+        live=True,
     )
     return status.status_to_dict(result)
 

@@ -14,7 +14,7 @@ sempre opcionais com default. ``v2`` lê ``v1``.
 
 from __future__ import annotations
 
-from typing import Literal, get_args
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -106,8 +106,6 @@ QuestionType = Literal[
     "case_report",
     "other",
 ]
-QUESTION_TYPES: tuple[str, ...] = get_args(QuestionType)
-
 Framework = Literal[
     "PICOT",
     "PICO",

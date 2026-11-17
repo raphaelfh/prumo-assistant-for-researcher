@@ -70,3 +70,44 @@ arquivo continua dizendo a coleção antiga. Com `source = "record"` nem a orige
   sem `--create`), recusa não grava, `--record` sem `autoexport.add`, `select_uri`.
 - `tests/unit/paper/test_cli.py`: `--record` não chama `connect_collection`; `--record --create`.
 - `tests/unit/test_status.py`: resumo e JSON com e sem vínculo.
+
+## Emenda (2026-11-16): a coleção selecionada no Zotero e a conferência pelo pull
+
+Sonda só de leitura no mesmo Zotero, com o toggle "Allow other applications" desligado (a API
+local respondeu 403):
+
+| Caminho | O que dá | Uso |
+|---|---|---|
+| `POST /connector/getSelectedCollection` (servidor do conector, o mesmo do Zotero Connector do navegador) | `libraryID`, `libraryName`, `id` e `name` da coleção selecionada (`id` nulo com a biblioteca inteira selecionada) e `targets`: a árvore de todas as bibliotecas e coleções, em ordem de profundidade, com `id` (`L<libraryID>`, `C<id>`) e `level`. | Saber, sem digitar nome, qual coleção a pesquisadora escolheu, e se o Connector vai salvar no projeto certo. |
+| Pull export pela chave (já citado acima) | 200 com o `.bib` da coleção em ~0,1 s; pelo nome, 404 (`path ... not found`). | Conferir o vínculo gravado. |
+
+O conector devolve o `id` numérico local, e o `user.groups` devolve a chave sem o `id`. O elo é o
+caminho: a cadeia de pais montada pelos `level` dos `targets` casa com a montada pelo
+`parentCollection` do `user.groups`, na mesma biblioteca.
+
+### Decisão
+
+5. **`prumo paper connect --selected`** usa a coleção selecionada no Zotero no lugar do nome. Só
+   coleção que existe chega ao `autoexport.add` (a resolução passa pelo `user.groups`), então não há
+   coleção-fantasma; a Guarda 1 continua antes de qualquer rede. Recusa com a biblioteca inteira
+   selecionada, com coleção irmã de mesmo caminho e combinada com nome, `--create` ou `--library`.
+   Vale com `--record`. A tool MCP `paper_connect` ganha `selected`, com `collection` opcional.
+6. **O `doctor` confere o vínculo** pelo pull export da `collection_key`: compara as citekeys com as
+   do `.bib`. Divergência, coleção que o Better BibTeX não acha mais e vínculo sem chave viram aviso
+   (não mudam o exit). Zotero fechado não diz nada além da linha de dependências.
+7. **O `status` avisa quando o Zotero aberto está em outra coleção**, porque é nela que o Zotero
+   Connector do navegador salva. Uma chamada ao conector com timeout de 1 s, só quando há vínculo;
+   sem resposta, nada aparece. O aviso entra no resumo da Bibliografia e em `library.zotero_elsewhere`
+   do `ProjectStatus/v1` (campo novo, opcional). O `status` continua sem gravar nada; deixa de ser
+   só disco, e por isso a leitura ao vivo é opt-in (`live=True`), ligada no CLI e na tool
+   `project_status`.
+
+### Testes
+
+- `tests/unit/paper/test_selection.py`: caminho pelos `targets` (raiz, filha, neta, grupo),
+  biblioteca selecionada, sem match, irmã ambígua, `connect --selected` não chama nada antes da
+  Guarda 1, `--record --selected`, aviso de seleção divergente e silêncio sem resposta.
+- `tests/unit/paper/test_linkcheck.py`: ok, divergência com contagens, 404 de coleção, vínculo sem
+  chave, Zotero fechado.
+- CLI: `--selected` com nome, `--create` ou `--library` recusa; sem nome nem `--selected` recusa.
+- `tests/unit/test_status.py`: aviso no resumo e no JSON com `live=True`; `live=False` não chama rede.

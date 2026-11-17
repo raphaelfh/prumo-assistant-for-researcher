@@ -11,7 +11,6 @@ preservado; mudanças exclusivamente de packaging:
 from __future__ import annotations
 
 import datetime as _dt
-import json
 import re
 from pathlib import Path
 from typing import Any
@@ -153,35 +152,6 @@ def write_nota(path: Path, yaml_dict: dict[str, Any], body: str) -> None:
     """Escreve nota: ``frontmatter(yaml_dict) + body``."""
     fm = yaml.dump(yaml_dict, Dumper=_NotaDumper, sort_keys=False, allow_unicode=True)
     path.write_text(f"---\n{fm}---\n{body}")
-
-
-def _dump_minimal_yaml(d: dict[str, Any]) -> str:
-    """Dump YAML mínimo (fallback didático; PyYAML é o caminho normal)."""
-    lines: list[str] = []
-    for k, v in d.items():
-        if v is None:
-            lines.append(f"{k}: null")
-        elif isinstance(v, list):
-            if not v:
-                lines.append(f"{k}: []")
-            elif all(isinstance(x, str) for x in v):
-                lines.append(f"{k}:")
-                lines.extend(f'  - "{x}"' for x in v)
-            else:
-                lines.append(f"{k}:")
-                for item in v:
-                    if isinstance(item, dict):
-                        parts = [f'{ik}: "{iv}"' for ik, iv in item.items()]
-                        lines.append(f"  - {{ {', '.join(parts)} }}")
-                    else:
-                        lines.append(f"  - {item}")
-        elif isinstance(v, dict):
-            lines.append(f"{k}: {json.dumps(v)}")
-        elif isinstance(v, str):
-            lines.append(f'{k}: "{v}"')
-        else:
-            lines.append(f"{k}: {v}")
-    return "\n".join(lines) + "\n"
 
 
 def _template_body(pj_path: Path) -> str:

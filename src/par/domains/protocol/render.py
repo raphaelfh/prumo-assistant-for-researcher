@@ -19,10 +19,9 @@ from par.domains.protocol.schemas.v1 import ELEMENT_LABELS, QuestionSpec
 
 QUESTION_BEGIN_PREFIX = "<!-- question:begin "
 QUESTION_END = "<!-- question:end -->"
-#: Formato anterior (ADR-0041): ainda reconhecido e substituído pelo novo.
-PICOT_BEGIN_PREFIX = "<!-- picot:begin "
-PICOT_END = "<!-- picot:end -->"
 
+#: O formato anterior, ``picot:begin``/``picot:end`` (ADR-0041), segue reconhecido
+#: pelas duas regex e é substituído pelo novo.
 BLOCK_BEGIN_RE = re.compile(
     r"<!--\s*(?:question|picot):begin\s+v=(?P<version>\d+)\s+hash=(?P<hash>[a-f0-9]{8})\s*-->",
 )

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from par.domains.wiki.lint import check_single_primary, lint
+from par.domains.wiki.lint import lint
 
 
 def _scope(root: Path, slug: str) -> Path:
@@ -190,27 +190,6 @@ def test_lint_flags_broken_log_prefix(tmp_path: Path) -> None:
     msgs = [i["message"] for i in report["issues"] if i["code"] == "broken_log_prefix"]
     assert any("not a valid header" in m for m in msgs)
     assert any("frobnicate" in m for m in msgs)
-
-
-def test_check_single_primary_flags_multiple(tmp_path: Path) -> None:
-    root = _project(tmp_path)
-    for key in ("a", "b"):
-        d = root / "docs" / "references" / "papers" / key
-        d.mkdir(parents=True)
-        (d / "_meta.md").write_text(f"---\nid: {key}\nrole: primary\n---\n", encoding="utf-8")
-    issues = check_single_primary(root)
-    codes = {i.code for i in issues}
-    assert "multiple_primary" in codes
-
-
-def test_check_single_primary_is_clean_with_one(tmp_path: Path) -> None:
-    root = _project(tmp_path)
-    d = root / "docs" / "references" / "papers" / "a"
-    d.mkdir(parents=True)
-    (d / "_meta.md").write_text("---\nid: a\nrole: primary\n---\n", encoding="utf-8")
-    issues = check_single_primary(root)
-    codes = {i.code for i in issues}
-    assert "multiple_primary" not in codes
 
 
 def test_lint_flags_dead_frontmatter_links(tmp_path: Path) -> None:

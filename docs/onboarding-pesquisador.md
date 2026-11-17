@@ -108,6 +108,13 @@ exportar, marcar a opção de manter atualizado e apontar para o
 `docs/references/_references.bib` certo dentro do projeto) — um fio fácil de
 errar.
 
+Se a coleção já está selecionada no Zotero, nem precisa dizer o nome: clique
+nela na coluna da esquerda do Zotero e peça "conecta a coleção que está aberta
+no Zotero" (por trás, `prumo paper connect --selected`). Depois de conectar,
+deixe essa coleção selecionada quando salvar papers pelo Zotero Connector do
+navegador: é nela que ele salva, e o painel "Projeto" avisa quando o Zotero
+está em outra.
+
 Digitar o nome errado é seguro: o comando confere se a coleção existe
 **antes** de qualquer mudança no Zotero, então um typo só gera uma mensagem
 de erro com sugestões parecidas — nada é criado no Zotero por engano. Se o
@@ -147,7 +154,36 @@ se o `.bib` do projeto ainda estiver no placeholder do scaffold.
   referências, verificar citações). Escrita e revisão crítica (`review critique`,
   `write style`) não dependem dele.
 
-## 7. Busca e conectores
+## 7. Sua base de conhecimento (opcional)
+
+Se você tem templates próprios, guias de redação ou formatos de análise que usa em todo estudo,
+guarde-os numa pasta sua, fora dos projetos, e conecte-a ao PAR. Quem não tem não precisa de nada.
+
+O PAR procura a base em `~/.config/prumo/`. Se ela já mora em outro lugar, peça "conecta minha
+base de conhecimento em `<caminho>`", ou crie o atalho no terminal:
+
+```bash
+ln -s "<caminho da sua base>" ~/.config/prumo
+```
+
+Duas pastas têm significado:
+
+- `templates/paper.md`, `templates/projeto-cep.md`, `templates/statistics.md`,
+  `templates/scientific.md`: seu template para manuscrito, projeto CEP, plano de análise e seção
+  avulsa, em todos os projetos.
+- `guides/<tipo>/` (os mesmos quatro nomes): guias que o PAR lê sempre antes de escrever aquele
+  tipo de texto. Por exemplo, `guides/paper/guia-de-estilo.md`.
+
+O resto da pasta é livre (`analise/`, `ml/`, o nome que você quiser): o PAR consulta quando a
+tarefa pede e diz qual arquivo usou.
+
+Se um projeto precisa de um template diferente, ou de congelar o que foi usado no estudo, copie o
+arquivo para `<pj>/.claude/writing_templates/`: o template do projeto vence o pessoal.
+
+Isso vale no seu computador (app Claude na aba Code, terminal). Em sessões que rodam fora dele, a
+pasta pode não estar visível; ainda não foi verificado.
+
+## 8. Busca e conectores
 
 ### Busca no seu wiki
 

@@ -101,7 +101,8 @@ Ajuste a estrutura ao `type` da pergunta do estudo (`.claude/question.toml`):
 
 Para estudo de ML, a estrutura padrão é TRIPOD+AI / SPIRIT-AI compatível. Se o estudo desenvolve ou avalia um LLM, reporte também conforme **TRIPOD-LLM** (Nat Med 2025). Para o desenho de ensaio, alinhe o reporting a **CONSORT 2025** (RCT) ou **DECIDE-AI** (avaliação clínica precoce de IA). Template default
 co-localizado: [`../templates/sap.md`](../templates/sap.md). Override por projeto:
-`<pj>/.claude/writing_templates/statistics.md`.
+`<pj>/.claude/writing_templates/statistics.md`. Template pessoal, para todos os projetos:
+`~/.config/prumo/templates/statistics.md`.
 
 ## Regras invioláveis
 
@@ -118,7 +119,7 @@ Mesmo fluxo do `write manuscript`, com `--kind statistics` (template = `../templ
 1. **Carregar inputs** — `prumo write prep --kind statistics --json > /tmp/compose_prep.json`.
    O JSON traz `language` + `language_source` (idioma já resolvido; declare ao usuário).
    Usa a pergunta do estudo (`question`) e `protocol.md`.
-2-4. Resolver template → gerar prose por section → validar citação strict (passos 2 e 3 do `manuscript`).
+2-4. Resolver template e ler as guias de `guides` e os arquivos pertinentes do índice `knowledge` → gerar prose por section → validar citação strict (passos 2 e 3 do `manuscript`).
 5. **Escrever output** via `prumo write draft`:
    ```bash
    cat <<'DRAFT' | prumo write draft \

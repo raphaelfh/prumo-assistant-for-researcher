@@ -394,16 +394,6 @@ def _docx_texts(docx_path: Path) -> tuple[str, str]:
     return document_xml, custom_xml
 
 
-def _docx_zotero_field_counts(docx_path: Path) -> tuple[int, int]:
-    """Conta ocorrências de ``ZOTERO_ITEM`` e ``ZOTERO_BIBL`` em ``word/document.xml``.
-
-    Conveniência por caminho sobre :func:`_docx_texts` — as guardas pós-build
-    contam direto nas strings (uma leitura do zip para a cadeia inteira).
-    """
-    xml = _docx_texts(docx_path)[0]
-    return xml.count("ZOTERO_ITEM"), xml.count("ZOTERO_BIBL")
-
-
 class CorruptDocxError(WriteError):
     """Docx falhou na validação estrutural mesmo após um retry do pandoc."""
 

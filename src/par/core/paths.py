@@ -6,13 +6,18 @@ Os mesmos arquivos podem ser acessados em duas formas:
   ``[tool.hatch.build.targets.wheel.force-include]``).
 - **Dev / editable**: ``<repo_root>/<name>/`` ao lado de ``src/``.
 
-Esta função encontra o path certo nas duas formas, pra que cada caller
+``find_resource`` encontra o path certo nas duas formas, pra que cada caller
 (CLI, API pública) não reimplemente o lookup.
+
+Fora do plugin existe ainda a **pasta do usuário** (``user_dir``, ADR-0045): a
+base de conhecimento pessoal do pesquisador, opcional. Este módulo só diz onde
+ela fica; o que há dentro é assunto dos domínios.
 """
 
 from __future__ import annotations
 
 import importlib.resources as ir
+import os
 from pathlib import Path
 
 from par import ConfigError
@@ -56,3 +61,17 @@ def find_resource(name: str) -> Path | None:
         if c.is_dir():
             return c
     return None
+
+
+def user_dir_location() -> Path:
+    """Onde a pasta do usuário fica, exista ou não: ``$XDG_CONFIG_HOME/prumo`` (padrão ``~/.config/prumo``)."""
+    return Path(os.environ.get("XDG_CONFIG_HOME") or "~/.config").expanduser() / "prumo"
+
+
+def user_dir() -> Path | None:
+    """Pasta de conteúdo pessoal (``user_dir_location``), se existir.
+
+    Pode ser um symlink para onde a base de conhecimento já mora (ADR-0045).
+    """
+    base = user_dir_location()
+    return base if base.is_dir() else None

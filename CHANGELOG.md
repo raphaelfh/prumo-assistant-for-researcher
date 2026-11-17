@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.72.0] - 2026-11-17
+
 ### Adicionado
 
 - **A Bibliografia mostra a coleção do Zotero** (ADR-0044). `prumo paper connect` grava
@@ -15,6 +17,27 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   ganha `library.zotero` (Princípio IV).
 - **`prumo paper connect "<coleção>" --record`.** Para projeto conectado antes desta versão:
   registra a coleção sem mexer no Zotero. Rode uma vez para o painel mostrar a coleção.
+- **`prumo paper connect --selected`** (ADR-0044). Clique na coleção do projeto no Zotero e
+  conecte sem digitar o nome; vale com `--record`, e a tool MCP `paper_connect` ganha
+  `selected`. Usa o servidor do conector do Zotero, sem o toggle "Allow other applications".
+  Só coleção que existe chega ao `autoexport.add`, então não há coleção-fantasma.
+- **O `prumo doctor` confere o vínculo com o Zotero.** Com o Zotero aberto, puxa a coleção
+  gravada pelo Better BibTeX e avisa quando as citekeys diferem das do `.bib`, quando a coleção
+  sumiu ou quando o vínculo não tem a chave. O payload ganha `zotero_link`.
+- **Aviso de coleção errada no Zotero.** O painel "Projeto" e o `prumo status` avisam "o Zotero
+  está em …" quando a coleção selecionada no Zotero não é a do projeto, porque é nela que o
+  Zotero Connector do navegador salva os papers. `ProjectStatus/v1` ganha
+  `library.zotero_elsewhere` (Princípio IV).
+- **Base de conhecimento pessoal, opcional.** Se a pasta `~/.config/prumo/` existir (pode ser um
+  symlink para onde a sua base já mora), o PAR passa a usá-la: `templates/<kind>.md` vale como
+  template para todos os projetos, depois do template do projeto e antes do default do plugin;
+  `guides/<kind>/*.md` são guias que `write manuscript`, `write section`, `protocol cep` e
+  `protocol sap` leem antes de escrever; o resto da pasta vira um índice (`knowledge` no
+  `prumo write prep`) de onde as skills escolhem o que ler, e toda skill lista a base antes de
+  responder pergunta de redação, método, análise ou ML. A skill
+  `start` conecta uma base existente a pedido. `prumo write prep` devolve `template_source` e
+  `guides`, e `prumo write list-templates` mostra o degrau `user_dir`. Sem a pasta, nada muda
+  (Princípio VIII, ADR-0045). O ambiente do PAR não é baixado de novo.
 
 ### Alterado
 
@@ -1697,7 +1720,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.6...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.0...HEAD
+[0.72.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.6...v0.72.0
 [0.71.6]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.5...v0.71.6
 [0.71.5]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.4...v0.71.5
 [0.71.4]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.3...v0.71.4

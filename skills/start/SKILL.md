@@ -17,11 +17,12 @@ prumo:
 # par: por onde começar
 
 <!-- prumo:runtime:begin -->
-**PAR 0.71.6** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}` (se ali aparecer a variável `CLAUDE_PLUGIN_ROOT` em vez de um caminho, você está no Antigravity ou no Codex: a raiz é a pasta que contém o `skills/` ou o `agents/` deste arquivo)
+**PAR 0.72.0** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}` (se ali aparecer a variável `CLAUDE_PLUGIN_ROOT` em vez de um caminho, você está no Antigravity ou no Codex: a raiz é a pasta que contém o `skills/` ou o `agents/` deste arquivo)
 - CLI: `prumo`. Se `prumo` não existir nesta sessão (fora do Claude, ou hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"` com a raiz acima: funciona igual, mas cada comando pode pedir permissão.
 - Tools MCP do PAR (servidor `prumo`): `mcp__plugin_par_prumo__*` no Claude, `mcp__prumo__*` no Codex, servidor `<pasta do plugin>_prumo` no Antigravity.
 - Invocação: o texto escreve `/par:<skill>` (Claude); no Codex e no app ChatGPT é `$par:<skill>`, no Antigravity `/<skill>`.
 - Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`. Sem tool de subagent no host, leia o agent e siga-o você mesmo.
+- Base de conhecimento do pesquisador: `~/.config/prumo/` (ou `$XDG_CONFIG_HOME/prumo/`), se existir. Em pergunta ou tarefa de redação, método, análise de dados ou machine learning, ANTES de responder liste a base (`ls -R`), leia os arquivos pertinentes e diga ao usuário qual usou, ou que nenhum era pertinente. Nos modos que rodam `prumo write prep`, o índice já vem em `knowledge` (caminho e título).
 <!-- prumo:runtime:end -->
 
 <!-- prumo:preflight:begin -->
@@ -110,6 +111,29 @@ nada (o PAR acha o uv em `~/.local/bin`). A primeira vez baixa cerca de 60 MB, u
 Regras duras: nunca simule saída de comando que falhou; nunca crie scaffold à mão
 (`prumo init` é o único caminho); nunca ofereça
 instalar o CLI à parte — ele vem no plugin.
+
+## Base de conhecimento pessoal (opcional, com consentimento)
+
+O pesquisador pode manter uma base própria (templates, guias de redação, formatos de análise de
+dados e de machine learning) fora de qualquer projeto. O PAR a procura em `~/.config/prumo/`. Quem
+não tem a pasta não precisa de nada.
+
+Quando a pessoa pedir para conectar uma base que já existe ("conecta minha base de conhecimento em
+`<caminho>`"):
+
+1. Confira que `<caminho>` é uma pasta: `test -d "<caminho>"`. Se não for, diga e pare.
+2. Confira se `~/.config/prumo` já existe: `ls -ld ~/.config/prumo`. Se existir, não toque nela:
+   diga para onde aponta e pergunte o que a pessoa quer fazer.
+3. Só com um "sim": `mkdir -p ~/.config && ln -s "<caminho>" ~/.config/prumo`.
+4. Confirme com `prumo write list-templates --json` dentro de um `pj_*`: o campo `user_dir` mostra
+   os templates pessoais encontrados.
+
+Duas pastas da base têm significado para o PAR; o resto é livre e as skills consultam quando for
+pertinente:
+
+- `templates/<kind>.md`: template pessoal para todos os projetos (`paper`, `projeto-cep`,
+  `statistics`, `scientific`). O template do projeto, em `.claude/writing_templates/`, vence.
+- `guides/<kind>/*.md`: guias que as skills de escrita leem sempre antes de escrever aquele tipo.
 
 ## Catálogo completo (gerado — não editar à mão)
 

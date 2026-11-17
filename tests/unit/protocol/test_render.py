@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from par.domains.protocol.render import (
     BLOCK_BEGIN_RE,
-    PICOT_BEGIN_PREFIX,
-    PICOT_END,
     QUESTION_BEGIN_PREFIX,
     QUESTION_END,
     render_project_block,
@@ -161,7 +159,7 @@ def test_replace_or_insert_replaces_existing() -> None:
 
 
 def test_replace_or_insert_replaces_legacy_picot_block() -> None:
-    block_old = f"{PICOT_BEGIN_PREFIX}v=1 hash=11111111 -->\nold content\n{PICOT_END}"
+    block_old = "<!-- picot:begin v=1 hash=11111111 -->\nold content\n<!-- picot:end -->"
     out = replace_or_insert_block(
         f"# Doc\n\n{block_old}\n",
         render_protocol_block(_spec(), hash8="a1b2c3d4"),
@@ -177,5 +175,5 @@ def test_block_begin_re_extracts_version_and_hash() -> None:
     assert m is not None
     assert m.group("version") == "2"
     assert m.group("hash") == "deadbeef"
-    legacy = BLOCK_BEGIN_RE.search(f"{PICOT_BEGIN_PREFIX}v=3 hash=cafebabe -->")
+    legacy = BLOCK_BEGIN_RE.search("<!-- picot:begin v=3 hash=cafebabe -->")
     assert legacy is not None and legacy.group("hash") == "cafebabe"

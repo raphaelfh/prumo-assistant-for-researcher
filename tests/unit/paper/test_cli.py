@@ -553,3 +553,69 @@ def test_paper_connect_record_com_create_e_recusado(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert "não combina com --create" in _norm(result.output)
+
+
+def test_paper_connect_selected_usa_a_selecao(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from par.domains.paper import selection
+
+    ref = connect.CollectionRef(
+        library="My Library",
+        path="Pesquisa",
+        bbt_path="/My Library/Pesquisa",
+        segments=("My Library", "Pesquisa"),
+        key="AAA",
+        library_id=1,
+    )
+    seen: list[object] = []
+
+    def fake_connect(pj: Path, resolve: object, **_k: object) -> connect.ConnectResult:
+        seen.append(resolve)
+        return connect.ConnectResult(collection=ref, bib_path=pj / "x.bib", exported=True)
+
+    monkeypatch.setattr("par.domains.paper.connect.connect_resolved", fake_connect)
+    result = runner.invoke(app, ["paper", "connect", "--selected", "--path", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert seen == [selection.resolve_selected]
+    assert "conectada" in _norm(result.output)
+
+
+def test_paper_connect_record_selected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from par.domains.paper import selection
+    from par.domains.paper.schemas.v1 import ZoteroLink
+
+    seen: list[object] = []
+
+    def fake_record(pj: Path, resolve: object, **_k: object) -> ZoteroLink:
+        seen.append(resolve)
+        return ZoteroLink(
+            library="My Library",
+            library_id=1,
+            collection="Pesquisa",
+            collection_key="AAA",
+            linked_at="2026-11-16",
+            source="record",
+        )
+
+    monkeypatch.setattr("par.domains.paper.connect.record_resolved", fake_record)
+    result = runner.invoke(
+        app, ["paper", "connect", "--selected", "--record", "--path", str(tmp_path)]
+    )
+    assert result.exit_code == 0, result.output
+    assert seen == [selection.resolve_selected]
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["X", "--selected"],
+        ["--selected", "--create"],
+        ["--selected", "--library", "My Library"],
+        [],
+    ],
+)
+def test_paper_connect_selected_combinacoes_recusadas(tmp_path: Path, args: list[str]) -> None:
+    result = runner.invoke(app, ["paper", "connect", *args, "--path", str(tmp_path)])
+    assert result.exit_code != 0
+    assert "--selected" in _norm(result.output)

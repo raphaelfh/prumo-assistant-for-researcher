@@ -7,7 +7,8 @@ Transformado de ``monorepo-anterior/.claude/scripts/_project_config.py``. Mudan�
 
 Regras de cascata (escala futura, não implementada no MVP):
 ``CLI flags > pj_config.toml > ~/.config/prumo/config.toml > DEFAULTS``.
-Por enquanto só cobrimos os 2 últimos níveis — o que existe hoje.
+Por enquanto só cobrimos ``pj_config.toml`` e ``DEFAULTS``. ``~/.config/prumo/`` já é a
+pasta do usuário (templates e guias, ADR-0045); o ``config.toml`` ali segue não implementado.
 """
 
 from __future__ import annotations

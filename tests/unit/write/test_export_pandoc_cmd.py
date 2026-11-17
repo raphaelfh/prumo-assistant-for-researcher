@@ -25,7 +25,6 @@ from par.domains.write.export import (
     _assert_no_citeproc_missing,
     _build_pandoc_cmd,
     _docx_texts,
-    _docx_zotero_field_counts,
     _zotero_live_docx_filter,
 )
 
@@ -149,23 +148,6 @@ def _fake_docx(tmp_path: Path, document_xml: str) -> Path:
         z.writestr("word/document.xml", document_xml)
     p.write_bytes(buf.getvalue())
     return p
-
-
-def test_field_counts_no_zotero_fields(tmp_path: Path) -> None:
-    docx = _fake_docx(tmp_path, "<w:document><w:body/></w:document>")
-    assert _docx_zotero_field_counts(docx) == (0, 0)
-
-
-def test_field_counts_full_pipeline(tmp_path: Path) -> None:
-    xml = (
-        "<w:document>"
-        "ADDIN ZOTERO_ITEM CSL_CITATION {a}"
-        "ADDIN ZOTERO_ITEM CSL_CITATION {b}"
-        "ADDIN ZOTERO_BIBL {} CSL_BIBLIOGRAPHY"
-        "</w:document>"
-    )
-    docx = _fake_docx(tmp_path, xml)
-    assert _docx_zotero_field_counts(docx) == (2, 1)
 
 
 def test_assert_bibliography_passes_when_no_citations(tmp_path: Path) -> None:
