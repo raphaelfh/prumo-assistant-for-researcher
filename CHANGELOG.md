@@ -7,6 +7,14 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Alterado
+
+- **Painel "Projeto" com cartão de próximo passo e etapas agrupadas.** O próximo passo sai da
+  lista e vira um cartão no topo, com a etapa, o motivo e a frase inteira (o botão cortava a
+  frase); "Usar esta frase" preenche o prompt. As etapas aparecem em dois grupos, "Projeto"
+  (Pergunta, Bibliografia, Leitura) e "Estudo · <escopo>" (Protocolo, Escrita, Revisão, Entrega),
+  sem repetir o escopo em cada linha. Com tudo em dia, o cartão diz "Nada pendente".
+
 ### Corrigido
 
 - **Painel "Projeto" mostrava `.claude` como estudo.** Pasta oculta em `docs/studies/` (o

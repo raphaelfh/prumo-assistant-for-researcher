@@ -177,3 +177,15 @@ de etapas do projeto, e a lógica de etapas mora só no Python.
   a coleção do Zotero" para "feche a pergunta do estudo".
 - O bloco `prumo:runtime` e os índices não mudam de forma; rodar
   `uv run python .github/scripts/gen_indexes.py` só pela spec e pela ADR novas.
+
+## Revisão de 2026-11-16 — cartão e grupos
+
+Pedido de uso real: o botão cortava a frase do próximo passo e o escopo se repetia em cada linha.
+
+- O próximo passo vira um cartão no topo: `Próximo passo · <etapa>`, o `why` como frase, a frase
+  `say` inteira em texto e o botão "Usar esta frase" (mesma chave `next-<id>`). Sem etapa
+  `current`, o cartão diz "Nada pendente".
+- As etapas são agrupadas por `scope`: `null` é o grupo "Projeto"; cada escopo é um grupo
+  "Estudo · <slug>". A linha da etapa perde o sufixo `(escopo)`.
+- Só a etapa `attention` mantém botão na linha ("Resolver").
+- Só o mod muda; `ProjectStatus/v1` e o `prumo status` de terminal ficam como estão.

@@ -38,6 +38,27 @@ export function statusLine(status: ProjectStatusJson): string | undefined {
   return `Etapa ${index + 1}/${status.stages.length} · ${status.stages[index]?.title ?? ''}`
 }
 
+/** As etapas do projeto primeiro, depois as de cada estudo, na ordem em que chegam. */
+export function groupStages(stages: Stage[]): { scope: string | null; stages: Stage[] }[] {
+  const groups: { scope: string | null; stages: Stage[] }[] = []
+  for (const stage of stages) {
+    const group = groups.find(candidate => candidate.scope === stage.scope)
+    if (group === undefined) groups.push({ scope: stage.scope, stages: [stage] })
+    else group.stages.push(stage)
+  }
+  return groups
+}
+
+/** Chave do botão de uma etapa: "next-reading", "next-writing-principal". */
+function stageKey(stage: Stage): string {
+  return `next-${stage.id}${stage.scope !== null ? `-${stage.scope}` : ''}`
+}
+
+/** O motivo vem do Python em minúscula e sem ponto: vira uma frase. */
+function sentence(text: string): string {
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`
+}
+
 function nameOf(path: string): string {
   return path.split('/').filter(Boolean).at(-1) ?? path
 }
@@ -141,6 +162,7 @@ export function registerProject(on: On): void {
     const stages = snapshot.status?.stages ?? []
     const many = snapshot.projects.length > 1
     const picking = many && snapshot.selected === null
+    const current = stages.find(stage => stage.state === 'current')
     const when = snapshot.loading
       ? 'Atualizando…'
       : snapshot.updatedAt > 0
@@ -180,27 +202,50 @@ export function registerProject(on: On): void {
         {snapshot.error === undefined && snapshot.status === null && !picking && (
           <Text dimColor>Lendo o projeto…</Text>
         )}
-        {stages.map((stage: Stage, index: number) => {
-          const where = stage.scope !== null ? ` (${stage.scope})` : ''
-          const say = stage.next?.say
-          return (
-            <Box flexDirection="column" key={`stage-${index}`}>
-              <Text bold={stage.state === 'current'}>
-                {MARKS[stage.state]} {stage.title}
-                {where} <Text dimColor>{stage.summary}</Text>
-              </Text>
-              {say !== undefined && (
-                <Button
-                  key={`next-${stage.id}${stage.scope !== null ? `-${stage.scope}` : ''}`}
-                  {...(stage.state === 'current' ? {} : { plain: true })}
-                  onPress={() => $.prompt.fill({ text: say, mode: 'replace' })}
-                >
-                  {stage.state === 'current' ? 'Próximo passo' : 'Resolver'}: {say}
-                </Button>
-              )}
-            </Box>
-          )
-        })}
+        {current?.next != null && (
+          <Box flexDirection="column" borderStyle="round" paddingX={1} marginTop={1}>
+            <Text bold>{`Próximo passo · ${current.title}`}</Text>
+            <Text>{sentence(current.next.why)}</Text>
+            <Text dimColor>{`Diga: "${current.next.say}"`}</Text>
+            <Button
+              key={stageKey(current)}
+              variant="primary"
+              onPress={() => $.prompt.fill({ text: current.next?.say ?? '', mode: 'replace' })}
+            >
+              Usar esta frase
+            </Button>
+          </Box>
+        )}
+        {stages.length > 0 && current === undefined && (
+          <Box flexDirection="column" borderStyle="round" paddingX={1} marginTop={1}>
+            <Text bold>Nada pendente</Text>
+            <Text dimColor>Pelos sinais do disco, todas as etapas estão em dia.</Text>
+          </Box>
+        )}
+        {groupStages(stages).map(group => (
+          <Box flexDirection="column" marginTop={1} key={`group-${group.scope ?? ''}`}>
+            <Text bold>{group.scope === null ? 'Projeto' : `Estudo · ${group.scope}`}</Text>
+            {group.stages.map((stage: Stage) => {
+              const say = stage.state === 'attention' ? stage.next?.say : undefined
+              return (
+                <Box flexDirection="column" key={`stage-${stage.id}`}>
+                  <Text bold={stage.state === 'current'}>
+                    {MARKS[stage.state]} {stage.title} <Text dimColor>{stage.summary}</Text>
+                  </Text>
+                  {say !== undefined && (
+                    <Button
+                      key={stageKey(stage)}
+                      plain
+                      onPress={() => $.prompt.fill({ text: say, mode: 'replace' })}
+                    >
+                      Resolver: {say}
+                    </Button>
+                  )}
+                </Box>
+              )
+            })}
+          </Box>
+        ))}
       </Box>
     )
   })
