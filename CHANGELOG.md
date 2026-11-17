@@ -26,6 +26,16 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
   está em …" quando a coleção selecionada no Zotero não é a do projeto, porque é nela que o
   Zotero Connector do navegador salva os papers. `ProjectStatus/v1` ganha
   `library.zotero_elsewhere` (Princípio IV).
+- **Base de conhecimento pessoal, opcional.** Se a pasta `~/.config/prumo/` existir (pode ser um
+  symlink para onde a sua base já mora), o PAR passa a usá-la: `templates/<kind>.md` vale como
+  template para todos os projetos, depois do template do projeto e antes do default do plugin;
+  `guides/<kind>/*.md` são guias que `write manuscript`, `write section`, `protocol cep` e
+  `protocol sap` leem antes de escrever; o resto da pasta vira um índice (`knowledge` no
+  `prumo write prep`) de onde as skills escolhem o que ler, e toda skill lista a base antes de
+  responder pergunta de redação, método, análise ou ML. A skill
+  `start` conecta uma base existente a pedido. `prumo write prep` devolve `template_source` e
+  `guides`, e `prumo write list-templates` mostra o degrau `user_dir`. Sem a pasta, nada muda
+  (Princípio VIII, ADR-0045). O ambiente do PAR não é baixado de novo.
 
 ### Alterado
 

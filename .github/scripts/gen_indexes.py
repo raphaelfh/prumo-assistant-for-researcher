@@ -389,7 +389,8 @@ def render_skill_blocks(manifest: SkillManifest) -> list[tuple[str, str, str]]:
 
 
 def render_runtime() -> str:
-    """Bloco ``prumo:runtime``: versão, raiz do plugin, forma `sh`, tools MCP e agents por host.
+    """Bloco ``prumo:runtime``: versão, raiz do plugin, forma `sh`, tools MCP, agents por host e a
+    base de conhecimento pessoal (ADR-0045).
 
     Lê o ``__version__`` global do módulo na hora da chamada. O Claude troca o
     ``${CLAUDE_PLUGIN_ROOT}`` (com chaves) ao carregar o SKILL.md e o corpo do agent; o
@@ -408,7 +409,12 @@ def render_runtime() -> str:
         "- Invocação: o texto escreve `/par:<skill>` (Claude); no Codex e no app ChatGPT é "
         "`$par:<skill>`, no Antigravity `/<skill>`.\n"
         "- Agents: `${CLAUDE_PLUGIN_ROOT}/agents/`. Sem tool de subagent no host, leia o "
-        "agent e siga-o você mesmo."
+        "agent e siga-o você mesmo.\n"
+        "- Base de conhecimento do pesquisador: `~/.config/prumo/` (ou "
+        "`$XDG_CONFIG_HOME/prumo/`), se existir. Em pergunta ou tarefa de redação, método, "
+        "análise de dados ou machine learning, ANTES de responder liste a base (`ls -R`), leia "
+        "os arquivos pertinentes e diga ao usuário qual usou, ou que nenhum era pertinente. Nos "
+        "modos que rodam `prumo write prep`, o índice já vem em `knowledge` (caminho e título)."
     )
 
 

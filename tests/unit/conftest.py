@@ -39,6 +39,15 @@ W_XMLNS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main
 
 
 @pytest.fixture(autouse=True)
+def _no_real_user_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A pasta pessoal do dono (``~/.config/prumo/``) nunca entra nos testes (ADR-0045).
+
+    Os testes da pasta do usuário apontam ``XDG_CONFIG_HOME`` para um diretório sintético.
+    """
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "_xdg_isolado"))
+
+
+@pytest.fixture(autouse=True)
 def _no_real_pandoc(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Nenhum teste executa pandoc real pelo doctor (regra de seams, `.claude/rules/code.md`).
 
