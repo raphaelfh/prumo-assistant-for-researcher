@@ -76,6 +76,7 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-10-02-ponte-zotero-minima-design]] · approved
 - [[superpowers/specs/2026-11-12-pergunta-do-estudo-pesquisa-em-saude-design]] · approved
 - [[superpowers/specs/2026-11-14-painel-de-etapas-do-projeto-design]] · approved
+- [[superpowers/specs/2026-11-16-idioma-e-safe-outputs-por-projeto-design]] · draft
 
 **Plans ativos:**
 
