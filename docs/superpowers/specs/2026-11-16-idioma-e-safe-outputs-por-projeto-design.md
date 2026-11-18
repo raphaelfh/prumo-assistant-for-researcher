@@ -1,6 +1,6 @@
 ---
 date: 2026-11-16
-status: draft
+status: approved
 ---
 
 # Idioma de interação e saídas seguras configuráveis por projeto
@@ -64,7 +64,7 @@ Idioma de **interação**: pt-BR. Idioma de **escrita científica**: en-US
 <!-- prumo:project-rules:end -->
 ```
 
-- O texto vem de um renderizador único, `core/project_rules.py::render_project_rules(cfg) -> str`, que absorve o conteúdo de `core/safe_outputs.py` (a checagem do `doctor` muda de módulo junto; saldo de módulos zero).
+- O texto vem de um renderizador único, `core/project_rules.py::render_project_rules(cfg) -> str`. `core/safe_outputs.py` fica como está, só com a checagem de git do `doctor` (emenda de 2026-11-18: fundir os dois moveria o seam `_git` e seus testes sem ganho).
 - Variantes da seção de saídas seguras: `patient_data = true` com `min_cell > 0` (as três instruções, com o número do projeto); `patient_data = true` com `min_cell = 0` (mínimo necessário + dado fora do git, e uma linha dizendo que a supressão está desligada por decisão do projeto); `patient_data = false` (só dado fora do git).
 - O idioma de escrita aparece no bloco como valor resolvido, para o agente não precisar abrir a config. A cascata do ADR-0021 continua valendo; o bloco só informa o degrau `pj_config`.
 - Quem escreve o bloco: `prumo init` (criação) e `prumo update` (regenera a partir da config atual). O bloco fica no `AGENTS.md`, que o `CLAUDE.md` já importa com `@AGENTS.md`: Claude, Codex e Antigravity leem o mesmo texto.
@@ -79,14 +79,14 @@ Idioma de **interação**: pt-BR. Idioma de **escrita científica**: en-US
 ### 4. `prumo init` pergunta
 
 - Wizard ganha duas perguntas, depois do nome do projeto: idioma de interação (`pt-BR`/`en-US`, default `pt-BR`) e "O projeto usa dado de paciente?" (default sim). Com dado de paciente, pergunta a célula mínima (default 5).
-- A escolha de idioma de interação vira o default sugerido de `[paper_extract].language` (`en-US` → `en`). `[writing].language` mantém o default `en-US` do ADR-0021 e é perguntado na mesma tela, já preenchido.
+- Idioma de interação `en-US` grava também `[paper_extract].language = "en"`. `[writing].language` não é perguntado: mantém o default `en-US` e a cascata do ADR-0021 (emenda de 2026-11-18, uma pergunta a menos). Só o que difere do default é gravado na config.
 - Modo não-interativo (`--yes`, usado pela skill `start` no chat): flags `--lang pt-BR|en-US` e `--no-patient-data`. A skill `start` faz as mesmas perguntas em linguagem natural antes de chamar `prumo init`. Sem flag, valem os defaults.
 - Nenhum comando `prumo config set`: mudar depois é editar `pj_config.toml` e rodar `prumo update`, que o `doctor` já manda rodar quando o bloco está velho.
 
 ### 5. `prumo doctor`
 
 - `[dado_versionavel]` continua igual (só troca de módulo).
-- `[regras_desatualizadas]`: o bloco `prumo:project-rules` falta ou difere de `render_project_rules(cfg)`. Correção: `prumo update`. Cobre tanto config editada sem regenerar quanto projeto antigo sem o bloco. Um código só para os dois, porque a correção é a mesma (Princípio VIII).
+- Bloco `prumo:project-rules` ausente ou diferente de `render_project_rules(cfg)`, ou rule antiga intacta ainda no projeto: entra como mais uma parte da issue `[fora_do_padrao]`, que já existe e tem o mesmo remédio, `prumo update` (emenda de 2026-11-18; a issue `[regras_desatualizadas]` do rascunho seria um segundo nome para a mesma ação, Princípio VIII). Config inválida vira `[config_invalida]`, com a correção na mensagem.
 - `[celula_minima_baixa]`: `patient_data = true` e `0 <= min_cell < 5`. Aviso, não erro: o projeto pode ter motivo (comitê aprovou, dado já agregado na fonte). A mensagem diz que 5 é o limiar mais comum em publicação de dado de saúde e como subir. Ação diferente de `[regras_desatualizadas]`, por isso código separado.
 
 ### 6. ADR
@@ -115,13 +115,13 @@ ADR-0046 registra a troca de mecanismo (rule em `.claude/rules/` → bloco gerad
 - `tests/unit/core/test_project_rules.py`: as três variantes do bloco; idioma de interação e de escrita aparecem com os valores da config; render é idempotente.
 - `tests/unit/test_cli_init.py`: wizard grava as respostas no `pj_config.toml` e o bloco no `AGENTS.md`; `--yes` usa defaults; `--lang en-US --no-patient-data` chega à config e ao bloco; `.claude/rules/safe_outputs.md` não é criado.
 - `tests/unit/test_cli_update.py`: projeto antigo com a rule idêntica ao template perde a rule e ganha o bloco; rule editada é mantida com aviso; conteúdo humano fora do bloco preservado; delimitador corrompido é erro.
-- `tests/unit/test_cli_doctor.py`: `[regras_desatualizadas]` com bloco ausente e com config editada; `[celula_minima_baixa]` com `min_cell = 3` e dado de paciente, silêncio com `patient_data = false`; `[dado_versionavel]` sem regressão.
+- `tests/unit/test_cli_doctor.py`: `[fora_do_padrao]` com config editada; `[config_invalida]`; `[celula_minima_baixa]` com `min_cell = 3` e dado de paciente, silêncio com `patient_data = false`; `[dado_versionavel]` sem regressão.
 - Fixtures sintéticas em `tmp_path` (`pj_exemplo`).
 
 ## Aceitação
 
 - `prumo init` pergunta idioma e dado de paciente, e o `AGENTS.md` criado traz o bloco com essas respostas.
-- Editar `[safe_outputs].min_cell = 10` e rodar `prumo update` muda o número no bloco; antes do `update`, o `doctor` acusa `[regras_desatualizadas]`.
+- Editar `[safe_outputs].min_cell = 10` e rodar `prumo update` muda o número no bloco; antes do `update`, o `doctor` acusa `[fora_do_padrao]`.
 - Um `pj_*` criado antes desta mudança, depois de `prumo update`, não tem mais `.claude/rules/safe_outputs.md` (se não editada) e tem o bloco com os defaults de hoje: nenhum comportamento muda sem a pesquisadora pedir.
 - Codex e Antigravity recebem a regra de célula mínima pelo `AGENTS.md`.
 

@@ -306,15 +306,43 @@ def test_templates_nao_usam_ancora_bibliografica_sem_arroba() -> None:
     assert not ofensores, "âncora bibliográfica sem `@`: " + "; ".join(ofensores)
 
 
-def test_init_cria_rule_safe_outputs(tmp_path: Path) -> None:
-    """Fronteira de confidencialidade vem no núcleo, sempre-on (sem `paths:`)."""
+def test_init_traz_regras_no_agents_e_nao_cria_rule(tmp_path: Path) -> None:
+    """Saídas seguras e idioma vêm no bloco do AGENTS.md, lido por todo agente (ADR-0046)."""
     target = tmp_path / "pj_seguro"
     result = runner.invoke(app, ["init", str(target), "--json"])
     assert result.exit_code == 0, result.output
-    rule = target / ".claude" / "rules" / "safe_outputs.md"
-    texto = rule.read_text(encoding="utf-8")
-    assert not texto.startswith("---")
-    assert "5" in texto and ".prumo/" in texto
+    assert not (target / ".claude" / "rules" / "safe_outputs.md").exists()
+    agents = (target / "AGENTS.md").read_text(encoding="utf-8")
+    assert "<!-- prumo:project-rules:begin -->" in agents
+    assert "Idioma de **interação**: pt-BR" in agents
+    assert "Célula mínima = 5" in agents and ".prumo/" in agents
+
+
+def test_init_com_lang_e_sem_dado_de_paciente(tmp_path: Path) -> None:
+    from par.core.config import load_project_config
+
+    target = tmp_path / "pj_exemplo"
+    result = runner.invoke(
+        app, ["init", str(target), "--lang", "en-US", "--no-patient-data", "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    cfg = load_project_config(target)
+    assert cfg["interaction"]["language"] == "en-US"
+    assert cfg["paper_extract"]["language"] == "en"
+    assert cfg["safe_outputs"]["patient_data"] is False
+    agents = (target / "AGENTS.md").read_text(encoding="utf-8")
+    assert "Idioma de **interação**: en-US" in agents
+    assert "não trabalha com dado de paciente" in agents and "Célula mínima" not in agents
+    # o comentário do template sobrevive à gravação
+    assert "# Idioma em que o agente conversa" in (target / ".claude" / "pj_config.toml").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_init_recusa_lang_desconhecido(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["init", str(tmp_path / "pj_exemplo"), "--lang", "fr"])
+    assert result.exit_code == 2
+    assert not (tmp_path / "pj_exemplo").exists()
 
 
 def test_init_traz_settings_do_template(tmp_path: Path) -> None:
@@ -324,3 +352,19 @@ def test_init_traz_settings_do_template(tmp_path: Path) -> None:
     assert res.exit_code == 0, res.output
     template = resolve_resource("templates") / "pj_base" / ".claude" / "settings.json"
     assert (target / ".claude" / "settings.json").read_bytes() == template.read_bytes()
+
+
+def test_opcoes_do_projeto_so_gravam_o_que_difere_do_default() -> None:
+    """O wizard e as flags passam por aqui; o caminho feliz não toca a config (ADR-0046)."""
+    from par.cli import _project_options
+
+    assert _project_options("pt-BR", patient_data=True, min_cell=5) == {}
+    assert _project_options(None, patient_data=True) == {}
+    assert _project_options("en-US", patient_data=True, min_cell=10) == {
+        ("interaction", "language"): "en-US",
+        ("paper_extract", "language"): "en",
+        ("safe_outputs", "min_cell"): 10,
+    }
+    assert _project_options("pt-BR", patient_data=False) == {
+        ("safe_outputs", "patient_data"): False
+    }

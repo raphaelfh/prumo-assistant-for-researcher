@@ -1,6 +1,23 @@
 # Configurações do projeto — lidas por skills e scripts do monorepo.
 # Todas as chaves são opcionais; faltantes caem no default.
-# Documentação completa: docs/operations.md (seção "pj_config.toml")
+
+[interaction]
+# Idioma em que o agente conversa com você. Não muda o idioma de escrita
+# ([writing].language) nem o do callout de extração ([paper_extract].language).
+# Valores aceitos: "pt-BR" | "en-US"
+language = "pt-BR"
+
+[safe_outputs]
+# O projeto trabalha com dado de paciente? false = revisão de literatura, dado
+# público, estudo teórico. Com false, só vale a regra de dado fora do git.
+patient_data = true
+
+# Contagem de pacientes de 1 a (min_cell - 1) é suprimida ou agregada.
+# 0 desliga a supressão. Comuns: 5 (default), 10, 11.
+min_cell = 5
+
+# Depois de mudar [interaction] ou [safe_outputs], rode `prumo update`: ele
+# reescreve o bloco de regras do AGENTS.md, que é o que o agente lê.
 
 [paper_extract]
 # Idioma do callout auto-extraído pelo /par:paper extract.

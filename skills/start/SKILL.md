@@ -17,7 +17,7 @@ prumo:
 # par: por onde começar
 
 <!-- prumo:runtime:begin -->
-**PAR 0.72.0** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}` (se ali aparecer a variável `CLAUDE_PLUGIN_ROOT` em vez de um caminho, você está no Antigravity ou no Codex: a raiz é a pasta que contém o `skills/` ou o `agents/` deste arquivo)
+**PAR 0.72.1** · raiz do plugin: `${CLAUDE_PLUGIN_ROOT}` (se ali aparecer a variável `CLAUDE_PLUGIN_ROOT` em vez de um caminho, você está no Antigravity ou no Codex: a raiz é a pasta que contém o `skills/` ou o `agents/` deste arquivo)
 - CLI: `prumo`. Se `prumo` não existir nesta sessão (fora do Claude, ou hooks bloqueados pela organização), use `sh "${CLAUDE_PLUGIN_ROOT}/shims/prumo"` com a raiz acima: funciona igual, mas cada comando pode pedir permissão.
 - Tools MCP do PAR (servidor `prumo`): `mcp__plugin_par_prumo__*` no Claude, `mcp__prumo__*` no Codex, servidor `<pasta do plugin>_prumo` no Antigravity.
 - Invocação: o texto escreve `/par:<skill>` (Claude); no Codex e no app ChatGPT é `$par:<skill>`, no Antigravity `/<skill>`.
@@ -92,8 +92,12 @@ nada (o PAR acha o uv em `~/.local/bin`). A primeira vez baixa cerca de 60 MB, u
 
 ## Trilha guiada (um comando por vez, com consentimento)
 
-1. **Projeto:** `prumo init pj_<nome>` na pasta que a pessoa indicar. O projeto já sai com a
-   atualização automática do PAR ligada.
+1. **Projeto:** antes de criar, pergunte duas coisas: em que idioma a pessoa quer conversar
+   (português ou inglês) e se o estudo usa dado de paciente. Depois rode `prumo init pj_<nome>`
+   na pasta que ela indicar, com `--lang en-US` se escolheu inglês e `--no-patient-data` se não
+   há dado de paciente (revisão de literatura, dado público, estudo teórico). O projeto já sai
+   com a atualização automática do PAR ligada. Para mudar depois: editar `[interaction]` ou
+   `[safe_outputs]` em `.claude/pj_config.toml` e rodar `prumo update`.
 2. **Sessão no projeto:** "Abra uma sessão nova com a pasta `pj_<nome>` (app Claude: aba Code →
    escolher a pasta; Antigravity: abrir a pasta; app ChatGPT: Codex → escolher a pasta; terminal:
    `cd pj_<nome>` e o seu agente) e peça para começar com o PAR de novo."
@@ -116,7 +120,9 @@ instalar o CLI à parte — ele vem no plugin.
 
 O pesquisador pode manter uma base própria (templates, guias de redação, formatos de análise de
 dados e de machine learning) fora de qualquer projeto. O PAR a procura em `~/.config/prumo/`. Quem
-não tem a pasta não precisa de nada.
+não tem a pasta não precisa de nada. A pasta fica no computador da pessoa: só é vista quando o
+agente roda nele (Claude Code, Codex ou Antigravity locais). No chat do claude.ai e em sessão na
+nuvem ela não existe; diga isso em vez de procurar.
 
 Quando a pessoa pedir para conectar uma base que já existe ("conecta minha base de conhecimento em
 `<caminho>`"):

@@ -1,9 +1,9 @@
 """Fronteira de confidencialidade do ``pj_*`` para o ``prumo doctor``.
 
 Uma pergunta só, barata e certa (Princípio II): dado bruto e trace local de
-LLM estão fora do git? A rule ``.claude/rules/safe_outputs.md`` cobre o resto
-(mínimo necessário, célula mínima), que exige semântica e não é checável sem
-falso-positivo — ver ``docs/superpowers/specs/2026-09-12-safe-outputs-design.md``.
+LLM estão fora do git? O bloco de regras do ``AGENTS.md`` (``core/project_rules.py``,
+ADR-0046) cobre o resto (mínimo necessário, célula mínima), que exige semântica e
+não é checável sem falso-positivo.
 """
 
 from __future__ import annotations
@@ -63,6 +63,6 @@ def safe_outputs_issues(root: Path) -> list[str]:
     mensagem = (
         "[dado_versionavel] dado do projeto pode vazar pelo git: "
         + "; ".join(partes)
-        + ". Ver `.claude/rules/safe_outputs.md` (traga-a com `prumo update`)."
+        + '. Ver "Saídas seguras" no `AGENTS.md` do projeto.'
     )
     return [mensagem] if partes else []
