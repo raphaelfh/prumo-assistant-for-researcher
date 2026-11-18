@@ -14,9 +14,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from par import PrumoError
+from par import ConfigError, PrumoError
 from par.core import pj_layout
+from par.core.config import load_project_config
 from par.core.paths import resolve_resource
+from par.core.project_rules import retire_legacy_rule, sync_project_rules
 
 #: Formas do placeholder de nome usadas em ``templates/pj_base/``
 #: (``pj-NOME`` no pyproject.toml, ``pj_<NOME>`` nos títulos markdown).
@@ -57,8 +59,9 @@ UPDATE_SKIP: tuple[str, ...] = ("docs/studies",)
 #: exatamente o gatilho. E é a única sem substituição de placeholder: os
 #: arquivos que passam por :func:`apply_project_name` divergem do template
 #: POR CONSTRUÇÃO, e compará-los reportaria drift em todo projeto existente.
-#: Desde a v0.69.0 a única rule do núcleo é ``safe_outputs.md``, sempre-on
-#: (sem ``paths:``); a lógica segue coberta por :func:`_fake_base` nos testes.
+#: O núcleo não traz rule desde a ADR-0046 (as regras do projeto moram no bloco
+#: gerado do ``AGENTS.md``); vale para as rules de módulo, e a lógica segue
+#: coberta por :func:`_fake_base` nos testes.
 COMPARE_PREFIX = ".claude/rules"
 
 #: Formulário de contexto morto desde a v0.69.0 — ver
@@ -213,7 +216,17 @@ def standard_issues(pj_root: Path, template: Path) -> list[str]:
     legado = pj_layout.legacy_prose_dirs(pj_root)
     drift = template_drift(pj_root, template)
     faltando = [rel for rel in drift.missing if rel in REQUIRED_BASE_FILES]
-    if not legado and not faltando and not drift.diverged:
+    # Bloco de regras do AGENTS.md atrás da config, ou rule antiga ainda no projeto
+    # (ADR-0046): mesmo remédio, mesma issue. Config inválida tem outro remédio.
+    try:
+        load_project_config(pj_root)  # valida mesmo sem AGENTS.md
+        regras = (
+            sync_project_rules(pj_root, write=False) is not None
+            or retire_legacy_rule(pj_root, write=False) == "removed"
+        )
+    except ConfigError as e:
+        return [f"[config_invalida] {e}"]
+    if not legado and not faltando and not drift.diverged and not regras:
         return []
 
     partes: list[str] = []
@@ -223,6 +236,10 @@ def standard_issues(pj_root: Path, template: Path) -> list[str]:
         partes.append(f"arquivo do núcleo ausente ({', '.join(faltando)})")
     if drift.diverged:
         partes.append(f"rule desatualizada ({', '.join(drift.diverged)})")
+    if regras:
+        partes.append(
+            "regras do projeto no `AGENTS.md` desatualizadas em relação ao `.claude/pj_config.toml`"
+        )
     return [
         "[fora_do_padrao] este projeto ficou para trás do `pj_base`: "
         + "; ".join(partes)

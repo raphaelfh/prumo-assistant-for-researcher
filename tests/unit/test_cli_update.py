@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from typer.testing import CliRunner
 
 from par.cli import app
@@ -130,18 +131,86 @@ def test_update_nao_reescreve_proveniencia(tmp_path: Path) -> None:
     assert "generator: wiki-query" in nota.read_text(encoding="utf-8")
 
 
-def test_update_traz_rule_safe_outputs_a_projeto_antigo(tmp_path: Path) -> None:
-    """Projeto de antes da rule a recebe pelo caminho normal do `update`."""
-    pj = tmp_path / "pj_antigo"
+_RULE_ANTIGA = ".claude/rules/safe_outputs.md"
+_LINHA_ANTIGA = (
+    "Idioma de **interação**: pt-BR. Idioma de **escrita científica**: `[writing].language`\n"
+    "em `.claude/pj_config.toml` (default `en-US`); documento de CEP/CONEP é sempre pt-BR."
+)
+
+
+def _projeto_pre_adr46(pj: Path, rule: str) -> None:
+    """Deixa o projeto como o `init` de antes da ADR-0046: linha fixa e rule (sintética)."""
     _init(pj)
-    rule = pj / ".claude" / "rules" / "safe_outputs.md"
-    rule.unlink()
+    agents = pj / "AGENTS.md"
+    agents.write_text(
+        re.sub(
+            r"<!-- prumo:project-rules:begin -->.*?<!-- prumo:project-rules:end -->",
+            lambda _: _LINHA_ANTIGA,
+            agents.read_text(encoding="utf-8"),
+            flags=re.DOTALL,
+        ),
+        encoding="utf-8",
+    )
+    (pj / ".claude" / "rules").mkdir(parents=True, exist_ok=True)
+    (pj / _RULE_ANTIGA).write_text(rule, encoding="utf-8")
+
+
+def test_update_troca_rule_antiga_pelo_bloco_do_agents(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import hashlib
+
+    from par.core import project_rules
+
+    pj = tmp_path / "pj_antigo"
+    rule = "rule sintética igual à do template antigo\n"
+    _projeto_pre_adr46(pj, rule)
+    monkeypatch.setattr(
+        project_rules,
+        "_LEGACY_RULE_SHA256",
+        frozenset({hashlib.sha256(rule.encode()).hexdigest()}),
+    )
+
+    seco = json.loads(runner.invoke(app, ["update", str(pj), "--dry-run", "--json"]).output)
+    assert (seco["project_rules"], seco["legacy_rule"]) == ("inserted", "removed")
+    assert (pj / _RULE_ANTIGA).exists()
 
     res = runner.invoke(app, ["update", str(pj), "--json"])
 
     assert res.exit_code == 0, res.output
-    assert rule.is_file()
-    assert ".claude/rules/safe_outputs.md" in json.loads(res.output)["copied"]
+    out = json.loads(res.output)
+    assert (out["project_rules"], out["legacy_rule"]) == ("inserted", "removed")
+    assert not (pj / _RULE_ANTIGA).exists()
+    agents = (pj / "AGENTS.md").read_text(encoding="utf-8")
+    assert "Célula mínima = 5" in agents and agents.count("Idioma de **interação**") == 1
+
+    de_novo = json.loads(runner.invoke(app, ["update", str(pj), "--json"]).output)
+    assert (de_novo["project_rules"], de_novo["legacy_rule"]) == (None, None)
+
+
+def test_update_preserva_rule_editada_e_avisa(tmp_path: Path) -> None:
+    pj = tmp_path / "pj_antigo"
+    _projeto_pre_adr46(pj, "rule que o projeto editou\n")
+
+    res = runner.invoke(app, ["update", str(pj)])
+
+    assert res.exit_code == 0, res.output
+    assert (pj / _RULE_ANTIGA).read_text(encoding="utf-8") == "rule que o projeto editou\n"
+    assert "safe_outputs.md" in res.output and "duplica" in res.output
+    assert "<!-- prumo:project-rules:begin -->" in (pj / "AGENTS.md").read_text(encoding="utf-8")
+
+
+def test_update_leva_a_config_editada_para_o_bloco(tmp_path: Path) -> None:
+    from par.core.config import set_config_values
+
+    pj = tmp_path / "pj_exemplo"
+    _init(pj)
+    set_config_values(pj, {("safe_outputs", "min_cell"): 10})
+
+    out = json.loads(runner.invoke(app, ["update", str(pj), "--json"]).output)
+
+    assert out["project_rules"] == "updated"
+    assert "Célula mínima = 10" in (pj / "AGENTS.md").read_text(encoding="utf-8")
 
 
 # --- A11: cópias antigas do PAR no pj vão para .prumo/legacy-copies/ ---------
@@ -232,6 +301,7 @@ def test_update_sem_tty_move_copias_e_preserva_rule_customizada(tmp_path: Path) 
     _init(pj)
     _com_copias(pj)
     rule = pj / ".claude" / "rules" / "safe_outputs.md"
+    rule.parent.mkdir(parents=True, exist_ok=True)
     rule.write_text("minha rule customizada\n", encoding="utf-8")
 
     res = runner.invoke(app, ["update", str(pj)])
@@ -308,7 +378,9 @@ def test_update_move_scripts_antigos_e_espelhos_do_codex(tmp_path: Path) -> None
     assert not (pj / ".claude" / "make").exists()
     assert not (pj / ".codex").exists()
     assert not (pj / ".agents").exists()
-    assert (pj / "AGENTS.md").read_text(encoding="utf-8") == "# meu AGENTS\n"
+    # o AGENTS.md do pesquisador fica; só ganha o bloco de regras (ADR-0046)
+    agents = (pj / "AGENTS.md").read_text(encoding="utf-8")
+    assert agents.startswith("# meu AGENTS\n") and "prumo:project-rules:begin" in agents
 
 
 def test_update_poupa_skill_de_terceiros_e_agent_do_pesquisador_com_nome_do_par(

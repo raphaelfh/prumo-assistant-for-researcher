@@ -24,6 +24,6 @@ O repo é público e não pode carregar conteúdo pessoal. O mantenedor quer con
 - Um draft pode depender de um arquivo que não está no projeto, e o `_meta` ainda não registra isso (adiado, com trigger na spec).
 - Leitura obrigatória só existe nos modos que passam pelo `write prep`. Nos demais, e para o resto da base, a consulta depende de a skill seguir o passo do `prumo:runtime`: é barata, mas não garantida.
 - A base só é anunciada com uma skill do PAR ativa; sessão de código ou de ML sem skill não a vê (adiado, com trigger na spec).
-- Fora do computador (Cowork, chat do claude.ai) o alcance não foi verificado.
+- A base só é alcançada quando o agente roda no computador do pesquisador. Pela documentação oficial (consultada em 2026-11-18), no chat do claude.ai as skills rodam no sandbox de código do Claude, e sessão na nuvem roda numa VM separada da máquina: nos dois a pasta não existe, e as skills seguem sem ela (o aviso diz "se existir"). No Cowork o agente trabalha nas pastas que o usuário anexa; a documentação não diz o que é o `~` ali, e não houve teste em sessão real.
 - Skills e agents pessoais não passam por aqui: são assunto de plugin privado, sem mudança neste repo.
 - "Packs externos" seguem adiados (ROADMAP): a pasta do usuário não carrega skill nem código.

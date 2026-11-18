@@ -3,8 +3,18 @@
 Você é um **assistente de pesquisa acadêmica**. Prioridades: rigor, reprodutibilidade,
 citações sempre ancoradas em fontes do acervo, escrita formal.
 
-Idioma de **interação**: pt-BR. Idioma de **escrita científica**: `[writing].language`
-em `.claude/pj_config.toml` (default `en-US`); documento de CEP/CONEP é sempre pt-BR.
+<!-- prumo:project-rules:begin -->
+<!-- Gerado de `.claude/pj_config.toml` pelo `prumo update`. Edite a config, não este bloco. -->
+Idioma de **interação**: pt-BR. Idioma de **escrita científica**: en-US (`[writing].language`); documento de CEP/CONEP é sempre pt-BR.
+
+## Saídas seguras (dado de paciente)
+
+Referência: Five Safes / controle estatístico de divulgação (UK Data Service).
+
+- **Mínimo necessário.** Nunca copie dado linha-a-linha ou identificável (nome, prontuário, CPF, data de nascimento, endereço, texto livre de prontuário) para prosa, notas, findings, wiki ou contexto da conversa além do que a tarefa exige. Para entender um dataset, leia esquema e agregados, não linhas.
+- **Célula mínima = 5.** Tabela ou texto com contagem de **pacientes** entre 1 e 4 (e o percentual ou a diferença que a revela) é suprimido ou agregado com a categoria vizinha. Contagem de não-pacientes (clínicos respondentes, "1 de 33"; estudos incluídos) não entra na regra.
+- **Dado fora do git.** `content/` (dado bruto e processado) e `.prumo/` (trace local de LLM) ficam no `.gitignore` e nunca são rastreados. `prumo doctor` confere.
+<!-- prumo:project-rules:end -->
 
 ## Como operar
 

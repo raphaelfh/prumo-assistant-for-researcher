@@ -7,6 +7,29 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Adicionado
+
+- **Idioma da conversa por projeto.** `[interaction].language` em `.claude/pj_config.toml`
+  (`pt-BR` ou `en-US`). O `prumo init` pergunta no wizard e aceita `--lang en-US`; a skill
+  `start` pergunta antes de criar o projeto. Inglês leva junto o idioma do callout de extração.
+- **Saídas seguras ajustáveis por projeto.** `[safe_outputs].patient_data` e
+  `[safe_outputs].min_cell` substituem a célula mínima fixa em 5: o projeto pode subir o limiar,
+  baixar, desligar (`min_cell = 0`) ou declarar que não tem dado de paciente
+  (`prumo init --no-patient-data`). Os defaults repetem o comportamento anterior.
+- **O `prumo doctor` avisa `[celula_minima_baixa]`** quando há dado de paciente e o limiar está
+  abaixo de 5, e reprova config inválida com `[config_invalida]`.
+
+### Alterado
+
+- **As regras do projeto moram no `AGENTS.md`** (ADR-0046). Idioma e saídas seguras passam a um
+  bloco gerado, `prumo:project-rules`, escrito a partir do `pj_config.toml`. Codex e Antigravity,
+  que não leem `.claude/rules/`, passam a receber a regra de célula mínima. Depois de editar a
+  config, rode `prumo update`; o `doctor` acusa `[fora_do_padrao]` enquanto o bloco estiver
+  atrás (Princípio VIII: mesmo remédio, mesma issue).
+- **`.claude/rules/safe_outputs.md` sai do `pj_base`.** O `prumo update` apaga a cópia intacta e
+  insere o bloco; cópia que você editou fica, com aviso. Quem subiu o limiar pelo
+  `project_guide.md` deve passá-lo para `[safe_outputs].min_cell`.
+
 ## [0.72.0] - 2026-11-17
 
 ### Adicionado

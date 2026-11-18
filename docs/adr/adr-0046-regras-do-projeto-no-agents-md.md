@@ -13,7 +13,7 @@ O `pj_base` tinha duas regras fixas para todo projeto: idioma de interação pt-
 1. **Valores no `pj_config.toml`**: `[interaction].language` (`pt-BR` | `en-US`), `[safe_outputs].patient_data` (bool) e `[safe_outputs].min_cell` (inteiro `>= 0`; 0 desliga a supressão). Defaults iguais ao comportamento anterior (`pt-BR`, `true`, `5`), validados em `core/config.py`. `INTERACTION_LANGUAGES` é vocabulário próprio, separado dos de escrita e de extração (mesmo motivo do ADR-0021).
 2. **Instrução num bloco machine-owned do `AGENTS.md`**, `<!-- prumo:project-rules:begin/end -->` (ADR-0009), renderizado por `core/project_rules.py` a partir da config e escrito pelo `prumo init` e pelo `prumo update`. Todo agente lê o mesmo texto, já com os valores do projeto.
 3. **`.claude/rules/safe_outputs.md` sai do `pj_base`.** O `update` remove a cópia não editada e insere o bloco; cópia editada fica, com aviso.
-4. **`prumo doctor`** acusa `[regras_desatualizadas]` (bloco ausente ou diferente da config; correção `prumo update`) e avisa `[celula_minima_baixa]` (dado de paciente com `min_cell < 5`). `[dado_versionavel]` continua.
+4. **`prumo doctor`**: bloco ausente ou diferente da config entra na issue `[fora_do_padrao]`, que já existia e tem o mesmo remédio (`prumo update`, Princípio VIII); config inválida vira `[config_invalida]`; dado de paciente com `min_cell < 5` gera o aviso `[celula_minima_baixa]`. `[dado_versionavel]` continua, em `core/safe_outputs.py`.
 5. **`prumo init`** pergunta idioma de interação e se há dado de paciente; flags `--lang` e `--no-patient-data` no modo não-interativo.
 
 ## Consequências

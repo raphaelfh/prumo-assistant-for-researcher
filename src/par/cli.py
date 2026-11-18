@@ -20,6 +20,7 @@ forem implementados.
 
 from __future__ import annotations
 
+import contextlib
 import re
 import shutil
 import sys
@@ -34,6 +35,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from par import (
+    ConfigError,
     ManifestError,
     PrumoError,
     __version__,
@@ -42,10 +44,22 @@ from par.contracts import validate_contract
 from par.core import pj_layout
 from par.core.cli_io import read_stdin_json
 from par.core.cli_op import cli_run
+from par.core.config import (
+    DEFAULTS,
+    INTERACTION_LANGUAGES,
+    load_project_config,
+    set_config_values,
+)
 from par.core.deps import check_external_deps
 from par.core.output import Console
 from par.core.packaging import packaging_issues
 from par.core.paths import find_resource, resolve_resource
+from par.core.project_rules import (
+    LEGACY_RULE_RELPATH,
+    low_min_cell_warning,
+    retire_legacy_rule,
+    sync_project_rules,
+)
 from par.core.safe_outputs import safe_outputs_issues
 from par.core.scaffold import (
     ModuleInfo,
@@ -297,6 +311,8 @@ class WizardAnswers:
     modules: list[str]
     init_git: bool
     scope_slug: str
+    #: ``(seção, chave) -> valor`` a gravar no ``pj_config.toml`` (ADR-0046); vazio no merge.
+    options: dict[tuple[str, str], str | bool | int]
 
 
 def _wizard(console: Console, default_target: str | None = None) -> WizardAnswers:
@@ -357,6 +373,18 @@ def _wizard(console: Console, default_target: str | None = None) -> WizardAnswer
             if 0 <= _idx < len(_modules):
                 selected_modules.append(_modules[_idx].name)
 
+    # Idioma e dado de paciente (ADR-0046). No merge a config já é do projeto.
+    options: dict[tuple[str, str], str | bool | int] = {}
+    if mode != MODE_MERGE:
+        lang = typer.prompt("Idioma da conversa com o agente [pt-BR/en-US]", default="pt-BR")
+        patient_data = typer.confirm("O projeto usa dado de paciente?", default=True)
+        min_cell = (
+            typer.prompt("Célula mínima para contagem de pacientes (0 desliga)", default=5)
+            if patient_data
+            else None
+        )
+        options = _project_options(lang, patient_data=patient_data, min_cell=min_cell)
+
     # 3. git init (apenas se MODE_NEW)
     init_git = False
     if mode == MODE_NEW:
@@ -368,7 +396,32 @@ def _wizard(console: Console, default_target: str | None = None) -> WizardAnswer
         modules=selected_modules,
         init_git=init_git,
         scope_slug=scope_slug,
+        options=options,
     )
+
+
+def _project_options(
+    lang: str | None, *, patient_data: bool, min_cell: int | None = None
+) -> dict[tuple[str, str], str | bool | int]:
+    """Só o que difere do default vira chave gravada: o caminho feliz não toca a config.
+
+    Idioma de conversa em inglês leva junto o do callout de extração; o de escrita
+    segue a cascata própria (ADR-0021).
+    """
+    if lang is not None and lang not in INTERACTION_LANGUAGES:
+        raise typer.BadParameter(
+            f"idioma '{lang}' inválido; use um de {sorted(INTERACTION_LANGUAGES)}.",
+            param_hint="--lang",
+        )
+    options: dict[tuple[str, str], str | bool | int] = {}
+    if lang == "en-US":
+        options[("interaction", "language")] = "en-US"
+        options[("paper_extract", "language")] = "en"
+    if not patient_data:
+        options[("safe_outputs", "patient_data")] = False
+    if min_cell is not None and min_cell != DEFAULTS["safe_outputs"]["min_cell"]:
+        options[("safe_outputs", "min_cell")] = min_cell
+    return options
 
 
 def _init_git_repo(target: Path) -> bool:
@@ -438,6 +491,17 @@ def init_command(
             help="Inicializa git no novo projeto (modo não-interativo; default: True).",
         ),
     ] = True,
+    lang: Annotated[
+        str | None,
+        typer.Option("--lang", help="Idioma da conversa com o agente: pt-BR (default) ou en-US."),
+    ] = None,
+    no_patient_data: Annotated[
+        bool,
+        typer.Option(
+            "--no-patient-data",
+            help="Projeto sem dado de paciente (revisão, dado público): dispensa a célula mínima.",
+        ),
+    ] = False,
 ) -> None:
     """Cria um novo projeto ``pj_*`` a partir do template.
 
@@ -469,11 +533,13 @@ def init_command(
         mode = answers.mode
         init_git_flag = answers.init_git
         scope_slug = answers.scope_slug
+        options = answers.options
     else:
         if project is None:
             console.error("Informe o nome do projeto ou rode em terminal interativo (TTY).")
             raise typer.Exit(code=2)
         target, _ = _validate_project_name(project)
+        options = _project_options(lang, patient_data=not no_patient_data)
         init_git_flag = init_git
         # Sem wizard, ninguém escolhe slug — o template já nasce com
         # `docs/studies/principal/` (default da decisão de layout por escopo).
@@ -508,6 +574,12 @@ def init_command(
             copied = [str(p.relative_to(template)) for p in template.rglob("*") if p.is_file()]
 
         apply_project_name(target, target.name, copied)
+
+        # Idioma e saídas seguras escolhidos agora: config + bloco do AGENTS.md
+        # (ADR-0046). Sem escolha, o template já traz o bloco dos defaults.
+        if options:
+            set_config_values(target, options)
+            sync_project_rules(target)
 
         # Escopo inicial com o slug escolhido no wizard — o template já nasce
         # com `docs/studies/principal/`; só renomeia quando o usuário pediu
@@ -689,6 +761,11 @@ def doctor_command(
         )
     # Vínculo gravado conferido pelo pull export (emenda da ADR-0044). Zotero fechado
     # já aparece na linha de dependências; "ok" não precisa de frase.
+    # Célula mínima abaixo do usual com dado de paciente (ADR-0046): escolha do projeto,
+    # então aviso. Config inválida já virou issue em `standard_issues`.
+    with contextlib.suppress(ConfigError):
+        if aviso_celula := low_min_cell_warning(load_project_config(target)):
+            warnings.append(aviso_celula)
     link_check = check_link(target)
     if link_check is not None and link_check.state in ("drift", "missing", "unverifiable"):
         warnings.append(link_check.detail)
@@ -784,6 +861,10 @@ def update_command(
             copied = apply_template_update(pj_root, template, drift.missing)
             confirmados = _confirm_diverged(console, drift.diverged, yes=yes)
             updated = apply_template_update(pj_root, template, confirmados)
+        # Regras do projeto (ADR-0046): a rule antiga dá lugar ao bloco do AGENTS.md,
+        # depois de o AGENTS.md ausente ter voltado do template.
+        legacy_rule = retire_legacy_rule(pj_root, write=not dry_run)
+        project_rules = sync_project_rules(pj_root, write=not dry_run)
 
         console.result(
             _update_summary(
@@ -795,6 +876,8 @@ def update_command(
                 skill_refs=len(skill_refs),
                 copies=copias,
                 backup=backup,
+                project_rules=project_rules,
+                legacy_rule=legacy_rule,
             ),
             {
                 "project": str(pj_root),
@@ -807,6 +890,8 @@ def update_command(
                 "skill_refs": [asdict(c) for c in skill_refs],
                 "plugin_copies": copias,
                 "legacy_backup": backup,
+                "project_rules": project_rules,
+                "legacy_rule": legacy_rule,
             },
         )
 
@@ -846,7 +931,26 @@ def _update_summary(
     skill_refs: int = 0,
     copies: Sequence[str] = (),
     backup: str | None = None,
+    project_rules: str | None = None,
+    legacy_rule: str | None = None,
 ) -> str:
+    regras = ""
+    if project_rules:
+        regras = (
+            "Regras do projeto (idioma, saídas seguras) "
+            + ("a regravar" if dry_run else "regravadas")
+            + " no AGENTS.md a partir do pj_config.toml. "
+        )
+    if legacy_rule == "removed":
+        regras += (
+            f"{LEGACY_RULE_RELPATH} " + ("sai" if dry_run else "saiu") + " (o bloco a substitui). "
+        )
+    elif legacy_rule == "kept":
+        regras += (
+            f"{LEGACY_RULE_RELPATH} foi editada por você e ficou: ela duplica o bloco do "
+            "AGENTS.md; passe o limiar para [safe_outputs].min_cell e apague-a. "
+        )
+    mudou_regras = bool(project_rules) or legacy_rule == "removed"
     if not copies:
         copias = ""
     elif dry_run:
@@ -868,25 +972,26 @@ def _update_summary(
         else ""
     )
     if dry_run:
-        if drift.clean and not skill_refs and not copies:
-            return "Projeto já está no padrão; nada a atualizar."
+        if drift.clean and not skill_refs and not copies and not mudou_regras:
+            return regras + "Projeto já está no padrão; nada a atualizar."
         template = (
             ""
             if drift.clean
             else f"{len(drift.missing)} arquivo(s) a copiar e {len(drift.diverged)} divergente(s). "
         )
-        return copias + refs + template + "Rode sem --dry-run para aplicar."
+        return copias + refs + regras + template + "Rode sem --dry-run para aplicar."
     aviso = (
         f"{migrated} saiu do projeto — o conteúdo preenchido foi para docs/project_guide.md. "
         if migrated
         else ""
     )
-    if not copied and not updated and not skill_refs and not copies:
-        return aviso + "Projeto já está no padrão; nada a atualizar."
+    if not copied and not updated and not skill_refs and not copies and not mudou_regras:
+        return aviso + regras + "Projeto já está no padrão; nada a atualizar."
     return (
         copias
         + aviso
         + refs
+        + regras
         + f"{len(copied)} arquivo(s) restaurado(s) e {len(updated)} atualizado(s)."
     )
 

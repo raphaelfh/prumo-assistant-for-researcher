@@ -369,6 +369,51 @@ def test_doctor_reprova_dado_versionavel(tmp_path: Path) -> None:
     assert issue in json.loads(result.stdout)["issues"]
 
 
+def _doctor(pj: Path) -> dict[str, list[str]]:
+    with patch("par.cli.check_external_deps", return_value=[]):
+        res = runner.invoke(app, ["doctor", str(pj), "--json"])
+    out: dict[str, list[str]] = json.loads(res.stdout)
+    return out
+
+
+def test_doctor_acusa_bloco_de_regras_desatualizado(tmp_path: Path) -> None:
+    """Config editada sem `prumo update`: o agente ainda lê o valor antigo (ADR-0046)."""
+    pj = _project(tmp_path)
+    (pj / "AGENTS.md").write_bytes((_resolve_template_dir() / "AGENTS.md").read_bytes())
+    assert not [i for i in _doctor(pj)["issues"] if "[fora_do_padrao]" in i]
+
+    (pj / ".claude" / "pj_config.toml").write_text(
+        "[safe_outputs]\nmin_cell = 10\n", encoding="utf-8"
+    )
+
+    fora = [i for i in _doctor(pj)["issues"] if "[fora_do_padrao]" in i]
+    assert len(fora) == 1 and "AGENTS.md" in fora[0] and "prumo update" in fora[0]
+
+
+def test_doctor_avisa_celula_minima_baixa_sem_reprovar(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    (pj / ".claude" / "pj_config.toml").write_text(
+        "[safe_outputs]\nmin_cell = 3\n", encoding="utf-8"
+    )
+    out = _doctor(pj)
+    assert [w for w in out["warnings"] if "[celula_minima_baixa]" in w]
+    assert not [i for i in out["issues"] if "celula_minima" in i]
+
+    (pj / ".claude" / "pj_config.toml").write_text(
+        "[safe_outputs]\nmin_cell = 3\npatient_data = false\n", encoding="utf-8"
+    )
+    assert not [w for w in _doctor(pj)["warnings"] if "[celula_minima_baixa]" in w]
+
+
+def test_doctor_reprova_config_invalida_com_a_correcao(tmp_path: Path) -> None:
+    pj = _project(tmp_path)
+    (pj / ".claude" / "pj_config.toml").write_text(
+        '[interaction]\nlanguage = "fr"\n', encoding="utf-8"
+    )
+    invalida = [i for i in _doctor(pj)["issues"] if "[config_invalida]" in i]
+    assert len(invalida) == 1 and "interaction.language" in invalida[0]
+
+
 def _referencias(pj: Path) -> list[str]:
     with patch("par.cli.check_external_deps", return_value=[]):
         res = runner.invoke(app, ["doctor", str(pj), "--json"])

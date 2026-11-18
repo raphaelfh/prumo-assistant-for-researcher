@@ -159,6 +159,11 @@ se o `.bib` do projeto ainda estiver no placeholder do scaffold.
 Se você tem templates próprios, guias de redação ou formatos de análise que usa em todo estudo,
 guarde-os numa pasta sua, fora dos projetos, e conecte-a ao PAR. Quem não tem não precisa de nada.
 
+A base fica no seu computador, então só vale quando o agente roda nele (aba Code do app Claude,
+terminal, Codex, Antigravity). No chat do claude.ai e em sessão na nuvem o agente roda num
+ambiente isolado, sem acesso aos seus arquivos, e a base não é vista. No Cowork o agente só
+enxerga as pastas que você anexar à tarefa; o uso da base ali ainda não foi testado.
+
 O PAR procura a base em `~/.config/prumo/`. Se ela já mora em outro lugar, peça "conecta minha
 base de conhecimento em `<caminho>`", ou crie o atalho no terminal:
 
