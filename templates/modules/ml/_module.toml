@@ -1,3 +1,5 @@
-description = "Stack de ML/dados, regras de código (ruff) e notebook de EDA."
+description = "Stack de ML/dados: regras de código e de ajuste de modelo, e o helper de rodada em src/<pkg>/runs.py."
 when_to_use = "Vai treinar modelos ou fazer análise tabular/de imagem."
 anchor = ".claude/rules/ml_stack.md"
+# ADR-0047: o helper de rodada mora no pacote do projeto e usa os grupos do pyproject.
+requires = ["code"]

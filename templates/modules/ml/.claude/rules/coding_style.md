@@ -41,5 +41,5 @@ paths:
   ```
 
 - Sempre: título, rótulos de eixos com unidades clínicas, legenda nomeada. Preferir `ax = …` + retornar/salvar `fig` em vez de `plt.show()` global.
-- Exportar para `data/reports/…` ou `docs/studies/<slug>/writing/figures/…` via `fig.savefig(path, dpi=300, bbox_inches="tight")`.
+- Figura de rodada vai para `experiments/<rodada>/figs/` (`run.save_fig`); figura do manuscrito, para `docs/studies/<slug>/writing/figures/`. Sempre `fig.savefig(path, dpi=300, bbox_inches="tight")`.
 - Plotly **só** em dashboards interativos explicitamente pedidos.

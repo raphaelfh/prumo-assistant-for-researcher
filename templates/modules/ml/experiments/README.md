@@ -9,10 +9,29 @@ experiments/
 ├── _archive/           # rodadas superadas
 └── 2026-09-07_baseline/
     ├── README.md       # o que mudou nesta rodada e o que ela mostrou
+    ├── run.json        # parâmetros, semente, escopo, commit, versões
     ├── metrics.csv     # versionado
     ├── figs/           # versionado
     └── model.joblib    # gitignorado: regenerável
 ```
+
+## Como uma rodada nasce
+
+Pelo helper do projeto, no fim do notebook de ajuste (`prumo add notebook <nome>
+--kind model` já traz a célula pronta):
+
+```python
+from __pkg__.runs import start_run
+
+run = start_run("baseline", seed=42, scope="<escopo>")
+run.log_params({"C": 0.1})
+run.log_metrics([{"metrica": "auc", "valor": 0.81}])
+run.save_fig(fig, "calibracao")
+run.finish("O que mudou nesta rodada e o que ela mostrou.")
+```
+
+Assim toda rodada sai no mesmo formato, e o `README.md` dela é escrito do resumo e do
+`run.json`, sem montar nada à mão.
 
 ## Por que na raiz, e não em `docs/`
 

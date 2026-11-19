@@ -514,3 +514,20 @@ def test_doctor_cala_vinculo_ok_e_zotero_fechado(tmp_path: Path) -> None:
     for state in ("ok", "unreachable"):
         payload = _doctor_with_link_check(tmp_path / state, state)
         assert f"frase {state}" not in payload["warnings"]  # type: ignore[operator]
+
+
+def test_doctor_acusa_notebook_fora_do_lugar_e_avisa_cabecalho(tmp_path: Path) -> None:
+    """ADR-0047: issue estrutural com o `git mv`; cabeçalho incompleto só avisa."""
+    pj = tmp_path / "pj_demo"
+    assert runner.invoke(app, ["init", str(pj), "--json"]).exit_code == 0
+    (pj / "solto.ipynb").write_text("{}", encoding="utf-8")
+    nb = pj / "notebooks" / "principal"
+    nb.mkdir(parents=True)
+    (nb / "00_a.py").write_text("import marimo\napp = marimo.App()\n", encoding="utf-8")
+
+    res = runner.invoke(app, ["doctor", str(pj), "--json"])
+    payload = json.loads(res.stdout)
+    assert res.exit_code == 1
+    assert any("`git mv solto.ipynb notebooks/principal/`" in i for i in payload["issues"])
+    assert any("[notebook_indice_desatualizado]" in i for i in payload["issues"])
+    assert any("[notebook_sem_cabecalho]" in w for w in payload["warnings"])

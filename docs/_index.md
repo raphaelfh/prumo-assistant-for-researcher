@@ -79,12 +79,13 @@ Vault Markdown de orientação de uso do plugin/CLI. Material complementar ao [R
 - [[superpowers/specs/2026-11-16-conteudo-pessoal-fora-do-repo-design]] · approved
 - [[superpowers/specs/2026-11-16-idioma-e-safe-outputs-por-projeto-design]] · approved
 - [[superpowers/specs/2026-11-16-vinculo-zotero-design]] · approved
+- [[superpowers/specs/2026-11-18-notebooks-e-rodadas-de-modelo-design]] · approved
 
 **Plans ativos:**
 
 - (nenhum)
 
-**Plans arquivados:** 50 em `superpowers/plans/archive/`
+**Plans arquivados:** 51 em `superpowers/plans/archive/`
 
 **ADRs:** ver [[adr/_index|índice de ADRs]]
 <!-- prumo:kb-index:end -->

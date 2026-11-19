@@ -14,6 +14,8 @@ A bibliografia é do PROJETO (uma só, um ``.bib``, um autoexport); ``notes/``,
 
 from __future__ import annotations
 
+import keyword
+import re
 from pathlib import Path
 
 from par import PrumoError
@@ -21,6 +23,11 @@ from par import PrumoError
 PJ_CONFIG_RELPATH = Path(".claude") / "pj_config.toml"
 REFERENCES_RELPATH = Path("docs") / "references"
 STUDIES_RELPATH = Path("docs") / "studies"
+NOTEBOOKS_RELPATH = Path("notebooks")
+
+#: Prefixo numérico de ordenação do slug (``01_estudo``, ``02-coorte``).
+_ORDER_PREFIX_RE = re.compile(r"^\d+[_-]?")
+_IDENTIFIER_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 SCOPE_DIRS = ("notes", "writing", "decisions")
 
@@ -130,6 +137,28 @@ def iter_scopes(pj_root: Path) -> list[Path]:
     if not studies.is_dir():
         return []
     return sorted(p for p in studies.iterdir() if p.is_dir() and not p.name.startswith("."))
+
+
+def code_scope_name(slug: str) -> str:
+    """Nome de código do escopo ``slug``: pasta em ``notebooks/`` e subpacote em ``src/<pkg>/``.
+
+    É o slug de ``docs/studies/`` sem o prefixo numérico de ordenação, com ``-`` virando
+    ``_``, para valer como identificador Python (``01_estudo`` → ``estudo``,
+    ``mortalidade-uti`` → ``mortalidade_uti``). Ver ADR-0047.
+    """
+    name = _ORDER_PREFIX_RE.sub("", slug).replace("-", "_").lower()
+    if not _IDENTIFIER_RE.match(name) or keyword.iskeyword(name):
+        raise PrumoError(
+            f"O escopo '{slug}' não dá um nome de código válido ('{name or '(vazio)'}'): "
+            "o nome sem o prefixo numérico precisa ser letras, números e `_`, começando por "
+            "letra. Crie um escopo com nome de código, ex.: `prumo add study 01_estudo`."
+        )
+    return name
+
+
+def notebooks_dir(pj_root: Path, slug: str) -> Path:
+    """``<pj>/notebooks/<nome de código do escopo>/``."""
+    return pj_root / NOTEBOOKS_RELPATH / code_scope_name(slug)
 
 
 def references_dir(pj_root: Path) -> Path:

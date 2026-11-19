@@ -41,7 +41,7 @@ from par import (
     __version__,
 )
 from par.contracts import validate_contract
-from par.core import pj_layout
+from par.core import notebooks, pj_layout
 from par.core.cli_io import read_stdin_json
 from par.core.cli_op import cli_run
 from par.core.config import (
@@ -64,13 +64,14 @@ from par.core.safe_outputs import safe_outputs_issues
 from par.core.scaffold import (
     ModuleInfo,
     TemplateDrift,
-    apply_pkg_name,
+    apply_module,
     apply_project_name,
     apply_template_update,
     discover_modules,
     get_module,
     is_applied,
     migrate_project_context,
+    module_chain,
     module_requires_pkg,
     module_requires_scope,
     pkg_name,
@@ -612,13 +613,14 @@ def init_command(
             # `scope_slug` já é o slug real deste projeto (renomeado acima, se
             # o usuário pediu outro) — módulos por-escopo (ex. `protocol`)
             # caem direto nele; módulos sem marcador de escopo ignoram o kwarg.
-            # Idem `pkg` para o módulo `code` (ADR-0027).
-            _pkg = pkg_name(target.name) if module_requires_pkg(_info) else None
-            _mod_copied, _ = _overlay(_info.path, target, scope=scope_slug, pkg=_pkg)
-            apply_project_name(target, target.name, _mod_copied)
-            if _pkg is not None:
-                apply_pkg_name(target, _pkg, _mod_copied)
-            modules_applied.append(_info.name)
+            # Dependências (`requires`, ADR-0047) entram antes, uma vez só.
+            for _dep in module_chain(_info):
+                if _dep.name in modules_applied:
+                    continue
+                apply_module(target, _dep, scope=scope_slug)
+                if _dep.name == notebooks.MODULE:
+                    notebooks.seed_scope(target, scope_slug)
+                modules_applied.append(_dep.name)
 
         # Perfil de export do Zettlr — caminhos absolutos por máquina,
         # então é gerado aqui (nunca vem do template). Não pode derrubar
@@ -735,6 +737,11 @@ def doctor_command(
     # Confidencialidade: dado bruto e trace de LLM fora do git (safe_outputs).
     issues.extend(safe_outputs_issues(target))
 
+    # Notebooks no lugar, numerados, com cabeçalho e índice em dia (ADR-0047).
+    # Cabeçalho incompleto é aviso: o notebook roda igual, só o índice fica pobre.
+    nb_issues, nb_warnings = notebooks.notebook_issues(target)
+    issues.extend(nb_issues)
+
     # Perfil de export do Zettlr (se existir) aponta pra arquivos vivos?
     issues.extend(zettlr_profile_issues(target))
 
@@ -754,6 +761,7 @@ def doctor_command(
     # é editar a linha, e o `update` não toca texto do pesquisador. É aviso, não issue: a
     # leitura de prosa é heurística, e um falso positivo não pode prender o exit em 1.
     warnings: list[str] = obsolete_ref_warnings(target, legacy)
+    warnings.extend(nb_warnings)
     if not issues and bib_is_placeholder(target):
         warnings.append(
             "docs/references/_references.bib ainda é o placeholder do scaffold — "
@@ -865,6 +873,7 @@ def update_command(
         # depois de o AGENTS.md ausente ter voltado do template.
         legacy_rule = retire_legacy_rule(pj_root, write=not dry_run)
         project_rules = sync_project_rules(pj_root, write=not dry_run)
+        notebook_indexes = notebooks.sync_all_indexes(pj_root, write=not dry_run)
 
         console.result(
             _update_summary(
@@ -878,6 +887,7 @@ def update_command(
                 backup=backup,
                 project_rules=project_rules,
                 legacy_rule=legacy_rule,
+                notebook_indexes=notebook_indexes,
             ),
             {
                 "project": str(pj_root),
@@ -892,6 +902,7 @@ def update_command(
                 "legacy_backup": backup,
                 "project_rules": project_rules,
                 "legacy_rule": legacy_rule,
+                "notebook_indexes": notebook_indexes,
             },
         )
 
@@ -933,6 +944,7 @@ def _update_summary(
     backup: str | None = None,
     project_rules: str | None = None,
     legacy_rule: str | None = None,
+    notebook_indexes: Sequence[str] = (),
 ) -> str:
     regras = ""
     if project_rules:
@@ -950,7 +962,12 @@ def _update_summary(
             f"{LEGACY_RULE_RELPATH} foi editada por você e ficou: ela duplica o bloco do "
             "AGENTS.md; passe o limiar para [safe_outputs].min_cell e apague-a. "
         )
-    mudou_regras = bool(project_rules) or legacy_rule == "removed"
+    if notebook_indexes:
+        regras += (
+            f"Índice de notebooks {'a regravar' if dry_run else 'regravado'} em "
+            f"{', '.join(notebook_indexes)}. "
+        )
+    mudou_regras = bool(project_rules) or legacy_rule == "removed" or bool(notebook_indexes)
     if not copies:
         copias = ""
     elif dry_run:
@@ -1085,14 +1102,16 @@ def add_command(
     module: Annotated[
         str | None,
         typer.Argument(
-            help="Módulo a ativar (ex.: protocol, ml) ou `study` para criar um escopo de "
-            "escrita novo (`prumo add study <slug>`). Omita para listar/escolher."
+            help="Módulo a ativar (ex.: protocol, ml), `study` para criar um escopo de "
+            "escrita novo (`prumo add study <slug>`) ou `notebook` para criar um notebook "
+            "(`prumo add notebook <nome>`). Omita para listar/escolher."
         ),
     ] = None,
     slug: Annotated[
         str | None,
         typer.Argument(
-            help="Slug do escopo novo — só junto de `study` (ex.: prumo add study mortalidade-uti)."
+            help="Slug do escopo novo (com `study`, ex.: mortalidade-uti) ou nome do "
+            "notebook (com `notebook`, ex.: baseline)."
         ),
     ] = None,
     target: Annotated[
@@ -1103,15 +1122,30 @@ def add_command(
         typer.Option(
             "--scope",
             help="Slug do escopo alvo (docs/studies/<slug>/) para módulos por-escopo "
-            "(ex.: protocol). Obrigatório quando o projeto tem mais de um escopo.",
+            "(ex.: protocol, notebooks) e para `notebook`. Obrigatório quando o projeto "
+            "tem mais de um escopo.",
         ),
+    ] = None,
+    kind: Annotated[
+        str,
+        typer.Option(
+            "--kind",
+            help="Só com `notebook`: eda (00–09), prep (10–19), model (20–29) ou figures (30–39).",
+        ),
+    ] = "eda",
+    ipynb: Annotated[
+        bool, typer.Option("--ipynb", help="Só com `notebook --kind eda`: cria .ipynb.")
+    ] = False,
+    question: Annotated[
+        str | None,
+        typer.Option("--question", help="Só com `notebook`: preenche a Pergunta do cabeçalho."),
     ] = None,
     list_only: Annotated[
         bool, typer.Option("--list", help="Só lista módulos disponíveis.")
     ] = False,
     json_mode: Annotated[bool, typer.Option("--json", help="Saída JSON.")] = False,
 ) -> None:
-    """Ativa um módulo (overlay não-destrutivo) ou cria um escopo de escrita novo."""
+    """Ativa um módulo (overlay não-destrutivo), cria um escopo de escrita ou um notebook."""
     console = Console(json_mode=json_mode)
     target = target.resolve()
     modules = discover_modules()
@@ -1130,6 +1164,18 @@ def add_command(
         _add_study(console, target=target, slug=slug)
         return
 
+    if module == "notebook":
+        _add_notebook(
+            target=target,
+            name=slug,
+            scope=scope,
+            kind=kind,
+            ipynb=ipynb,
+            question=question,
+            json_mode=json_mode,
+        )
+        return
+
     info = get_module(module)
     if info is None:
         console.error(f"Módulo '{module}' não encontrado. Use `prumo add --list`.")
@@ -1138,39 +1184,94 @@ def add_command(
         console.info(f"'{module}' agora se chama '{info.name}'; use `prumo add {info.name}`.")
         module = info.name
 
-    scope_slug: str | None = None
-    pkg: str | None = None
-    try:
-        if module_requires_scope(info):
+    with cli_run(json_mode=json_mode) as console:
+        chain = module_chain(info)
+        # Dependência já aplicada fica como está; o resto entra antes do módulo pedido.
+        pending = [m for m in chain[:-1] if not is_applied(target, m)] + [info]
+        scope_slug: str | None = None
+        if any(module_requires_scope(m) for m in pending) or module == notebooks.MODULE:
             scope_slug = _resolve_module_scope(target, module, scope)
-        if module_requires_pkg(info):
+        if any(module_requires_pkg(m) for m in pending):
             # O nome do pacote vem do nome do PROJETO, sem o prefixo `pj_`
             # (ADR-0027). Nome de diretório impróprio falha aqui, antes de
             # copiar qualquer arquivo.
-            pkg = pkg_name(target.name)
-    except PrumoError as e:
-        console.error(str(e))
-        raise typer.Exit(code=1) from e
+            pkg_name(target.name)
 
-    copied, skipped = _overlay(info.path, target, scope=scope_slug, pkg=pkg)
-    # Mesma substituição de placeholder de nome do `init` (ex.: `code/pyproject.toml`
-    # ainda carrega `pj-NOME`) — só nos arquivos recém-copiados deste módulo.
-    apply_project_name(target, target.name, copied)
-    if pkg is not None:
-        # `overlay` resolveu o marcador no CAMINHO; falta o CONTEÚDO
-        # (`[tool.hatch.build.targets.wheel] packages` e os exemplos da rule).
-        apply_pkg_name(target, pkg, copied)
-    payload = {
-        "module": module,
-        "target": str(target),
-        "files_copied": len(copied),
-        "files_skipped": len(skipped),
-    }
-    console.success(f"Módulo '{module}' aplicado em {target}")
-    if not json_mode and skipped:
-        # Sem marcação Rich embutida — mesmo motivo do fix acima em `_do_init`.
-        console.info(f"  {len(skipped)} arquivo(s) já existiam (preservados).")
-    console.emit(payload)
+        copied: list[str] = []
+        skipped: list[str] = []
+        for m in pending:
+            _copied, _skipped = apply_module(target, m, scope=scope_slug)
+            copied += _copied
+            skipped += _skipped
+        seeded = (
+            notebooks.seed_scope(target, scope_slug)
+            if module == notebooks.MODULE and scope_slug is not None
+            else None
+        )
+        also = [m.name for m in pending[:-1]]
+        payload = {
+            "module": module,
+            "target": str(target),
+            "files_copied": len(copied),
+            "files_skipped": len(skipped),
+            "also_applied": also,
+            "notebook": str(seeded) if seeded else None,
+        }
+        console.success(f"Módulo '{module}' aplicado em {target}")
+        if not json_mode:
+            if also:
+                console.info(f"  Exigido por '{module}' e aplicado antes: {', '.join(also)}.")
+            if seeded:
+                console.info(f"  Primeiro notebook: {seeded.relative_to(target).as_posix()}")
+            if skipped:
+                # Sem marcação Rich embutida — mesmo motivo do fix acima em `_do_init`.
+                console.info(f"  {len(skipped)} arquivo(s) já existiam (preservados).")
+        console.emit(payload)
+
+
+def _add_notebook(
+    *,
+    target: Path,
+    name: str | None,
+    scope: str | None,
+    kind: str,
+    ipynb: bool,
+    question: str | None,
+    json_mode: bool,
+) -> None:
+    """``prumo add notebook <nome>`` — notebook numerado a partir do modelo do tipo.
+
+    Aplica antes o módulo ``notebooks`` (a rule) se o projeto ainda não o tem.
+    """
+    with cli_run(json_mode=json_mode) as console:
+        if not name:
+            raise PrumoError(
+                "Informe o nome do notebook: `prumo add notebook <nome> --kind "
+                f"{'|'.join(notebooks.KINDS)}`."
+            )
+        pj_root = pj_layout.find_pj_root(target)
+        scope_slug = _resolve_module_scope(pj_root, "notebook", scope)
+        nb_module = get_module(notebooks.MODULE)
+        applied_module = nb_module is not None and not is_applied(pj_root, nb_module)
+        path = notebooks.create_notebook(
+            pj_root, scope_slug, name, kind=kind, ipynb=ipynb, question=question
+        )
+        if applied_module and nb_module is not None:
+            apply_module(pj_root, nb_module)
+        rel = path.relative_to(pj_root).as_posix()
+        if applied_module and not json_mode:
+            console.info("Módulo 'notebooks' aplicado (regras de notebook do projeto).")
+        console.result(
+            f"Notebook criado: {rel}. Índice em {path.parent.relative_to(pj_root).as_posix()}"
+            "/README.md.",
+            {
+                "notebook": str(path),
+                "kind": kind,
+                "scope": scope_slug,
+                "index": str(path.parent / "README.md"),
+                "module_applied": applied_module,
+            },
+        )
 
 
 def _resolve_module_scope(target: Path, module: str, requested: str | None) -> str:
