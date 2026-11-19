@@ -7,6 +7,24 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+### Corrigido
+
+- **O grupo `viz` instala e roda em Python 3.14.** O `pyproject.toml` do módulo `code` aceita
+  Python 3.13 ou mais novo, e o uv pode escolher 3.14, onde `uv sync --group viz` falhava ao
+  compilar o `numba` puxado pelo `ydata-profiling`. Agora o `ydata-profiling` só entra abaixo de
+  3.14, e em 3.14 o `matplotlib` mínimo é 3.10.5 (antes disso, legenda e curva de calibração
+  entram em recursão infinita). Para o relatório de profiling em 3.14, fixe o projeto em 3.13
+  com `uv python pin 3.13`. Projeto que já aplicou o módulo não é alterado: troque, no grupo
+  `viz` do seu `pyproject.toml`, `"matplotlib>=3.9"` e `"ydata-profiling>=4.18.1"` por
+
+  ```toml
+  "matplotlib>=3.9; python_version < '3.14'",
+  "matplotlib>=3.10.5; python_version >= '3.14'",
+  "ydata-profiling>=4.18.1; python_version < '3.14'",
+  ```
+
+  e rode `uv sync --group viz`.
+
 ## [0.72.2] - 2026-11-19
 
 ### Adicionado

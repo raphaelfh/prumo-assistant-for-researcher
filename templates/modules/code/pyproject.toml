@@ -40,8 +40,14 @@ tabular = [
 ]
 viz = [
     "seaborn>=0.13",
-    "matplotlib>=3.9",
-    "ydata-profiling>=4.18.1",
+    "matplotlib>=3.9; python_version < '3.14'",
+    # Em Python 3.14, matplotlib < 3.10.5 entra em recursão infinita no deepcopy de Path
+    # (legenda, CalibrationDisplay).
+    "matplotlib>=3.10.5; python_version >= '3.14'",
+    # ydata-profiling não suporta Python 3.14 (fixa numba<0.63, sem wheel 3.14, e
+    # matplotlib<=3.10). Em 3.14 o grupo instala sem ele; para o relatório de profiling,
+    # `uv python pin 3.13`.
+    "ydata-profiling>=4.18.1; python_version < '3.14'",
 ]
 viz-interactive = [
     "plotly>=5.24",
