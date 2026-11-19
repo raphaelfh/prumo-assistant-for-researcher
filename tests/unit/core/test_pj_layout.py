@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from par import PrumoError
 from par.core import pj_layout as L
 
 
@@ -202,3 +203,30 @@ def test_legacy_prose_dirs_vazio_em_projeto_no_padrao(tmp_path: Path) -> None:
     (tmp_path / "docs" / "studies" / "principal" / "notes").mkdir(parents=True)
     (tmp_path / "docs" / "references").mkdir(parents=True)
     assert L.legacy_prose_dirs(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    ("slug", "esperado"),
+    [
+        ("estudo", "estudo"),
+        ("01_estudo", "estudo"),
+        ("02-coorte", "coorte"),
+        ("mortalidade-uti", "mortalidade_uti"),
+        ("10_Piloto-A", "piloto_a"),
+    ],
+)
+def test_code_scope_name_tira_prefixo_e_vira_identificador(slug: str, esperado: str) -> None:
+    """O nome de código do escopo (pasta em `notebooks/` e subpacote em `src/<pkg>/`) é o
+    slug sem o prefixo numérico de ordenação, válido como identificador Python (ADR-0047)."""
+    assert L.code_scope_name(slug) == esperado
+
+
+@pytest.mark.parametrize("slug", ["01", "01_", "2026", "class", "a.b"])
+def test_code_scope_name_recusa_slug_sem_nome_de_codigo(slug: str) -> None:
+    with pytest.raises(PrumoError) as exc:
+        L.code_scope_name(slug)
+    assert "prumo add study" in str(exc.value)
+
+
+def test_notebooks_dir_usa_o_nome_de_codigo(tmp_path: Path) -> None:
+    assert L.notebooks_dir(tmp_path, "01_estudo") == tmp_path / "notebooks" / "estudo"

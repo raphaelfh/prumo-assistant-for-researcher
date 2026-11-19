@@ -101,8 +101,11 @@ prumo-assistant-for-researcher/
 │                                 force-include no wheel; lido da raiz do plugin; `init` não copia
 ├── templates/
 │   ├── pj_base/               ← núcleo mínimo copiado por `prumo init`
-│   └── modules/             ← overlays opt-in (`prumo add`), self-describing (_module.toml):
-│       {protocol,ml,data,notebooks,code}/ — `code` traz o pacote instalável (ADR-0027)
+│   ├── modules/             ← overlays opt-in (`prumo add`), self-describing (_module.toml):
+│   │   {protocol,ml,data,notebooks,code}/ — `code` traz o pacote instalável (ADR-0027);
+│   │   `requires` aplica dependências antes (`ml` → `code`, ADR-0047)
+│   └── notebook_kinds/      ← modelos por tipo do `prumo add notebook` (eda, prep, model,
+│                               figures); fora do payload dos módulos (core/notebooks.py)
 │
 ├── tests/unit/                ← espelha domains/ 1:1
 └── docs/                      ← vault Markdown: constitution · adr/ ·

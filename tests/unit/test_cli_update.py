@@ -495,3 +495,22 @@ def test_update_nao_toca_settings_existente(tmp_path: Path) -> None:
 
     assert res.exit_code == 0, res.output
     assert settings.read_bytes() == proprio
+
+
+def test_update_regrava_o_indice_de_notebooks(tmp_path: Path) -> None:
+    """ADR-0047: notebook acrescentado à mão entra no índice no próximo `update`."""
+    pj = tmp_path / "pj_demo"
+    _init(pj)
+    assert runner.invoke(app, ["add", "notebook", "exploracao", "-t", str(pj)]).exit_code == 0
+    extra = pj / "notebooks" / "principal" / "10_preparo.py"
+    extra.write_text('"""\nPergunta: q\nEntrada: i\nSaída: o\n"""\n', encoding="utf-8")
+
+    seco = runner.invoke(app, ["update", str(pj), "--dry-run", "--json"])
+    assert seco.exit_code == 0, seco.output
+    assert json.loads(seco.output)["notebook_indexes"] == ["notebooks/principal/README.md"]
+    readme = pj / "notebooks" / "principal" / "README.md"
+    assert "10_preparo.py" not in readme.read_text(encoding="utf-8")
+
+    res = runner.invoke(app, ["update", str(pj), "--json"])
+    assert res.exit_code == 0, res.output
+    assert "10_preparo.py" in readme.read_text(encoding="utf-8")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -169,15 +170,18 @@ def test_add_data_cria_camadas_de_dado(tmp_path: Path) -> None:
     assert (root / "content" / "02_processed").is_dir()
 
 
-def test_add_notebooks_cria_pasta_por_escopo(tmp_path: Path) -> None:
-    """`notebooks` virou módulo por-escopo (ADR-0027, D5): o notebook fica ao
-    lado do estudo a que pertence, e some o tree paralelo `studies/<slug>/`."""
+def test_add_notebooks_cria_pasta_por_escopo_sem_prefixo_numerico(tmp_path: Path) -> None:
+    """`notebooks` é por-escopo (ADR-0027, D5), com o nome de código do escopo:
+    `01_estudo` → `notebooks/estudo/`, igual ao subpacote em `src/<pkg>/` (ADR-0047)."""
     root = _project(tmp_path)
     _scope(root, "01_estudo")
     result = runner.invoke(app, ["add", "notebooks", "--target", str(root)])
     assert result.exit_code == 0, result.output
-    assert (root / "notebooks" / "01_estudo").is_dir()
+    assert (root / "notebooks" / "estudo").is_dir()
+    assert not (root / "notebooks" / "01_estudo").exists()
     assert not (root / "notebooks" / "__scope__").exists()
+    indice = (root / "notebooks" / "estudo" / "README.md").read_text(encoding="utf-8")
+    assert "00_exploracao.py" in indice
 
 
 def test_add_notebooks_sem_escopo_recusa_com_o_comando_de_correcao(tmp_path: Path) -> None:
@@ -212,7 +216,7 @@ def test_add_notebooks_entrega_stub_marimo(tmp_path: Path) -> None:
     _scope(root, "01_estudo")
     assert runner.invoke(app, ["add", "notebooks", "--target", str(root)]).exit_code == 0
 
-    stub = root / "notebooks" / "01_estudo" / "00_exploracao.py"
+    stub = root / "notebooks" / "estudo" / "00_exploracao.py"
     assert stub.is_file()
     texto = stub.read_text(encoding="utf-8")
     assert "import marimo" in texto
@@ -235,3 +239,105 @@ def test_add_notebooks_documenta_os_dois_formatos_e_o_marimo_pair(tmp_path: Path
     assert "/marimo-pair" in conteudo
     assert "marimo convert" in conteudo
     assert "make " not in conteudo
+
+
+def test_add_notebooks_reaplicado_nao_duplica_o_notebook(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    _scope(root, "principal")
+    for _ in range(2):
+        assert runner.invoke(app, ["add", "notebooks", "--target", str(root)]).exit_code == 0
+    nb = sorted(p.name for p in (root / "notebooks" / "principal").glob("*.py"))
+    assert nb == ["00_exploracao.py"]
+
+
+def test_projeto_com_o_modulo_notebooks_antigo_conta_como_aplicado(tmp_path: Path) -> None:
+    """Quem aplicou o módulo antes da ADR-0047 tem a rule e não tem o anchor velho
+    (`notebooks/<escopo>/.gitkeep`) em lugar garantido: o anchor novo é a rule."""
+    from par.core.scaffold import get_module, is_applied
+
+    root = _project(tmp_path)
+    rule = root / ".claude" / "rules" / "notebooks.md"
+    rule.parent.mkdir(parents=True)
+    rule.write_text("versão antiga", encoding="utf-8")
+    info = get_module("notebooks")
+    assert info is not None
+    assert is_applied(root, info)
+
+
+def test_add_ml_aplica_code_antes_e_diz_que_aplicou(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    result = runner.invoke(app, ["add", "ml", "--target", str(root), "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["also_applied"] == ["code"]
+    assert (root / "pyproject.toml").is_file()
+    runs = (root / "src" / "x" / "runs.py").read_text(encoding="utf-8")
+    assert "from x.runs import start_run" in runs
+    rule = (root / ".claude" / "rules" / "ml_modeling.md").read_text(encoding="utf-8")
+    assert "from x.runs import start_run" in rule
+    assert not (root / "eda.ipynb").exists()
+
+
+def test_add_ml_com_code_ja_aplicado_nao_reaplica(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    assert runner.invoke(app, ["add", "code", "--target", str(root)]).exit_code == 0
+    result = runner.invoke(app, ["add", "ml", "--target", str(root), "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["also_applied"] == []
+
+
+def test_add_notebook_cria_numerado_indexa_e_aplica_o_modulo(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    _scope(root, "01_estudo")
+    result = runner.invoke(
+        app,
+        [
+            "add",
+            "notebook",
+            "baseline",
+            "--kind",
+            "model",
+            "--question",
+            "Discrimina?",
+            "--target",
+            str(root),
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    nb = root / "notebooks" / "estudo" / "20_baseline.py"
+    assert payload["notebook"] == str(nb)
+    assert payload["module_applied"] is True
+    assert "Pergunta: Discrimina?" in nb.read_text(encoding="utf-8")
+    assert (root / ".claude" / "rules" / "notebooks.md").is_file()
+    assert "20_baseline.py" in (nb.parent / "README.md").read_text(encoding="utf-8")
+
+
+def test_add_notebook_de_dentro_de_uma_subpasta_acha_o_projeto(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    _scope(root, "principal")
+    sub = root / "docs" / "studies" / "principal" / "notes"
+    result = runner.invoke(app, ["add", "notebook", "limpeza", "--kind", "prep", "-t", str(sub)])
+    assert result.exit_code == 0, result.output
+    assert (root / "notebooks" / "principal" / "10_limpeza.py").is_file()
+
+
+def test_add_notebook_sem_nome_e_dois_escopos_dizem_o_comando(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    _scope(root, "a")
+    _scope(root, "b")
+    sem_nome = runner.invoke(app, ["add", "notebook", "--target", str(root)])
+    assert sem_nome.exit_code == 1
+    assert "prumo add notebook <nome>" in sem_nome.output
+    ambiguo = runner.invoke(app, ["add", "notebook", "x", "--target", str(root)])
+    assert ambiguo.exit_code == 1
+    assert "--scope" in ambiguo.output
+
+
+def test_add_notebook_nome_invalido_sugere_o_nome(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    _scope(root, "principal")
+    result = runner.invoke(app, ["add", "notebook", "Análise-Inicial", "--target", str(root)])
+    assert result.exit_code == 1
+    assert "prumo add notebook analise_inicial" in result.output

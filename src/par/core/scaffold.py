@@ -375,6 +375,8 @@ class ModuleInfo:
     path: Path
     #: Nomes anteriores aceitos no lugar de ``name`` (ADR-0042).
     aliases: tuple[str, ...] = ()
+    #: Módulos que precisam estar aplicados antes deste (ADR-0047).
+    requires: tuple[str, ...] = ()
 
 
 def _modules_root() -> Path:
@@ -401,6 +403,7 @@ def discover_modules() -> list[ModuleInfo]:
                 anchor=meta.get("anchor"),
                 path=d,
                 aliases=tuple(meta.get("aliases", ())),
+                requires=tuple(meta.get("requires", ())),
             )
         )
     return out
@@ -464,6 +467,52 @@ def get_module(name: str) -> ModuleInfo | None:
         if name in m.aliases:
             return m
     return None
+
+
+def apply_module(
+    target: Path, module: ModuleInfo, *, scope: str | None = None
+) -> tuple[list[str], list[str]]:
+    """Copia o payload de ``module`` em ``target`` (sem sobrescrever) e resolve os nomes.
+
+    Mesmos placeholders do ``init``: nome do projeto e, para módulo com
+    :data:`PKG_MARKER`, o nome do pacote (ADR-0027). Devolve ``(copiados, pulados)``.
+
+    Raises:
+        PrumoError: o nome do projeto não vira pacote Python (antes de copiar nada).
+    """
+    pkg = pkg_name(target.name) if module_requires_pkg(module) else None
+    copied, skipped = overlay(module.path, target, scope=scope, pkg=pkg)
+    apply_project_name(target, target.name, copied)
+    if pkg is not None:
+        apply_pkg_name(target, pkg, copied)
+    return copied, skipped
+
+
+def module_chain(module: ModuleInfo) -> list[ModuleInfo]:
+    """``module`` e o que ele exige (``requires``), dependências primeiro, sem repetição.
+
+    Raises:
+        PrumoError: ``requires`` cita módulo que não existe, ou há ciclo.
+    """
+    chain: list[ModuleInfo] = []
+
+    def visit(info: ModuleInfo, path: tuple[str, ...]) -> None:
+        if info.name in path:
+            raise PrumoError(f"Ciclo em `requires`: {' → '.join((*path, info.name))}.")
+        if any(m.name == info.name for m in chain):
+            return
+        for dep in info.requires:
+            found = get_module(dep)
+            if found is None:
+                raise PrumoError(
+                    f"O módulo '{info.name}' exige '{dep}', que não existe. Corrija `requires` "
+                    f"em templates/modules/{info.name}/_module.toml."
+                )
+            visit(found, (*path, info.name))
+        chain.append(info)
+
+    visit(module, ())
+    return chain
 
 
 def module_requires_scope(module: ModuleInfo) -> bool:

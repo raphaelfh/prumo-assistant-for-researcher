@@ -1,21 +1,59 @@
 ---
 paths:
-  - "notebooks/**/*.py"
-  - "notebooks/**/*.ipynb"
+  - "notebooks/**"
 ---
 
 # Notebooks (módulo `notebooks`)
 
 Notebook mora em `notebooks/<escopo>/`, fora de `docs/` — a raiz de leitura do
-wiki é prosa, não execução. O escopo é o mesmo slug de `docs/studies/<slug>/`,
-sem o prefixo numérico quando houver (`01_estudo` → `estudo`).
+wiki é prosa, não execução. O escopo é o slug de `docs/studies/<slug>/` sem o
+prefixo numérico e com `-` virando `_` (`01_estudo` → `estudo`,
+`mortalidade-uti` → `mortalidade_uti`), o mesmo nome do subpacote em `src/<pacote>/`.
+
+## Criar: sempre pelo comando
+
+```bash
+prumo add notebook <nome> --kind eda|prep|model|figures [--scope <slug>] [--question "..."]
+```
+
+O comando escolhe o número, copia o modelo do tipo e atualiza o índice. Não copie
+notebook à mão: o número e o índice saem errados.
+
+| Faixa | Tipo | Para quê |
+|---|---|---|
+| 00–09 | `eda` | Explorar: esquema, agregados, distribuições |
+| 10–19 | `prep` | Preparar: `content/01_raw/` → contrato → `content/02_processed/` |
+| 20–29 | `model` | Ajustar modelo e gravar a rodada em `experiments/` (módulo `ml`) |
+| 30–39 | `figures` | Figuras e tabelas do manuscrito, a partir de uma rodada |
+
+A ordem dos números é a ordem de execução: quem chega à pasta lê de cima para baixo.
+
+## Cabeçalho: o topo de todo notebook
+
+```python
+"""
+Pergunta: qual a distribuição da idade por desfecho?
+Entrada: content/02_processed/coorte.parquet
+Saída: nenhuma
+"""
+```
+
+No `.ipynb`, as mesmas três linhas na primeira célula markdown. O cabeçalho é o que
+aparece no índice; ao mudar o que o notebook faz, mude o cabeçalho junto.
+
+## Índice: `notebooks/<escopo>/README.md`
+
+O bloco entre `<!-- prumo:notebooks:begin -->` e `<!-- prumo:notebooks:end -->` é
+gerado a partir dos cabeçalhos por `prumo add notebook` e `prumo update`. Não edite
+dentro dele; notas suas ficam fora. `prumo doctor` acusa notebook fora do lugar, sem
+número, sem cabeçalho ou com o índice atrasado, sempre com o comando que conserta.
 
 ## Dois formatos aceitos
 
-| Formato | Arquivo | Quando |
-|---|---|---|
-| **marimo** (padrão) | `notebooks/<escopo>/00_exploracao.py` | Notebook novo |
-| Jupyter | `notebooks/<escopo>/00_exploracao.ipynb` | Notebook herdado, ou material que já chegou em `.ipynb` |
+| Formato | Quando |
+|---|---|
+| **marimo** `.py` (padrão) | Notebook novo |
+| Jupyter `.ipynb` | Notebook herdado, ou material que já chegou em `.ipynb` (`--kind eda --ipynb`) |
 
 O padrão é marimo porque o notebook é um `.py` comum: o diff é legível, não
 carrega saída embutida no arquivo e o grafo de dependência entre células elimina
@@ -25,7 +63,7 @@ o estado oculto — mudou uma célula, o marimo reexecuta as que dependem dela. 
 Converter um notebook herdado quando valer a pena:
 
 ```bash
-uv run marimo convert notebooks/<escopo>/velho.ipynb -o notebooks/<escopo>/velho.py
+uv run marimo convert notebooks/<escopo>/00_velho.ipynb -o notebooks/<escopo>/01_velho.py
 ```
 
 ## Rodar

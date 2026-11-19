@@ -129,6 +129,54 @@ def test_get_module_unknown_returns_none(fake_modules: Path) -> None:
     assert scaffold.get_module("nope") is None
 
 
+def _mod(root: Path, name: str, requires: list[str]) -> None:
+    (root / name).mkdir(parents=True, exist_ok=True)
+    reqs = ", ".join(f'"{r}"' for r in requires)
+    (root / name / "_module.toml").write_text(f"requires = [{reqs}]\n", encoding="utf-8")
+
+
+def test_module_chain_poe_dependencias_primeiro_sem_repetir(fake_modules: Path) -> None:
+    _mod(fake_modules, "code", [])
+    _mod(fake_modules, "data", [])
+    _mod(fake_modules, "ml", ["code", "data"])
+    _mod(fake_modules, "deep", ["ml", "code"])
+    deep = scaffold.get_module("deep")
+    assert deep is not None
+    assert deep.requires == ("ml", "code")
+    assert [m.name for m in scaffold.module_chain(deep)] == ["code", "data", "ml", "deep"]
+
+
+def test_module_chain_sem_requires_e_so_o_proprio(fake_modules: Path) -> None:
+    clin = scaffold.get_module("clinical")
+    assert clin is not None
+    assert clin.requires == ()
+    assert scaffold.module_chain(clin) == [clin]
+
+
+def test_module_chain_dependencia_inexistente_aponta_o_manifesto(fake_modules: Path) -> None:
+    _mod(fake_modules, "ml", ["nada"])
+    ml = scaffold.get_module("ml")
+    assert ml is not None
+    with pytest.raises(PrumoError) as exc:
+        scaffold.module_chain(ml)
+    assert "templates/modules/ml/_module.toml" in str(exc.value)
+
+
+def test_module_chain_ciclo_falha(fake_modules: Path) -> None:
+    _mod(fake_modules, "a", ["b"])
+    _mod(fake_modules, "b", ["a"])
+    a = scaffold.get_module("a")
+    assert a is not None
+    with pytest.raises(PrumoError, match="Ciclo"):
+        scaffold.module_chain(a)
+
+
+def test_requires_dos_modulos_reais_existem() -> None:
+    """Contrato dos manifestos empacotados: todo `requires` aponta para módulo real."""
+    for module in scaffold.discover_modules():
+        scaffold.module_chain(module)
+
+
 def test_is_applied_true_when_anchor_exists(tmp_path: Path) -> None:
     m = scaffold.ModuleInfo("clinical", "", "", "docs/protocol.md", tmp_path)
     target = tmp_path / "pj"

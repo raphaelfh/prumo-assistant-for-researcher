@@ -89,8 +89,8 @@ Cada módulo é independente. Ative quando o trigger acontecer; não ative antes
 |---|---|---|
 | `code` | **pacote instalável** em `src/<pkg>/` + `tests/` espelhado + `pyproject.toml` com `[build-system]` — ative com `prumo add code` | O projeto vai ter script ou pacote Python próprio |
 | `data` | `content/01_raw/` (somente leitura) + `content/02_processed/` — ative com `prumo add data` | Entra o primeiro dataset no projeto |
-| `notebooks` | `notebooks/<escopo>/` (fora da raiz de leitura `docs/`) — ative com `prumo add notebooks` (`--scope <slug>` se houver mais de um escopo); aceita **marimo** (`.py`, padrão) e Jupyter (`.ipynb`), com rule `.claude/rules/notebooks.md` e alvos `nb-edit`/`nb-run`/`nb-convert` | Primeira análise exploratória em notebook |
-| `ml` | `.claude/rules/ml_stack.md` (stack, governança de código) + notebook de EDA (`.ipynb`) — ative com `prumo add ml` | Vai treinar modelos ou fazer análise tabular/de imagem |
+| `notebooks` | `notebooks/<escopo>/` (fora da raiz de leitura `docs/`; `<escopo>` é o slug sem prefixo numérico) com notebooks numerados por etapa (00 explorar, 10 preparar, 20 modelo, 30 figuras) e índice gerado no `README.md` da pasta — crie com `prumo add notebook <nome> --kind eda\|prep\|model\|figures` (aplica o módulo na primeira vez); aceita **marimo** (`.py`, padrão) e Jupyter (`.ipynb`), com rule `.claude/rules/notebooks.md` ([ADR-0047](adr/adr-0047-notebooks-indexados-e-rodadas.md)) | Primeira análise exploratória em notebook |
+| `ml` | rules de stack e de ajuste de modelo (`ml_stack.md`, `ml_modeling.md`) + helper de rodada `src/<pkg>/runs.py`, que grava `experiments/<data>_<nome>/` — ative com `prumo add ml` (aplica `code` antes, se faltar) | Vai treinar modelos ou fazer análise tabular/de imagem |
 | `protocol` (apelido: `clinical`) | `docs/studies/<slug>/writing/protocol.md` + `docs/templates/` (projeto CEP, plano estatístico/SAP, dicionário de dados) — ative com `prumo add protocol` (`--scope <slug>` se houver mais de um escopo) | Estudo empírico com protocolo formal: pergunta do estudo, plano de análise, submissão a CEP ou CEUA |
 
 ### Onde o código mora (módulo `code`)

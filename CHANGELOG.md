@@ -7,6 +7,48 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.72.2] - 2026-11-19
+
+### Adicionado
+
+- **`prumo add notebook <nome> --kind eda|prep|model|figures`** (ADR-0047). Cria o notebook já
+  numerado pela etapa (00–09 explorar, 10–19 preparar, 20–29 modelo, 30–39 figuras), a partir de
+  um modelo por tipo, e atualiza o índice `notebooks/<escopo>/README.md`, um bloco gerado
+  `prumo:notebooks` (ADR-0009) com pergunta, entrada e saída de cada notebook. `--question`
+  preenche a pergunta; `--ipynb` cria um Jupyter de exploração. Aplica o módulo `notebooks`
+  na primeira vez.
+- **Notebook de modelo pronto para rodar.** O tipo `model` traz split por paciente,
+  `Pipeline`, validação cruzada aninhada, teste usado uma vez, AUC com IC por bootstrap,
+  calibração e a célula que grava a rodada. Roda de ponta a ponta com dado sintético até você
+  trocar a carga.
+- **Rodadas no mesmo formato.** O módulo `ml` copia `src/<pacote>/runs.py`: `start_run(...)`
+  grava em `experiments/<data>_<nome>/` o `run.json` (parâmetros, semente, escopo, commit,
+  versões), o `metrics.csv`, as figuras e o `README.md` da rodada. É código do projeto: o
+  estudo não depende do `prumo` para reproduzir.
+- **Rule `ml_modeling.md`** no módulo `ml`: checklist de ajuste (plano de análise, modelo de
+  referência, split por paciente, tuning sem tocar no teste, discriminação, calibração,
+  incerteza, semente, TRIPOD+AI).
+- **O `prumo doctor` olha os notebooks**: `[notebook_fora_do_lugar]`,
+  `[notebook_escopo_prefixado]`, `[notebook_sem_numero]` e `[notebook_indice_desatualizado]`,
+  cada um com o `git mv` ou o comando que conserta; cabeçalho incompleto é aviso
+  (`[notebook_sem_cabecalho]`). O `prumo update` regrava os índices.
+
+### Alterado
+
+- **A pasta de notebook usa o nome de código do escopo**: o slug sem o prefixo numérico, com
+  `-` virando `_` (`01_estudo` → `notebooks/estudo/`), como a rule já pedia e o subpacote em
+  `src/<pacote>/` já usava. Projeto com `notebooks/01_estudo/` não é movido; o `doctor` mostra o
+  `git mv`.
+- **`prumo add ml` aplica o módulo `code` antes**, se faltar: o helper de rodada mora no pacote
+  do projeto. Módulos podem declarar `requires` no `_module.toml`.
+- **O módulo `notebooks` só instala a rule** e cria `00_exploracao.py` pelo mesmo caminho do
+  `prumo add notebook`; o projeto que já o tinha continua contando como aplicado.
+
+### Removido
+
+- **`eda.ipynb` sai do módulo `ml`.** Ele caía na raiz do projeto, contra a própria regra de
+  notebook. Quem já tem o arquivo fica com ele; o `doctor` sugere movê-lo.
+
 ## [0.72.1] - 2026-11-18
 
 ### Adicionado
@@ -1745,7 +1787,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.1...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.2...HEAD
+[0.72.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.1...v0.72.2
 [0.72.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.0...v0.72.1
 [0.72.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.6...v0.72.0
 [0.71.6]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.5...v0.71.6

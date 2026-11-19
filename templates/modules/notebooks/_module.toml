@@ -1,3 +1,4 @@
-description = "Exploração interativa: notebooks/<escopo>/ fora do workspace de leitura, em marimo (.py) ou Jupyter (.ipynb)."
+description = "Exploração e análise em notebook: notebooks/<escopo>/ numerados por etapa, com cabeçalho e índice gerado; marimo (.py) ou Jupyter (.ipynb)."
 when_to_use = "Primeira análise exploratória em notebook."
-anchor = "notebooks/__scope__/.gitkeep"
+# ADR-0047: o módulo instala a rule; o notebook nasce do `prumo add notebook`.
+anchor = ".claude/rules/notebooks.md"

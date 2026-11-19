@@ -27,8 +27,8 @@ Peça ao Claude:
 
 - "quais módulos posso ativar?" (roda `prumo add`): lista os módulos (protocol, ml, ...);
 - "ativa o módulo de protocolo" (roda `prumo add protocol`; `clinical` também funciona): protocolo, CEP ou CEUA, plano estatístico;
-- "ativa o módulo de notebooks" (roda `prumo add notebooks`): `notebooks/<escopo>/`, marimo (.py) ou Jupyter (.ipynb);
-- "ativa o módulo de ML" (roda `prumo add ml`): stack de ML/dados + notebook.
+- "cria um notebook de modelo" (roda `prumo add notebook <nome> --kind model`): `notebooks/<escopo>/` numerado por etapa, com índice no `README.md` da pasta; marimo (.py) ou Jupyter (.ipynb);
+- "ativa o módulo de ML" (roda `prumo add ml`): stack de ML/dados, checklist de ajuste e o helper que grava cada rodada em `experiments/`.
 
 ## Workflow
 
