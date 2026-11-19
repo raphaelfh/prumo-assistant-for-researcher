@@ -1,6 +1,6 @@
 {
   "name": "par",
-  "version": "0.72.1",
+  "version": "0.72.2",
   "description": "Do Zotero ao manuscrito na pesquisa em saúde, com acervo sincronizado, extração de papers, checagem de citações, wiki Markdown, protocolo (pergunta do estudo em PICOT, PECO, PCC e outros, plano de análise, CEP e CEUA), rascunhos IMRaD e revisão crítica.",
   "author": {
     "name": "Raphael Federicci",

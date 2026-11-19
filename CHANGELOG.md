@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.72.2] - 2026-11-19
+
 ### Adicionado
 
 - **`prumo add notebook <nome> --kind eda|prep|model|figures`** (ADR-0047). Cria o notebook já
@@ -1785,7 +1787,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.1...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.2...HEAD
+[0.72.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.1...v0.72.2
 [0.72.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.0...v0.72.1
 [0.72.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.6...v0.72.0
 [0.71.6]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.5...v0.71.6
