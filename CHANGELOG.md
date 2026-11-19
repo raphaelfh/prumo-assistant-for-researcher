@@ -7,6 +7,8 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.72.3] - 2026-11-19
+
 ### Corrigido
 
 - **O grupo `viz` instala e roda em Python 3.14.** O `pyproject.toml` do módulo `code` aceita
@@ -1805,7 +1807,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.2...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.3...HEAD
+[0.72.3]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.2...v0.72.3
 [0.72.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.1...v0.72.2
 [0.72.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.0...v0.72.1
 [0.72.0]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.71.6...v0.72.0

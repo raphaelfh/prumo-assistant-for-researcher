@@ -55,4 +55,5 @@ Formato [MADR 4.0](https://adr.github.io/madr/) minimal: Contexto / Decisão / C
 - [[adr/adr-0045-pasta-do-usuario]] — Conteúdo pessoal fora do repo: base de conhecimento na pasta do usuário · proposto
 - [[adr/adr-0046-regras-do-projeto-no-agents-md]] — Regras do projeto num bloco gerado do `AGENTS.md`, com valores do `pj_config.toml` · proposto
 - [[adr/adr-0047-notebooks-indexados-e-rodadas]] — Notebooks numerados com índice gerado e rodada de modelo por helper do projeto · proposto
+- [[adr/adr-0048-editores-acp-pelo-agente-hospedeiro]] — Zed e JetBrains pelo agente que roda via ACP, sem integração por editor · proposto
 <!-- prumo:adr-index:end -->
