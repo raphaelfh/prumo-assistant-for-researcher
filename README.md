@@ -4,8 +4,8 @@
 > Lives between Zotero, your wiki (Markdown; Zettlr front), and your agent-host.
 
 Plugin de pesquisa em saúde para agentes de IA: **Claude** (app Claude, aba Code, ou
-Claude Code no terminal), **Antigravity** e **ChatGPT** (Codex, no app ChatGPT ou no
-terminal). Serve a estudos clínicos, observacionais, experimentais (animais, bancada),
+Claude Code no terminal, ou o agente Claude dentro do Zed e dos IDEs JetBrains),
+**Antigravity** e **ChatGPT** (Codex, no app ChatGPT ou no terminal). Serve a estudos clínicos, observacionais, experimentais (animais, bancada),
 revisões, pesquisa qualitativa, computacional e teórica, e relatos de caso. Cobre cinco domínios: gerir conhecimento (wiki), gerir bibliografia
 (Zotero ↔ notas), destrinchar fontes, formalizar protocolos e escrever/revisar
 documentos. As mesmas skills, o mesmo CLI `prumo` e o mesmo servidor MCP em todos.
@@ -22,12 +22,20 @@ próprio PAR oferece instalar no primeiro uso.
 | **App Claude**, aba **Code** (plano Pro ou Max) | Cole `/plugin marketplace add raphaelfh/prumo-assistant-for-researcher` e depois `/plugin install par@prumo-assistant-for-researcher`; escolha **Instalar para você**. Pela interface: **+** → **Plugins** → **Add plugin**, endereço `raphaelfh/prumo-assistant-for-researcher`. | sessão nova → `/par:start` |
 | **ChatGPT** (Codex, no app ChatGPT do Mac) | Numa conversa do Codex, peça: "rode `codex plugin marketplace add raphaelfh/prumo-assistant-for-researcher` e depois `codex plugin add par@prumo-assistant-for-researcher`" (aprove o acesso à rede). Ou, na aba **Plugins**, escolha o catálogo do PAR e clique em **+**. | reinicie o app → `$par:start` |
 | **Antigravity** | Peça ao agente: "rode `git clone https://github.com/raphaelfh/prumo-assistant-for-researcher ~/.gemini/config/plugins/par`" (aprove quando ele pedir para sair do sandbox). O plugin aparece em **Customizations**, sem reiniciar. Quem tem o CLI `agy`: `agy plugin install https://github.com/raphaelfh/prumo-assistant-for-researcher`. | próxima mensagem → `/start` |
+| **Zed** ou **JetBrains** (PyCharm, IntelliJ…), com o agente **Claude** pelo ACP | Instale no Claude primeiro, como na primeira linha: o agente Claude do editor lê a mesma configuração (`~/.claude`) e traz o PAR junto. Depois, no Zed: painel do agente → **+** → **Claude Agent**. No JetBrains: **AI Chat** → **Install From ACP Registry** → **Claude Agent**. | conversa nova → `/par:start` |
 
 O `start` confere o que falta e pede seu consentimento a cada comando. Depois dele,
 fale normalmente ("sincroniza minha bibliografia", "revisa este draft"): o agente
 escolhe a skill.
 
-**Onde funciona.** No Mac (Apple Silicon ou Intel) e no Linux, nos três agentes
+> [!note]
+> **Zed e JetBrains.** O ACP (Agent Client Protocol) é a porta pela qual esses
+> editores conversam com agentes de fora; o editor não instala plugin, quem carrega
+> o PAR é o agente. Use o **Claude Agent**: o **Codex** pelo ACP ainda não carrega
+> as skills de plugins do Codex. Quem prefere o terminal do editor pode rodar
+> `claude` nele, com o PAR completo.
+
+**Onde funciona.** No Mac (Apple Silicon ou Intel) e no Linux, nos agentes
 acima. Num chat web (claude.ai, chatgpt.com) ou no Cowork, só o julgamento sobre
 texto colado (por exemplo, a revisão crítica) é garantido. Windows (inclusive WSL):
 sem suporte.
@@ -78,7 +86,7 @@ manifesto, todos apontando para as mesmas `skills/` e o mesmo lançador:
 
 | Agente | Manifesto | Servidor MCP | Skills aparecem como |
 |---|---|---|---|
-| Claude | `.claude-plugin/` | `.mcp.json` | `/par:<skill>` |
+| Claude (inclusive Zed e JetBrains pelo ACP) | `.claude-plugin/` | `.mcp.json` | `/par:<skill>` |
 | ChatGPT / Codex | `.codex-plugin/`, catálogo em `.agents/plugins/` | `mcp.json` | `$par:<skill>` |
 | Antigravity | `.antigravity-plugin/` | `mcp_config.json` | `/<skill>` |
 
@@ -134,10 +142,13 @@ Camadas opcionais com gatilho (`prumo add <módulo>`): `code`, `data`, `notebook
 - Histórico completo em [`CHANGELOG.md`](CHANGELOG.md).
 - Política de versionamento e processo de release em [`RELEASING.md`](RELEASING.md).
 
-**Atualizar.** No Claude, o PAR se atualiza sozinho nos projetos criados ou
-atualizados a partir da 0.71.0; senão, aceite a atualização em + → Plugins. No
-Codex: `codex plugin marketplace upgrade`. No Antigravity: `git -C ~/.gemini/config/plugins/par pull`
-(ou `agy plugin install` de novo). Depois, abra uma sessão nova.
+**Atualizar.** Depois de atualizar, abra uma sessão nova.
+
+| Agente | Automático? | Manual |
+|---|---|---|
+| Claude (app, terminal, Zed e JetBrains pelo ACP) | Sim, nos projetos `pj_*` criados ou atualizados a partir da 0.71.0 (o `.claude/settings.json` do projeto liga o `autoUpdate` do catálogo). Para valer em qualquer pasta, ligue a atualização automática do catálogo `prumo-assistant-for-researcher` em `/plugin` → **Marketplaces**. | + → **Plugins** → atualizar, ou `claude plugin marketplace update prumo-assistant-for-researcher` |
+| ChatGPT (Codex) | Sim: a cada abertura do app ChatGPT ou do `codex`, o Codex confere o catálogo do GitHub e reinstala o PAR se houver versão nova. Com o app aberto por dias, feche e abra de novo. | `codex plugin marketplace upgrade`, ou `/plugins` → catálogo do PAR → Ctrl+U |
+| Antigravity | Não: só os plugins da loja oficial do Antigravity se atualizam sozinhos, e o PAR entra por clone do GitHub. | Peça ao agente: "rode `git -C ~/.gemini/config/plugins/par pull`" (ou `agy plugin install` de novo) |
 
 ### Projetos criados por versões antigas
 

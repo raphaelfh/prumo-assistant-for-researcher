@@ -7,6 +7,19 @@ Versionamento [SemVer](https://semver.org/lang/pt-BR/) — política de quando b
 
 ## [Não publicado]
 
+## [0.72.4] - 2026-11-20
+
+### Adicionado
+
+- **Logotipo do PAR** em `assets/logo.svg` (um fio de prumo, quadrado 1:1), declarado no
+  manifesto do Antigravity (`logo`), que a loja do Antigravity exige para publicar o plugin.
+
+### Documentação
+
+- README: instalação no Zed e nos IDEs JetBrains pelo agente Claude (ACP) e tabela de
+  atualização por agente (o Codex já se atualiza sozinho a cada abertura; o Antigravity,
+  só pela loja oficial).
+
 ## [0.72.3] - 2026-11-19
 
 ### Corrigido
@@ -1807,7 +1820,8 @@ filtro dentro desse CLI.
 - 2 agents: `ml-theory-expert`, `stack-docs-researcher`.
 - MCP `qmd` (busca BM25 + vector + rerank local no wiki).
 
-[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.3...HEAD
+[Não publicado]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.4...HEAD
+[0.72.4]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.3...v0.72.4
 [0.72.3]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.2...v0.72.3
 [0.72.2]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.1...v0.72.2
 [0.72.1]: https://github.com/raphaelfh/prumo-assistant-for-researcher/compare/v0.72.0...v0.72.1

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-label="PAR">
+  <defs>
+    <linearGradient id="g" x1="183" y1="0" x2="817" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#00FFFF"/><stop offset="1" stop-color="#00FF00"/></linearGradient>
+    <linearGradient id="v" x1="0" y1="355" x2="0" y2="817" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#00FFFF"/><stop offset="1" stop-color="#00FF00"/></linearGradient>
+  </defs>
+  <rect width="1000" height="1000" rx="180" fill="#000"/>
+  <path fill="#FFFFFF" d="M183 285a97 97 0 0 1 97-97H720a97 97 0 0 1 97 97V294a6 6 0 0 1-6 6H189a6 6 0 0 1-6-6Z"/>
+  <path fill="#FFFFFF" d="M189 355H275a6 6 0 0 1 6 6V811a6 6 0 0 1-6 6H281A98 98 0 0 1 183 719V361a6 6 0 0 1 6-6Z"/>
+  <path fill="#FFFFFF" d="M725 355H811a6 6 0 0 1 6 6V719A98 98 0 0 1 719 817H725a6 6 0 0 1-6-6V361a6 6 0 0 1 6-6Z"/>
+  <path fill="url(#v)" d="M478 355H522a6 6 0 0 1 6 6V464a6 6 0 0 1-6 6H478a6 6 0 0 1-6-6V361a6 6 0 0 1 6-6Z"/>
+  <path fill="url(#g)" d="M386 525H614a50 50 0 0 1 50 50V598L507 812a9 9 0 0 1-14 0L336 598V575a50 50 0 0 1 50-50Z"/>
+</svg>
